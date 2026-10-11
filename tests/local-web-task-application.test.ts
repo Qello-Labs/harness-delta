@@ -111,7 +111,7 @@ test('a converted task verifies through its reported application even though the
     expect(() => assertSharedTask(f.store, task.id)).toThrow('application_output_changed');
     expect(f.store.eventCount()).toBe(0);
   } finally { await f.domain.close?.(); f.cleanup(); }
-});
+}, 20_000); // git workspace inspection exceeds the 5s default on macOS CI
 
 test('re-preparing a converted task from its original setup cannot restore instruction-only delivery', async () => {
   const f = setupReviewFixture();
