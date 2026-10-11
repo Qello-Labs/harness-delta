@@ -151,7 +151,7 @@ node dist/cli.js --db team.db team report team-report-1 --format json
 
 ## 재현 가능한 오프라인 검증
 
-Node 24 저장소에서 npm ci를 실행한 뒤:
+Node 24 또는 26 저장소에서 npm ci를 실행한 뒤:
 
 ```sh
 npm test -- tests/exchange-boundaries.test.ts tests/team-report.test.ts tests/team-snapshot.test.ts tests/team-deletion.test.ts tests/team-exchange-cli.test.ts

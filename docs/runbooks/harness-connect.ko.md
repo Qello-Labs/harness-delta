@@ -21,7 +21,7 @@ instrumentation이 있으면 평소처럼 연 부모가 신뢰 가능한 receipt
 ## 프로젝트 설치 경계
 
 아래는 수동 예시이며 자동 설치가 아닙니다. 대상을 선택하고 패키지를 검토하세요.
-기존 목적지가 있으면 복사하지 않습니다. portable helper에는 Node 24와 내장
+기존 목적지가 있으면 복사하지 않습니다. portable helper에는 Node 24 또는 26과 내장
 라이브러리만 필요합니다. 스킬 복사는 전역 설정, AGENTS, 인증을 바꾸지
 않습니다. Claude에서 명시적 호출하면 세션 hooks가 등록되므로 패키지와 trust를
 설치·호출 전에 검토해야 합니다.
@@ -135,7 +135,7 @@ freshness, window 증거를 다시 읽습니다. 최근 선택 source만 확인�
 
 ## 로컬 검증
 
-Node 24와 기존 의존성을 사용합니다. `npm run check`의 build 이후 transport test가
+Node 24 또는 26과 기존 의존성을 사용합니다. `npm run check`의 build 이후 transport test가
 빌드 asset을 읽습니다.
 
 ```sh

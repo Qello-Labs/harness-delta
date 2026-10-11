@@ -12,7 +12,7 @@
 [ADR 008](../decisions/008-task-comparison-workflow.md)과
 [요구사항 R09/R10](../requirements.md#r09---randomized-task-comparisons)을 참고하세요.
 
-Node 24에서 `npm ci`로 설치한 뒤 `npm run build`를 실행하세요.
+Node 24 또는 26에서 `npm ci`로 설치한 뒤 `npm run build`를 실행하세요.
 아래 명령은 `node dist/cli.js`를 사용하며, 패키지를 설치했다면 `hm`을 사용합니다.
 데이터베이스와 예제 입력 파일은 `.harness-delta/comparison-demo/`처럼 Git에서
 제외되는 로컬 디렉터리에 저장하세요. 입력 파일을 작성하기 전에 디렉터리를 만드세요.

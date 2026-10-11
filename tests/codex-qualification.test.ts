@@ -280,7 +280,7 @@ test('permission relaxation appended between handoff validation and Collector re
 
 
 test.each(['timing-slow','timing-legacy','timing-callback-first'])('stage timing %s preserves slow root reasoning and accepts callback/progress in either order', async mode=>{
-  const f=fixture(mode);try{const lane=await prepareCodexQualification(f.options);const result=await lane.run();
+  const f=fixture(mode);try{await f.primeNative();const lane=await prepareCodexQualification(f.options);const result=await lane.run();
     expect(result).toMatchObject({status:'completed',reason:null,observedRequests:3,registeredSessions:2});
     expect(lane.argv.at(-1)).toContain('V2: fork_turns="none"');expect(lane.argv.at(-1)).toContain('V1: fork_context=false');
     expect(result.diagnostics).toEqual(expect.arrayContaining([expect.objectContaining({phase:'progress',code:'candidate_spawn_progress_observed'})]));

@@ -8,7 +8,7 @@
 
 [English](local-measurement.md)
 
-Node.js 24가 필요합니다. `npm ci && npm run build`로 빌드한 뒤 저장소에서
+Node.js 24 또는 26이 필요합니다. `npm ci && npm run build`로 빌드한 뒤 저장소에서
 `node dist/cli.js`를 실행하세요. 로컬 패키지를 설치했다면 `hm`을 사용할 수도 있습니다.
 설치만으로 수집이 시작되지는 않습니다. 현재 버전은 **부분 관측값**을 제공하며,
 작업 전체 사용량이나 도입 여부를 판단할 수 있는 단계는 아닙니다.

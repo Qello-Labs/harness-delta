@@ -5,7 +5,7 @@ Measure metadata for an assigned development task across explicitly linked sessi
 **Preview: partial local measurement.** Codex 0.160.0 has two separately admitted
 workflow profiles, and Claude Code 2.1.291 has a parent-only launch profile.
 Complete task cost, actual billing and inferential adoption remain unavailable.
-Installation does not start collection. The package is private and uses Node.js 24.
+Installation does not start collection. The package is private and supports Node.js 24 and 26.
 
 처음 설치하는 팀 사용자는 아래 작업 절차를 읽으세요.
 현재는 부분 로컬 측정 미리보기이며 전체 비용·실제 청구액·추론에 따른 도입 판정은 제공하지 않습니다.
@@ -34,7 +34,7 @@ They are not prerequisites to follow the task procedure.
 
 ## Development
 
-Use [CONTRIBUTING](CONTRIBUTING.md) for Node 24 setup, checks, Git hooks and contribution rules.
+Use [CONTRIBUTING](CONTRIBUTING.md) for Node 24 or 26 setup, checks, Git hooks and contribution rules.
 Agents use [AGENTS.md](AGENTS.md) and the [development workflow](docs/development/workflow.md).
 The [product requirements](docs/requirements.md) define collection and acceptance gates.
 

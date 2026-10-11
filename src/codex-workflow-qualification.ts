@@ -53,7 +53,8 @@ function intentInstructions(topology:Intent['topology']){return topology==='root
  * experiment or a synthetic comparison store containing native data. */
 export function prepareCodexWorkflowQualification(directory:string,input:unknown,dependency?:CodexQualificationTestDependency){
   verifyCodexWorkflowStartupContract();
-  const config=inputSchema.parse(input);if(Number(process.versions.node.split('.')[0])!==24)throw new Error('node24_required');
+  const config=inputSchema.parse(input);const nodeMajor=Number(process.versions.node.split('.')[0]);
+  if(nodeMajor!==24&&(nodeMajor!==26||!dependency))throw new Error('node24_required');
   const nativeNode=realpathSync(process.execPath);const canonicalParent=realpathSync(dirname(directory));if(join(canonicalParent,directory.slice(directory.lastIndexOf('/')+1))!==directory)throw new Error('codex_qualification_invalid_directory');
   const project=`qualification-project-${randomUUID()}`;const task=`qualification-task-${randomUUID()}`;
   const artifacts=['a','b'].map(variant=>({variant:variant as 'a'|'b',path:join(directory,`harness-${variant}.md`),manifest_hash:'0'.repeat(64)}));

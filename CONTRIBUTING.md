@@ -16,7 +16,7 @@ partial, with no complete task cost or inferential adoption support. See the
 
 ## Development environment
 
-Use Node.js 24 and npm. With nvm:
+Use Node.js 24 or 26 and npm. With nvm, the `.nvmrc` default remains Node 24:
 
 ```sh
 nvm install
@@ -25,9 +25,19 @@ npm ci
 npm run check
 ```
 
-Other version managers are welcome; select Node 24 before installing. The lockfile
+To select Node 26 instead, run `nvm install 26` and `nvm use 26` before installing.
+Other version managers are welcome; select Node 24 or 26 before installing. The lockfile
 pins dependencies. SQLite may require native build tools if no matching binary is
 available. Local validation has covered macOS arm64; other platforms are unverified.
+After switching Node majors, run `npm ci` again so SQLite uses the selected runtime's
+native ABI. Use that same runtime to build and run the CLI.
+Actual native qualification commands and the pinned
+Codex direct-child workflow retain their Node 24 requirement. Node 26 synthetic
+fixture checks do not extend native source qualification.
+Existing root workflow orchestration also accepts Node 26, including Claude's
+supervisor. This runtime extension is covered by synthetic fixtures, not an
+additional native qualification. Each actual launch still requires its separate
+approval and the existing product/version/source gates.
 
 `npm run check` checks the Git index for local records, runs ESLint and TypeScript
 checking, builds the package, and executes tests. Run it from a Git checkout.
@@ -68,7 +78,7 @@ lint and type checks, builds, and executes tests. A failed command stops the com
 files under `.husky/_/` are ignored; `.husky/pre-commit` and `.husky/commit-msg`
 are shared in Git. The commit-msg hook validates the proposed message with commitlint.
 
-Select Node 24 before committing. GUI Git clients must also have Node 24 and npm
+Select Node 24 or 26 before committing. GUI Git clients must also have the selected Node version and npm
 on their PATH; see [Husky's version-manager guidance](https://typicode.github.io/husky/how-to.html#node-version-managers-and-guis).
 Run `npm run prepare` to reinstall hooks if needed. No global configuration is changed.
 
@@ -214,7 +224,7 @@ oracle checks are separate from full R10 validation and real experiment readines
 Use the [analysis validation runbook](docs/runbooks/comparison-analysis-validation.md)
 for the separate `npm run analysis:validate` sharp-null arithmetic study and
 `npm run analysis:validate:confidence` bounded mean-effect/deadline-quality study.
-Both are synthetic development commands under Node 24. Full confidence calibration
+Both are synthetic development commands under Node 24 or 26. Full confidence calibration
 is opt-in, outside normal unit tests. Neither enables production inference or real
 experiments; preserve the fixed registries, failures and historical evidence.
 
@@ -225,7 +235,7 @@ Starting with catalog v3, every price release follows the
 does not establish support for its model, component or billing condition.
 
 User instructions are in the [cost guide](docs/runbooks/observed-cost.md)
-([한국어](docs/runbooks/observed-cost.ko.md)). From a Node 24 checkout:
+([한국어](docs/runbooks/observed-cost.ko.md)). From a Node 24 or 26 checkout:
 
 ```sh
 npm test -- tests/observed-cost.test.ts tests/observed-cost-cli.test.ts tests/pricing.test.ts tests/task-cost.test.ts

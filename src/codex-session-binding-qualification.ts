@@ -57,7 +57,8 @@ function packageDigest(root:string):string{
 }
 function quote(value:string){return `'${value.replaceAll("'","'\"'\"'")}'`;}
 function verify(i:Intent,fixture?:BindingQualificationFixture){
- if(Number(process.versions.node.split('.')[0])!==24||realpathSync(i.node)!==realpathSync(process.execPath)||
+ const nodeMajor=Number(process.versions.node.split('.')[0]);
+ if((nodeMajor!==24&&(nodeMajor!==26||i.validation_kind!=='synthetic'))||realpathSync(i.node)!==realpathSync(process.execPath)||
   i.node_sha256!==hash(privateBytes(i.node,256*1024*1024))||i.binary_sha256!==hash(privateBytes(i.binary,256*1024*1024))||
   i.python_sha256!==hash(privateBytes(i.python,256*1024*1024))||i.python!==OwnedCliInvocation.pythonExecutable()||
   i.worker!==realpathSync(fileURLToPath(new URL('../scripts/owned-cli-pty.py',import.meta.url)))||i.worker_sha256!==hash(privateBytes(i.worker,65536))||
@@ -76,7 +77,8 @@ function verify(i:Intent,fixture?:BindingQualificationFixture){
  * no product/auth execution, original project hook/trust or global config writes.
  */
 export async function prepareCodexSessionBindingQualification(directory:string,input:{binary:string;codexHome:string;startMode?:'automatic'|'manual'},fixture?:BindingQualificationFixture){
- if(Number(process.versions.node.split('.')[0])!==24)throw new Error('node24_required');
+ const nodeMajor=Number(process.versions.node.split('.')[0]);
+ if(nodeMajor!==24&&(nodeMajor!==26||!fixture))throw new Error('node24_required');
  const startMode=startModeSchema.parse(input.startMode??'automatic');
  const binary=realpathSync(input.binary);const binarySha=hash(privateBytes(binary,256*1024*1024));
  if(fixture?binary!==realpathSync(process.execPath):binarySha!==pinnedCodexWorkflowBinarySha)throw new Error('binding_qualification_binary_mismatch');

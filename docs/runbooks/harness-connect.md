@@ -23,7 +23,7 @@ A common cwd, model statement, environment hint or guessed UUID is never proof.
 ## Project-only installation boundary
 
 These are manual examples, not an automatic installation. Choose the target and
-review the package first. They refuse an existing destination. Node 24 and built-in
+review the package first. They refuse an existing destination. Node 24 or 26 and built-in
 libraries suffice for the portable helper. No global settings, AGENTS or auth are changed by copying the skill. Claude
 frontmatter registers hooks for the rest of a session when explicitly invoked;
 review that package and workspace trust before installation or invocation.
@@ -134,7 +134,7 @@ or claim past harness application.
 
 ## Local verification
 
-Use Node 24 and existing dependencies. Build is included in `npm run check` before
+Use Node 24 or 26 and existing dependencies. Build is included in `npm run check` before
 the optional transport test imports its assets.
 
 ```sh

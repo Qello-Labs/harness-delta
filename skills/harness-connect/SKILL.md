@@ -29,7 +29,7 @@ family observation. This path currently has synthetic end-to-end validation;
 ordinary production sources still require qualification. Preserve server blockers.
 
 1. Obtain the user-selected UI origin (`http://127.0.0.1:PORT`). Locate this skill
-   directory from the host's loaded skill path. Run with Node 24:
+   directory from the host's loaded skill path. Run with Node 24 or 26:
    `node <skill-dir>/scripts/connect.mjs inspect --origin <origin> --product codex`
    (use `claude_code` for Claude). Return unsupported/unavailable blockers.
 2. Select an explicit registered project ID and logical task ID from that result.

@@ -2,7 +2,7 @@
 
 [English](local-browser-ui.md)
 
-Node.js 24와 비공개 `hm` 체크아웃을 사용하세요. UI는 CLI와 같은 Store 및
+Node.js 24 또는 26과 비공개 `hm` 체크아웃을 사용하세요. UI는 CLI와 같은 Store 및
 외부 작업 coordinator를 사용합니다. 일반 측정 흐름은 에이전트를 실행하지 않습니다.
 Format-2 적용에서는 새 macOS Terminal 세션 열기를 명시적으로 요청할 수 있습니다.
 `open_requested`는 에이전트 시작의 증거가 아니며 native acceptance는 미검증입니다.
@@ -28,7 +28,8 @@ hm --db local.sqlite ui --setup reviewed-ui-setup.json
 호스트 옵션은 없습니다. Ctrl+C로 로컬 서비스를 중단하세요. 관측기 종료를
 확인하고 활성 측정을 일시중단하며, 외부 AI는 사용자가 제어합니다.
 
-설치 전에 Node 24를 선택하고 `node --version`을 확인하세요. 진입점은 SQLite를
+설치 전에 Node 24 또는 26을 선택하고 `node --version`을 확인하세요. Node major를
+바꿨다면 `npm ci`를 다시 실행해 선택한 runtime에 맞게 SQLite를 빌드하세요. 진입점은 SQLite를
 import하기 전에 `unsupported_node`(exit 2), `build_required`(exit 3),
 `dependencies_required`(exit 4)를 구분합니다. 체크아웃에서 표시된 안내를 따르세요.
 AI 제품을 설치하거나 전역 runtime을 바꾸지는 않습니다.

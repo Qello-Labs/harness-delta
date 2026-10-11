@@ -8,7 +8,7 @@ See the [Codex exact-version admission and partial measurement workflow](codex-v
 
 [한국어](local-measurement.ko.md)
 
-Requires Node.js 24. Build with `npm ci && npm run build`; use `node dist/cli.js`
+Requires Node.js 24 or 26. Build with `npm ci && npm run build`; use `node dist/cli.js`
 from this checkout, or `hm` from an installed local package. Installation does
 not collect anything. This preview produces **partial observations**, not complete
 task usage or adoption decisions. See [capabilities](../decisions/001-adapter-capabilities.md).
