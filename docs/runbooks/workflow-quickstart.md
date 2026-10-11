@@ -9,6 +9,23 @@ the conditional forward versions described below.
 Use one persistent A/B assignment for each logical task.
 Choose model and effort per invocation; a new session does not change the assignment.
 
+## Choose the procedure for your session
+
+The numbered steps below use tool-owned native launch. For a session you open
+yourself, choose the matching procedure before preparing inputs:
+
+| Intended workflow | Procedure and boundary |
+| --- | --- |
+| Prepare tasks and review results in the browser | [Local browser workflow](local-browser-ui.md); guided setup reviews inputs before saving and does not start collection |
+| Connect an ordinary terminal session | [Harness Connect](harness-connect.md); only a separately operator-authorized `functional_pilot`; ordinary production sources remain blocked |
+| Codex 0.162.0 ordinary root | [Root-only pilot](harness-connect.md#codex-01620-ordinary-root-local-pilot); operator-authorized observation, one fresh root, no children |
+| Claude ordinary family | [Human-operated pilot](harness-connect.md#claude-human-operated-ui-pilot); exact candidate version, fresh parent and at most two new members |
+| Codex 0.160.0 startup ticket | [External session workflow](external-session-workflow.md); exact fresh root and ticket, no automatic family inheritance |
+
+These paths have different source and authority gates. A launch-workflow
+compatibility window does not authorize an ordinary session connection.
+Installing the skill or preparing a browser task does not authorize observation.
+
 ## Support and costs before you start
 
 | Path | Supported boundary |

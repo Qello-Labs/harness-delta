@@ -41,7 +41,10 @@ create a repository or commit. The code baseline is read again when preparing a
 new task. Uncommitted edits are preserved; HEAD identifies the committed baseline,
 not a snapshot of uncommitted files.
 
-Select **Import settings file**, or pass the reviewed file through `--setup`. The
+If the project already has saved settings, select **New task with this setting**;
+the new-task form opens with that project and setting selected. To connect a
+reviewed file that is not saved yet, expand **Have an existing settings file?**
+and select **Import existing settings file**, or pass the file through `--setup`. The
 private manifest has `schema_version: 1` and `profiles`, each with `id`, `name`,
 `setup`, and `execution`. `setup` uses the shared `ExternalTaskSetupSchema`;
 `execution` contains the reviewed binary, Codex home, recorder, sandbox, timeout,
@@ -55,9 +58,13 @@ completion criteria, or source admission. Unsupported type/size choices stay
 disabled. The form offers feature/fix/infra/chore/docs/ci and small/medium/large.
 Model and effort remain flexible choices in your native agent.
 
-The **Measurement criteria for tasks** section groups those inputs for reuse in
-new tasks. Cards show the project, harness A/B and allowed task types and sizes.
-Choose matching criteria in **New task**; the file does not grant collection access.
+The **Saved comparison and measurement settings** section shows only the selected
+project's settings. Cards retain each comparison's fixed A/B pair; expanded
+conditions show allowed task types and sizes. Reusing a saved setting requires
+no re-import. An empty list directs you to prepare and review a new comparison
+above. The comparison recruitment period belongs to the frozen protocol, not
+to an individual task's observation window. The file does not grant collection
+access.
 A new or mixed import shows **Reviewed setup connected.** An identical repeat
 shows **This setup is already connected.** It creates no duplicate settings or
 tasks. A same-ID content conflict rejects the whole file and preserves existing
@@ -65,56 +72,91 @@ settings. Cancelling the picker leaves settings unchanged.
 
 ### Prepare a settings file
 
-For skill-generated snapshots, use **Guided setup and input review** instead of
+For skill-generated snapshots, use **2. Prepare with your agent** instead of
 assembling and registering every input through separate CLI commands:
 
-The three icon steps show the order, not detected completion. **Copy request**
-on the first two steps provides a prompt with `[input fields]` to fill before
-pasting into your agent. Leave unknown fields unchanged: the request instructs
-the agent to ask and confirm before proceeding. **View request and input fields**
-shows the text that will be copied. The comparison
-skill reports the verified absolute JSON path separately; paste that path into
-**Comparison JSON file path**. If clipboard access fails, select and copy the
-displayed request manually. Later setup details are available in the disclosure.
+Connect the project before preparing its harness. Select a registered project,
+then enter the prepared candidate instruction/application-procedure path and any
+supporting script/document paths relative to that project. The copied agent
+request includes its registered directory and these explicit candidate inputs;
+it does not require manually filling every ID and version. The agent inspects
+the current applied baseline, proposes registration inputs and groups unresolved
+choices for confirmation. If skills are unavailable, it asks for the tool
+checkout location instead of inventing a machine-specific path.
 
-1. Select existing files with `harness-register` for A and B, then create the
-   ordered comparison with `harness-compare-config`. Connect that Git project in
-   **Connected projects**. Copy its registered project ID from the project details.
-2. Enter the comparison JSON's absolute local path. Select **Reuse registered
-   measurement settings** when available; the server resolves the existing profile, frozen
-   protocol and price table without duplicating them.
-3. For new settings, select **Provide new measurement settings** and expand
-   **Supply missing reviewed inputs**. Paste or
-   choose JSON files for one `LocalWebProfile` (`profile`), an array of
-   `FlexibleVariantSchema` objects (`variants`), one complete
-   `FlexibleProtocolSchema` object (`protocol`) and one `PriceTableSchema`
-   object (`price_table`). These are the same production contracts used by the
-   CLI, not new measurement schemas. **Measurement settings identifier** is read
-   automatically from `profile.id`; do not enter it again. Invalid JSON or a
-   missing/non-string `id` clears the identifier and disables review. When reusing registered settings,
-   the selected ID is displayed and retained profile JSON is not used.
-   Project/protocol/variant/price references must match. A/B variant hashes and
-   policy versions must match the ordered skill manifests. Supply an explicit
-   `freeze_at` UTC timestamp only when freezing an unfrozen protocol.
-4. Select **Review inputs without saving**. Missing fields and registrations
-   are listed by field or ID. Supply the named inputs or connect the project,
-   then review again. Dates, criterion IDs, sample plans, stopping/missingness
-   rules, prices, runtime and source scope require explicit reviewed choices;
-   neither the skills nor the UI invents them.
-5. Review the project, ordered A/B pair, criterion IDs, runtime/source scope,
-   complete protocol, price table and private execution/preparation configuration.
-   Check the confirmation and select **Save reviewed inputs**. Review alone
-   rolls back all tentative DB writes. Confirmation revalidates under writer
-   locks and rejects changed or conflicting inputs; synchronous validation
-   failures roll back the registration batch and profile save.
-6. In the comparison preview below, explicitly select the project and reviewed
-   template, inspect the full configuration and select **Connect local settings**.
-   This is a separate immutable binding step, not a cross-file transaction with
-   the prior registration. Existing hash/idempotency/conflict checks remain in
-   effect. Private JSON is saved under `.harness-delta/setup`; new tasks pin it.
-7. Choose that reusable setup in **New task** and prepare one task. Setup does
-   not activate it, run an AI product or access a session. Later `harness-apply`,
-   `harness-connect`, installation/trust and source admission remain separate.
+A is the currently applied configuration and B is the prepared improvement,
+with common rules preserved. A/B are roles, not permanent version names. After
+human adoption and actual application, the resulting configuration can become
+the next comparison's A. Registration, task success and lower partial cost do
+not automatically adopt a candidate. Old comparisons and assignments stay fixed.
+
+1. Connect and select the Git project in **1. Register and select a project**. In
+   **How is the harness applied?**, choose **Only the instructions changed** or
+   **An agent must apply it**. This choice is separate from A/B assignment: it
+   decides whether an assigned harness is delivered as instructions or applied to
+   a checkout by an agent. The request cannot be copied before you choose, and
+   the choice is sent to the agent as `application_mode`. Later steps show the
+   method stored in the comparison file; a different selection is reported and
+   cannot be saved. Loading a setup bundle never selects or changes the method. Provide the
+   candidate files and copy the generated request into your agent. Confirm its
+   proposed baseline/candidate files before `harness-register` registration and
+   `harness-compare-config` comparison creation. The agent returns the verified
+   comparison JSON absolute path. If clipboard access fails, manually copy the
+   displayed request.
+2. Enter the comparison JSON's absolute local path and select **Check comparison
+   file**. A sole registered project is selected automatically; choose a project
+   first when several are registered. The path input explains why checking is
+   unavailable until a project and path are present. This requires no profile
+   or identifier and saves nothing. The server
+   verifies the selected project's ordered A/B manifests, shows the remaining
+   decisions and proposes a technical setting identifier. You may edit that
+   identifier. File integrity does not establish policy eligibility, application
+   or measurement support. Select **Reuse registered measurement settings**
+   when available; the server resolves its existing profile, frozen protocol and
+   price table without duplicating them.
+3. When no reviewed setting exists, select **Copy measurement request** after
+   checking the comparison and paste it into your agent. No additional skill is
+   required. The agent reuses verified references and asks only for missing human
+   decisions. Confirm its proposals; participants, dates, criteria, sample rules,
+   source scope and prices are never invented.
+4. Under the request, use **Load prepared settings** to select the agent's single
+   private JSON bundle, stored in the Harness Delta checkout's Git-ignored
+   `.harness-delta/setup-drafts/` directory. Verify that Git ignores it before
+   writing; never put private paths or participant IDs in a public artifact.
+   Its envelope is `kind: "harness-delta.measurement-setup"`,
+   `schema_version: 1`, and `input` following `SetupReviewInputSchema` in
+   `src/local-web-setup-review.ts`. Include verified `comparison_path` and
+   `project_id`, a reviewed `profile` (or registered `template_id`), complete
+   schema-2 `protocol`, approved `policy_status` or `variants` (not both),
+   and `price_table` only if needed. The embedded documents use the existing
+   production schemas. Import checks the inputs without saving and fills any
+   supplied decisions. Correct only the reported missing or invalid fields.
+5. Review the readable project, A/B pair, purpose, participants, recruitment,
+   task count, completion criteria, observation scope and price summary. Expand
+   technical details for the complete conditions. Check the confirmation and
+   select **Confirm and save settings** once. This registers the reviewed inputs
+   and connects the private comparison; there is no second connection screen.
+   Bundles reject `freeze_at`; the server records the actual confirmation time
+   for an unfrozen protocol. It must precede recruitment; a passed start date
+   requires a newly reviewed correction, never a silent date change. Existing
+   frozen protocols keep their original time. Review rolls back tentative DB
+   writes; save revalidates inputs under writer locks. Binding errors roll back
+   tentative registrations and remove only newly created uncommitted snapshots.
+   The two databases and private files do not form a crash-atomic transaction;
+   retained committed snapshots support recovery without changing prior pins.
+6. The connected setting is available for **New task with this setting**. Its
+   private JSON is saved under `.harness-delta/setup`; new tasks pin it. Saving
+   does not create a task, run an agent or start observation. Application,
+   connection, installation/trust and source admission remain separate.
+
+**Advanced: individual files and technical values** retains individual JSON
+upload/paste and an optional explicit UTC confirmation time. This is not needed
+for the bundle path. An omitted profile ID in individual input uses the verified
+suggestion; an explicit profile ID and edited identifier must match. Choosing a
+registered template reuses it rather than the retained profile draft. Project,
+protocol, variants, prices and ordered manifest references must agree in either
+path. Standalone comparison-file import still uses its existing explicit
+project/template connection preview.
 
 The file-import and CLI routes also remain available:
 
@@ -135,7 +177,7 @@ The file-import and CLI routes also remain available:
    an entire launch/session input. Optional session binding must match the
    [UI manifest schema](../../src/local-web-domain.ts). Keep the file private.
 4. After building, check its structure with the loader below, then select
-   **Import settings file**. This check reads the selected file only; it does not
+   **Import existing settings file**. This check reads the selected file only; it does not
    register dependencies, launch an agent or qualify collection support.
 
 ```sh
@@ -176,6 +218,11 @@ Absent usage/cost remains unavailable, not zero.
    Optional settings contain type, size and the automatically read baseline.
 2. Select **Prepare measurement**. The task is registered and automatically
    assigned to A/B. Internal IDs are generated; no observation interval starts.
+   The task detail always shows **Assigned harness**: the A/B role, harness
+   version, application method and the connection steps for that method. For
+   family and agent-applied routes it also shows a copyable `harness-connect`
+   request and the reason when connection is not yet available. Showing these
+   steps grants no source authority.
 3. Apply the prepared configuration. Only the reviewed managed instruction file
    can change; unapproved existing contents and common-file drift block writes.
    The task list and detail show **Waiting for session**, not **Draft**, for real tasks.
@@ -266,10 +313,30 @@ Portable harness pairs use the separate [harness configuration workflow](harness
 
 ## Agent application comparisons
 
+An assigned task from an instruction-only comparison can receive agent-application
+authority with `POST /api/tasks/<task-id>/application-mode` and
+`{"mode":"agent_applied"}`, using the same CSRF, `If-Match` and idempotency guards
+as other task actions. It is accepted only before start instructions, connection,
+observation or an outcome exist. The comparison file, shared setup, frozen protocol
+and assignment are not rewritten; the task gains its own application record and a
+private `mode-change.json` note, and its earlier instruction preparation becomes
+unverified. Files written by that earlier preparation, such as
+`.harness-delta-managed/active-instructions.md`, stay in place and are no longer
+used for this task. Repeating the request finishes a change that was interrupted
+after its record was reserved. Source gates are unchanged and the change cannot be
+reversed.
+
 Explicit format-2 `agent_applied` comparisons preserve assignment and select an
 existing checkout/worktree and agent. Select **Check current branch/worktree** to
 inspect the branch and path. Select **Apply**, review the branch, worktree, harness
-and agent in the dialog, then confirm with **Apply**. Successful preparation
+and agent in the dialog, then confirm with **Apply**. Any installed agent may
+apply the harness; it does not have to be the task's measured agent. The measured
+working session is still connected with the task's agent. When the same agent
+applies, the application session must have a verified identity so it can be
+told apart from the measured session. A different agent can never be the
+measured session, so its application identity is not required. In both cases
+only a fresh session opened after the application can be connected.
+Successful preparation
 requests a fresh application session when automatic opening is supported.
 Otherwise, copy the application context and open the agent yourself. Let its agent apply the
 procedure directly with native permissions. The UI reviews actual files afterward;

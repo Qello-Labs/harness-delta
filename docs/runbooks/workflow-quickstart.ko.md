@@ -9,6 +9,23 @@ Claude Code 2.1.291 부모 전용 launch(`claude-workflow-own-trace-v1`)와
 논리적 작업마다 하나의 A/B 배정을 유지합니다.
 모델과 effort는 실행마다 선택합니다. 새 세션을 열어도 배정은 바뀌지 않습니다.
 
+## 세션에 맞는 절차 선택하기
+
+아래 번호 단계는 도구가 소유하는 native launch를 사용합니다. 직접 여는
+세션이라면 입력을 준비하기 전에 해당 절차를 선택하세요.
+
+| 원하는 workflow | 절차와 지원 경계 |
+| --- | --- |
+| 브라우저에서 작업 준비와 결과 검토 | [로컬 브라우저 workflow](local-browser-ui.ko.md); guided setup은 저장 전에 입력을 검토하며 수집을 시작하지 않음 |
+| 일반 터미널 세션 연결 | [Harness Connect](harness-connect.ko.md); 운영자가 별도로 승인하는 `functional_pilot`만 허용; 일반 production source는 계속 차단 |
+| Codex 0.162.0 일반 root | [root 전용 파일럿](harness-connect.ko.md#codex-01620-일반-root-로컬-pilot); 운영자가 승인한 관측, 새 root 하나만 허용, 자식 미지원 |
+| Claude 일반 가족 | [사용자 조작 파일럿](harness-connect.ko.md#claude-사용자-조작-ui-pilot); 정확한 후보 버전, 새 부모와 새 구성원 최대 두 개 |
+| Codex 0.160.0 시작 티켓 | [외부 세션 workflow](external-session-workflow.ko.md); 정확한 새 root와 티켓, 자동 가족 상속 없음 |
+
+이 경로들의 원본 및 권한 조건은 서로 다릅니다. launch workflow의 호환성
+범위가 일반 세션 연결을 허용하지는 않습니다.
+skill 설치나 브라우저 작업 준비만으로 관측 권한이 생기지 않습니다.
+
 ## 지원 범위와 실행 비용
 
 | 경로 | 지원 범위 |

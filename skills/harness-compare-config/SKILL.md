@@ -5,11 +5,28 @@ description: Use when a user wants a portable baseline-versus-modified compariso
 
 # Generate a portable comparison
 
-Use a built Harness Delta checkout with Node 24. Read both version manifests
+Use a built Harness Delta checkout with Node 24 or 26. Read both version manifests
 under the explicit project root. Select distinct existing versions with baseline
-as A and modified as B; ask only for missing comparison ID, display name or arm
-choices. Do not create a new harness or invent variants, statistical settings,
+as A and the prepared improvement as B. Verify the user's confirmed current
+baseline rather than assuming the latest registered version is applied. Propose
+a comparison ID and display name from the selected versions and group missing
+choices for confirmation. Do not create a new harness or invent variants, statistical settings,
 prices, completion criteria, credentials or runtime defaults.
+
+## Successive improvement cycles
+
+A/B describe this comparison's roles. For example, an initial comparison may use
+versions `baseline` and `search-v2`. If a person later adopts and actually applies
+`search-v2`, the next comparison may use `search-v2` as A and `search-v3` as B.
+Require confirmation and evidence of the current applied configuration before
+reusing the earlier candidate as the new baseline. A registered bundle, assigned
+arm, completed task or partial cost estimate is not adoption evidence.
+
+Keep original version IDs, comparisons, task assignments and historical snapshots
+unchanged. Generate a new comparison ID for the new pair. If no registered version
+matches the current configuration, return to `harness-register` for an explicit
+baseline selection rather than changing an old bundle. Comparison generation
+neither applies the candidate nor records or automatically decides adoption.
 
 Create this input JSON with the user's selected IDs:
 
