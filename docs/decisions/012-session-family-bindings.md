@@ -1,6 +1,9 @@
 # Ordinary-session family bindings
 
-Status: implemented synthetic integration; production qualification pending.
+Status: synthetic integration and an exactly qualified Codex 0.162.1 bounded
+ordinary profile, accepted with actual ordinary-route evidence and independent
+review on 2026-10-13.
+Other native ordinary routes remain candidate-only.
 
 ## Product boundary
 
@@ -71,7 +74,22 @@ stop its own native process. These constraints do not grant ordinary source
 admission and are not product requirements. The UI uses the same source authority
 as the collector; provider/browser `productionSupported` assertions cannot open it.
 
-Ordinary native family admission remains closed. Codex 0.160.0 needs actual
+The code-owned `codex-binding-01621-direct-family-v1` profile implements ordinary
+Codex 0.162.1 CLI collection without a qualification lease or human-pilot
+capability: one fresh root and up to two fresh direct children, gpt-6.1-sol/high.
+Prior hook/source/counter observations came from the bounded lease-gated native
+family qualification; they remain separate from the fresh ordinary authority
+acceptance. The [2026-10-13 ordinary-route trial](../validation/codex-ordinary-binding-qualification.md#2026-10-13-ordinary-route-acceptance)
+and independent review establish this exact bounded path.
+New observations use separate `codex_binding` provenance rather than
+promoting the existing file/launch fallback.
+The implementation requires reviewed instrumentation, a frozen functional
+protocol, registered task/model and exact permitted sources. Third/nested
+members, different runtime and non-CLI roots are rejected. A new root cannot
+reuse that task's family. Its normal coordinator never owns or stops the user's
+process; paid validation safety instrumentation is separate from admission.
+
+All other ordinary native family admission remains closed. Codex 0.160.0 needs actual
 hook/materialized-path/header and own-counter conformance for the supported
 family/history scope. Claude 2.1.291, 2.1.293 and 2.1.294 remain candidates and need actual transcript,
 hook loading, family membership and own-counter conformance; nested immediate
@@ -80,7 +98,7 @@ parents are unverified. Existing admitted workflow profiles and root-only
 promotion requires sanitized evidence tied to the exact binary/source/profile and
 implementation, plus independent review and a code-owned admission change.
 An owned qualification probe can provide evidence without imposing owner control
-on ordinary product sessions. No gate promotion occurs in this implementation.
+on ordinary product sessions. No other gate is promoted by this exact admission.
 
 ## Native instrumentation and support
 
@@ -104,8 +122,10 @@ POSIX files and injects the receipt into developer context. This local mechanism
 is not remote authentication. It depends on reviewed exact hook trust and source
 scope. Installing a skill alone cannot prove startup instructions were loaded.
 
-Default providers remain blocked by code-owned admission. Only explicit provider
-injection in an isolated synthetic-validation protocol exercises the coordinator.
+Default providers remain blocked by code-owned admission except the exact
+reviewed Codex profile above. Explicit provider injection in an isolated
+synthetic-validation protocol exercises unsupported topologies without admitting
+them as ordinary native sources.
 Optional profile `session_binding` specifies Codex receipt directory, approved
 source roots and project root, or Claude receipt and projects directories. Providers
 are scoped per task to its exact registered project root; it grants neither trust nor native admission.

@@ -276,7 +276,8 @@ except BaseException:
     termination_cause = 'owner_error'
     coverage = False
 finally:
-    cleanup_until = time.monotonic() + cfg['terminationMs'] / 1000
+    cleanup_started = time.monotonic()
+    cleanup_until = cleanup_started + cfg['terminationMs'] / 1000
     coverage = discover() and coverage
     def reap():
         global root_exit
@@ -330,8 +331,9 @@ finally:
                 pass
         reap()
     until = cleanup_until
+    # Discovery and TERM authorization spend the same grace, not a second clock.
+    grace = min(until, cleanup_started + cfg['termGraceMs'] / 1000)
     send(signal.SIGTERM)
-    grace = min(until, time.monotonic() + cfg['termGraceMs'] / 1000)
     while any(group_exists(g) for g in groups) and time.monotonic() < grace:
         reap()
         time.sleep(.01)

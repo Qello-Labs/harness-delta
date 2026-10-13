@@ -4,6 +4,7 @@ import { IdSchema } from './contracts.js';
 import { parseComparison } from './comparison-contracts.js';
 import { FlexibleProtocolSchema,CostCoverageEvidenceSchema,CostCoverageDecisionSchema,type FlexibleProtocol,type CostCoverageEvidence,type CostCoverageDecision } from './flexible-contracts.js';
 import { evaluateCostCoverage } from './cost-coverage.js';
+import { codexBindingAdmission, isAdmittedCodexBindingProtocol } from './codex-binding-admission.js';
 export interface ReadinessInput {protocol:FlexibleProtocol;source_evidence_ids:string[];coverage:{evidence:CostCoverageEvidence;decision:CostCoverageDecision}[];analysis_evidence_id:string|null;invalidated:boolean;followup_complete:boolean;}
 export interface SourceReadinessEvidence {id:string;product:'synthetic'|'codex'|'claude_code';product_version:string;profile_id:string;semantics_digest:string;validation_kind:'synthetic'|'real_operations';complete_cost:boolean;}
 // Registries are code-owned evidence, never writable protocol flags or imported claims.
@@ -21,6 +22,10 @@ export const productionSourceEvidence:readonly SourceReadinessEvidence[]=Object.
   // see validation/claude-workflow-02191-source-readiness.md.
   id:'claude-workflow-02191-root-native-v1',product:'claude_code',product_version:'2.1.291',profile_id:'claude-workflow-own-trace-v1',
   semantics_digest:'ff8f469f129e9c1ccf3ee0f57698775f80976ba013fa3998c048a6599d040046',validation_kind:'real_operations',complete_cost:false,
+}),Object.freeze({
+  id:codexBindingAdmission.evidenceId,product:'codex',product_version:codexBindingAdmission.productVersion,
+  profile_id:codexBindingAdmission.profileId,semantics_digest:createHash('sha256').update(JSON.stringify(codexBindingAdmission)).digest('hex'),
+  validation_kind:'real_operations',complete_cost:false,
 })]);
 export const productionAnalysisEvidence:readonly string[]=Object.freeze([]);
 export const syntheticSourceEvidence:readonly SourceReadinessEvidence[]=Object.freeze([Object.freeze({id:'synthetic-flexible-v1',product:'synthetic',product_version:'1.0.0',profile_id:'synthetic-flexible-v1',
@@ -29,7 +34,8 @@ const schema=z.strictObject({protocol:FlexibleProtocolSchema,source_evidence_ids
   analysis_evidence_id:IdSchema.nullable(),invalidated:z.boolean(),followup_complete:z.boolean()});
 export function evaluateReadiness(input:ReadinessInput){
   const i=parseComparison(schema,input,'invalid_readiness');const reasons:string[]=[];
-  const registry=i.protocol.purpose==='synthetic_validation'?syntheticSourceEvidence:productionSourceEvidence;
+  const registry=i.protocol.purpose==='synthetic_validation'?syntheticSourceEvidence:productionSourceEvidence
+    .filter(e=>e.profile_id!==codexBindingAdmission.profileId||isAdmittedCodexBindingProtocol(i.protocol));
   const sources=i.source_evidence_ids.map(id=>registry.find(e=>e.id===id));
   const sourceReady=sources.length>0&&sources.every(e=>e!==undefined&&/^[a-f0-9]{64}$/.test(e.semantics_digest))&&
     i.protocol.source_profiles.every(p=>sources.some(e=>e?.product===p.product&&e.product_version===p.product_version&&e.profile_id===p.profile_id))&&

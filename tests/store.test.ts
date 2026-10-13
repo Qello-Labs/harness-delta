@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
@@ -49,6 +49,38 @@ test('events survive reopen and newer schema versions are refused without mutati
     expect(() => new Store(file)).toThrow('unsupported_schema_version');
     const reopened = new Database(file);
     expect(reopened.pragma('user_version', { simple: true })).toBe(999); reopened.close();
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('binding compatibility migration retains old blocks and events while adding independent binding invalidation', () => {
+  const root = mkdtempSync(join(tmpdir(), 'binding-compatibility-upgrade-'));
+  const file = join(root, 'local.db');
+  try {
+    const previous = new Database(file);
+    const migrations = new URL('../src/migrations/', import.meta.url);
+    for (const name of readdirSync(migrations).sort().slice(0, 30)) {
+      previous.exec(readFileSync(new URL(name, migrations), 'utf8'));
+    }
+    previous.pragma('user_version=30');
+    previous.prepare('INSERT INTO projects(id) VALUES (?)').run('p1');
+    previous.prepare('INSERT INTO tasks(id,project_id) VALUES (?,?)').run('t1', 'p1');
+    previous.prepare('INSERT INTO sessions(id,project_id,task_id) VALUES (?,?,?)').run('s1', 'p1', 't1');
+    previous.prepare('INSERT INTO events(id,project_id,task_id,session_id,source_key,occurred_at,payload) VALUES (?,?,?,?,?,?,?)')
+      .run(event.id, event.project_id, event.task_id, event.session_id, event.source_key, event.occurred_at, JSON.stringify(event.payload));
+    previous.prepare('INSERT INTO source_compatibility_blocks VALUES (?,?,?,?)')
+      .run('codex', '0.162.1', 'codex_workflow', 'contract_failed');
+    const before = previous.prepare('SELECT * FROM events').all();
+    previous.close();
+
+    const upgraded = new Store(file);
+    try {
+      upgraded.execute("INSERT INTO source_compatibility_blocks VALUES ('codex','0.162.1','codex_binding','semantic_incompatibility')", []);
+      expect(upgraded.all('SELECT * FROM events')).toEqual(before);
+      expect(upgraded.all('SELECT source,reason FROM source_compatibility_blocks ORDER BY source')).toEqual([
+        { source: 'codex_binding', reason: 'semantic_incompatibility' },
+        { source: 'codex_workflow', reason: 'contract_failed' },
+      ]);
+    } finally { upgraded.close(); }
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 

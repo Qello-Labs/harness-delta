@@ -9,7 +9,13 @@ direct child. The child profile is read-only; family resume and broader descenda
 collection are unsupported. Assigned CLI wiring has synthetic coverage and later bounded actual root
 functional observations; exact admission and configuration-scope limits are separate evidence. Claude Code 2.1.291 has a separately admitted
 parent-only launch profile (2.1.288 is retired); Claude child execution and native resume are not admitted. All usage remains
-partial, with no complete task cost or inferential adoption support. See the
+partial, with no complete task cost or inferential adoption support.
+
+Codex 0.162.1 bounded ordinary collection passed fresh ordinary-route native
+acceptance and independent review on 2026-10-13: one fresh CLI root and up to two
+fresh direct children, gpt-6.1-sol/high, under the reviewed read-only/no-daemon
+invocation. Prior lease-gated observations do not replace that evidence. See the
+[ordinary profile and limits](docs/runbooks/harness-connect.md#codex-01621-bounded-ordinary-profile),
 [current native workflow and limits](docs/runbooks/task-native-workflow.md),
 [capability evidence](docs/decisions/001-adapter-capabilities.md), and
 [local measurement runbook](docs/runbooks/local-measurement.md).
@@ -35,11 +41,12 @@ Build before focused tests with `npm run build`, then use
 `npm test -- tests/runtime.test.ts`. Binding qualification tests freeze the built
 UI as well as source bytes, so a clean checkout needs the build first.
 
-The owned CLI process-budget suite runs before other test files. It checks a
-fixed teardown budget with synthetic process-metadata latency; concurrent
-process-heavy suites can consume that budget on CI hosts. Its timing, ownership,
+The process-budget group runs sequentially before other test files. It includes
+owned CLI budgets, ordinary binding qualification, Codex workflow adapter/child
+fixtures and the minimal diagnostic runner. Concurrent process-heavy suites can
+consume their fixed startup or teardown budgets on CI hosts. Timing, ownership
 and disappearance assertions remain unchanged. All remaining suites then run
-with the normal file parallelism. The default test command includes both groups.
+with normal file parallelism. The default test command includes both groups.
 
 ## Linting
 
@@ -113,6 +120,11 @@ remain the evidence boundary for verified support. The current stable Codex CLI
 admissions. Ordinary binding separately permits the exact Codex 0.162.0/0.162.1
 root-only and Claude 2.1.291/2.1.293/2.1.294/2.1.296 candidates under explicit
 local human-pilot authority; see [Harness Connect](docs/runbooks/harness-connect.md).
+The separate exact `codex-binding-01621-direct-family-v1` ordinary source admits
+one fresh Codex 0.162.1 CLI root and up to two fresh direct children with
+gpt-6.1-sol/high, without qualification authority. Its route-specific verified
+provenance never promotes file/launch or historical observations. Costs remain
+partial; complete request-universe and terminal accounting are not qualified.
 
 Registered file adapters live in `src/adapter-profiles.ts`. Verified registration is an exact `(product, version)` allowlist. Conditional parser selection is separate. A new version whose semantics are unchanged is data, fixtures, and evidence. A semantic change is a named code variant plus tests; the old variant is not edited to fit the new version. Codex 0.158.0 uses the checkpoint variant and a historical exact-version admission. See the [admission workflow](docs/runbooks/codex-version-admission.md) and [current offline readiness limits](docs/validation/codex-01580-offline-readiness.md). The archived live report does not qualify the current source identity or establish whole-task completeness. The conformance runner is manual. `npm test` runs offline synthetic unit tests of the report projector, the candidate parser, and the confirmation helpers. It does not run the conformance runner, spawn product CLIs, or open real sessions. See [ADR 007](docs/decisions/007-adapter-version-profiles.md).
 

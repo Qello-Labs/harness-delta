@@ -4,8 +4,56 @@ import { tmpdir } from 'node:os';
 import { spawn, execFileSync } from 'node:child_process';
 import { Writable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
+import { EventEmitter, once } from 'node:events';
 import { expect, test } from 'vitest';
 import { OwnedCliInvocation } from '../src/owned-cli-invocation.js';
+
+test('owned CLI accepts a fifteen-minute duration and verifies immediate normal exit',async()=>{
+ const result=await new OwnedCliInvocation({command:realpathSync(process.execPath),args:['-e','process.exit(0)'],cwd:realpathSync(process.cwd()),durationMs:900000,stdio:'ignore'}).run();
+ expect(result).toMatchObject({status:'completed',exitCode:0,ownershipVerified:true,terminationVerified:true,terminationCause:'root_exit'});
+});
+
+test('owned CLI rejects a duration beyond fifteen minutes before spawning',()=>{
+ expect(()=>new OwnedCliInvocation({command:realpathSync(process.execPath),args:[],cwd:realpathSync(process.cwd()),durationMs:900001,stdio:'ignore'})).toThrow('owned_cli_invalid');
+});
+
+test('owned terminal attention arrives before exit without a newline or approval input',async()=>{
+ const dir=realpathSync(mkdtempSync(join(tmpdir(),'owned-attention-fixture-')));
+ const script=join(dir,'payload.mjs'),inputMarker=join(dir,'input.json');
+ const attention=new EventEmitter();const notified=once(attention,'attention');let notifications=0,ended=false;
+ writeFileSync(script,`import{writeFileSync}from'node:fs';import{setImmediate}from'node:timers/promises';process.stdin.setRawMode(true);process.stdin.on('data',b=>writeFileSync(${JSON.stringify(inputMarker)},JSON.stringify([...b])));for(const part of['\\x1b',']','9;','private synthetic notification','\\x07']){process.stdout.write(part);await setImmediate();}setTimeout(()=>process.exit(2),4000);`);
+ const options={command:realpathSync(process.execPath),args:[script],cwd:dir,durationMs:5000,terminationMs:1500,termGraceMs:100,stdio:'ignore' as const,onTerminalAttention:()=>{notifications++;attention.emit('attention');}};
+ const owner=new OwnedCliInvocation(options);const result=owner.run();void result.then(()=>{ended=true;});
+ try{
+  await Promise.race([notified,result.then(()=>{throw new Error('synthetic_attention_missing_before_exit');})]);
+  expect(ended).toBe(false);expect(notifications).toBe(1);
+  expect(()=>readFileSync(inputMarker,'utf8')).toThrow();
+ }finally{owner.stop();const final=await result;rmSync(dir,{recursive:true,force:true});expect(final.terminationVerified).toBe(true);}
+},7000);
+
+test('terminal attention ignores text, empty notifications and OSC9 progress updates',async()=>{
+ const dir=realpathSync(mkdtempSync(join(tmpdir(),'owned-attention-noise-')));
+ let notifications=0;
+ try{
+  const script=join(dir,'payload.mjs');
+  writeFileSync(script,`process.stdout.write('synthetic approval text\\x1b[31m\\x1b]9;\\x07\\x1b]9;4;1;50\\x07');`);
+  const result=await new OwnedCliInvocation({command:realpathSync(process.execPath),args:[script],cwd:dir,durationMs:2000,terminationMs:1500,termGraceMs:100,stdio:'ignore',onTerminalAttention:()=>{notifications++;}}).run();
+  expect(result).toMatchObject({status:'completed',terminationVerified:true});
+  expect(notifications).toBe(0);
+ }finally{rmSync(dir,{recursive:true,force:true});}
+},5000);
+
+test.each(['\x1b]9;4;1;50\x1b\\','\x1b]9;4;'])('terminal attention resumes after non-BEL progress %j',async noise=>{
+ const dir=realpathSync(mkdtempSync(join(tmpdir(),'owned-attention-recovery-')));
+ let notifications=0;
+ try{
+  const script=join(dir,'payload.mjs');
+  writeFileSync(script,`process.stdout.write(${JSON.stringify(noise+'\x1b]9;synthetic notification\x07')});`);
+  const result=await new OwnedCliInvocation({command:realpathSync(process.execPath),args:[script],cwd:dir,durationMs:2000,terminationMs:1500,termGraceMs:100,stdio:'ignore',onTerminalAttention:()=>{notifications++;}}).run();
+  expect(result).toMatchObject({status:'completed',terminationVerified:true});
+  expect(notifications).toBe(1);
+ }finally{rmSync(dir,{recursive:true,force:true});}
+},5000);
 
 // Node fixtures only: real products, auth, user processes and logs are excluded.
 test('inherited terminal forwards harmless manual input and restores its raw mode',()=>{
@@ -139,6 +187,49 @@ coverage=ns['discover']()
 print(json.dumps({'coverage':coverage,'metadata':metadata_calls,'queries':queries,'members':sorted(ns['known']),'failed':ns['ownership_failed']}))`;
  const result=JSON.parse(execFileSync(OwnedCliInvocation.pythonExecutable(),['-c',code,fileURLToPath(new URL('../scripts/owned-cli-pty.py',import.meta.url))],{encoding:'utf8'})) as unknown;
  expect(result).toEqual({coverage:true,metadata:[42],queries:[42,43,44,45,46,47,48,49,50],members:[42,43,44,45,46,47,48,49,50],failed:false});
+});
+
+test('TERM discovery and signal queries count toward grace without starving verified KILL cleanup',()=>{
+ const code=`import ast,json,sys,types,signal
+tree=ast.parse(open(sys.argv[1]).read());cleanup=next(n.finalbody for n in tree.body if isinstance(n,ast.Try) and n.finalbody)
+functions=[n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name in ['metadata','identity_matches','same','discover','verified_group_members','note_group_change']]
+clock=[100.0];records={p:(p,1 if p==42 else 42,p,501,'synthetic start '+str(p)) for p in range(42,51)}
+alive=set(records);root_reaped=[False];signals=[];result=[]
+def advance(seconds):clock[0]+=seconds
+def check_output(args,**kwargs):
+ if kwargs['timeout']<.08:
+  advance(kwargs['timeout']);raise subprocess.TimeoutExpired(args,kwargs['timeout'])
+ advance(.08)
+ p=int(args[-1])
+ if p not in alive:raise subprocess.CalledProcessError(1,args)
+ return ('%d %d %d %d %s'%records[p]).encode()
+def run(args,**kwargs):
+ if kwargs['timeout']<.025:
+  advance(kwargs['timeout']);raise subprocess.TimeoutExpired(args,kwargs['timeout'])
+ advance(.025)
+ ids=sorted(alive-{42}) if args[1]=='-P' and int(args[-1])==42 else [int(args[-1])] if args[1]=='-g' and int(args[-1]) in alive else []
+ return types.SimpleNamespace(returncode=0 if ids else 1,stdout=' '.join(map(str,ids)).encode())
+def kill(p,sig):
+ signals.append((p,sig,round(clock[0]-100,3)))
+ if sig==signal.SIGKILL:alive.discard(p)
+def killpg(p,sig):
+ if sig==0:
+  if p not in alive:raise ProcessLookupError()
+ else:kill(p,sig)
+def waitpid(p,flags):
+ if p not in alive and not root_reaped[0]:root_reaped[0]=True;return(p,signal.SIGKILL)
+ return(0,0)
+import subprocess
+ns={'cfg':{'terminationMs':5000,'termGraceMs':2000},'time':types.SimpleNamespace(monotonic=lambda:clock[0],sleep=advance),'os':types.SimpleNamespace(kill=kill,killpg=killpg,waitpid=waitpid,WNOHANG=1,waitstatus_to_exitcode=lambda s:-s,close=lambda fd:None),'signal':signal,'subprocess':types.SimpleNamespace(check_output=check_output,run=run,PIPE=-1,DEVNULL=-3,CalledProcessError=subprocess.CalledProcessError,SubprocessError=subprocess.SubprocessError),'known':dict(records),'absent':set(),'proofs':{p:None if p==42 else records[42] for p in records},'groups':set(records),'pid':42,'uid':501,'root_exit':None,'cleanup_until':None,'cleanup_exhausted':False,'ownership_failed':False,'coverage':True,'escape_seen':True,'group_changes':[],'group_changes_truncated':False,'started':100,'ps_env':{},'status':'stopped','termination_cause':'control','tty_verified':True,'master':0,'emit':result.append}
+exec(compile(ast.Module(body=functions,type_ignores=[]),'<synthetic owner functions>','exec'),ns)
+ns['group_exists']=lambda g:g in alive
+exec(compile(ast.Module(body=cleanup,type_ignores=[]),'<synthetic owner cleanup>','exec'),ns)
+print(json.dumps({'result':result[0],'elapsedMs':round((clock[0]-100)*1000),'killCount':sum(s==signal.SIGKILL for p,s,t in signals),'firstKillMs':round(next(t for p,s,t in signals if s==signal.SIGKILL)*1000)}))`;
+ const result=JSON.parse(execFileSync(OwnedCliInvocation.pythonExecutable(),['-c',code,fileURLToPath(new URL('../scripts/owned-cli-pty.py',import.meta.url))],{encoding:'utf8'})) as {result:unknown;elapsedMs:number;killCount:number;firstKillMs:number};
+ expect(result.result,JSON.stringify(result)).toMatchObject({status:'stopped',exitCode:-9,ownershipVerified:true,terminationVerified:true,ownedMembers:9,terminationCause:'control'});
+ expect(result.killCount).toBe(9);
+ expect(result.firstKillMs).toBeLessThan(3000);
+ expect(result.elapsedMs).toBeLessThanOrEqual(5000);
 });
 
 test('ordinary interactive launch requires a terminal before any spawn', async()=>{
