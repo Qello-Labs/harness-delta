@@ -26,7 +26,7 @@ that a child is running, failed or complete.
 Approve the exact project, fresh active task, linked root session, installed hook
 bytes and bounded native actions before changing any real instrumentation. Preserve
 completed trials and their receipts. Do not automatically install, reload, alter
-trust/auth/global settings, launch or terminate a native process. Select Node 24.
+trust/auth/global settings, launch or terminate a native process. Select Node 24 or 26.
 
 For an explicitly selected session, add this option to an approved hook command:
 
@@ -201,7 +201,7 @@ or absent file does not justify ignoring it.
 
 ## Synthetic verification
 
-From a Node 24 checkout:
+From a Node 24 or 26 checkout:
 
 ```sh
 npm run build

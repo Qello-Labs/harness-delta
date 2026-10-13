@@ -2,7 +2,7 @@
 
 [한국어](reference-price-catalog.ko.md) · [Cost readings and coverage](observed-cost.md)
 
-Use the same local database as the measured task. Prerequisite: Node 24 built CLI
+Use the same local database as the measured task. Prerequisite: Node 24 or 26 built CLI
 and authorized stored observations. These commands read local metadata and start
 no model requests. Standardized partial estimates are not your bill or savings.
 

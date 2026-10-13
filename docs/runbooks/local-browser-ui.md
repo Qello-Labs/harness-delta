@@ -2,7 +2,7 @@
 
 [한국어](local-browser-ui.ko.md)
 
-Use the private `hm` checkout with Node.js 24. This UI shares the CLI's Store and
+Use the private `hm` checkout with Node.js 24 or 26. This UI shares the CLI's Store and
 external-task coordinator. The ordinary measurement flow does not launch an agent.
 Format-2 application can explicitly request a fresh macOS Terminal session;
 `open_requested` does not prove the agent started, and native acceptance remains
@@ -28,7 +28,8 @@ Open the printed `http://127.0.0.1:4318` address. `--port` changes only the loca
 port; no host option exists. Stop the local service with Ctrl+C. Its collectors
 settle and active measurement pauses; the external AI remains under your control.
 
-Select Node 24 and verify `node --version` before installation. The guarded entry
+Select Node 24 or 26 and verify `node --version` before installation. Run `npm ci`
+again after switching Node majors to rebuild SQLite for the selected runtime. The guarded entry
 reports `unsupported_node` (exit 2), `build_required` (exit 3), or
 `dependencies_required` (exit 4) before importing SQLite. Follow its instructions
 in the checkout; it never installs an AI product or switches your global runtime.

@@ -158,7 +158,7 @@ A stale file or a new package/snapshot ID cannot resurrect that retired scope.
 
 ## Reproducible offline acceptance
 
-From a Node 24 checkout after `npm ci`:
+From a Node 24 or 26 checkout after `npm ci`:
 
 ```sh
 npm test -- tests/exchange-boundaries.test.ts tests/team-report.test.ts tests/team-snapshot.test.ts tests/team-deletion.test.ts tests/team-exchange-cli.test.ts

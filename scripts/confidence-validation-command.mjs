@@ -4,7 +4,7 @@ import { rmSync } from 'node:fs';
 const root=fileURLToPath(new URL('../',import.meta.url));
 function fail(code){process.stdout.write(`${JSON.stringify({status:'fail',failures:[code]})}\n`);process.exitCode=1;}
 if(process.argv.length!==2)fail('unknown_arguments');
-else if(Number(process.versions.node.split('.')[0])!==24)fail('node_24_required');
+else if(![24,26].includes(Number(process.versions.node.split('.')[0])))fail('unsupported_node');
 else {
   rmSync(new URL('../.harness-delta/confidence-validation-build/',import.meta.url),{recursive:true,force:true});
   const compiled=spawnSync(process.execPath,['node_modules/typescript/bin/tsc','-p','scripts/analysis-validation/confidence-tsconfig.json'],{cwd:root,encoding:'utf8'});

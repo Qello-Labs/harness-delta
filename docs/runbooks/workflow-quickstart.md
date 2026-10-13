@@ -39,11 +39,15 @@ it does not apply to resume/link/collect or child launch. See
 
 ## 1. Install from the checkout
 
-Prerequisites: Node.js 24, npm and an existing pinned binary eligible for the selected workflow version.
+Prerequisites: Node.js 24 or 26, npm and an existing pinned binary eligible for the selected workflow version.
+The pinned Codex direct-child workflow and actual native qualification still require Node 24.
+Node 26 permits existing root launch/resume orchestration, including Claude parent
+launch, under the same per-run approval and source gates. Its runtime coverage is
+synthetic; this is not an additional exact-version native qualification.
 Local validation covers macOS arm64. Other platforms remain unverified.
 The package is private; there is no published-package installation procedure.
 
-1. Select Node 24 with your version manager.
+1. Select Node 24 or 26 with your version manager.
 2. From the repository root, install the locked dependencies.
 
    ```sh
@@ -66,12 +70,13 @@ Expected: the help lists `external`, `codex`, `claude`, `status`, `task`, `begin
 `external` is a separate [user-opened session procedure](external-session-workflow.md),
 not the tool-owned launch path below.
 Use `workflow status` in step 4 to check the selected v2 native gate.
-The guarded `npm start -- <arguments>` entry checks Node 24, the build and installed
+The guarded `npm start -- <arguments>` entry checks Node 24 or 26, the build and installed
 dependencies before loading SQLite. `unsupported_node` (exit 2), `build_required`
 (exit 3) and `dependencies_required` (exit 4) give distinct first-run results.
-Select Node 24 before `npm ci`; `npm exec node@24` is not proof that your shell
-or npm scripts use Node 24. Verify `node --version` in the same terminal.
-If installation fails, check Node 24 and the SQLite native-build prerequisites in [CONTRIBUTING](../../CONTRIBUTING.md#development-environment).
+Select Node 24 or 26 before `npm ci`; `npm exec node@24` is not proof that your shell
+or npm scripts use that runtime. Verify `node --version` in the same terminal.
+Run `npm ci` again after switching Node majors so SQLite matches the selected runtime.
+If installation fails, check the selected Node version and the SQLite native-build prerequisites in [CONTRIBUTING](../../CONTRIBUTING.md#development-environment).
 Installation also installs local Git hooks. It does not start collection or change product authentication.
 Every command below runs from the repository root and includes the database explicitly.
 An installed local package can expose `hm`; `npm ci` alone does not put it on your shell PATH.
