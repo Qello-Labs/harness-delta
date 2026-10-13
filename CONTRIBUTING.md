@@ -7,9 +7,11 @@ for Codex CLI 0.156.1/0.158.0 and Claude Code 2.1.283, and two separately admitt
 Codex 0.160.0 workflow profiles: root own responses and a fresh root with one fresh
 direct child. The child profile is read-only; family resume and broader descendant
 collection are unsupported. Assigned CLI wiring has synthetic coverage and later bounded actual root
-functional observations; exact admission and configuration-scope limits are separate evidence. Claude Code 2.1.291 has a separately admitted
-parent-only launch profile (2.1.288 is retired); Claude child execution and native resume are not admitted. All usage remains
-partial, with no inferential adoption support. The separately qualified instrumented
+functional observations; exact admission and configuration-scope limits are separate evidence. Claude Code 2.1.296 has two separately admitted
+profiles (2.1.288 and 2.1.291 are retired): a parent-only profile covering launch and resume of a kept session, and a
+read-only profile with one direct child. Deeper or additional Claude children and child resume are unsupported.
+Ordinary file, binding and workflow usage remains partial, with no inferential
+adoption support. The separately qualified instrumented
 Codex source can establish standardized complete cost under its reviewed profile;
 see the [observed-cost runbook](docs/runbooks/observed-cost.md). It does not turn
 ordinary file, binding or workflow observations into complete totals or vendor bills.
@@ -119,10 +121,18 @@ allows conditional reuse of a verified parser for newer releases within declared
 source-specific windows, with unverified estimates kept separate and incompatible
 data invalidated. Runtime rules live in `src/source-compatibility.ts`; exact profiles
 remain the evidence boundary for verified support. The current stable Codex CLI
-0.162.1 and Claude Code 2.1.296 use conditional parser reuse, not new exact
-admissions. Ordinary binding separately permits the exact Codex 0.162.0/0.162.1
-root-only and Claude 2.1.291/2.1.293/2.1.294/2.1.296 candidates under explicit
+0.162.1 and Claude Code 2.1.296 use conditional parser reuse for file collection, not new exact
+admissions. Codex 0.162.1 workflow collection also remains conditional; the Claude
+workflow source is exactly admitted for 2.1.296. Ordinary binding separately permits the exact Codex 0.162.0/0.162.1
+root-only and Claude 2.1.291/2.1.293/2.1.294/2.1.296 profiles under explicit
 local human-pilot authority; see [Harness Connect](docs/runbooks/harness-connect.md).
+The Claude 2.1.296 transcript profile is qualified only for bounded native print-mode
+evidence, not interactive qualification or production admission; the others are
+candidates. All ordinary Claude profiles, even qualified ones, require
+`allowCandidateProfiles: true`. Default provider refusal and ordinary service admission
+remain closed. Current labels stay `native_unverified_pilot`, `legacy_unverified`
+and `candidate_pilot`.
+
 The separate exact `codex-binding-01621-direct-family-v1` ordinary source admits
 one fresh Codex 0.162.1 CLI root and up to two fresh direct children with
 gpt-6.1-sol/high, without qualification authority. Its route-specific verified

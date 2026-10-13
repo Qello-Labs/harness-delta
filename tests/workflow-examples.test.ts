@@ -19,6 +19,13 @@ test('quickstart example files match the workflow schemas', () => {
 test('the Claude launch example is a parent-only workspace-edit execution', () => {
   const parsed = ClaudeWorkflowExecutionSchema.parse(example('claude-launch.json'));
   expect(parsed).toMatchObject({ operation: 'launch', permissions: 'workspace-edit',
-    binary: { version: '2.1.291', sha256: '9a1d2ed6bb4421e8fc80c892c0413f293be3ee50ae3d7dda1a7622197a056690' } });
+    binary: { version: '2.1.296', sha256: 'c9b5341637becbd423ddffc5b254afb645682a3868cb708bbc6cc0e7bb419937' } });
   expect(parsed.child_runtime).toBeUndefined();
+});
+
+test('the Claude resume example continues an earlier run of the same workspace', () => {
+  const launch = ClaudeWorkflowExecutionSchema.parse(example('claude-launch.json'));
+  const parsed = ClaudeWorkflowExecutionSchema.parse(example('claude-resume.json'));
+  expect(parsed).toMatchObject({ operation: 'resume', resume_run_id: launch.run_id, workspace: launch.workspace, binary: launch.binary });
+  expect(parsed.run_id).not.toBe(launch.run_id);
 });

@@ -1,6 +1,6 @@
 # Manual Claude external candidate: preparation and qualification boundary
 
-`src/external-session-claude-candidate.ts` supplies one concrete manually opened print-CLI candidate. It does not change the admitted Claude 2.1.291 tool-owned workflow (2.1.288 retired from the workflow) or register a production adapter. Production workspace/session inputs are rejected. Its qualification sandbox requires a synthetic comparison workspace and one explicitly linked synthetic root with native UUID/process ID; children, resume and extra requests are rejected.
+`src/external-session-claude-candidate.ts` supplies one concrete manually opened print-CLI candidate. It does not change the admitted Claude 2.1.296 tool-owned workflow (2.1.288 and 2.1.291 retired from the workflow) or register a production adapter. Production workspace/session inputs are rejected. Its qualification sandbox requires a synthetic comparison workspace and one explicitly linked synthetic root with native UUID/process ID; children, resume and extra requests are rejected.
 
 ## Small contract
 

@@ -16,7 +16,13 @@ export function registerCompatibilityCommands(program: Command, db: () => Store,
     if (operation === 'invalidate') command.option('--reason <semantic_incompatibility|contract_failed>', 'Fixed metadata-only reason', 'semantic_incompatibility');
     command.action((options: { product: string; version: string; source: string; profile?: string; reason?: string }) => {
       const source = SourceCompatibilitySchema.shape.source.parse(options.source);
-      const selected = resolveSourceCompatibility(options.product, options.version, source, options.profile);
+      let selected = resolveSourceCompatibility(options.product, options.version, source, options.profile);
+      // A retired version no longer resolves, but a cohort that was already observed must stay blockable.
+      if (!selected && operation === 'invalidate') {
+        const stored = db().get<{ payload: string }>("SELECT payload FROM session_source_compatibility WHERE json_extract(payload,'$.product')=? AND json_extract(payload,'$.product_version')=? AND json_extract(payload,'$.source')=? LIMIT 1",
+          [options.product, options.version, source]);
+        if (stored) selected = SourceCompatibilitySchema.parse(JSON.parse(stored.payload) as unknown);
+      }
       if (!selected) throw new Error('unsupported');
       if (operation === 'invalidate') invalidateCompatibility(db(), selected,
         z.enum(['semantic_incompatibility', 'contract_failed']).parse(options.reason));

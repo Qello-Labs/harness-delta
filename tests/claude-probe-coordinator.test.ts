@@ -2,18 +2,21 @@ import { expect, test } from 'vitest';
 import { ClaudeProbeCoordinator, type ClaudeProbeOptions } from '../src/claude-probe-coordinator.js';
 import { Store } from '../src/store.js';
 import { attrs, receivedAt, span, startedAt, traceScope, traces } from './helpers/claude-trace-fixture.js';
+import { sessionCompatibility } from '../src/source-compatibility.js';
+import { claudeWorkflowChildProfileId, claudeWorkflowProfileId } from '../src/claude-workflow-versions.js';
 
 const rootScope = { ...traceScope, sessions: traceScope.sessions.slice(0, 1) };
-function fixture(workflow?: ClaudeProbeOptions['workflow']) {
+function fixture(workflow?: ClaudeProbeOptions['workflow'], version = workflow ? '2.1.296' : '2.1.288') {
   // A workflow run uses the admitted workflow version; the internal probe stays on 2.1.288.
-  const version = workflow ? '2.1.291' : '2.1.288';
   const store = new Store(':memory:');
   store.execute("INSERT INTO projects(id) VALUES ('project-1')", []);
   store.execute("INSERT INTO tasks(id,project_id,state) VALUES ('task-1','project-1','active')", []);
   store.execute("INSERT INTO sessions(id,project_id,task_id,product,product_version) VALUES ('root','project-1','task-1','claude_code',?)", [version]);
   let now = startedAt; let reservations = 0;
-  const probe = new ClaudeProbeCoordinator(store, { rootScope, child: { sessionId: 'child', sourceId: 'source-child', agentType: 'qualification-child' },
+  let probe: ClaudeProbeCoordinator;
+  try { probe = new ClaudeProbeCoordinator(store, { rootScope, child: { sessionId: 'child', sourceId: 'source-child', agentType: 'qualification-child' },
     generation: 0, startedAt, model: 'root-model', effort: 'high', clock: () => now, reserveChild: () => { reservations++; }, ...(workflow ? { workflow, productVersion: version } : {}) });
+  } catch (error) { store.close(); throw error; }
   const token = probe.exporterHeaders()['x-harness-delta-token']!;
   const hook = (name: string, patch: Record<string, unknown> = {}) => probe.acceptHook(token, () => ({ hook_event_name: name, session_id: 'native-root', ...patch }));
   const logs = (records: unknown[]) => probe.ingestLogs(token, () => ({ resourceLogs: [{ resource: { attributes: attrs({ 'harness_delta.process_id': 'process-1' }) }, scopeLogs: [{ logRecords: records }] }] }));
@@ -24,6 +27,37 @@ function fixture(workflow?: ClaudeProbeOptions['workflow']) {
   const child = () => { hook('PreToolUse', { tool_name: 'Agent', tool_use_id: 'tool-child', tool_input: { subagent_type: 'qualification-child', prompt: 'PRIVATE_SENTINEL' } }); hook('SubagentStart', { agent_id: 'agent-child', agent_type: 'qualification-child', transcript_path: 'PRIVATE_SENTINEL' }); };
   return { store, probe, token, hook, logs, log, startup, ready, child, reservations: () => reservations, set: (s: string) => { now = s; } };
 }
+
+test('a conditional non-synthetic coordinator rejects children but pins parent-only own-trace compatibility', () => {
+  const workflow = { synthetic: false, childEnabled: true, childRuntime: { model: 'root-model', effort: 'high' },
+    requestLimit: 4, durationMs: 60000, assertActive: () => undefined, onChildBound: () => undefined };
+  expect(() => fixture(workflow, '2.1.297')).toThrow(/^claude_probe_invalid_options$/);
+  const f = fixture({ ...workflow, childEnabled: false }, '2.1.297'); try {
+    expect(sessionCompatibility(f.store, 'root')).toMatchObject({ profile_id: claudeWorkflowProfileId, state: 'compatibility_unverified',
+      product_version: '2.1.297', parser_version: '2.1.296', source: 'claude_workflow' });
+    f.ready();
+    expect(f.probe.ingestTraces(f.token, () => traces([span(false, { 'app.version': '2.1.297', effort: 'high' })]))).toMatchObject({ inserted: 1 });
+    expect(f.store.get("SELECT json_extract(payload,'$.source_compatibility.profile_id') AS profile,json_extract(payload,'$.source_compatibility.state') AS state FROM events"))
+      .toEqual({ profile: claudeWorkflowProfileId, state: 'compatibility_unverified' });
+  } finally { f.store.close(); }
+});
+
+test('an exact non-synthetic direct-child run stops a second Agent call before additional usage access', () => {
+  const f = fixture({ synthetic: false, childEnabled: true, childRuntime: { model: 'root-model', effort: 'high' },
+    requestLimit: 4, durationMs: 60000, assertActive: () => undefined, onChildBound: () => undefined }); try {
+    f.ready(); f.child();
+    expect(f.probe.ingestTraces(f.token, () => traces([span(false, { 'app.version': '2.1.296', effort: 'high' }),
+      span(true, { 'app.version': '2.1.296', model: 'root-model', effort: 'high' })]))).toMatchObject({ inserted: 2 });
+    for (const session of ['root', 'child']) expect(sessionCompatibility(f.store, session))
+      .toMatchObject({ profile_id: claudeWorkflowChildProfileId, state: 'verified', product_version: '2.1.296' });
+    expect(() => f.hook('PreToolUse', { tool_name: 'Agent', tool_use_id: 'second-child', tool_input: { subagent_type: 'qualification-child' } }))
+      .toThrow(/^claude_probe_child_limit$/);
+    let reads = 0;
+    expect(() => f.probe.ingestTraces(f.token, () => { reads++; return traces(); })).toThrow(/^claude_probe_revoked$/);
+    expect(reads).toBe(0); expect(f.store.eventCount()).toBe(2); expect(f.reservations()).toBe(1);
+    expect(f.probe.state()).toMatchObject({ revoked: true, requestsInserted: 2, rootRequests: 1, childRequests: 1 });
+  } finally { f.store.close(); }
+});
 test('credential and active root scope precede every hook/log/trace callback', () => {
   const f = fixture(); let reads = 0; const read = () => { reads++; return {}; }; try {
     for (const run of [() => f.probe.acceptHook('foreign', read), () => f.probe.ingestLogs('foreign', read), () => f.probe.ingestTraces('foreign', read)]) expect(run).toThrow('claude_probe_unauthorized');
@@ -268,4 +302,39 @@ test('SessionStart and child binding cannot substitute for missing startup logs'
     const body = traces([span(false, { effort: 'high' }), span(true, { model: 'root-model' })]);
     expect(f.probe.ingestTraces(f.token, () => body).inserted).toBe(2);
   } finally { f.store.close(); }
+});
+
+test('a child call that overrides effort or asks for an isolated directory stops before any child is reserved', () => {
+  const workflow = { synthetic: false, childEnabled: true, childRuntime: { model: 'root-model', effort: 'low' },
+    requestLimit: 4, durationMs: 60000, assertActive: () => undefined, onChildBound: () => undefined };
+  // 2.1.292 added effort and 2.1.296 exposes isolation on the Agent tool input.
+  for (const patch of [{ effort: 'max' }, { isolation: true }]) {
+    const f = fixture(workflow); try {
+      f.ready();
+      expect(() => f.hook('PreToolUse', { tool_name: 'Agent', tool_use_id: 'tool-child', tool_input: { subagent_type: 'qualification-child', ...patch } }))
+        .toThrow(/^claude_probe_child_scope$/);
+      expect(f.reservations()).toBe(0); expect(f.probe.state()).toMatchObject({ revoked: true, childBound: false });
+    } finally { f.store.close(); }
+  }
+  const same = fixture(workflow); try {
+    same.ready();
+    expect(() => same.hook('PreToolUse', { tool_name: 'Agent', tool_use_id: 'tool-child', tool_input: { subagent_type: 'qualification-child', effort: 'low' } })).not.toThrow();
+    expect(same.reservations()).toBe(1);
+  } finally { same.store.close(); }
+});
+
+test('a resumed workflow run requires SessionStart source resume and a fresh run requires startup', () => {
+  const workflow = { synthetic: false, childEnabled: false, requestLimit: 4, durationMs: 60000, assertActive: () => undefined, onChildBound: () => undefined };
+  const resumed = fixture({ ...workflow, startSource: 'resume' }); try {
+    expect(() => resumed.hook('SessionStart', { source: 'resume' })).not.toThrow();
+    // Observed 2.1.291 and 2.1.296: a resumed process restarts its log sequence at 0 with the startup policy record.
+    resumed.logs([resumed.startup()]); resumed.set(receivedAt);
+    expect(resumed.probe.ingestTraces(resumed.token, () => traces([span(false, { 'app.version': '2.1.296', effort: 'high' })]))).toMatchObject({ inserted: 1 });
+  } finally { resumed.store.close(); }
+  for (const [startSource, source] of [['resume', 'startup'], [undefined, 'resume']] as const) {
+    const f = fixture({ ...workflow, ...(startSource ? { startSource } : {}) }); try {
+      expect(() => f.hook('SessionStart', { source })).toThrow(/^claude_probe_configuration_changed$/);
+      expect(f.probe.state()).toMatchObject({ rootStarted: false, revoked: true });
+    } finally { f.store.close(); }
+  }
 });

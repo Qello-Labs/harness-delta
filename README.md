@@ -3,12 +3,14 @@
 Measure metadata for an assigned development task across explicitly linked sessions.
 
 **Preview: partial local measurement.** Codex 0.160.0 has two separately admitted
-workflow profiles, and Claude Code 2.1.291 has a parent-only launch profile.
+workflow profiles, and Claude Code 2.1.296 has a parent-only profile (launch and
+resume of a kept session) and a separate read-only single direct-child profile.
 Complete task cost, actual billing and inferential adoption remain unavailable.
 Installation does not start collection. The package is private and uses Node.js 24.
 
 처음 설치하는 팀 사용자는 아래 작업 절차를 읽으세요.
 현재는 부분 로컬 측정 미리보기이며 전체 비용·실제 청구액·추론에 따른 도입 판정은 제공하지 않습니다.
+Claude Code 2.1.296은 부모 전용 프로필(launch와 유지한 세션의 resume)과 별도의 read-only 직계 자식 1개 프로필을 지원합니다.
 
 **Start here:** [Measure one assigned task](docs/runbooks/workflow-quickstart.md) ·
 [배정된 작업 하나 측정하기](docs/runbooks/workflow-quickstart.ko.md).

@@ -138,8 +138,10 @@ their own transcript ownership. All evidenced members, including nested members,
 are flattened under the root: the documented hook fields do not establish their
 direct nested parent. Child re-calls only confirm an active independently discovered
 family. A paused family requires parent reconnect unless its code-owned human UI pilot
-authority permits same-live-root UI resume as described below. Native profile/counter/source
-formats remain candidate-only; no model or effort setting is imposed.
+authority permits same-live-root UI resume as described below. Interactive qualification of
+native profile/counter/source formats remains pending. Only 2.1.296 has bounded print-mode
+qualification as described below; other listed versions remain candidates.
+No model or effort setting is imposed.
 
 The UI refreshes family counts and partial usage. Pause/server restart stops collection;
 use an authorized same-live-root UI resume, or invoke again once in the parent for
@@ -292,7 +294,7 @@ or latest counter semantics; those still require an approved native trial.
 ## Claude human-operated UI pilot
 
 The local operator may select one prepared `functional_pilot` task using the
-`claude-ordinary-human-pilot` source profile, with an exact candidate version
+`claude-ordinary-human-pilot` source profile, with an exact version
 listed by the ordinary provider (currently 2.1.291, 2.1.293, 2.1.294 or 2.1.296). Existing file and
 launch-workflow version compatibility does not qualify ordinary family sources.
 The profile, binary version, project source directory and receipt directory must
@@ -330,11 +332,19 @@ parser is unchanged; 2.1.294 has synthetic candidate coverage for connection,
 family usage, pause/resume and human completion.
 
 The [2.1.296 change record](https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md#21296)
-includes managed-hook and token-count fixes, but does not qualify the ordinary
-source. The unchanged parser has synthetic 2.1.296 identity, own-request replay,
+includes managed-hook and token-count fixes, but the changelog alone does not qualify
+the ordinary source. The unchanged parser has synthetic 2.1.296 identity, own-request replay,
 baseline exclusion, family-ceiling and pilot-gate coverage.
 
-This preparation has synthetic evidence only. Actual 2.1.293, 2.1.294 or 2.1.296 skill loading,
+The 2.1.296 transcript profile is qualified only for bounded native print-mode
+evidence, not interactive qualification or production admission: an offline actual-binary rehearsal and one
+native print-mode pilot confirmed skill loading, receipts, family membership and own
+counters; see [the qualification record](../validation/claude-ordinary-binding-02196-qualification.md).
+The skill-scoped `SubagentStop` hook wrote no receipt there, and discovery does not
+depend on it. The other listed versions have synthetic evidence only. Actual 2.1.291, 2.1.293 or 2.1.294 skill loading,
 family counters, pause/resume and human completion still need an explicitly
-approved native trial. Ordinary production admission, full task cost and
+approved native trial. All ordinary Claude profiles, including qualified 2.1.296,
+require `allowCandidateProfiles: true`; default provider refusal and ordinary service
+admission remain closed. Current labels remain `native_unverified_pilot`,
+`legacy_unverified` and `candidate_pilot`. Ordinary production admission, full task cost and
 inferential decisions remain unavailable.

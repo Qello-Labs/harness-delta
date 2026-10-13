@@ -44,8 +44,11 @@ const hints: Record<string, string> = {
   invalid_cutoff: 'the cutoff must be a UTC time no later than now',
   unknown_codex_workflow_run: 'no Codex run with this ID; check run IDs with `workflow task <task-id>`',
   claude_workflow_run_missing: 'no Claude run with this ID; check run IDs with `workflow task <task-id>`',
-  claude_workflow_version_not_latest: 'a new protocol may list one claude_code workflow source profile, only at the newest admitted Claude Code version (none while no version is admitted); a registered protocol keeps its version until that version is retired, then its tasks cannot launch and need a new protocol',
-  claude_workflow_child_unadmitted: 'Claude child execution is not admitted; remove child_runtime (parent-only workflow)',
+  claude_workflow_version_not_latest: 'a new non-synthetic protocol may list at most one entry per claude_code workflow source profile, at that profile\'s newest admitted version (none while no version is admitted); functional_pilot may instead use one own-trace version in its conditional window; a registered protocol keeps its version until retirement, then its tasks need a new protocol',
+  claude_workflow_child_unadmitted: 'Claude child execution needs the exact direct-child admission of this version; remove child_runtime for a conditional or parent-only version',
+  claude_workflow_child_read_only_required: 'a Claude child execution must use permissions "read-only"',
+  claude_workflow_resume_unadmitted: 'keeping or resuming a Claude session needs the exactly admitted version; remove resumable or use launch for a conditional version',
+  claude_workflow_resume_source_invalid: 'resume_run_id must name a finished, resumable, parent-only run of this task with the same Claude Code version, and the same workspace must still hold its run directory',
   claude_workflow_harness_inside_project: 'with workspace-edit, the workspace, harness-delta build, prompt, Claude binary and database must be verifiably outside the registered project root',
   claude_workflow_private_workspace_required: 'the Claude workspace must be a canonical directory with mode 0700',
 };

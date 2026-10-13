@@ -93,7 +93,15 @@ All other ordinary native family admission remains closed. Codex 0.160.0 needs a
 hook/materialized-path/header and own-counter conformance for the supported
 family/history scope. Claude 2.1.291, 2.1.293 and 2.1.294 remain candidates and need actual transcript,
 hook loading, family membership and own-counter conformance; nested immediate
-parents are unverified. Existing admitted workflow profiles and root-only
+parents are unverified. The Claude 2.1.296 transcript profile is qualified only for
+bounded native print-mode evidence, following an offline actual-binary rehearsal
+and one native print-mode pilot
+([record](../validation/claude-ordinary-binding-02196-qualification.md)); that status does not
+qualify interactive sessions or open ordinary admission. All ordinary Claude
+profiles, including qualified profiles, require `allowCandidateProfiles: true`.
+Default provider refusal and ordinary service admission remain closed; the UI
+retains `native_unverified_pilot`, `legacy_unverified` and `candidate_pilot`.
+Existing admitted workflow profiles and root-only
 `no_child_activity` conformance cannot substitute for that evidence. A future
 promotion requires sanitized evidence tied to the exact binary/source/profile and
 implementation, plus independent review and a code-owned admission change.
@@ -130,7 +138,7 @@ Optional profile `session_binding` specifies Codex receipt directory, approved
 source roots and project root, or Claude receipt and projects directories. Providers
 are scoped per task to its exact registered project root; it grants neither trust nor native admission.
 Existing production ticket/tool-owned profiles stay separate. Claude's implemented
-candidate profile uses nativeMapping for root UUID and member agent ID. Official
+ordinary transcript profile uses nativeMapping for root UUID and member agent ID. Official
 [Claude hooks](https://code.claude.com/docs/en/hooks) and
 [skills](https://code.claude.com/docs/en/skills) document invocation-scoped hooks,
 metadata and process environment. PreToolUse records a connect receipt and the
@@ -202,7 +210,9 @@ real allocation remain gated. See the
 ## Claude human pilot preparation
 
 The local operator's existing human-pilot authority now supports the separate
-`claude-ordinary-human-pilot` profile at an exact ordinary candidate version.
+`claude-ordinary-human-pilot` profile at an exact listed ordinary version.
+2.1.296 is qualified only for bounded native print-mode evidence, not interactive
+qualification; the other listed versions remain candidates.
 Production admission stays closed. Source metadata freshness and family pins
 precede transcript row scans; the pilot permits one new root and two members,
 with flattened membership rather than an asserted nested direct-parent topology.

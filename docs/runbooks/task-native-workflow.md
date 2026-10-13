@@ -24,10 +24,13 @@ includes synthetic tests and later bounded actual root functional observations; 
 fork/compaction, deeper children, app support, complete cost and inference
 remain unavailable.
 
-**Claude Code 2.1.291 parent-only launch is admitted** as
-`claude-workflow-own-trace-v1`, with `complete_cost: false`. 2.1.288 was retired
-from the workflow on 2026-10-06. Child execution and native resume are not admitted. Newer in-window versions
-remain conditional, not exact admissions; see [Claude parent-only workflow](#claude-parent-only-workflow).
+**Claude Code 2.1.296 is admitted** under two separate exact profiles, both with
+`complete_cost: false`: parent-only `claude-workflow-own-trace-v1`, which covers a
+fresh launch and the resume of a session kept by a resumable launch, and
+`claude-workflow-direct-child-v1`, a fresh read-only root with at most one read-only
+direct child. 2.1.288 was retired from the workflow on 2026-10-06 and 2.1.291 on
+2026-10-13. Newer in-window versions remain conditional for a fresh parent-only
+launch, not exact admissions; see [Claude parent-only workflow](#claude-parent-only-workflow).
 
 ```sh
 node dist/cli.js --db .harness-delta/local.sqlite workflow status protocol-1
@@ -50,17 +53,27 @@ The adapter checks both executable bytes and `--version`; the exact 0.160.0
 path retains its existing pinned identity. Root/direct-child scope and permissions
 remain unchanged; a compatibility rule does not admit broader binding families.
 
-Claude Code releases newer than 2.1.291 and below 2.2.0, including 2.1.296, can
+Claude Code releases newer than 2.1.296 and below 2.2.0 can
 reuse `claude-workflow-own-trace-v1` for a fresh parent-only functional launch.
 Set `binary.version`, configuration `product_version`, and protocol profile version
 to the actual version; supply the executable SHA-256. Runtime checks remain active.
-Child execution and native resume remain unsupported.
+Versions 2.1.289 through 2.1.295 are unsupported for the workflow source.
+In the window, assigned child execution fails before assignment with
+`workflow_adapter_mismatch`: the execution selects the direct-child profile, but
+the conditional protocol holds only own-trace. Direct adapter preflight may instead
+give `claude_workflow_child_unadmitted`. In the window,
+`resumable` or `resume` fails with `claude_workflow_resume_unadmitted`.
+`claude-workflow-direct-child-v1` has no conditional window.
 
 New versions have `compatibility_unverified` source trust. Reports separate their
 reference tokens/costs from verified amounts. Functional eligibility does not make
 `real_allocation`, complete task cost or inference ready, and real experiments
 retain exact source evidence. `hm compatibility inspect` accepts `--source
-codex_workflow` or `--source claude_workflow`. Contract failures block the affected
+codex_workflow` or `--source claude_workflow`. Without `--profile`, the Claude
+workflow source shows the own-trace row for 2.1.296; pass
+`--profile claude-workflow-direct-child-v1` to inspect the child profile.
+`compatibility invalidate` can still block a retired version when a stored cohort
+exists for it. Contract failures block the affected
 version/source; network, deadline and ordinary process errors remain observation gaps.
 See [ADR 013](../decisions/013-forward-version-compatibility.md) for windows and recovery.
 
@@ -364,19 +377,25 @@ original assignment. Missing coverage or prices keep complete cost unavailable;
 synthetic local checks cannot prove billing, native support or an adoption decision.
 ## Claude parent-only workflow
 
-`workflow claude launch`, `stop <run-id>` and `recover <run-id>` use the same
+`workflow claude launch`, `resume`, `stop <run-id>` and `recover <run-id>` use the same
 assignment, selected-artifact confirmation and task lifecycle as Codex. The code-owned
-registry admits `claude_code / 2.1.291 / claude-workflow-own-trace-v1` for a fresh
-root session only. See [the admission evidence](../validation/claude-workflow-02191-source-readiness.md).
+registry admits `claude_code / 2.1.296 / claude-workflow-own-trace-v1` for a
+parent-only root session: a fresh launch, or the [resume](#claude-resume) of a
+session that a resumable launch kept. See [the admission evidence](../validation/claude-workflow-02196-source-readiness.md).
+A separate exact profile admits one read-only direct child; see
+[Claude direct-child profile](#claude-direct-child-profile).
 The binary's `version` must equal the configured `product_version`.
 
-2.1.288 is retired; its tasks need a new protocol and eligible version. Historical
-qualification remains in [the retired record](../validation/claude-workflow-02188-source-readiness.md).
+2.1.288 and 2.1.291 are retired; their tasks need a new protocol and eligible version.
+Stored usage keeps its original labels. Historical qualification remains in the retired
+[2.1.288](../validation/claude-workflow-02188-source-readiness.md) and
+[2.1.291](../validation/claude-workflow-02191-source-readiness.md) records.
 
-A new non-synthetic protocol may list at most one
-`claude_code / claude-workflow-own-trace-v1` profile. Exact-version registration
-requires the newest admitted version (2.1.291); `functional_pilot` also permits
-one newer version in the [conditional window](#conditional-forward-versions).
+A protocol lists one profile per product and version, so a parent-only protocol and
+a direct-child protocol are separate protocols. A new non-synthetic protocol may list
+at most one entry per Claude workflow profile. Exact-version registration
+requires that profile's newest admitted version (2.1.296); `functional_pilot` also permits
+one newer own-trace version in the [conditional window](#conditional-forward-versions).
 Other selections fail with `claude_workflow_version_not_latest`. Registration does
 not change an existing protocol's version or promote conditional source trust.
 Retired or blocked sources cannot launch. Synthetic protocols are exempt from
@@ -385,9 +404,9 @@ this registration rule.
 | Boundary | Supported behavior |
 | --- | --- |
 | Product | Pinned eligible Claude Code binary path/version and SHA-256; existing login |
-| Session | Fresh print-mode root per launch; no native resume, discovery or external link |
-| Continuation | Another `launch` on the same task keeps the original assignment; use a new `run_id` and confirmation ID. The `workspace` may be reused: each run gets its own subdirectory |
-| Child execution | Not admitted; `child_runtime` fails with `claude_workflow_child_unadmitted` before assignment |
+| Session | Fresh print-mode root per launch. With `"resumable": true` (exact version only) the native session is kept for a later `resume`; no discovery or external link |
+| Continuation | Another `launch` on the same task keeps the original assignment; use a new `run_id` and confirmation ID. The `workspace` may be reused: each run gets its own subdirectory. `resume` continues a kept session of the same task in the same `workspace` and reuses its session row |
+| Child execution | Not part of this profile: `child_runtime` on a parent-only protocol fails with `workflow_adapter_mismatch` before assignment. The separate `claude-workflow-direct-child-v1` profile admits one read-only `workflow-child` at the exact version |
 | Tools | `permissions: "read-only"` (default): Read, Glob, Grep. `"workspace-edit"`: adds Edit and Write. Bash, MCP, slash commands and user settings are never loaded |
 | Limits | `timeout_ms` ≤ 3,600,000; `max_turns` and `request_limit` ≤ 1024; optional `max_budget_usd` |
 | Usage | One record per successful `claude_code.llm_request` trace; cache read and cache creation stay separate |
@@ -398,7 +417,7 @@ path/version/SHA, a private `workspace` (canonical, mode 0700), the built
 `timeout_ms`, `max_turns` and `request_limit`. See
 [the example](../../examples/workflow/claude-launch.json). The protocol's
 `source_profiles` and `workflow.json` use `product: "claude_code"` and
-the selected `product_version` (the example uses `2.1.291`). Runtime model and effort remain invocation choices;
+the selected `product_version` (the example uses `2.1.296`). Runtime model and effort remain invocation choices;
 supported effort values are `low`, `medium`, `high`, `xhigh` and `max`.
 
 ```sh
@@ -437,5 +456,88 @@ batch also records a `not_available` gap: Claude exposes no trace sequence or
 terminal watermark, so a run's usage is never complete. In the native admission
 run, every native `api_request` log request ID had a stored usage record after a
 normal exit; an abnormal exit (budget stop, kill) can lose the final request, which
-the `incomplete` gap marks.
+the `incomplete` gap marks. Usage therefore stays partial under both profiles:
+complete task cost, billing and inference remain unavailable.
+
+### Claude direct-child profile
+
+`claude-workflow-direct-child-v1` is a separate exact profile for 2.1.296 with no
+conditional window. See [the admission evidence](../validation/claude-workflow-02196-direct-child-source-readiness.md).
+Register a separate protocol whose source profile is:
+
+```json
+{"product":"claude_code","product_version":"2.1.296","profile_id":"claude-workflow-direct-child-v1"}
+```
+
+Use the same `workflow claude launch` command. Every launch on this protocol adds
+`child_runtime` to the execution JSON and requires `permissions: "read-only"`:
+
+```json
+{"child_runtime":{"model":"<user-selected-child-model>","effort":"high"},"permissions":"read-only"}
+```
+
+The full execution document must also supply all required launch fields shown above.
+
+| Condition | Refusal before assignment |
+| --- | --- |
+| `permissions: "workspace-edit"` with `child_runtime` | `claude_workflow_child_read_only_required` |
+| Execution without `child_runtime` on this protocol, or with it on a parent-only protocol | `workflow_adapter_mismatch` |
+| Conditional child execution on an own-trace protocol | `workflow_adapter_mismatch` |
+
+The assigned CLI compares the selected profile before adapter preflight. Direct
+adapter preflight for a version without the direct-child admission may instead
+give `claude_workflow_child_unadmitted`.
+
+The root gets the Agent tool and exactly one agent type, `workflow-child`, with the
+tools Read, Glob and Grep. Agent, Bash, Write, Edit, WebFetch and WebSearch are
+disallowed for it, its turn limit equals the run's `max_turns`, it is not a
+background agent, and the selected instructions are also appended to it. The model
+may or may not use the child; a run without a child still completes.
+
+Only one child is admitted. A second Agent call stops the run with
+`claude_probe_child_limit`. Another agent type, a resume request, a background
+request, an `isolation` request, a model different from `child_runtime.model`, or an
+`effort` different from `child_runtime.effort` in the Agent tool input stops it with
+`claude_probe_child_scope`. Each stop records a gap. These are fail-closed checks
+performed at hooks that may fail open, so they do not guarantee that a request was
+never sent. Deeper descendants, more children, background or isolated children and
+a child that edits files are unsupported.
+
+Child usage is stored on its own session row linked to the root; each child request
+records the child's model and effort. A direct-child run cannot be kept or resumed.
+
+### Claude resume
+
+Resume belongs to `claude-workflow-own-trace-v1` and needs the exactly admitted
+version. It is parent-only. First launch with `"resumable": true` in the launch
+execution document. That launch keeps the native session, so the product stores its
+own transcript for the project in the user's Claude configuration directory. Harness
+Delta never reads that transcript. Without `resumable`, nothing is persisted.
+
+The resume execution document specifies `operation: "resume"`, a fresh `run_id`,
+`resume_run_id` naming the earlier resumable run of the same task, and the same
+`workspace`, which must still hold that run's directory. The other fields match a
+launch. See [the example](../../examples/workflow/claude-resume.json), which uses
+`permissions: "read-only"`. Only a read-only kept launch and read-only resume have
+native evidence; edit-mode resume or changing permissions between runs is not
+established. Resume does not compare permissions with the kept launch.
+
+```sh
+node dist/cli.js --db .harness-delta/local.sqlite workflow claude resume \
+  --config workflow.json --runtime runtime.json --execution claude-resume.json --confirmation confirmation-2
+```
+
+The resumed run reuses the kept session's row, and each run reports only its own
+requests in `observed_requests`. The interval between the kept session's last run
+and the resume is recorded as an `offline` gap and is never backfilled. Requests made
+in that native session outside the workflow are not observed.
+
+| Condition | Refusal before assignment |
+| --- | --- |
+| Unknown run; a run not launched resumable; another task or project; a session with a running run, with a child or without stored usage; a manifest of another version; a symlinked manifest; a run directory that is not private | `claude_workflow_resume_source_invalid` |
+| `resumable` or `resume` on a conditional version | `claude_workflow_resume_unadmitted` |
+| Subcommand differs from the document's `operation` | `workflow_operation_mismatch` |
+
+`resume` cannot be combined with `child_runtime`, and `resumable` cannot be set on a
+child launch.
 

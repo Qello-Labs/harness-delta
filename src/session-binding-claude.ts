@@ -33,7 +33,7 @@ import type { BindingCapabilities, BindingReadBoundary, BindingUsageRecord, Chil
  * <session>/subagents/ (documented layout). Membership is verified; the direct parent of
  * a nested subagent is not in the documented hook input, so members are flattened under
  * the root. The project directory encoding and every transcript row field read here are
- * undocumented native formats, which is why the version profile stays a candidate.
+ * undocumented native formats. Native profile evidence does not grant collection authority.
  *
  * Project scope is checked from receipt metadata and paths before any transcript read.
  * Only metadata leaves leave this module; transcript text, prompts, responses and tool
@@ -41,10 +41,12 @@ import type { BindingCapabilities, BindingReadBoundary, BindingUsageRecord, Chil
  */
 
 export interface ClaudeTranscriptProfile { readonly version: string; readonly status: 'qualified' | 'candidate'; readonly evidence: string }
-/** Exact versions only. A candidate profile is synthetic-fixture evidence: production
- * binding stays closed until an approved native qualification promotes it. */
+/** Exact versions only. A candidate profile is synthetic-fixture evidence. A qualified profile also has
+ * native transcript, skill-hook, family-membership and own-counter evidence for that exact version.
+ * Neither status opens ordinary production collection: the binding service admits a source only
+ * through a qualification lease, the human-pilot scope or a synthetic task. */
 export const claudeBindingProfiles: readonly ClaudeTranscriptProfile[] = Object.freeze([
-  Object.freeze({ version: '2.1.296', status: 'candidate' as const, evidence: 'official-changelog-2.1.296;synthetic-fixtures;native-qualification-pending' }),
+  Object.freeze({ version: '2.1.296', status: 'qualified' as const, evidence: 'offline-actual-binary;native-pilot-2026-10-13;validation/claude-ordinary-binding-02196-qualification.md' }),
   Object.freeze({ version: '2.1.294', status: 'candidate' as const, evidence: 'official-changelog-2.1.294;synthetic-fixtures;native-qualification-pending' }),
   Object.freeze({ version: '2.1.293', status: 'candidate' as const, evidence: 'synthetic-fixtures;native-qualification-pending' }),
   Object.freeze({ version: '2.1.291', status: 'candidate' as const, evidence: 'official-docs-2026-10-07;synthetic-fixtures;native-qualification-pending' }),
@@ -201,7 +203,8 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
 
   capabilities(): BindingCapabilities {
     const qualified = this.#options.profiles.some(profile => profile.status === 'qualified');
-    return { currentIdentity: 'native_hook', ancestry: 'verified_relations', usage: 'own_requests', productionSupported: qualified,
+    // A qualified transcript profile is not an ordinary production admission; the service decides that.
+    return { currentIdentity: 'native_hook', ancestry: 'verified_relations', usage: 'own_requests', productionSupported: false,
       // Members are verified relations of the root; nested direct parents are not claimed.
       maxDepth: 1,
       reasons: ['claude_skill_hooks_required_per_session', 'claude_family_flattened_direct_parent_unverified', 'claude_receipts_local_trust',
@@ -211,7 +214,8 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
   /** Version support is decided from native transcript rows against exact profiles. */
   supportedVersion(version: unknown): boolean {
     const profile = this.#options.profiles.find(p => p.version === version);
-    return profile !== undefined && (profile.status === 'qualified' || this.#options.allowCandidateProfiles);
+    // Transcript qualification cannot bypass the separately approved pilot authority.
+    return profile !== undefined && this.#options.allowCandidateProfiles;
   }
 
   /** Metadata-only pilot scope check before receipt or transcript access. */

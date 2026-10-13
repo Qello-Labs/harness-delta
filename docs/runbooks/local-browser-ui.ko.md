@@ -149,9 +149,13 @@ JS
 ## 연결 경로 선택
 
 아래 단계는 정확한 Codex 0.160.0 티켓 경로입니다. 일반 터미널 세션과 가족 수집은
-[Harness Connect](harness-connect.ko.md)를 사용하세요. 해당 경로는 별도의 후보
-검증과 로컬 파일럿 권한을 요구하며 Codex 0.162.0/0.162.1 root와
+[Harness Connect](harness-connect.ko.md)를 사용하세요. 해당 경로는 별도의 profile
+증거와 로컬 파일럿 권한을 요구하며 Codex 0.162.0/0.162.1 root와
 Claude 2.1.291/2.1.293/2.1.294/2.1.296 가족을 포함합니다.
+2.1.296의 qualified 상태는 제한된 native print-mode 증거만 뜻하며 대화형 검증이나
+제품 수집 허용이 아닙니다. 모든 ordinary Claude profile에는 `allowCandidateProfiles: true`가
+필요하며 기본 provider 거부와 ordinary service 수집 gate는 계속 닫혀 있습니다.
+`native_unverified_pilot`, `legacy_unverified`, `candidate_pilot` label은 유지됩니다.
 skill 설치만으로 수집이 허용되지는 않습니다. 파일·launch workflow의 호환 범위가
 두 UI 경로의 source 허용 범위를 넓히지는 않습니다.
 

@@ -138,7 +138,7 @@ describe('Claude current-session identity', () => {
 
   it('fails closed for unqualified, unknown, expired, loose, dead-process and other-project evidence', async () => {
     const sid = randomUUID(); writeRoot(sid); connect(sid); const receipt = locate(sid).receipt!;
-    expect(claudeBindingProfiles.every(profile => profile.status === 'candidate')).toBe(true);
+    expect(claudeBindingProfiles.map(profile => [profile.version, profile.status])).toEqual([['2.1.296', 'qualified'], ['2.1.294', 'candidate'], ['2.1.293', 'candidate'], ['2.1.291', 'candidate']]);
     const production = provider({ allowCandidateProfiles: false });
     expect(production.capabilities().productionSupported).toBe(false);
     await expect(production.resolveCurrent({ receipt })).rejects.toThrow('claude_source_version_unsupported');
@@ -480,7 +480,21 @@ describe('Claude bound-session authorization', () => {
     expect(authorizeSource).toHaveBeenLastCalledWith(expect.objectContaining({ nativeSessionId: sid, agentId: 'denied', sourceRef: childPath(sid, 'denied') }));
   });
 
-  it.each(['2.1.293', '2.1.294', '2.1.296'])('keeps Claude %s a code-owned synthetic candidate', async version => {
+  it('keeps the qualified 2.1.296 transcript profile behind explicit pilot authority', async () => {
+    const sid = randomUUID(); writeRoot(sid);
+    writeFileSync(rootPath(sid), lines([userRow(sid, '2026-10-07T00:59:00.000Z', { version: '2.1.296' })]));
+    connect(sid); const receipt = locate(sid).receipt!;
+    const production = provider({ allowCandidateProfiles: false });
+    await expect(production.resolveCurrent({ receipt })).rejects.toThrow('claude_source_version_unsupported');
+    expect((await provider().resolveCurrent({ receipt })).productVersion).toBe('2.1.296');
+    expect(production.capabilities()).toMatchObject({ productionSupported: false });
+    expect(production.capabilities().reasons).not.toContain('claude_transcript_profile_unqualified');
+    const candidatesOnly = provider({ allowCandidateProfiles: false, profiles: claudeBindingProfiles.filter(profile => profile.status === 'candidate') });
+    expect(candidatesOnly.capabilities().reasons).toContain('claude_transcript_profile_unqualified');
+    await expect(candidatesOnly.resolveCurrent({ receipt })).rejects.toThrow('claude_source_version_unsupported');
+  });
+
+  it.each(['2.1.293', '2.1.294'])('keeps Claude %s a code-owned synthetic candidate', async version => {
     const sid = randomUUID(); writeRoot(sid);
     writeFileSync(rootPath(sid), lines([userRow(sid, '2026-10-07T00:59:00.000Z', { version })]));
     connect(sid); const receipt = locate(sid).receipt!;
@@ -489,7 +503,7 @@ describe('Claude bound-session authorization', () => {
     expect(claudeBindingProfiles.find(profile => profile.version === version)?.status).toBe('candidate');
   });
 
-  it('collects latest candidate own usage once and excludes the prior baseline', async () => {
+  it('collects 2.1.296 own usage once and excludes the prior baseline', async () => {
     const sid = randomUUID(); const version = '2.1.296';
     writeFileSync(rootPath(sid), lines([
       userRow(sid, '2026-10-07T00:59:00.000Z', { version }),
@@ -509,7 +523,7 @@ describe('Claude bound-session authorization', () => {
     expect(JSON.stringify(batch)).not.toContain(privateText);
   });
 
-  it('keeps latest candidate family requests separate under the three-member ceiling', async () => {
+  it('keeps 2.1.296 family requests separate under the three-member ceiling', async () => {
     const sid = randomUUID(); const version = '2.1.296';
     writeFileSync(rootPath(sid), lines([userRow(sid, '2026-10-07T00:59:00.000Z', { version })]), { mode: 0o600 });
     connect(sid); const p = provider({ maxFamilyMembers: 3 }); const parent = await currentIdentity(sid, p);

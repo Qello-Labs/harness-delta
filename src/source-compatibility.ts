@@ -21,7 +21,7 @@ export const sourceCompatibilityWindows = Object.freeze([
   { product: 'claude_code', source: 'file', base: '2.1.283', upper_exclusive: '2.2.0', profile_id: 'claude-file-message-components-v1' },
   { product: 'codex', source: 'codex_workflow', base: '0.160.0', upper_exclusive: '0.164.0', profile_id: 'codex-workflow-own-response-v1' },
   { product: 'codex', source: 'codex_workflow', base: '0.160.0', upper_exclusive: '0.164.0', profile_id: 'codex-workflow-direct-child-v1' },
-  { product: 'claude_code', source: 'claude_workflow', base: '2.1.291', upper_exclusive: '2.2.0', profile_id: 'claude-workflow-own-trace-v1' },
+  { product: 'claude_code', source: 'claude_workflow', base: '2.1.296', upper_exclusive: '2.2.0', profile_id: 'claude-workflow-own-trace-v1' },
 ] as const);
 
 export function resolveSourceCompatibility(product: string, version: string, source: CompatibilitySource, profileId?: string): SourceCompatibility | null {

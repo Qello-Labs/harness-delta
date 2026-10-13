@@ -10,10 +10,10 @@ import { Store } from '../../src/store.js';
 import { makeFlexibleFixture } from './flexible-fixture.js';
 import { assignmentInput } from './comparison-fixture.js';
 
-export const claudeWorkflowProfile = { product: 'claude_code' as const, product_version: '2.1.291', profile_id: claudeWorkflowProfileId };
+export const claudeWorkflowProfile = { product: 'claude_code' as const, product_version: '2.1.296', profile_id: claudeWorkflowProfileId };
 /** A frozen functional-pilot protocol with one Claude workflow profile, two registered variants,
  * a workflow input and a launch execution whose stand-in binary is this Node executable. */
-export function claudeWorkflowFixture(sourceVersion = '2.1.291') {
+export function claudeWorkflowFixture(sourceVersion = '2.1.296') {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'claude-admission-'))); const project = join(root, 'project'); mkdirSync(project);
   const store = new Store(join(root, 'measurement.sqlite')); const f = makeFlexibleFixture(); const now = Date.now();
   f.protocol.purpose = 'functional_pilot'; delete f.protocol.minimum_effect; delete f.protocol.quality_margin; delete f.protocol.confidence_level;
