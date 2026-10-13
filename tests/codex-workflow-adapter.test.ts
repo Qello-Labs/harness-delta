@@ -36,11 +36,20 @@ test('explicit new root link and foreground collect add future usage under the o
     const root=f.newRoot();f.appendUsage(root);
     const linked=await runAssignedWorkflow(f.store,{...f.input,confirmation_id:'link-confirmation'},createSyntheticCodexWorkflowAdapter(f.store,f.execution('link','link',root.id,root.path),f.script),runtime);
     expect(linked.adapter_result).toMatchObject({state:'completed',observed_requests:0,harness_application:'external_unverified'});
-    const pending=runAssignedWorkflow(f.store,{...f.input,confirmation_id:'collect-confirmation'},createSyntheticCodexWorkflowAdapter(f.store,f.execution('collect','collect',root.id),f.script),runtime);
-    const add=setTimeout(()=>f.appendUsage(root),30);const stop=setInterval(()=>{if(f.store.eventCount()===2)stopCodexWorkflow(f.store,'collect');},10);
-    try{expect((await pending).adapter_result).toMatchObject({state:'stopped',observed_requests:1});}finally{clearTimeout(add);clearInterval(stop);}
+    const execute=f.store.execute.bind(f.store);let appended=false;let stopped=false;let futureRequest:string|null=null;
+    const subscription=vi.spyOn(f.store,'execute').mockImplementation((sql,params)=>{
+      execute(sql,params);
+      const run=f.store.get<{scope_verified:number}>('SELECT scope_verified FROM codex_workflow_runs WHERE id=?',['collect']);
+      if(!appended&&run?.scope_verified===1){appended=true;queueMicrotask(()=>{futureRequest=f.appendUsage(root);});}
+      if(!stopped&&f.store.eventCount()===2){stopped=true;queueMicrotask(()=>stopCodexWorkflow(f.store,'collect'));}
+    });
+    try{
+      const pending=runAssignedWorkflow(f.store,{...f.input,confirmation_id:'collect-confirmation'},createSyntheticCodexWorkflowAdapter(f.store,f.execution('collect','collect',root.id),f.script),runtime);
+      expect((await pending).adapter_result).toMatchObject({state:'stopped',observed_requests:1});
+    }finally{subscription.mockRestore();}
     expect(f.store.all('SELECT id FROM sessions')).toHaveLength(2);expect(f.store.all('SELECT task_id FROM comparison_assignments')).toHaveLength(1);
     expect(f.store.eventCount()).toBe(2);
+    expect(f.store.all("SELECT json_extract(r.payload,'$.request_id') AS request_id FROM events e JOIN runtime_evidence r ON r.id=json_extract(e.payload,'$.runtime_evidence_id') WHERE e.session_id=?",[root.id])).toEqual([{request_id:futureRequest}]);
   }finally{f.cleanup();}
 });
 test.each(['replace','child','runtime','pause','delete','confirmation'] as const)('collector fails closed on %s before retaining additional usage',async(mode)=>{

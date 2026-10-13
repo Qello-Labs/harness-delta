@@ -60,6 +60,7 @@ const safeCodes = new Set(['application_cleanup_pending','application_managed_re
   'external_connection_required', 'external_connection_unverified', 'external_ticket_invalid', 'external_ticket_used', 'external_freshness_unverified', 'external_context_mismatch', 'external_window_closed', 'invalid_criteria', 'invalid_ui_setup', 'ui_setup_conflict', 'binary_mismatch', 'external_native_binary_required', 'catalog_source_not_configured', 'catalog_unavailable', 'picker_unavailable', 'ui_state_changed', 'ui_action_uncertain',
   'ui_action_conflict', 'invalid_ui_request', 'binding_provider_unavailable', 'binding_source_unqualified',
   'binding_pilot_scope_invalid', 'binding_pilot_family_scope', 'binding_family_limit', 'binding_pilot_control_only',
+  'binding_admission_family_scope', 'binding_runtime_unsupported', 'compatibility_invalidated',
   'binding_scope_revoked', 'binding_identity_mismatch', 'binding_identity_unavailable', 'binding_session_conflict',
   'binding_relation_invalid', 'binding_request_conflict', 'binding_usage_invalid', 'binding_configuration_invalid',
   'binding_source_changed', 'binding_source_unapproved', 'binding_metadata_untrusted', 'binding_cursor_invalid',

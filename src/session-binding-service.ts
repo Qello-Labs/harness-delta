@@ -19,22 +19,33 @@ import { putUsageWithEvidence, recordObservationGap } from './runtime-history.js
 import { selectTaskPriceTable } from './price-catalog-selection.js';
 import { comparisonProtocol, protocolRow } from './comparison.js';
 import { BindingUsageRecordSchema, bindingIdentityKey, CurrentIdentityRequestSchema, VerifiedSessionIdentitySchema,
-  type BindingProduct, type CurrentIdentityRequest, type SessionBindingProvider, type VerifiedSessionIdentity } from './session-binding-contract.js';
+  type BindingProduct, type BindingUsageRecord, type CurrentIdentityRequest, type SessionBindingProvider, type VerifiedSessionIdentity } from './session-binding-contract.js';
 import type { CandidateScope } from './nested-candidate.js';
 import type { Store } from './store.js';
-import { assertBindingQualification, bindingQualificationOwnerLive, noteBindingQualificationTransition, checkBindingQualificationIdentity, checkBindingQualificationRecord, type BindingQualificationLease } from './session-binding-qualification-lease.js';
+import { assertBindingQualification, bindingQualificationCompatibility, bindingQualificationOwnerLive, noteBindingQualificationTransition, checkBindingQualificationIdentity, checkBindingQualificationRecord, type BindingQualificationLease } from './session-binding-qualification-lease.js';
 import type { ExternalTaskSetup } from './external-session-service.js';
 import { assertHumanPilotScope, checkHumanPilotIdentity, humanPilotCompatibility, type HumanPilotScope } from './session-binding-human-pilot.js';
 import { isClaudeHumanPilotScope } from './session-binding-claude-human-pilot.js';
-import { assertCompatibilityAllowed, pinSessionCompatibility, invalidateCompatibility } from './source-compatibility.js';
+import { assertCompatibilityAllowed, pinSessionCompatibility, invalidateCompatibility, resolveSourceCompatibility } from './source-compatibility.js';
+import { codexBindingAdmission, isAdmittedCodexBindingProtocol } from './codex-binding-admission.js';
+import { lstatSync } from 'node:fs';
 
 interface BindingRow { session_id: string; task_id: string; root_id: string; identity: string;
   relation_evidence_id: string | null; connect_receipt: string | null; cursor: string | null; observed_since: string; generation: number; state: string; gaps: string }
+/** Paid-run safety counts include guarded reads whose later storage fails.
+ * These callbacks may veto the run but never authorize source access. */
+export interface BindingObservation {
+  readonly identity: (taskId: string, identity: VerifiedSessionIdentity) => void;
+  readonly record: (taskId: string, record: BindingUsageRecord, excluded: boolean) => void;
+  readonly transition: (taskId: string) => void;
+  readonly error: (error: unknown) => void;
+}
 export interface SessionBindingServiceOptions {
   store: Store; providers: SessionBindingProvider[]; setupFor(taskId: string): ExternalTaskSetup; clock?: Clock;
   providersForTask?(taskId: string, deletedProjectRoot?: string): SessionBindingProvider[];
   qualificationLease?: BindingQualificationLease;
   humanPilot?: HumanPilotScope;
+  bindingObservation?: BindingObservation;
   /** Internal selected-pilot diagnostic sink; never profile/browser input. */
   onFamilyRejection?: (diagnostic: FamilyDiagnostic) => void;
   /** Opt-in internal instrumentation; callback failures never change collection decisions. */
@@ -54,13 +65,21 @@ export function bindingSourceSupported(store: Store, taskId: string): boolean {
   const task = new Lifecycle(store).task(taskId);
   const metadata = parseTaskMetadata(JSON.parse(task.metadata) as unknown);
   const assignment = store.get<{ protocol_id: string }>('SELECT protocol_id FROM comparison_assignments WHERE task_id=?', [taskId]);
-  return metadata.product === 'synthetic' && !!assignment && comparisonProtocol(store, protocolRow(store, assignment.protocol_id)).purpose === 'synthetic_validation';
+  if (!assignment) return false;
+  const protocol = comparisonProtocol(store, protocolRow(store, assignment.protocol_id));
+  return metadata.product === 'synthetic' && protocol.purpose === 'synthetic_validation' ||
+    metadata.product === 'codex' && protocol.schema_version === 2 && isAdmittedCodexBindingProtocol(protocol) &&
+    ('initial_model' in metadata ? metadata.initial_model : metadata.model) === codexBindingAdmission.model;
 }
 
 export function createSessionBindingService(options: SessionBindingServiceOptions) {
   if(options.qualificationLease&&options.humanPilot)throw new Error('binding_pilot_scope_invalid');
   const { store } = options; const clock = options.clock ?? utcNow; const life = new Lifecycle(store, clock);
   const rows = (taskId: string) => store.all<BindingRow>('SELECT * FROM session_bindings WHERE task_id=? ORDER BY rowid', [taskId]);
+  const compatibilityFor = (taskId: string) => options.humanPilot ? humanPilotCompatibility(options.humanPilot,store,taskId)
+    : options.qualificationLease ? bindingQualificationCompatibility(options.qualificationLease)
+      : ordinaryAdmitted(taskId)
+        ? resolveSourceCompatibility('codex',codexBindingAdmission.productVersion,'codex_binding',codexBindingAdmission.profileId) : null;
   const queues = new Map<string, Promise<void>>();
   const readiness = new Map<string, { waited: boolean; deadline: number; monotonicDeadline: bigint | null;
     observation: { attemptId: string; enteredAt: bigint; root: BindingRow; starts: Map<string, Readonly<PendingChildStart>> } | null }>();
@@ -85,9 +104,17 @@ export function createSessionBindingService(options: SessionBindingServiceOption
   // injected providers may use the synthetic protocol's validation authority.
   const sourceSupported = (taskId: string, product: BindingProduct) => {
     const provider = providerFor(product, taskId);
+    const task = life.task(taskId);
+    const metadata = parseTaskMetadata(JSON.parse(task.metadata) as unknown);
     return bindingSourceSupported(store, taskId) &&
-      (options.providers.includes(provider) || options.syntheticProviderForTask?.(provider, taskId) === true);
+      (metadata.product === 'synthetic'
+        ? options.providers.includes(provider) || options.syntheticProviderForTask?.(provider, taskId) === true
+        : metadata.product === product && provider instanceof CodexSessionBindingProvider && provider.admissionProfile() === codexBindingAdmission.profileId);
   };
+  const ordinaryAdmitted = (taskId: string) =>
+    parseTaskMetadata(JSON.parse(life.task(taskId).metadata) as unknown).product === 'codex' &&
+    providerFor('codex',taskId) instanceof CodexSessionBindingProvider &&
+    sourceSupported(taskId,'codex');
   let forgetting: Promise<void> | undefined;
   const flushForgotten = (): Promise<void> => {
     if (forgetting) return forgetting;
@@ -113,7 +140,7 @@ export function createSessionBindingService(options: SessionBindingServiceOption
     if (task.state === 'finalized' || active && task.state !== 'active' || generation !== undefined && task.generation !== generation) throw new Error('binding_scope_revoked');
     const setup = options.setupFor(taskId);
     if(applicationRequired(store,taskId)&&setup.workflow.assignment.metadata.product!=='synthetic'&&
-      (!options.humanPilot||!humanPilotCompatibility(options.humanPilot,store,taskId)))throw new Error('application_source_unqualified');
+      (!options.humanPilot||!humanPilotCompatibility(options.humanPilot,store,taskId))&&!ordinaryAdmitted(taskId))throw new Error('application_source_unqualified');
     assertExternalPrepared(store, taskId, setup.workflow, setup.preparation, clock);
     const contract = externalContract(store, taskId);
     if (!contract) throw new Error('external_contract_required');
@@ -122,8 +149,9 @@ export function createSessionBindingService(options: SessionBindingServiceOption
     if ((!control || options.qualificationLease) && contract.ends_at && Date.parse(clock()) >= Date.parse(contract.ends_at)) throw new Error('external_window_closed');
     if (options.qualificationLease) assertBindingQualification(options.qualificationLease, store, taskId);
     else if(options.humanPilot)assertHumanPilotScope(options.humanPilot,store,taskId,providerFor(parseTaskMetadata(JSON.parse(life.task(taskId).metadata) as unknown).product as BindingProduct,taskId));
-    else if (!bindingSourceSupported(store, taskId)) throw new Error('binding_source_unqualified');
-    const compatibility=options.humanPilot?humanPilotCompatibility(options.humanPilot,store,taskId):null;
+    else if (!bindingSourceSupported(store,taskId) ||
+      setup.workflow.assignment.metadata.product!=='synthetic'&&!ordinaryAdmitted(taskId)) throw new Error('binding_source_unqualified');
+    const compatibility=compatibilityFor(taskId);
     if(compatibility)assertCompatibilityAllowed(store,compatibility);
     return task;
   };
@@ -142,6 +170,26 @@ export function createSessionBindingService(options: SessionBindingServiceOption
     if (value.cwd !== root?.local_root || metadata.product !== 'synthetic' && value.productVersion !== options.setupFor(taskId).workflow.product_version) throw new Error('binding_identity_mismatch');
     if (store.get("SELECT 1 FROM tombstones WHERE kind='session' AND id=?", [value.sessionId])) throw new Error('deleted_identifier');
     const old = store.get<{ task_id: string; parent_id: string | null }>('SELECT task_id,parent_id FROM sessions WHERE id=?', [value.sessionId]);
+    if(!options.qualificationLease&&!options.humanPilot&&ordinaryAdmitted(taskId)) {
+      const family = rows(taskId).map(identityFor);
+      const root = family.find(member => member.parentSessionId === null);
+      if(value.productVersion!==codexBindingAdmission.productVersion ||
+        value.parentSessionId===null&&(root&&root.sessionId!==value.sessionId||!old&&Date.parse(value.createdAt)<Date.parse(task.registered_at)) ||
+        value.parentSessionId!==null&&(!root||value.parentSessionId!==root.sessionId||Date.parse(value.createdAt)<Date.parse(root.createdAt)) ||
+        !old&&family.length>=codexBindingAdmission.maxFamilyMembers)throw new Error('binding_admission_family_scope');
+      if(value.parentSessionId===null&&!old) {
+        let bornAt: number;
+        try { const stat=lstatSync(value.sourceRef);if(!stat.isFile()||stat.isSymbolicLink())throw new Error();bornAt=stat.birthtimeMs; }
+        catch { throw new Error('binding_admission_family_scope'); }
+        if(!Number.isFinite(bornAt)||bornAt<Date.parse(task.registered_at))throw new Error('binding_admission_family_scope');
+      }
+      if(value.parentSessionId!==null&&!old&&root) {
+        let childBirth: number; let rootBirth: number;
+        try { childBirth=lstatSync(value.sourceRef).birthtimeMs;rootBirth=lstatSync(root.sourceRef).birthtimeMs; }
+        catch { throw new Error('binding_admission_family_scope'); }
+        if(!Number.isFinite(childBirth)||!Number.isFinite(rootBirth)||childBirth<rootBirth)throw new Error('binding_admission_family_scope');
+      }
+    }
     if (old && (old.task_id !== taskId || old.parent_id !== value.parentSessionId)) throw new Error('binding_session_conflict');
     const bound = store.get<BindingRow>('SELECT * FROM session_bindings WHERE session_id=?', [value.sessionId]);
     if (bound && bindingIdentityKey(identityFor(bound)) !== bindingIdentityKey(value)) throw new Error('binding_identity_mismatch');
@@ -159,7 +207,7 @@ export function createSessionBindingService(options: SessionBindingServiceOption
     if (!confirmation) throw new Error('configuration_confirmation_required');
     store.execute('INSERT INTO sessions(id,project_id,task_id,parent_id,source_path,product,product_version) VALUES (?,?,?,?,?,?,?)',
       [value.sessionId, task.project_id, taskId, value.parentSessionId, null, parseTaskMetadata(JSON.parse(task.metadata) as unknown).product === 'synthetic' ? 'synthetic' : value.product, value.productVersion]);
-    const compatibility=options.humanPilot?humanPilotCompatibility(options.humanPilot,store,taskId):null;
+    const compatibility=compatibilityFor(taskId);
     if(compatibility)pinSessionCompatibility(store,value.sessionId,compatibility);
     bindConfigurationToSession(store, confirmation.id, value.sessionId);
     bindApplicationEpoch(store,taskId,value.sessionId);
@@ -210,8 +258,11 @@ export function createSessionBindingService(options: SessionBindingServiceOption
     if (deliveredRow) authorizeObservation(taskId, deliveredRow);
   };
   const invalidateSourceContract = (taskId: string, error: unknown) => {
-    const compatibility=options.humanPilot?humanPilotCompatibility(options.humanPilot,store,taskId):null;
-    if(compatibility&&error instanceof Error&&['candidate_invalid_metadata','candidate_scope_mismatch','candidate_conflict','binding_metadata_unavailable','binding_source_changed','binding_scope_mismatch'].includes(error.message))invalidateCompatibility(store,compatibility,'contract_failed');
+    const compatibility=compatibilityFor(taskId);
+    const contractErrors=compatibility?.source==='codex_binding'
+      ? ['candidate_invalid_metadata','candidate_scope_mismatch','candidate_conflict']
+      : ['candidate_invalid_metadata','candidate_scope_mismatch','candidate_conflict','binding_metadata_unavailable','binding_source_changed','binding_scope_mismatch'];
+    if(compatibility&&error instanceof Error&&contractErrors.includes(error.message))invalidateCompatibility(store,compatibility,'contract_failed');
   };
   const discoverFamily = async (taskId: string, row: BindingRow, value: VerifiedSessionIdentity, at: FamilyPhase) => {
     try {
@@ -254,7 +305,7 @@ export function createSessionBindingService(options: SessionBindingServiceOption
   const read = async (taskId: string, row: BindingRow, baseline: boolean) => {
     authorizeObservation(taskId,row); const value = identityFor(row); assertApplicationWorkingIdentity(store,taskId,value); const provider = providerFor(value.product, taskId);
     if(options.humanPilot)checkHumanPilotIdentity(options.humanPilot,store,taskId,value);
-    if((options.humanPilot || value.product === 'claude_code') && baseline) {
+    if((options.humanPilot || value.product === 'claude_code' || ordinaryAdmitted(taskId)) && baseline) {
       // Baselines also need a metadata-only family preflight. Initial connect
       // and resume must not read a root body before noticing rejected members.
       const discovered=await discoverFamily(taskId,row,value,'baseline_discovery');
@@ -278,6 +329,8 @@ export function createSessionBindingService(options: SessionBindingServiceOption
     const records = batch.records.map(record => BindingUsageRecordSchema.parse(record));
     const excluded = (batch.excludedRecords ?? []).map(record => BindingUsageRecordSchema.parse(record));
     for (const record of [...records,...excluded]) if (record.sessionId !== value.sessionId || record.payload.product !== value.product || record.payload.product_version !== value.productVersion || Date.parse(record.occurredAt) > Date.parse(clock())) throw new Error('binding_usage_invalid');
+    for (const record of excluded) options.bindingObservation?.record(taskId,record,true);
+    for (const record of records) options.bindingObservation?.record(taskId,record,baseline);
     store.immediateTransaction(() => {
       const task = authorizeObservation(taskId,row);
       for (const record of excluded) checkBindingQualificationRecord(options.qualificationLease, store, taskId, record, true);
@@ -363,6 +416,7 @@ export function createSessionBindingService(options: SessionBindingServiceOption
       for (const row of all.filter(row => row.state === 'observing')) recordObservationGap(store, taskId, row.session_id, row.observed_since, clock(), 'incomplete', clock());
       life.pause(taskId);
       noteBindingQualificationTransition(options.qualificationLease, store, taskId);
+      options.bindingObservation?.transition(taskId);
     }
   };
   const discoverBindings = async (taskId: string) => {
@@ -375,7 +429,7 @@ export function createSessionBindingService(options: SessionBindingServiceOption
       // Candidate providers may report a rejected ancestry/family as a gap
       // instead of returning its identity. Claude families and pilots fail closed
       // even when mixed terminal evidence prevents readiness from latching.
-      if((options.humanPilot || value.product === 'claude_code') && discovered.gaps.length)rejectFamily(taskId,row,'tick_discovery',discovered);
+      if((options.humanPilot || value.product === 'claude_code' || ordinaryAdmitted(taskId)) && discovered.gaps.length)rejectFamily(taskId,row,'tick_discovery',discovered);
       let depth = 0; let ancestor = row;
       while (identityFor(ancestor).parentSessionId !== null) { depth++; ancestor = pending.find(p => p.session_id === identityFor(ancestor).parentSessionId)!; if (!ancestor || depth > 32) throw new Error('binding_relation_invalid'); }
       for (const child of discovered.children) {
@@ -389,6 +443,7 @@ export function createSessionBindingService(options: SessionBindingServiceOption
         if (existing) { if (existing.root_id !== row.root_id) throw new Error('binding_relation_invalid'); continue; }
         store.immediateTransaction(() => { authorize(taskId, true, task.generation); bind(taskId, identity, row.root_id, child.relationEvidenceId, task.generation); });
         checkBindingQualificationIdentity(options.qualificationLease,store,taskId,identity);
+        options.bindingObservation?.identity(taskId,identity);
         const linked = store.get<BindingRow>('SELECT * FROM session_bindings WHERE session_id=?', [identity.sessionId])!;
         linked.observed_since = row.observed_since;
         store.execute('UPDATE session_bindings SET observed_since=? WHERE session_id=?', [linked.observed_since, identity.sessionId]);
@@ -436,7 +491,7 @@ export function createSessionBindingService(options: SessionBindingServiceOption
       await flushForgotten();
       if (options.qualificationLease && !bindingQualificationOwnerLive(options.qualificationLease)) throw new Error('binding_qualification_live_root_required');
       const before = authorizeConnection(taskId); const provider = providerFor(product, taskId); const input = CurrentIdentityRequestSchema.parse(request);
-      if (options.qualificationLease || options.humanPilot && provider instanceof CodexSessionBindingProvider) {
+      if (options.qualificationLease || (options.humanPilot || ordinaryAdmitted(taskId)) && provider instanceof CodexSessionBindingProvider) {
         if (!(provider instanceof CodexSessionBindingProvider)) throw new Error('binding_qualification_scope_invalid');
         const root=rows(taskId).find(r=>identityFor(r).parentSessionId===null);
         provider.assertRootReceipt(input,root?.session_id??null);
@@ -484,7 +539,9 @@ export function createSessionBindingService(options: SessionBindingServiceOption
         store.execute("UPDATE external_preparations SET first_connected_at=COALESCE(first_connected_at,?),state='connected',reason_code=NULL WHERE task_id=?", [clock(), taskId]);
       });
       if (restart) noteBindingQualificationTransition(options.qualificationLease, store, taskId);
+      if (restart) options.bindingObservation?.transition(taskId);
       checkBindingQualificationIdentity(options.qualificationLease,store,taskId,value);
+      options.bindingObservation?.identity(taskId,value);
       try {
         for (const row of rows(taskId).filter(row => restart || row.session_id === value.sessionId)) await read(taskId, row, true);
         if (readiness.get(taskId)?.waited) await rebaselineFamily(taskId);
@@ -510,7 +567,13 @@ export function createSessionBindingService(options: SessionBindingServiceOption
       return status(taskId);
   };
   const service = {
-    status, pause, flushForgotten, sourceSupported, resumeAvailable,
+    status, pause, flushForgotten, resumeAvailable,
+    sourceSupported: (taskId: string, product: BindingProduct) => {
+      const supported=sourceSupported(taskId,product);
+      const compatibility=supported?compatibilityFor(taskId):null;
+      if(compatibility)assertCompatibilityAllowed(store,compatibility);
+      return supported;
+    },
     resume: (taskId: string) => serialized(taskId, rows(taskId).some(row => identityFor(row).product === 'claude_code') ? 'claude_code' : 'codex', async () => {
       if (options.qualificationLease && !bindingQualificationOwnerLive(options.qualificationLease)) throw new Error('binding_qualification_live_root_required');
       if (life.state(taskId) !== 'paused') throw new Error('binding_reconnect_required');

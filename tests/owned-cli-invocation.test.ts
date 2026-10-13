@@ -4,8 +4,56 @@ import { tmpdir } from 'node:os';
 import { spawn, execFileSync } from 'node:child_process';
 import { Writable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
+import { EventEmitter, once } from 'node:events';
 import { expect, test } from 'vitest';
 import { OwnedCliInvocation } from '../src/owned-cli-invocation.js';
+
+test('owned CLI accepts a fifteen-minute duration and verifies immediate normal exit',async()=>{
+ const result=await new OwnedCliInvocation({command:realpathSync(process.execPath),args:['-e','process.exit(0)'],cwd:realpathSync(process.cwd()),durationMs:900000,stdio:'ignore'}).run();
+ expect(result).toMatchObject({status:'completed',exitCode:0,ownershipVerified:true,terminationVerified:true,terminationCause:'root_exit'});
+});
+
+test('owned CLI rejects a duration beyond fifteen minutes before spawning',()=>{
+ expect(()=>new OwnedCliInvocation({command:realpathSync(process.execPath),args:[],cwd:realpathSync(process.cwd()),durationMs:900001,stdio:'ignore'})).toThrow('owned_cli_invalid');
+});
+
+test('owned terminal attention arrives before exit without a newline or approval input',async()=>{
+ const dir=realpathSync(mkdtempSync(join(tmpdir(),'owned-attention-fixture-')));
+ const script=join(dir,'payload.mjs'),inputMarker=join(dir,'input.json');
+ const attention=new EventEmitter();const notified=once(attention,'attention');let notifications=0,ended=false;
+ writeFileSync(script,`import{writeFileSync}from'node:fs';import{setImmediate}from'node:timers/promises';process.stdin.setRawMode(true);process.stdin.on('data',b=>writeFileSync(${JSON.stringify(inputMarker)},JSON.stringify([...b])));for(const part of['\\x1b',']','9;','private synthetic notification','\\x07']){process.stdout.write(part);await setImmediate();}setTimeout(()=>process.exit(2),4000);`);
+ const options={command:realpathSync(process.execPath),args:[script],cwd:dir,durationMs:5000,terminationMs:1500,termGraceMs:100,stdio:'ignore' as const,onTerminalAttention:()=>{notifications++;attention.emit('attention');}};
+ const owner=new OwnedCliInvocation(options);const result=owner.run();void result.then(()=>{ended=true;});
+ try{
+  await Promise.race([notified,result.then(()=>{throw new Error('synthetic_attention_missing_before_exit');})]);
+  expect(ended).toBe(false);expect(notifications).toBe(1);
+  expect(()=>readFileSync(inputMarker,'utf8')).toThrow();
+ }finally{owner.stop();const final=await result;rmSync(dir,{recursive:true,force:true});expect(final.terminationVerified).toBe(true);}
+},7000);
+
+test('terminal attention ignores text, empty notifications and OSC9 progress updates',async()=>{
+ const dir=realpathSync(mkdtempSync(join(tmpdir(),'owned-attention-noise-')));
+ let notifications=0;
+ try{
+  const script=join(dir,'payload.mjs');
+  writeFileSync(script,`process.stdout.write('synthetic approval text\\x1b[31m\\x1b]9;\\x07\\x1b]9;4;1;50\\x07');`);
+  const result=await new OwnedCliInvocation({command:realpathSync(process.execPath),args:[script],cwd:dir,durationMs:2000,terminationMs:1500,termGraceMs:100,stdio:'ignore',onTerminalAttention:()=>{notifications++;}}).run();
+  expect(result).toMatchObject({status:'completed',terminationVerified:true});
+  expect(notifications).toBe(0);
+ }finally{rmSync(dir,{recursive:true,force:true});}
+},5000);
+
+test.each(['\x1b]9;4;1;50\x1b\\','\x1b]9;4;'])('terminal attention resumes after non-BEL progress %j',async noise=>{
+ const dir=realpathSync(mkdtempSync(join(tmpdir(),'owned-attention-recovery-')));
+ let notifications=0;
+ try{
+  const script=join(dir,'payload.mjs');
+  writeFileSync(script,`process.stdout.write(${JSON.stringify(noise+'\x1b]9;synthetic notification\x07')});`);
+  const result=await new OwnedCliInvocation({command:realpathSync(process.execPath),args:[script],cwd:dir,durationMs:2000,terminationMs:1500,termGraceMs:100,stdio:'ignore',onTerminalAttention:()=>{notifications++;}}).run();
+  expect(result).toMatchObject({status:'completed',terminationVerified:true});
+  expect(notifications).toBe(1);
+ }finally{rmSync(dir,{recursive:true,force:true});}
+},5000);
 
 // Node fixtures only: real products, auth, user processes and logs are excluded.
 test('inherited terminal forwards harmless manual input and restores its raw mode',()=>{
@@ -74,16 +122,19 @@ test('slow exact-member metadata during teardown stays within the existing budge
   // scheduling are outside the production teardown budget. Keep its 5s limit.
   // Teardown cost grows per escaped group; three keep slow CI hosts inside it.
   const source=readFileSync(fileURLToPath(new URL('../scripts/owned-cli-pty.py',import.meta.url)),'utf8');
-  writeFileSync(worker,source.replace('known = {}','known = {}\ntearing_down = False').replace('def metadata(pid):\n','def metadata(pid):\n    if tearing_down: time.sleep(.06)\n').replace('finally:\n','finally:\n    tearing_down = True\n').replace("emit({'type': 'result',", "emit({'syntheticCleanupElapsedMs': (time.monotonic() - (cleanup_until - cfg['terminationMs'] / 1000)) * 1000, 'type': 'result',"));
+  const metadataSignature='def metadata(pid, missing=None):\n';
+  expect(source).toContain(metadataSignature);
+  writeFileSync(worker,source.replace('known = {}','known = {}\ntearing_down = False\nslow_metadata_calls = 0').replace(metadataSignature,`${metadataSignature}    global slow_metadata_calls\n    if tearing_down:\n        slow_metadata_calls += 1\n        time.sleep(.06)\n`).replace('finally:\n','finally:\n    tearing_down = True\n').replace("emit({'type': 'result',", "emit({'syntheticSlowMetadataCalls': slow_metadata_calls, 'syntheticCleanupElapsedMs': (time.monotonic() - (cleanup_until - cfg['terminationMs'] / 1000)) * 1000, 'type': 'result',"));
   const cfg={command:realpathSync(process.execPath),args:[script],cwd:dir,durationMs:3000,terminationMs:5000,termGraceMs:100};
   const owner=spawn(OwnedCliInvocation.pythonExecutable(),[worker,JSON.stringify(cfg)],{stdio:['ignore','ignore','pipe','pipe']});let lines='';
   if(!owner.stderr)throw new Error('synthetic_result_stream_missing');owner.stderr.on('data',(b:Buffer)=>{lines+=b.toString();});
   const ended=new Promise<void>((resolve,reject)=>{owner.once('exit',code=>code===0?resolve():reject(new Error('synthetic_owner_failed')));});
   await expect.poll(()=>{try{pids=JSON.parse(readFileSync(marker,'utf8')) as number[];return pids.length===4;}catch{return false;}},{timeout:1500}).toBe(true);
   await new Promise(r=>setTimeout(r,400));const control=owner.stdio[3];if(!(control instanceof Writable))throw new Error('synthetic_control_missing');control.write('stop\n');await ended;
-  const result=lines.trim().split('\n').map(s=>JSON.parse(s) as {type:string;ownedMembers:number;exitCode:number|null;terminationVerified:boolean;escapedMemberObserved:boolean;syntheticCleanupElapsedMs:number}).find(r=>r.type==='result');
+  const result=lines.trim().split('\n').map(s=>JSON.parse(s) as {type:string;ownedMembers:number;exitCode:number|null;terminationVerified:boolean;escapedMemberObserved:boolean;syntheticCleanupElapsedMs:number;syntheticSlowMetadataCalls:number}).find(r=>r.type==='result');
   expect(result,`Synthetic owner result: ${JSON.stringify(result)}`).toMatchObject({ownedMembers:4,terminationVerified:true,escapedMemberObserved:true});expect(result?.exitCode).not.toBeNull();
   expect(result?.syntheticCleanupElapsedMs).toBeGreaterThanOrEqual(0);
+  expect(result?.syntheticSlowMetadataCalls).toBeGreaterThan(0);
   expect(result?.syntheticCleanupElapsedMs).toBeLessThanOrEqual(cfg.terminationMs);
   await expect.poll(()=>pids.every(pid=>{try{process.kill(pid,0);return false;}catch{return true;}}),{timeout:500}).toBe(true);
  }finally{for(const pid of pids)try{process.kill(pid,'SIGKILL');}catch{/* own fixture already gone */}rmSync(dir,{recursive:true,force:true});}
@@ -122,6 +173,37 @@ print(json.dumps(out))`;
  expect(values).toEqual([{returncode:0,expired:false,coverage:true,queries:1},{returncode:1,expired:false,coverage:true,queries:1},{returncode:2,expired:false,coverage:false,queries:1},{returncode:0,expired:true,coverage:false,queries:0}]);
 });
 
+test('discovery disposes of a vanished candidate only after exact parent and child absence',()=>{
+ const code=`import ast,json,sys,types,subprocess
+tree=ast.parse(open(sys.argv[1]).read())
+functions=[n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name in ['metadata','identity_matches','discover']]
+out=[]
+for outcome in ['absent','live','timeout','malformed','reused_parent','query_error']:
+ root=(42,1,42,501,'synthetic root');parent=(43,42,42,501,'synthetic helper');child=(44,43,42,501,'synthetic child')
+ observations=iter([(42,root),(43,parent),(44,child),(43,(43,42,42,501,'foreign start') if outcome=='reused_parent' else 'query_error' if outcome=='query_error' else 'absent'),(44,outcome)])
+ calls=[]
+ def check_output(args,**kwargs):
+  target=int(args[-1]);expected,value=next(observations);assert target==expected;(calls.append(target))
+  if value=='absent':raise subprocess.CalledProcessError(1,args)
+  if value=='query_error':raise subprocess.CalledProcessError(2,args)
+  if value=='timeout':raise subprocess.TimeoutExpired(args,kwargs['timeout'])
+  if value=='malformed':return b'invalid'
+  return ('%d %d %d %d %s'%(child if value=='live' else value)).encode()
+ def run(args,**kwargs):
+  return types.SimpleNamespace(returncode=0,stdout={42:b'43',43:b'44'}[int(args[-1])])
+ ns={'known':{42:root,43:parent},'proofs':{42:None,43:root},'absent':set(),'pid':42,'uid':501,'escape_seen':False,'ownership_failed':False,'cleanup_exhausted':False,'cleanup_until':None,'ps_env':{},'note_group_change':lambda *args:None,'time':types.SimpleNamespace(monotonic=lambda:100),'subprocess':types.SimpleNamespace(check_output=check_output,run=run,PIPE=-1,DEVNULL=-3,CalledProcessError=subprocess.CalledProcessError,SubprocessError=subprocess.SubprocessError)}
+ exec(compile(ast.Module(body=functions,type_ignores=[]),'<synthetic transient discovery>','exec'),ns)
+ covered=ns['discover']()
+ out.append({'outcome':outcome,'coverage':covered,'failed':ns['ownership_failed'],'members':sorted(ns['known']),'proofs':sorted(ns['proofs']),'absent':sorted(ns['absent']),'calls':calls})
+print(json.dumps(out))`;
+ const result=JSON.parse(execFileSync(OwnedCliInvocation.pythonExecutable(),['-c',code,fileURLToPath(new URL('../scripts/owned-cli-pty.py',import.meta.url))],{encoding:'utf8'})) as unknown;
+ expect(result).toEqual([
+  {outcome:'absent',coverage:true,failed:false,members:[42,43],proofs:[42,43],absent:[43],calls:[42,43,44,43,44]},
+  ...['live','timeout','malformed'].map(outcome=>({outcome,coverage:false,failed:true,members:[42,43],proofs:[42,43],absent:[43],calls:[42,43,44,43,44]})),
+  ...['reused_parent','query_error'].map(outcome=>({outcome,coverage:false,failed:true,members:[42,43],proofs:[42,43],absent:[],calls:[42,43,44,43]})),
+ ]);
+});
+
 test('cleanup discovery refreshes a parent without resampling known children or childless leaves',()=>{
  // A deterministic query-count regression guard complements the real teardown:
  // host scheduling cannot turn redundant metadata scans into a passing result.
@@ -139,6 +221,49 @@ coverage=ns['discover']()
 print(json.dumps({'coverage':coverage,'metadata':metadata_calls,'queries':queries,'members':sorted(ns['known']),'failed':ns['ownership_failed']}))`;
  const result=JSON.parse(execFileSync(OwnedCliInvocation.pythonExecutable(),['-c',code,fileURLToPath(new URL('../scripts/owned-cli-pty.py',import.meta.url))],{encoding:'utf8'})) as unknown;
  expect(result).toEqual({coverage:true,metadata:[42],queries:[42,43,44,45,46,47,48,49,50],members:[42,43,44,45,46,47,48,49,50],failed:false});
+});
+
+test('TERM discovery and signal queries count toward grace without starving verified KILL cleanup',()=>{
+ const code=`import ast,json,sys,types,signal
+tree=ast.parse(open(sys.argv[1]).read());cleanup=next(n.finalbody for n in tree.body if isinstance(n,ast.Try) and n.finalbody)
+functions=[n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name in ['metadata','identity_matches','same','discover','verified_group_members','note_group_change']]
+clock=[100.0];records={p:(p,1 if p==42 else 42,p,501,'synthetic start '+str(p)) for p in range(42,51)}
+alive=set(records);root_reaped=[False];signals=[];result=[]
+def advance(seconds):clock[0]+=seconds
+def check_output(args,**kwargs):
+ if kwargs['timeout']<.08:
+  advance(kwargs['timeout']);raise subprocess.TimeoutExpired(args,kwargs['timeout'])
+ advance(.08)
+ p=int(args[-1])
+ if p not in alive:raise subprocess.CalledProcessError(1,args)
+ return ('%d %d %d %d %s'%records[p]).encode()
+def run(args,**kwargs):
+ if kwargs['timeout']<.025:
+  advance(kwargs['timeout']);raise subprocess.TimeoutExpired(args,kwargs['timeout'])
+ advance(.025)
+ ids=sorted(alive-{42}) if args[1]=='-P' and int(args[-1])==42 else [int(args[-1])] if args[1]=='-g' and int(args[-1]) in alive else []
+ return types.SimpleNamespace(returncode=0 if ids else 1,stdout=' '.join(map(str,ids)).encode())
+def kill(p,sig):
+ signals.append((p,sig,round(clock[0]-100,3)))
+ if sig==signal.SIGKILL:alive.discard(p)
+def killpg(p,sig):
+ if sig==0:
+  if p not in alive:raise ProcessLookupError()
+ else:kill(p,sig)
+def waitpid(p,flags):
+ if p not in alive and not root_reaped[0]:root_reaped[0]=True;return(p,signal.SIGKILL)
+ return(0,0)
+import subprocess
+ns={'cfg':{'terminationMs':5000,'termGraceMs':2000},'time':types.SimpleNamespace(monotonic=lambda:clock[0],sleep=advance),'os':types.SimpleNamespace(kill=kill,killpg=killpg,waitpid=waitpid,WNOHANG=1,waitstatus_to_exitcode=lambda s:-s,close=lambda fd:None),'signal':signal,'subprocess':types.SimpleNamespace(check_output=check_output,run=run,PIPE=-1,DEVNULL=-3,CalledProcessError=subprocess.CalledProcessError,SubprocessError=subprocess.SubprocessError),'known':dict(records),'absent':set(),'proofs':{p:None if p==42 else records[42] for p in records},'groups':set(records),'pid':42,'uid':501,'root_exit':None,'cleanup_until':None,'cleanup_exhausted':False,'ownership_failed':False,'coverage':True,'escape_seen':True,'group_changes':[],'group_changes_truncated':False,'started':100,'ps_env':{},'status':'stopped','termination_cause':'control','tty_verified':True,'master':0,'emit':result.append}
+exec(compile(ast.Module(body=functions,type_ignores=[]),'<synthetic owner functions>','exec'),ns)
+ns['group_exists']=lambda g:g in alive
+exec(compile(ast.Module(body=cleanup,type_ignores=[]),'<synthetic owner cleanup>','exec'),ns)
+print(json.dumps({'result':result[0],'elapsedMs':round((clock[0]-100)*1000),'killCount':sum(s==signal.SIGKILL for p,s,t in signals),'firstKillMs':round(next(t for p,s,t in signals if s==signal.SIGKILL)*1000)}))`;
+ const result=JSON.parse(execFileSync(OwnedCliInvocation.pythonExecutable(),['-c',code,fileURLToPath(new URL('../scripts/owned-cli-pty.py',import.meta.url))],{encoding:'utf8'})) as {result:unknown;elapsedMs:number;killCount:number;firstKillMs:number};
+ expect(result.result,JSON.stringify(result)).toMatchObject({status:'stopped',exitCode:-9,ownershipVerified:true,terminationVerified:true,ownedMembers:9,terminationCause:'control'});
+ expect(result.killCount).toBe(9);
+ expect(result.firstKillMs).toBeLessThan(3000);
+ expect(result.elapsedMs).toBeLessThanOrEqual(5000);
 });
 
 test('ordinary interactive launch requires a terminal before any spawn', async()=>{

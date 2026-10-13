@@ -1,4 +1,7 @@
 import { randomUUID } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
+import { EventEmitter, once } from 'node:events';
+import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { expect, test, vi } from 'vitest';
 import { localWebFixture } from './helpers/local-web-fixture.js';
 import { projectBaseline } from '../src/local-web-domain.js';
@@ -6,10 +9,147 @@ import { createLocalWebServer } from '../src/local-web-server.js';
 import { Lifecycle } from '../src/lifecycle.js';
 import { Deletion } from '../src/deletion.js';
 import { selectTaskPriceTable } from '../src/price-catalog-selection.js';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { z } from 'zod';
 import { createLocalWebDomain } from '../src/local-web-domain.js';
 import { codexHumanPilotProfileId } from '../src/session-binding-human-pilot.js';
+import { codexBindingAdmission } from '../src/codex-binding-admission.js';
+import { CodexSessionBindingProvider } from '../src/session-binding-codex.js';
+import { LocalWebProfileSchema } from '../src/local-web-domain.js';
+
+test('ordinary binding pause fences an in-flight tick without an error guard and resumes fresh usage', async () => {
+  const f = localWebFixture(codexBindingAdmission.profileId, { product: 'codex', productVersion: '0.162.1' });
+  const journal = join(f.root, 'ordinary-receipts'); mkdirSync(journal, { mode: 0o700 });
+  const profile = LocalWebProfileSchema.parse({
+    ...f.profile,
+    setup: { ...f.profile.setup,
+      workflow: { ...f.input, assignment: { ...f.input.assignment,
+        metadata: { ...f.input.assignment.metadata, initial_model: 'gpt-6.1-sol' } } },
+      runtime: { model: 'gpt-6.1-sol', effort: 'high' },
+    },
+    session_binding: { product: 'codex', receipt_directory: journal, source_roots: [join(f.home, 'sessions')], project_root: f.project },
+  });
+  let root: ReturnType<typeof f.newRoot>;
+  let now = Date.now() - 1000;
+  vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(now);
+  const usage = () => {
+    vi.setSystemTime(++now);
+    const turn = randomUUID(); const request = randomUUID();
+    const row = (type: string, payload: unknown) => JSON.stringify({ timestamp: new Date().toISOString(), type, payload }) + '\n';
+    appendFileSync(root.path, row('turn_context', { cwd: f.project, turn_id: turn, root_turn_id: turn,
+      model: 'gpt-6.1-sol', effort: 'high' }) + row('token_usage_record', {
+      thread_id: root.id, session_id: root.id, turn_id: turn, root_turn_id: turn, response_id: request,
+      usage: { input_tokens: 100, cached_input_tokens: 10, output_tokens: 20, reasoning_output_tokens: 5, total_tokens: 120 },
+    }));
+    return request;
+  };
+  const signals = new EventEmitter();
+  const signal = (event: string) => once(signals, event, { signal: AbortSignal.timeout(3000) });
+  const releasePausedRead = once(signals, 'release-paused-read');
+  const releaseResumedRead = once(signals, 'release-resumed-read');
+  const provider = new CodexSessionBindingProvider({
+    receiptDirectory: journal, sourceRoots: [join(f.home, 'sessions')], projectRoot: f.project,
+    productVersion: '0.162.1', ordinaryFamilyAdmission: true, maxDepth: 1, maxFamilyMembers: 3,
+  });
+  const readUsage = provider.readUsage.bind(provider);
+  let tick = 0;
+  let inFlightRequest: string | undefined;
+  vi.spyOn(provider, 'readUsage').mockImplementation(async (identity, cursor, scope, boundary) => {
+    if (boundary?.baseline) return readUsage(identity, cursor, scope, boundary);
+    if (++tick === 1) {
+      inFlightRequest = usage();
+      const batch = await readUsage(identity, cursor, scope, boundary);
+      expect(batch.records.map(record => record.requestId)).toEqual([inFlightRequest]);
+      signals.emit('read-entered');
+      await releasePausedRead;
+      return batch;
+    }
+    if (tick === 2) {
+      signals.emit('resumed-read-entered');
+      await releaseResumedRead;
+    }
+    return readUsage(identity, cursor, scope, boundary);
+  });
+  const error = vi.fn();
+  const excluded: string[] = [];
+  const execute = f.store.execute.bind(f.store);
+  vi.spyOn(f.store, 'execute').mockImplementation((sql, params) => {
+    const result = execute(sql, params);
+    if (sql === "UPDATE external_preparations SET state='measuring' WHERE task_id=? AND state!='stopped'") signals.emit('tick-complete');
+    return result;
+  });
+  const domain = createLocalWebDomain({
+    store: f.store, metadataFile: f.metadataFile, profiles: [profile], bindingProviders: [provider],
+    bindingObservation: {
+      identity: () => {},
+      record: (_id, record, isExcluded) => { if (isExcluded) excluded.push(record.requestId); },
+      transition: id => signals.emit(new Lifecycle(f.store).state(id)),
+      error,
+    },
+  });
+  try {
+    const { id } = z.object({ id: z.string() }).parse(await domain.createTask({
+      name: 'Synthetic ordinary pause task', project_id: 'project-1', setup_id: profile.id,
+    }));
+    await domain.taskAction(id, 'apply', {});
+    root = f.newRoot();
+    writeFileSync(root.path, JSON.stringify({ type: 'session_meta', payload: {
+      id: root.id, session_id: root.id, cwd: f.project, cli_version: '0.162.1', source: 'cli',
+    } }) + '\n');
+    const output: unknown = JSON.parse(execFileSync(process.execPath, [resolve('scripts/session-binding-codex-hook.mjs'),
+      '--receipt-directory', journal, '--source-root', join(f.home, 'sessions'), '--product-version', '0.162.1'],
+    { input: JSON.stringify({ hook_event_name: 'SessionStart', session_id: root.id, source: 'startup',
+      cwd: f.project, transcript_path: root.path }), encoding: 'utf8' }));
+    const context = z.object({ hookSpecificOutput: z.object({ additionalContext: z.string() }) }).parse(output);
+    const receipt = /[a-f0-9-]{36}/.exec(context.hookSpecificOutput.additionalContext)?.[0];
+    if (!receipt) throw new Error('invalid_fixture_receipt');
+    const metadata = z.object({ createdAt: z.string() }).parse(JSON.parse(readFileSync(join(journal, `${receipt}.json`), 'utf8')));
+    now = Date.parse(metadata.createdAt) + 1; vi.setSystemTime(now);
+    const baselineRequest = usage();
+    const entered = signal('read-entered');
+    await domain.taskAction(id, 'session-connect', { product: 'codex', receipt });
+    await entered;
+    const bindingBefore = f.store.get<{ identity: string; connect_receipt: string; cursor: string }>(
+      'SELECT identity,connect_receipt,cursor FROM session_bindings WHERE task_id=?', [id]);
+    expect(bindingBefore?.cursor).toEqual(expect.any(String));
+    const paused = signal('paused');
+    const pauseComplete = signal('pause-complete');
+    const pause = domain.taskAction(id, 'pause', {}).then(result => { signals.emit('pause-complete'); return result; });
+    await paused;
+    expect(new Lifecycle(f.store).state(id)).toBe('paused');
+    signals.emit('release-paused-read');
+    await pauseComplete; await pause;
+    expect(error).not.toHaveBeenCalled();
+    expect(domain.task(id)).toMatchObject({ state: 'paused', status: 'paused', reason: null, binding: { state: 'stopped', roots: 1, requests: 0 } });
+    expect(f.store.eventCount()).toBe(0);
+    const pausedRequest = usage();
+    vi.setSystemTime(++now);
+    const active = signal('active');
+    const resumedEntered = signal('resumed-read-entered');
+    await domain.taskAction(id, 'resume-binding', {});
+    await active; await resumedEntered;
+    expect(excluded).toEqual(expect.arrayContaining([baselineRequest, inFlightRequest, pausedRequest]));
+    const freshRequest = usage();
+    const completed = signal('tick-complete');
+    signals.emit('release-resumed-read');
+    await completed;
+    expect(error).not.toHaveBeenCalled();
+    expect(domain.task(id)).toMatchObject({ state: 'active', binding: { state: 'observing', roots: 1, requests: 1 } });
+    expect(f.store.eventCount()).toBe(1);
+    expect(f.store.all<{ request_id: string }>("SELECT json_extract(payload,'$.request_id') AS request_id FROM runtime_evidence WHERE task_id=?", [id]))
+      .toEqual([{ request_id: freshRequest }]);
+    expect(f.store.get('SELECT identity,connect_receipt FROM session_bindings WHERE task_id=?', [id]))
+      .toEqual({ identity: bindingBefore?.identity, connect_receipt: bindingBefore?.connect_receipt });
+    expect(f.store.all('SELECT * FROM source_compatibility_blocks')).toEqual([]);
+    const event = f.store.get<{ payload: string }>('SELECT payload FROM events WHERE task_id=?', [id]);
+    expect(JSON.parse(event?.payload ?? 'null')).toMatchObject({ source_compatibility: {
+      state: 'verified', source: 'codex_binding', product_version: '0.162.1', profile_id: codexBindingAdmission.profileId,
+    } });
+  } finally {
+    signals.emit('release-paused-read'); signals.emit('release-resumed-read');
+    await domain.close?.(); vi.restoreAllMocks(); vi.useRealTimers(); f.cleanup();
+  }
+});
 
 test.each([
   ['finalized', false, 'finalized'],
