@@ -1,0 +1,4722 @@
+diff --git a/codex-rs/Cargo.lock b/codex-rs/Cargo.lock
+index 1cee1174c2e937758713df47683521233a36b4f7..b30500b71c169e4bd1805f57a59aa47944cc372d 100644
+--- a/codex-rs/Cargo.lock
++++ b/codex-rs/Cargo.lock
+@@ -276,7 +276,7 @@ checksum = "2a4385e2e34eb35d6b3efe798b9eb88096925d87726c0798709bf56d9ed84af3"
+
+ [[package]]
+ name = "app_test_support"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "base64 0.22.1",
+@@ -1895,7 +1895,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-agent-extension"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "codex-core",
+@@ -1907,7 +1907,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-agent-graph-store"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "codex-protocol",
+  "codex-state",
+@@ -1922,7 +1922,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-agent-identity"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "base64 0.22.1",
+@@ -1942,7 +1942,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-agent-message-board-client"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "chrono",
+@@ -1965,7 +1965,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-agent-message-board-extension"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "base64 0.22.1",
+  "caseless",
+@@ -1988,7 +1988,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-agent-roles"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "codex-config",
+  "codex-file-system",
+@@ -2001,7 +2001,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-analytics"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "codex-app-server-protocol",
+  "codex-git-utils",
+@@ -2024,7 +2024,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-ansi-escape"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "ansi-to-tui",
+  "pretty_assertions",
+@@ -2035,7 +2035,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-api"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "assert_matches",
+@@ -2073,7 +2073,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-app-server"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "app_test_support",
+@@ -2187,7 +2187,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-app-server-client"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "codex-app-server",
+  "codex-app-server-protocol",
+@@ -2214,7 +2214,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-app-server-daemon"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "blake3",
+@@ -2240,7 +2240,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-app-server-protocol"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "codex-app-server-protocol-noop-macros",
+@@ -2274,11 +2274,11 @@ dependencies = [
+
+ [[package]]
+ name = "codex-app-server-protocol-noop-macros"
+-version = "0.0.0"
++version = "0.162.1"
+
+ [[package]]
+ name = "codex-app-server-test-client"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "clap",
+@@ -2300,7 +2300,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-app-server-transport"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "axum",
+  "base64 0.22.1",
+@@ -2342,7 +2342,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-apply-patch"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "assert_cmd",
+@@ -2362,7 +2362,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-arg0"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "codex-apply-patch",
+@@ -2386,7 +2386,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-async-utils"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "pretty_assertions",
+  "rand 0.9.3",
+@@ -2396,7 +2396,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-attachment-store"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "pretty_assertions",
+  "serde",
+@@ -2406,7 +2406,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-aws-auth"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "aws-config",
+  "aws-credential-types",
+@@ -2432,7 +2432,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-backend-client"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "codex-api",
+@@ -2452,7 +2452,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-backend-openapi-models"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "serde",
+  "serde_json",
+@@ -2461,7 +2461,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-build-info"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "codex-install-context",
+  "pretty_assertions",
+@@ -2474,7 +2474,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-bwrap"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "cc",
+  "libc",
+@@ -2483,7 +2483,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-chatgpt"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "clap",
+@@ -2505,7 +2505,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-cli"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "app_test_support",
+@@ -2607,7 +2607,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-client"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "codex-http-client",
+  "eventsource-stream",
+@@ -2621,7 +2621,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-cloud-client"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "async-stream",
+@@ -2645,7 +2645,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-cloud-config"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "base64 0.22.1",
+  "chrono",
+@@ -2671,7 +2671,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-cloud-tasks"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "chrono",
+@@ -2704,7 +2704,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-cloud-tasks-client"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "chrono",
+@@ -2719,7 +2719,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-cloud-tasks-mock-client"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "chrono",
+  "codex-cloud-tasks-client",
+@@ -2728,7 +2728,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-code-mode"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "codex-code-mode-protocol",
+  "codex-http-client",
+@@ -2751,7 +2751,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-code-mode-host"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "axum",
+@@ -2780,7 +2780,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-code-mode-protocol"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "codex-protocol",
+  "glob",
+@@ -2798,7 +2798,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-code-mode-runtime"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "base64 0.22.1",
+  "codex-code-mode-protocol",
+@@ -2816,11 +2816,11 @@ dependencies = [
+
+ [[package]]
+ name = "codex-collaboration-mode-templates"
+-version = "0.0.0"
++version = "0.162.1"
+
+ [[package]]
+ name = "codex-config"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "base64 0.22.1",
+@@ -2870,7 +2870,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-config-schema"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "clap",
+@@ -2879,7 +2879,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-connectors"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "arc-swap",
+@@ -2901,7 +2901,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-connectors-extension"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "codex-connectors",
+  "codex-core-plugins",
+@@ -2915,7 +2915,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-context-fragments"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "codex-protocol",
+  "codex-utils-string",
+@@ -2925,7 +2925,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-core"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "arc-swap",
+@@ -3067,7 +3067,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-core-api"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "codex-analytics",
+  "codex-app-server-protocol",
+@@ -3090,7 +3090,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-core-plugin-common"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "codex-utils-absolute-path",
+  "semver",
+@@ -3101,7 +3101,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-core-plugins"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "chrono",
+@@ -3158,7 +3158,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-diagnostics"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "libc",
+  "pretty_assertions",
+@@ -3166,7 +3166,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-exec"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "assert_cmd",
+@@ -3218,7 +3218,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-exec-server"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "arc-swap",
+@@ -3287,7 +3287,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-exec-server-protocol"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "base64 0.22.1",
+  "codex-file-system",
+@@ -3304,7 +3304,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-exec-server-test-support"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "codex-exec-server",
+@@ -3319,7 +3319,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-execpolicy"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "clap",
+@@ -3337,7 +3337,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-experimental-api-macros"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "proc-macro2",
+  "quote",
+@@ -3346,7 +3346,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-extension-api"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "codex-api",
+  "codex-config",
+@@ -3368,7 +3368,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-extension-items"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "codex-utils-absolute-path",
+  "pretty_assertions",
+@@ -3380,7 +3380,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-external-agent-migration"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "chrono",
+  "codex-analytics",
+@@ -3410,7 +3410,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-features"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "codex-network-proxy",
+  "codex-protocol",
+@@ -3424,7 +3424,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-feedback"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "bytes",
+@@ -3451,7 +3451,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-file-search"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "clap",
+@@ -3467,7 +3467,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-file-system"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "bytes",
+  "codex-protocol",
+@@ -3479,7 +3479,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-file-watcher"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "notify",
+  "pretty_assertions",
+@@ -3490,7 +3490,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-git-attribution"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "codex-backend-client",
+  "codex-extension-api",
+@@ -3503,7 +3503,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-git-utils"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "chrono",
+@@ -3531,7 +3531,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-goal-extension"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "chrono",
+@@ -3556,7 +3556,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-guardian-context"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "codex-context-fragments",
+  "codex-history",
+@@ -3568,7 +3568,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-guardian-reviewer"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "codex-analytics",
+@@ -3593,7 +3593,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-guardian-v2"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "codex-analytics",
+@@ -3630,7 +3630,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-history"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "codex-protocol",
+@@ -3642,7 +3642,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-history-notes-extension"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "codex-analytics",
+  "codex-client",
+@@ -3667,7 +3667,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-home"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "codex-extension-api",
+  "codex-utils-absolute-path",
+@@ -3679,7 +3679,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-hooks"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "async-channel",
+@@ -3707,7 +3707,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-http-client"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "bytes",
+  "codex-utils-cargo-bin",
+@@ -3743,7 +3743,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-image-generation-extension"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "base64 0.22.1",
+  "codex-api",
+@@ -3771,7 +3771,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-install-context"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "codex-utils-absolute-path",
+  "codex-utils-home-dir",
+@@ -3784,7 +3784,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-keyring-store"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "keyring",
+  "pretty_assertions",
+@@ -3795,7 +3795,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-linux-sandbox"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "clap",
+  "codex-core",
+@@ -3824,7 +3824,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-lmstudio"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "codex-core",
+  "codex-http-client",
+@@ -3838,7 +3838,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-login"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "base64 0.22.1",
+@@ -3884,7 +3884,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-mcp"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "arc-swap",
+@@ -3924,7 +3924,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-mcp-extension"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "axum",
+@@ -3957,7 +3957,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-memories-extension"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "codex-core",
+  "codex-extension-api",
+@@ -3979,7 +3979,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-memories-read"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "codex-protocol",
+  "codex-shell-command",
+@@ -3989,7 +3989,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-memories-write"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "chrono",
+@@ -4026,7 +4026,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-mermaid"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "insta",
+  "pretty_assertions",
+@@ -4035,7 +4035,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-message-history"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "codex-config",
+  "memchr",
+@@ -4049,7 +4049,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-model-provider"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "base64 0.22.1",
+  "chrono",
+@@ -4083,7 +4083,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-model-provider-info"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "codex-client",
+  "codex-protocol",
+@@ -4101,7 +4101,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-models-manager"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "chrono",
+  "codex-http-client",
+@@ -4120,7 +4120,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-mxc-sandbox"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "appcontainer_common",
+@@ -4142,7 +4142,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-network-proxy"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "base64 0.22.1",
+@@ -4191,7 +4191,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-ollama"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "assert_matches",
+  "async-stream",
+@@ -4211,7 +4211,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-otel"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "bytes",
+  "chrono",
+@@ -4248,7 +4248,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-otel-trace-websocket"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "axum",
+@@ -4259,7 +4259,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-plugin"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "codex-config",
+  "codex-core-plugin-common",
+@@ -4274,7 +4274,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-process-hardening"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "libc",
+  "pretty_assertions",
+@@ -4282,7 +4282,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-prompts"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "codex-collaboration-mode-templates",
+@@ -4299,7 +4299,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-protocol"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "chardetng",
+@@ -4344,7 +4344,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-queue-extension"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "codex-core",
+@@ -4365,7 +4365,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-realtime-webrtc"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "codex-build-info",
+@@ -4384,7 +4384,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-response-debug-context"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "base64 0.22.1",
+  "codex-api",
+@@ -4395,7 +4395,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-responses-api-proxy"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "clap",
+@@ -4412,7 +4412,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-rmcp-client"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "axum",
+@@ -4463,7 +4463,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-rollout"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "chrono",
+@@ -4494,7 +4494,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-rollout-trace"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "codex-code-mode",
+@@ -4510,7 +4510,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-sandboxing"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "codex-mxc-sandbox",
+@@ -4538,7 +4538,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-secrets"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "age",
+  "anyhow",
+@@ -4559,7 +4559,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-shell-command"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "base64 0.22.1",
+@@ -4582,7 +4582,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-shell-escalation"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "clap",
+@@ -4602,7 +4602,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-skills"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "codex-protocol",
+  "codex-shell-command",
+@@ -4619,7 +4619,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-skills-extension"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "assert_matches",
+  "blake3",
+@@ -4657,7 +4657,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-state"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "chrono",
+@@ -4684,7 +4684,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-stdio-to-uds"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "codex-uds",
+@@ -4696,7 +4696,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-tcp-tunnel"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "bytes",
+@@ -4717,7 +4717,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-terminal-detection"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "pretty_assertions",
+  "tracing",
+@@ -4725,7 +4725,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-test-binary-support"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "codex-arg0",
+  "tempfile",
+@@ -4733,7 +4733,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-thread-manager-sample"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "clap",
+@@ -4744,7 +4744,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-thread-store"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "chrono",
+  "codex-app-server-protocol",
+@@ -4775,7 +4775,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-tools"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "bitflags 2.13.1",
+  "codex-code-mode",
+@@ -4801,7 +4801,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-tui"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "app_test_support",
+@@ -4927,7 +4927,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-uds"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "async-io",
+  "libc",
+@@ -4941,7 +4941,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-user-verification"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "base64 0.22.1",
+  "core-foundation 0.10.1",
+@@ -4961,7 +4961,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-utils-absolute-path"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "dirs",
+  "dunce",
+@@ -4975,14 +4975,14 @@ dependencies = [
+
+ [[package]]
+ name = "codex-utils-approval-presets"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "codex-protocol",
+ ]
+
+ [[package]]
+ name = "codex-utils-audio"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "base64 0.22.1",
+  "codex-protocol",
+@@ -4996,7 +4996,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-utils-cache"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "lru",
+  "sha1 0.10.6",
+@@ -5005,7 +5005,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-utils-cargo-bin"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "assert_cmd",
+  "runfiles",
+@@ -5014,7 +5014,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-utils-cli"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "clap",
+  "codex-protocol",
+@@ -5026,15 +5026,15 @@ dependencies = [
+
+ [[package]]
+ name = "codex-utils-elapsed"
+-version = "0.0.0"
++version = "0.162.1"
+
+ [[package]]
+ name = "codex-utils-fuzzy-match"
+-version = "0.0.0"
++version = "0.162.1"
+
+ [[package]]
+ name = "codex-utils-git-discovery"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "codex-git-utils",
+  "codex-utils-absolute-path",
+@@ -5047,7 +5047,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-utils-home-dir"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "codex-utils-absolute-path",
+  "dirs",
+@@ -5057,7 +5057,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-utils-image"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "base64 0.22.1",
+  "codex-utils-cache",
+@@ -5071,7 +5071,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-utils-json-to-toml"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "pretty_assertions",
+  "serde_json",
+@@ -5080,7 +5080,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-utils-oss"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "codex-core",
+  "codex-lmstudio",
+@@ -5090,7 +5090,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-utils-output-truncation"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "codex-protocol",
+  "codex-utils-string",
+@@ -5100,7 +5100,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-utils-path"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "codex-utils-absolute-path",
+  "dunce",
+@@ -5111,7 +5111,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-utils-path-uri"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "base64 0.22.1",
+  "codex-utils-absolute-path",
+@@ -5127,7 +5127,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-utils-plugins"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "codex-exec-server",
+  "codex-exec-server-protocol",
+@@ -5141,7 +5141,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-utils-process"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "pretty_assertions",
+  "tokio",
+@@ -5149,7 +5149,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-utils-pty"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "codex-utils-cargo-bin",
+@@ -5168,7 +5168,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-utils-readiness"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "assert_matches",
+  "thiserror 2.0.18",
+@@ -5178,7 +5178,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-utils-redacted-string"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "schemars 0.8.22",
+  "serde",
+@@ -5186,14 +5186,14 @@ dependencies = [
+
+ [[package]]
+ name = "codex-utils-rustls-provider"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "rustls",
+ ]
+
+ [[package]]
+ name = "codex-utils-sandbox-summary"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "codex-protocol",
+  "codex-utils-absolute-path",
+@@ -5203,7 +5203,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-utils-sleep-inhibitor"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "core-foundation 0.9.4",
+  "libc",
+@@ -5213,14 +5213,14 @@ dependencies = [
+
+ [[package]]
+ name = "codex-utils-stream-parser"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "pretty_assertions",
+ ]
+
+ [[package]]
+ name = "codex-utils-string"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "pretty_assertions",
+  "regex-lite",
+@@ -5230,14 +5230,14 @@ dependencies = [
+
+ [[package]]
+ name = "codex-utils-template"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "pretty_assertions",
+ ]
+
+ [[package]]
+ name = "codex-v8-poc"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "pretty_assertions",
+  "v8",
+@@ -5245,7 +5245,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-voice-host"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "codex-install-context",
+@@ -5272,7 +5272,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-web-search-extension"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "codex-api",
+  "codex-core",
+@@ -5294,7 +5294,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-websocket-auth"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "base64 0.22.1",
+@@ -5313,7 +5313,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-websocket-client"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "codex-http-client",
+  "codex-utils-rustls-provider",
+@@ -5329,7 +5329,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-windows-sandbox"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "base64 0.22.1",
+@@ -5359,7 +5359,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-windows-sandbox-service"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "codex-cloud-config",
+@@ -5376,14 +5376,14 @@ dependencies = [
+
+ [[package]]
+ name = "codex-windows-sandbox-test-support"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "dirs",
+ ]
+
+ [[package]]
+ name = "codex-workload-identity"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "codex-http-client",
+  "pretty_assertions",
+@@ -5398,7 +5398,7 @@ dependencies = [
+
+ [[package]]
+ name = "codex-worktree"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "codex-git-utils",
+@@ -5639,7 +5639,7 @@ dependencies = [
+
+ [[package]]
+ name = "core_test_support"
+-version = "0.0.0"
++version = "0.162.1"
+ dependencies = [
+  "anyhow",
+  "assert_cmd",
+diff --git a/codex-rs/cli/src/main.rs b/codex-rs/cli/src/main.rs
+index 8d062a23979eb6df4725af30b93269210229c240..b492d1baa9a649db3d12422e0df59d821ea36075 100644
+--- a/codex-rs/cli/src/main.rs
++++ b/codex-rs/cli/src/main.rs
+@@ -127,6 +127,8 @@ use codex_terminal_detection::TerminalName;
+     override_usage = "codex [OPTIONS] [PROMPT]\n       codex [OPTIONS] <COMMAND> [ARGS]"
+ )]
+ struct MultitoolCli {
++    #[arg(long, hide = true)]
++    harness_accounting_fd3: bool,
+     #[clap(flatten)]
+     pub config_overrides: CliConfigOverrides,
+
+@@ -1034,6 +1036,7 @@ fn main() -> anyhow::Result<()> {
+     arg0_dispatch_or_else(move |arg0_paths: Arg0DispatchPaths| async move {
+         // Keep the CLI dispatcher off the runtime's stack while the TUI rebuilds a thread.
+         Box::pin(cli_main(arg0_paths, remote_control_disabled)).await?;
++        codex_http_client::accounting::close_family().await?;
+         Ok(())
+     })
+ }
+@@ -1043,12 +1046,16 @@ async fn cli_main(
+     remote_control_disabled: bool,
+ ) -> anyhow::Result<()> {
+     let MultitoolCli {
++        harness_accounting_fd3,
+         config_overrides: mut root_config_overrides,
+         feature_toggles,
+         remote,
+         mut interactive,
+         subcommand,
+     } = MultitoolCli::parse();
++    if harness_accounting_fd3 {
++        codex_http_client::accounting::initialize_fd3().await?;
++    }
+     // Retain the launch target through TUI exit, even if a launcher changes selection.
+     let daemon_cli_executable = arg0_paths
+         .codex_self_exe
+diff --git a/codex-rs/codex-api/src/endpoint/responses_websocket.rs b/codex-rs/codex-api/src/endpoint/responses_websocket.rs
+index 4e041ab0a57aaa002eb7da334d4880a5d1814292..1f7e606419da07fc3bf4026c2dff8f42f154f7be 100644
+--- a/codex-rs/codex-api/src/endpoint/responses_websocket.rs
++++ b/codex-rs/codex-api/src/endpoint/responses_websocket.rs
+@@ -492,6 +492,13 @@ async fn connect_websocket(
+     connector: &WebSocketConnector,
+     turn_state: Option<Arc<OnceLock<String>>>,
+ ) -> Result<(WsStream, StatusCode, bool, Option<String>), ApiError> {
++    codex_http_client::accounting::unsupported(
++        codex_http_client::accounting::OperationClass::Unknown,
++        codex_http_client::accounting::TransportClass::Websocket,
++        codex_http_client::accounting::Reason::UnsupportedOperation,
++    )
++    .await
++    .map_err(|_| ApiError::Stream("accounting receiver unavailable".into()))?;
+     info!("connecting to websocket: {url}");
+
+     let mut request = url
+diff --git a/codex-rs/codex-api/src/sse/responses.rs b/codex-rs/codex-api/src/sse/responses.rs
+index 78885f43de273a876cee54c59dafbd404d1b6c31..488463093a01011e69c10131b9420e85d6b1f270 100644
+--- a/codex-rs/codex-api/src/sse/responses.rs
++++ b/codex-rs/codex-api/src/sse/responses.rs
+@@ -71,7 +71,8 @@ pub fn spawn_response_stream(
+         let _ = turn_state.set(header_value.to_string());
+     }
+     let (tx_event, rx_event) = mpsc::channel::<Result<ResponseEvent, ApiError>>(1600);
+-    tokio::spawn(async move {
++    let accounting = codex_http_client::accounting::current_operation();
++    let process = async move {
+         if let Some(model) = server_model {
+             let _ = tx_event.send(Ok(ResponseEvent::ServerModel(model))).await;
+         }
+@@ -94,6 +95,12 @@ pub fn spawn_response_stream(
+             safety_buffering_treatment,
+         )
+         .await;
++    };
++    tokio::spawn(async move {
++        match accounting {
++            Some(accounting) => accounting.scope(process).await,
++            None => process.await,
++        }
+     });
+
+     ResponseStream {
+@@ -585,6 +592,52 @@ async fn process_sse_with_treatment(
+                 continue;
+             }
+         };
++        if let Some(accounting) = codex_http_client::accounting::current_operation() {
++            let disposition = match event.kind.as_str() {
++                "response.completed" => {
++                    Some(codex_http_client::accounting::Terminal::ResponseCompleted)
++                }
++                "response.incomplete" | "response.failed" => {
++                    Some(codex_http_client::accounting::Terminal::ResponseIncomplete)
++                }
++                _ => None,
++            };
++            if let Some(disposition) = disposition {
++                let recorded = async {
++                    let response = event.response.as_ref();
++                    let metadata = codex_http_client::accounting::TerminalMetadata {
++                        response_id: response
++                            .and_then(|value| value.get("id"))
++                            .and_then(Value::as_str)
++                            .map(codex_http_client::accounting::Id::parse)
++                            .transpose()?,
++                        effective_model: response
++                            .and_then(|value| value.get("model"))
++                            .and_then(Value::as_str)
++                            .filter(|model| *model == "gpt-6.1-sol")
++                            .map(|_| codex_http_client::accounting::Model::Gpt61Sol),
++                        readings: codex_http_client::accounting::Readings::from_usage(
++                            response.and_then(|value| value.get("usage")),
++                        ),
++                    };
++                    accounting.terminal(disposition, metadata).await?;
++                    accounting.close(disposition).await
++                }
++                .await;
++                if recorded.is_err() {
++                    if tx_event
++                        .send(Err(ApiError::Stream(
++                            "accounting terminal unavailable".into(),
++                        )))
++                        .await
++                        .is_err()
++                    {
++                        return;
++                    }
++                    return;
++                }
++            }
++        }
+         let model_verifications = event.model_verifications();
+         let turn_moderation_metadata = event.turn_moderation_metadata();
+         let safety_buffering = event.safety_buffering(&safety_buffering_treatment);
+diff --git a/codex-rs/core-plugins/src/remote_legacy.rs b/codex-rs/core-plugins/src/remote_legacy.rs
+index 65f1c04efd484688d1007013d98fa21a1715c0b1..c1b6bac8e789fb9a38a2c3acb7e27524435801a5 100644
+--- a/codex-rs/core-plugins/src/remote_legacy.rs
++++ b/codex-rs/core-plugins/src/remote_legacy.rs
+@@ -142,8 +142,7 @@ pub async fn fetch_remote_featured_plugin_ids(
+             request.headers(codex_model_provider::auth_provider_from_auth(auth).to_auth_headers());
+     }
+
+-    let response = request
+-        .send()
++    let response = codex_http_client::accounting::featured_plugin_lookup_scope(request.send())
+         .await
+         .map_err(|source| RemotePluginFetchError::Request {
+             url: url.clone(),
+diff --git a/codex-rs/core-plugins/src/startup_sync.rs b/codex-rs/core-plugins/src/startup_sync.rs
+index b366cf9e4c4ceebc6bd7bd48dd479f7683ce160b..db10e4596796987b5ce8e3432a1e135ddf75aa65 100644
+--- a/codex-rs/core-plugins/src/startup_sync.rs
++++ b/codex-rs/core-plugins/src/startup_sync.rs
+@@ -923,10 +923,12 @@ async fn fetch_github_text(
+     url: &str,
+     context: &str,
+ ) -> Result<String, String> {
+-    let response = github_request(http_clients, url)
+-        .send()
+-        .await
+-        .map_err(|err| format!("failed to {context} from {url}: {err}"))?;
++    let response = codex_http_client::accounting::curated_plugin_lookup_scope(
++        url,
++        github_request(http_clients, url).send(),
++    )
++    .await
++    .map_err(|err| format!("failed to {context} from {url}: {err}"))?;
+     let status = response.status();
+     let body = response
+         .text()
+@@ -945,10 +947,12 @@ async fn fetch_github_bytes(
+     url: &str,
+     context: &str,
+ ) -> Result<Vec<u8>, String> {
+-    let response = github_request(http_clients, url)
+-        .send()
+-        .await
+-        .map_err(|err| format!("failed to {context} from {url}: {err}"))?;
++    let response = codex_http_client::accounting::curated_plugin_lookup_scope(
++        url,
++        github_request(http_clients, url).send(),
++    )
++    .await
++    .map_err(|err| format!("failed to {context} from {url}: {err}"))?;
+     let status = response.status();
+     let body = response
+         .bytes()
+@@ -968,11 +972,14 @@ async fn fetch_public_text(
+     url: &str,
+     context: &str,
+ ) -> Result<String, String> {
+-    let response = startup_sync_request(http_clients, url)
+-        .timeout(CURATED_PLUGINS_BACKUP_ARCHIVE_TIMEOUT)
+-        .send()
+-        .await
+-        .map_err(|err| format!("failed to {context} from {url}: {err}"))?;
++    let response = codex_http_client::accounting::curated_plugin_lookup_scope(
++        url,
++        startup_sync_request(http_clients, url)
++            .timeout(CURATED_PLUGINS_BACKUP_ARCHIVE_TIMEOUT)
++            .send(),
++    )
++    .await
++    .map_err(|err| format!("failed to {context} from {url}: {err}"))?;
+     let status = response.status();
+     let body = response
+         .text()
+@@ -991,11 +998,14 @@ async fn fetch_public_bytes(
+     url: &str,
+     context: &str,
+ ) -> Result<Vec<u8>, String> {
+-    let response = startup_sync_request(http_clients, url)
+-        .timeout(CURATED_PLUGINS_BACKUP_ARCHIVE_TIMEOUT)
+-        .send()
+-        .await
+-        .map_err(|err| format!("failed to {context} from {url}: {err}"))?;
++    let response = codex_http_client::accounting::curated_plugin_lookup_scope(
++        url,
++        startup_sync_request(http_clients, url)
++            .timeout(CURATED_PLUGINS_BACKUP_ARCHIVE_TIMEOUT)
++            .send(),
++    )
++    .await
++    .map_err(|err| format!("failed to {context} from {url}: {err}"))?;
+     let status = response.status();
+     let body = response
+         .bytes()
+diff --git a/codex-rs/core/src/client.rs b/codex-rs/core/src/client.rs
+index 24f2964ffe566faa7a9de34636e11a528123c6c1..aa06dc066bd02e86fe5bf5fe8a0dc65d9c343179 100644
+--- a/codex-rs/core/src/client.rs
++++ b/codex-rs/core/src/client.rs
+@@ -1028,7 +1028,8 @@ impl ModelClient {
+     ///
+     /// WebSocket use is controlled by provider capability and session-scoped fallback state.
+     pub fn responses_websocket_enabled(&self) -> bool {
+-        if !self.state.provider.info().supports_websockets
++        if codex_http_client::accounting::enabled()
++            || !self.state.provider.info().supports_websockets
+             || self.state.disable_websockets.load(Ordering::Relaxed)
+         {
+             return false;
+@@ -1671,6 +1672,13 @@ impl ModelClientSession {
+         inference_trace: &InferenceTraceContext,
+     ) -> Result<ResponseStream> {
+         let auth_manager = self.client.state.provider.auth_manager();
++        let accounting = codex_http_client::accounting::Operation::open(
++            &self.client.state.thread_id.to_string(),
++            responses_metadata.turn_id.as_deref(),
++            model_info.slug == "gpt-6.1-sol" && effort == Some(ReasoningEffortConfig::High),
++        )
++        .await
++        .map_err(|_| CodexErr::Fatal("accounting operation unavailable".into()))?;
+         let mut auth_recovery = auth_manager
+             .as_ref()
+             .map(AuthManager::unauthorized_recovery);
+@@ -1779,7 +1787,11 @@ impl ModelClientSession {
+                 client_setup.api_auth,
+             )
+             .with_telemetry(Some(request_telemetry), Some(sse_telemetry));
+-            let stream_result = client.stream_request(request, options).await;
++            let request_future = client.stream_request(request, options);
++            let stream_result = match accounting.as_ref() {
++                Some(accounting) => accounting.clone().scope(request_future).await,
++                None => request_future.await,
++            };
+
+             match stream_result {
+                 Ok(stream) => {
+diff --git a/codex-rs/core/src/hook_runtime.rs b/codex-rs/core/src/hook_runtime.rs
+index 30c4162ffc06307dc0a73189cb4b7944b6a949c2..48e744fbb60985f5800712c77d64ff87aee6a89d 100644
+--- a/codex-rs/core/src/hook_runtime.rs
++++ b/codex-rs/core/src/hook_runtime.rs
+@@ -881,6 +881,17 @@ async fn emit_hook_started_events(
+     turn_context: &Arc<TurnContext>,
+     preview_runs: Vec<HookRunSummary>,
+ ) {
++    if preview_runs.iter().any(|run| !run.builtin)
++        && codex_http_client::accounting::unsupported(
++            codex_http_client::accounting::OperationClass::Auxiliary,
++            codex_http_client::accounting::TransportClass::Unknown,
++            codex_http_client::accounting::Reason::UnsupportedOperation,
++        )
++        .await
++        .is_err()
++    {
++        tracing::warn!("accounting receiver unavailable before unqualified hook execution");
++    }
+     for run in preview_runs
+         .into_iter()
+         .filter(should_emit_hook_notification)
+diff --git a/codex-rs/core/src/session/handlers.rs b/codex-rs/core/src/session/handlers.rs
+index c569b04ec95770768385fcafcaeee5f1aa2fc26e..cf808cb04353007a619efc92d0b16ac8d23ff789 100644
+--- a/codex-rs/core/src/session/handlers.rs
++++ b/codex-rs/core/src/session/handlers.rs
+@@ -333,10 +333,23 @@ pub(super) async fn shutdown_session_runtime(sess: &Arc<Session>) {
+
+     crate::hook_runtime::run_session_end_hooks(sess).await;
+     emit_thread_stop_lifecycle(sess).await;
++    codex_http_client::accounting::native_member_stopped(&sess.thread_id().to_string()).await;
+ }
+
+ async fn emit_thread_stop_lifecycle(sess: &Session) {
++    let config = sess.get_config().await;
+     for contributor in sess.services.extensions.thread_lifecycle_contributors() {
++        if !contributor.is_accounting_metadata_lifecycle(config.as_ref())
++            && codex_http_client::accounting::unsupported(
++                codex_http_client::accounting::OperationClass::Auxiliary,
++                codex_http_client::accounting::TransportClass::Unknown,
++                codex_http_client::accounting::Reason::UnsupportedOperation,
++            )
++            .await
++            .is_err()
++        {
++            warn!("accounting receiver unavailable before unqualified extension stop");
++        }
+         contributor
+             .on_thread_stop(codex_extension_api::ThreadStopInput {
+                 session_store: &sess.services.session_extension_data,
+diff --git a/codex-rs/core/src/session/session.rs b/codex-rs/core/src/session/session.rs
+index 263f08f2f1ea43b283406c0200bcbccfa5e022a1..4c3554c621cf756873555ad98982d47f027be3ec 100644
+--- a/codex-rs/core/src/session/session.rs
++++ b/codex-rs/core/src/session/session.rs
+@@ -891,6 +891,21 @@ impl Session {
+             .get::<codex_extension_api::SessionIsolation>()
+             .map(|policy| *policy)
+             .unwrap_or_default();
++        let ordinary_accounting_member = matches!(
++            &session_configuration.session_source,
++            SessionSource::Cli
++                | SessionSource::Exec
++                | SessionSource::SubAgent(SubAgentSource::ThreadSpawn { .. })
++        ) && matches!(&initial_history, InitialHistory::New);
++        codex_http_client::accounting::admit_native_member(
++            &thread_id.to_string(),
++            parent_thread_id
++                .as_ref()
++                .map(ToString::to_string)
++                .as_deref(),
++            ordinary_accounting_member,
++        )
++        .await?;
+         if !session_configuration.session_source.is_non_root_agent()
+             && isolation != codex_extension_api::SessionIsolation::Isolated
+         {
+@@ -1683,6 +1698,14 @@ impl Session {
+             let workspace_routing = thread_extension_data
+                 .get_or_init(|| config.workspace_routing_context());
+             for contributor in extensions.thread_lifecycle_contributors() {
++                if !contributor.is_accounting_metadata_lifecycle(config.as_ref())
++                    && codex_http_client::accounting::unsupported(
++                    codex_http_client::accounting::OperationClass::Auxiliary,
++                    codex_http_client::accounting::TransportClass::Unknown,
++                    codex_http_client::accounting::Reason::UnsupportedOperation,
++                ).await.is_err() {
++                    warn!("accounting receiver unavailable before unqualified extension start");
++                }
+                 contributor.on_thread_start(codex_extension_api::ThreadStartInput {
+                     config: config.as_ref(),
+                     session_source: &session_configuration.session_source,
+diff --git a/codex-rs/core/src/tools/handlers/multi_agents/spawn.rs b/codex-rs/core/src/tools/handlers/multi_agents/spawn.rs
+index 94079e0ebad490c4f4a56f4935a56639aab59cca..8da447132a1436b97272e7702462bf87b8a000fe 100644
+--- a/codex-rs/core/src/tools/handlers/multi_agents/spawn.rs
++++ b/codex-rs/core/src/tools/handlers/multi_agents/spawn.rs
+@@ -210,6 +210,9 @@ async fn handle_spawn_agent(
+ }
+
+ impl CoreToolRuntime for Handler {
++    fn accounting_native_spawn(&self) -> bool {
++        true
++    }
+     fn matches_kind(&self, payload: &ToolPayload) -> bool {
+         matches!(payload, ToolPayload::Function { .. })
+     }
+diff --git a/codex-rs/core/src/tools/handlers/multi_agents_v2/spawn.rs b/codex-rs/core/src/tools/handlers/multi_agents_v2/spawn.rs
+index da7325bccb7faf9c1b81c4701eab0911b84ac225..01cdec003ab8fdb74534f1473a04c3440d1e2d9a 100644
+--- a/codex-rs/core/src/tools/handlers/multi_agents_v2/spawn.rs
++++ b/codex-rs/core/src/tools/handlers/multi_agents_v2/spawn.rs
+@@ -258,6 +258,10 @@ async fn handle_spawn_agent(
+ }
+
+ impl CoreToolRuntime for Handler {
++    fn accounting_native_spawn(&self) -> bool {
++        true
++    }
++
+     fn matches_kind(&self, payload: &ToolPayload) -> bool {
+         matches!(payload, ToolPayload::Function { .. })
+     }
+diff --git a/codex-rs/core/src/tools/multi_agent_tool.rs b/codex-rs/core/src/tools/multi_agent_tool.rs
+index 098e43364618ec85eaf7fc88037374b59869d871..b40440869e6239e7eef6e36a73e5c60320cd06cd 100644
+--- a/codex-rs/core/src/tools/multi_agent_tool.rs
++++ b/codex-rs/core/src/tools/multi_agent_tool.rs
+@@ -117,6 +117,10 @@ impl ToolExecutor<ToolInvocation> for MultiAgentV2ToolOverrides {
+ }
+
+ impl CoreToolRuntime for MultiAgentV2ToolOverrides {
++    fn accounting_native_spawn(&self) -> bool {
++        self.handler.accounting_native_spawn()
++    }
++
+     fn wait_until_ready<'a>(&'a self, session: &'a Arc<Session>) -> Option<BoxFuture<'a, ()>> {
+         self.handler.wait_until_ready(session)
+     }
+@@ -131,3 +135,23 @@ impl CoreToolRuntime for MultiAgentV2ToolOverrides {
+         self.handler.create_diff_consumer()
+     }
+ }
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use crate::tools::handlers::multi_agents_v2::ListAgentsHandler;
++    use crate::tools::handlers::multi_agents_v2::SpawnAgentHandler;
++
++    #[test]
++    fn namespace_overrides_preserve_only_reviewed_spawn_accounting() {
++        let spawn = multi_agent_v2_handler(
++            SpawnAgentHandler::default(),
++            Some("collaboration"),
++            None,
++            None,
++        );
++        let list = multi_agent_v2_handler(ListAgentsHandler, Some("collaboration"), None, None);
++        assert!(spawn.accounting_native_spawn());
++        assert!(!list.accounting_native_spawn());
++    }
++}
+diff --git a/codex-rs/core/src/tools/registry.rs b/codex-rs/core/src/tools/registry.rs
+index e0acae262e8216748c162264d59e98c831302076..7b8584954926f06b357277f4003df277372eb1c8 100644
+--- a/codex-rs/core/src/tools/registry.rs
++++ b/codex-rs/core/src/tools/registry.rs
+@@ -54,6 +54,9 @@ pub use codex_tools::ToolExposure;
+ /// Implementers provide the shared `ToolExecutor` behavior plus optional
+ /// core-owned metadata for hooks, telemetry, tool search, and argument diffs.
+ pub(crate) trait CoreToolRuntime: ToolExecutor<ToolInvocation> {
++    fn accounting_native_spawn(&self) -> bool {
++        false
++    }
+     /// Whether this built-in control tool needs a structured tool-call event.
+     fn is_builtin_control_tool(&self) -> bool {
+         false
+@@ -558,6 +561,16 @@ impl ToolRegistry {
+         let tool = match self.tool(&tool_name) {
+             Some(tool) => tool,
+             None => {
++                if codex_http_client::accounting::unsupported(
++                    codex_http_client::accounting::OperationClass::Unknown,
++                    codex_http_client::accounting::TransportClass::Unknown,
++                    codex_http_client::accounting::Reason::UnsupportedOperation,
++                )
++                .await
++                .is_err()
++                {
++                    tracing::warn!("accounting receiver unavailable for unknown tool rejection");
++                }
+                 let message = unsupported_tool_call_message(&invocation.payload, &tool_name);
+                 let log_payload = tool_log_payload(&invocation.payload, &invocation.source);
+                 let mut tool_result_tags = Vec::with_capacity(2);
+@@ -578,6 +591,17 @@ impl ToolRegistry {
+             }
+         };
+         let telemetry_tags = tool.telemetry_tags(&invocation);
++        if !tool.accounting_native_spawn()
++            && codex_http_client::accounting::unsupported(
++                codex_http_client::accounting::OperationClass::Unknown,
++                codex_http_client::accounting::TransportClass::Unknown,
++                codex_http_client::accounting::Reason::UnsupportedOperation,
++            )
++            .await
++            .is_err()
++        {
++            tracing::warn!("accounting receiver unavailable before unqualified tool execution");
++        }
+         let mut tool_result_tags = Vec::with_capacity(2 + telemetry_tags.len() + 1);
+         let mut extra_trace_fields = Vec::new();
+         sandbox_tags.append_metric_tags(&mut tool_result_tags);
+diff --git a/codex-rs/ext/agent-message-board/src/extension.rs b/codex-rs/ext/agent-message-board/src/extension.rs
+index 3d39c3d7d92060da3d6220a0d57f34d1bdd142dc..f3ebffcdab72511a0b1c16e8b7cfc54184bb477d 100644
+--- a/codex-rs/ext/agent-message-board/src/extension.rs
++++ b/codex-rs/ext/agent-message-board/src/extension.rs
+@@ -48,6 +48,10 @@ struct Binding {
+ }
+
+ impl<C: Sync> ThreadLifecycleContributor<C> for BoardExtension<C> {
++    fn is_accounting_metadata_lifecycle(&self, _config: &C) -> bool {
++        true
++    }
++
+     fn on_thread_start<'a>(&'a self, input: ThreadStartInput<'a, C>) -> ExtensionFuture<'a, ()> {
+         Box::pin(async move {
+             let result = async {
+diff --git a/codex-rs/ext/extension-api/src/contributors.rs b/codex-rs/ext/extension-api/src/contributors.rs
+index 61cdbe4da7226222954ea98d4d7bb622e35fafd9..a92a601eb9d3c23a8fecdab1646adbd329b04a67 100644
+--- a/codex-rs/ext/extension-api/src/contributors.rs
++++ b/codex-rs/ext/extension-api/src/contributors.rs
+@@ -150,6 +150,11 @@ pub trait ContextContributor: Send + Sync {
+ /// extension-private thread state and retain any session capabilities supplied
+ /// by the host. Other heavy dependencies belong on the extension value.
+ pub trait ThreadLifecycleContributor<C: Sync>: Send + Sync {
++    /// Unknown contributors stay unqualified even when startup appears idle.
++    fn is_accounting_metadata_lifecycle(&self, _config: &C) -> bool {
++        false
++    }
++
+     /// Called after host startup has initialized the thread-scoped store.
+     fn on_thread_start<'a>(&'a self, input: ThreadStartInput<'a, C>) -> ExtensionFuture<'a, ()> {
+         Box::pin(async move {
+diff --git a/codex-rs/ext/goal/src/extension.rs b/codex-rs/ext/goal/src/extension.rs
+index 1ec9ee6378602988c2bf747433646c7cb32b86de..6bf108ea9a454a7441cd96f654229b889f48a141 100644
+--- a/codex-rs/ext/goal/src/extension.rs
++++ b/codex-rs/ext/goal/src/extension.rs
+@@ -99,6 +99,10 @@ impl<C> ThreadLifecycleContributor<C> for GoalExtension<C>
+ where
+     C: Send + Sync + 'static,
+ {
++    fn is_accounting_metadata_lifecycle(&self, _config: &C) -> bool {
++        true
++    }
++
+     fn on_thread_start<'a>(&'a self, input: ThreadStartInput<'a, C>) -> ExtensionFuture<'a, ()> {
+         Box::pin(async move {
+             let config = (self.goal_config)(input.config);
+diff --git a/codex-rs/ext/guardian-v2/src/async_scorer/extension.rs b/codex-rs/ext/guardian-v2/src/async_scorer/extension.rs
+index 59eb05894f7131783e69abd962d5a7edd496c16e..1728b0f0ef6aca0c1b7ca96a477c07d613fb5441 100644
+--- a/codex-rs/ext/guardian-v2/src/async_scorer/extension.rs
++++ b/codex-rs/ext/guardian-v2/src/async_scorer/extension.rs
+@@ -42,6 +42,11 @@ pub(super) struct GuardianV2Extension {
+ }
+
+ impl ThreadLifecycleContributor<Config> for GuardianV2Extension {
++    fn is_accounting_metadata_lifecycle(&self, config: &Config) -> bool {
++        !config.features.enabled(Feature::GuardianApproval)
++            || config.approvals_reviewer != ApprovalsReviewer::AutoReview
++    }
++
+     fn on_thread_start<'a>(
+         &'a self,
+         input: ThreadStartInput<'a, Config>,
+diff --git a/codex-rs/ext/guardian-v2/src/sync_reviewer/mod.rs b/codex-rs/ext/guardian-v2/src/sync_reviewer/mod.rs
+index da1f6e56ebe0d733a61f30462c6f686fd465d7af..591dfdb7e8e67258886807815fc1856c0ca9d700 100644
+--- a/codex-rs/ext/guardian-v2/src/sync_reviewer/mod.rs
++++ b/codex-rs/ext/guardian-v2/src/sync_reviewer/mod.rs
+@@ -42,6 +42,10 @@ struct GuardianExtension {
+ }
+
+ impl ThreadLifecycleContributor<Config> for GuardianExtension {
++    fn is_accounting_metadata_lifecycle(&self, _config: &Config) -> bool {
++        true
++    }
++
+     fn on_thread_start<'a>(
+         &'a self,
+         input: ThreadStartInput<'a, Config>,
+diff --git a/codex-rs/ext/history-notes/src/extension.rs b/codex-rs/ext/history-notes/src/extension.rs
+index a5b259f1a95075ebdfafd423cacbe32cc00c2bde..4daf11a5da6dc68a724ae9dd047d1a31ae2d95f0 100644
+--- a/codex-rs/ext/history-notes/src/extension.rs
++++ b/codex-rs/ext/history-notes/src/extension.rs
+@@ -67,6 +67,10 @@ impl HistoryNotesExtension {
+ }
+
+ impl ThreadLifecycleContributor<Config> for HistoryNotesExtension {
++    fn is_accounting_metadata_lifecycle(&self, _config: &Config) -> bool {
++        true
++    }
++
+     fn on_thread_start<'a>(
+         &'a self,
+         input: ThreadStartInput<'a, Config>,
+diff --git a/codex-rs/ext/image-generation/src/extension.rs b/codex-rs/ext/image-generation/src/extension.rs
+index d36a14cf655b6f54ede1f3ca3a5f25e5c33a2b26..a001b69755f14647ea8adce3a9de7d77192070df 100644
+--- a/codex-rs/ext/image-generation/src/extension.rs
++++ b/codex-rs/ext/image-generation/src/extension.rs
+@@ -51,6 +51,10 @@ impl ImageGenerationExtensionConfig {
+ }
+
+ impl ThreadLifecycleContributor<Config> for ImageGenerationExtension {
++    fn is_accounting_metadata_lifecycle(&self, _config: &Config) -> bool {
++        true
++    }
++
+     /// Seeds image-generation configuration when a thread begins.
+     fn on_thread_start<'a>(
+         &'a self,
+diff --git a/codex-rs/ext/mcp/src/cloud_plugin.rs b/codex-rs/ext/mcp/src/cloud_plugin.rs
+index 2d10b403d26b2c3080627fa233917eef89a8dd8a..5a5cc3478d58e1f077ae4f0ce82dc6056acc171d 100644
+--- a/codex-rs/ext/mcp/src/cloud_plugin.rs
++++ b/codex-rs/ext/mcp/src/cloud_plugin.rs
+@@ -25,6 +25,10 @@ const MAX_PLUGIN_DISPLAY_NAME_CHARS: usize = 64;
+ const MAX_CONNECTOR_IDS_PER_PLUGIN: usize = 64;
+
+ impl ThreadLifecycleContributor<Config> for PluginContributor {
++    fn is_accounting_metadata_lifecycle(&self, _config: &Config) -> bool {
++        true
++    }
++
+     fn on_thread_start<'a>(
+         &'a self,
+         input: ThreadStartInput<'a, Config>,
+diff --git a/codex-rs/ext/memories/src/extension.rs b/codex-rs/ext/memories/src/extension.rs
+index 3db27e498451da0fe7b4114c70e1b4daa7f735c3..c7c05073d7fdfdfe730c8c54e108634b656ec5da 100644
+--- a/codex-rs/ext/memories/src/extension.rs
++++ b/codex-rs/ext/memories/src/extension.rs
+@@ -103,6 +103,10 @@ impl ContextContributor for MemoriesExtension {
+ }
+
+ impl ThreadLifecycleContributor<Config> for MemoriesExtension {
++    fn is_accounting_metadata_lifecycle(&self, _config: &Config) -> bool {
++        true
++    }
++
+     fn on_thread_start<'a>(
+         &'a self,
+         input: ThreadStartInput<'a, Config>,
+diff --git a/codex-rs/ext/queue/src/service.rs b/codex-rs/ext/queue/src/service.rs
+index 06aeb63b4cacccf562ee91897bafbcf962bd978c..c8a6619c61bb6b9f12b6556094878ce627e387b6 100644
+--- a/codex-rs/ext/queue/src/service.rs
++++ b/codex-rs/ext/queue/src/service.rs
+@@ -535,6 +535,10 @@ impl<C> ThreadLifecycleContributor<C> for QueuedItemService
+ where
+     C: Send + Sync + 'static,
+ {
++    fn is_accounting_metadata_lifecycle(&self, _config: &C) -> bool {
++        true
++    }
++
+     fn on_thread_resume<'a>(&'a self, input: ThreadResumeInput<'a>) -> ExtensionFuture<'a, ()> {
+         Box::pin(async move {
+             if let Ok(thread_id) = ThreadId::from_string(input.thread_store.level_id()) {
+diff --git a/codex-rs/ext/skills/src/extension.rs b/codex-rs/ext/skills/src/extension.rs
+index 2e85c98cea121ee69770962f2361ba2ceb246492..a6f80a3bd7dd57203d93dc0c0081d2f838c2b8de 100644
+--- a/codex-rs/ext/skills/src/extension.rs
++++ b/codex-rs/ext/skills/src/extension.rs
+@@ -140,6 +140,10 @@ impl<C> ThreadLifecycleContributor<C> for SkillsExtension<C>
+ where
+     C: Send + Sync + 'static,
+ {
++    fn is_accounting_metadata_lifecycle(&self, _config: &C) -> bool {
++        true
++    }
++
+     fn on_thread_start<'a>(&'a self, input: ThreadStartInput<'a, C>) -> ExtensionFuture<'a, ()> {
+         Box::pin(async move {
+             input.session_store.insert(SkillsSessionState {
+diff --git a/codex-rs/ext/web-search/src/extension.rs b/codex-rs/ext/web-search/src/extension.rs
+index 725643f89b16f409536eade1fb7bbd8f86bcf290..cd7e4eae95dfbb240c229e3981f20905b51ed58b 100644
+--- a/codex-rs/ext/web-search/src/extension.rs
++++ b/codex-rs/ext/web-search/src/extension.rs
+@@ -95,6 +95,10 @@ fn external_web_access_for_mode(web_search_mode: WebSearchMode) -> ExternalWebAc
+ }
+
+ impl ThreadLifecycleContributor<Config> for WebSearchExtension {
++    fn is_accounting_metadata_lifecycle(&self, _config: &Config) -> bool {
++        true
++    }
++
+     fn on_thread_start<'a>(
+         &'a self,
+         input: ThreadStartInput<'a, Config>,
+diff --git a/codex-rs/http-client/Cargo.toml b/codex-rs/http-client/Cargo.toml
+index 858322033812cbc0d767f8373a3a1f31b5640842..185e148b34939382c14d871ff85c91e585c97549 100644
+--- a/codex-rs/http-client/Cargo.toml
++++ b/codex-rs/http-client/Cargo.toml
+@@ -22,7 +22,7 @@ serde_json = { workspace = true }
+ serde_urlencoded = "0.7"
+ sha2 = { workspace = true }
+ thiserror = { workspace = true }
+-tokio = { workspace = true, features = ["macros", "rt", "time", "sync"] }
++tokio = { workspace = true, features = ["macros", "rt", "time", "sync", "net", "io-util"] }
+ tracing = { workspace = true }
+ tracing-opentelemetry = { workspace = true }
+ zstd = { workspace = true }
+diff --git a/codex-rs/http-client/src/client.rs b/codex-rs/http-client/src/client.rs
+index c5c2e40bba02d337cbb7602909d9492054d55ed4..486b3346631b7b2f8fe10af63f8d85bfb7acbb15 100644
+--- a/codex-rs/http-client/src/client.rs
++++ b/codex-rs/http-client/src/client.rs
+@@ -37,6 +37,8 @@ pub(crate) struct TransportClient {
+     pub(crate) inner: reqwest::Client,
+     pub(crate) request_logging: RequestLogging,
+     default_headers: Arc<HeaderMap>,
++    pub(crate) accounting_qualified: bool,
++    pub(crate) accounting_dispatch_allowed: bool,
+ }
+
+ impl std::fmt::Debug for TransportClient {
+@@ -50,12 +52,12 @@ impl std::fmt::Debug for TransportClient {
+
+ impl HttpClient {
+     pub fn new(inner: reqwest::Client) -> Self {
+-        Self::from_parts(inner, RequestLogging::Enabled, HeaderMap::new())
++        Self::from_parts(inner, RequestLogging::Enabled, HeaderMap::new(), false)
+     }
+
+     /// Suppresses diagnostics for endpoints whose URLs or headers may contain credentials.
+     pub fn new_without_request_logging(inner: reqwest::Client) -> Self {
+-        Self::from_parts(inner, RequestLogging::Disabled, HeaderMap::new())
++        Self::new(inner).without_request_logging()
+     }
+
+     /// Suppresses URL and response-header diagnostics while preserving this client's routing.
+@@ -73,12 +75,14 @@ impl HttpClient {
+         inner: reqwest::Client,
+         request_logging: RequestLogging,
+         default_headers: HeaderMap,
++        accounting_qualified: bool,
+     ) -> Self {
+         Self {
+             backend: HttpClientBackend::Direct(TransportClient::new(
+                 inner,
+                 request_logging,
+                 default_headers,
++                accounting_qualified,
+             )),
+         }
+     }
+@@ -133,18 +137,21 @@ impl TransportClient {
+         inner: reqwest::Client,
+         request_logging: RequestLogging,
+         default_headers: HeaderMap,
++        accounting_qualified: bool,
+     ) -> Self {
+         Self {
+             inner,
+             request_logging,
+             default_headers: Arc::new(default_headers),
++            accounting_qualified,
++            accounting_dispatch_allowed: true,
+         }
+     }
+
+     pub(crate) async fn execute(
+         &self,
+         request: reqwest::Request,
+-    ) -> Result<reqwest::Response, reqwest::Error> {
++    ) -> Result<reqwest::Response, HttpError> {
+         let method = request.method().clone();
+         let url = request.url().to_string();
+
+@@ -153,20 +160,95 @@ impl TransportClient {
+                 self.log_response(&method, &url, &response);
+                 Ok(response)
+             }
+-            Err(error) => {
+-                self.log_error(&method, &url, &error);
++            Err(error @ HttpError::Request(_)) => {
++                if let HttpError::Request(request_error) = &error {
++                    self.log_error(&method, &url, request_error);
++                }
+                 Err(error)
+             }
++            Err(error) => Err(error),
+         }
+     }
+
+     pub(crate) async fn execute_without_request_logging(
+         &self,
+         mut request: reqwest::Request,
+-    ) -> Result<reqwest::Response, reqwest::Error> {
++    ) -> Result<reqwest::Response, HttpError> {
++        if crate::accounting::enabled() && !self.accounting_dispatch_allowed {
++            if crate::accounting::unsupported(
++                crate::accounting::OperationClass::Unknown,
++                crate::accounting::TransportClass::HttpOther,
++                crate::accounting::Reason::UnqualifiedTransport,
++            )
++            .await
++            .is_err()
++            {
++                tracing::warn!(
++                    "accounting receiver unavailable for unqualified fallback transport"
++                );
++            }
++            return Err(crate::accounting::Error::Protocol.into());
++        }
++        if crate::accounting::enabled()
++            && !self.accounting_qualified
++            && crate::accounting::unsupported(
++                crate::accounting::OperationClass::Unknown,
++                crate::accounting::TransportClass::HttpOther,
++                crate::accounting::Reason::UnqualifiedTransport,
++            )
++            .await
++            .is_err()
++        {
++            tracing::warn!("accounting receiver unavailable for unqualified transport");
++        }
+         apply_default_headers(request.headers_mut(), &self.default_headers);
+         request.headers_mut().extend(trace_headers());
+-        self.inner.execute(request).await
++        let operation = if request.method() == Method::POST
++            && request.url().path().ends_with("/responses")
++        {
++            crate::accounting::before_dispatch().await?
++        } else if request.method() == Method::GET
++            && ((crate::accounting::is_featured_plugin_lookup_scope()
++                && request.url().path().ends_with("/plugins/featured"))
++                || crate::accounting::is_curated_plugin_lookup_request(request.url()))
++        {
++            None
++        } else {
++            if crate::accounting::unsupported(
++                crate::accounting::OperationClass::Unknown,
++                crate::accounting::TransportClass::HttpOther,
++                crate::accounting::Reason::UnsupportedOperation,
++            )
++            .await
++            .is_err()
++            {
++                tracing::warn!("accounting receiver unavailable before unqualified HTTP dispatch");
++            }
++            None
++        };
++        let result = self.inner.execute(request).await;
++        if let Some(operation) = operation {
++            match &result {
++                Ok(response) if !response.status().is_success() => {
++                    operation
++                        .terminal(
++                            crate::accounting::Terminal::HttpError,
++                            crate::accounting::TerminalMetadata::missing(),
++                        )
++                        .await?;
++                }
++                Err(_) => {
++                    operation
++                        .terminal(
++                            crate::accounting::Terminal::TransportError,
++                            crate::accounting::TerminalMetadata::missing(),
++                        )
++                        .await?;
++                }
++                Ok(_) => {}
++            }
++        }
++        result.map_err(Into::into)
+     }
+
+     pub(crate) fn log_response(&self, method: &Method, url: &str, response: &reqwest::Response) {
+diff --git a/codex-rs/http-client/src/client_builder.rs b/codex-rs/http-client/src/client_builder.rs
+index d3b8054767a89c56ac5209ba9aa87508a7b73746..d359138e3213151053ebf7c4ea112ca5f7d4b26b 100644
+--- a/codex-rs/http-client/src/client_builder.rs
++++ b/codex-rs/http-client/src/client_builder.rs
+@@ -129,7 +129,7 @@ impl HttpClientBuilder {
+     }
+
+     pub(crate) fn follows_redirects(&self) -> bool {
+-        self.follow_redirects
++        self.follow_redirects && (!crate::accounting::enabled() || self.http2_prior_knowledge)
+     }
+
+     pub(crate) fn request_logging_enabled(&self) -> bool {
+@@ -185,12 +185,14 @@ impl HttpClientBuilder {
+             .into_client());
+         }
+         self.chatgpt_cookie_store = http_client_factory.chatgpt_cookie_store();
++        let accounting_qualified = crate::accounting::enabled() && !self.http2_prior_knowledge;
+         let (builder, request_logging, default_headers) = self.into_reqwest_parts();
+         let inner = http_client_factory.build_reqwest_client(builder, request_url, route_class)?;
+         Ok(HttpClient::from_parts(
+             inner,
+             request_logging,
+             default_headers,
++            accounting_qualified,
+         ))
+     }
+
+@@ -202,6 +204,7 @@ impl HttpClientBuilder {
+         route: &OutboundProxyRoute,
+     ) -> Result<TransportClient, BuildRouteAwareHttpClientError> {
+         self.chatgpt_cookie_store = http_client_factory.chatgpt_cookie_store();
++        let accounting_qualified = crate::accounting::enabled() && !self.http2_prior_knowledge;
+         let explicit_roots = self.tls.root_certificate.is_some();
+         let (builder, request_logging, default_headers) = self.into_reqwest_parts();
+         let builder = crate::outbound_proxy::configure_builder_for_resolved_route(
+@@ -220,6 +223,7 @@ impl HttpClientBuilder {
+             inner,
+             request_logging,
+             default_headers,
++            accounting_qualified,
+         ))
+     }
+
+@@ -292,9 +296,16 @@ impl HttpClientBuilder {
+         proxy_routing: ProxyRouting,
+     ) -> Result<HttpClient, BuildCustomCaTransportError> {
+         let request_logging = self.request_logging;
++        let accounting_qualified = crate::accounting::enabled() && !self.http2_prior_knowledge;
+         let default_headers = self.default_headers.take().unwrap_or_default();
+-        build_reqwest_client_with_custom_ca(self.reqwest_builder(proxy_routing))
+-            .map(|inner| HttpClient::from_parts(inner, request_logging, default_headers))
++        build_reqwest_client_with_custom_ca(self.reqwest_builder(proxy_routing)).map(|inner| {
++            HttpClient::from_parts(
++                inner,
++                request_logging,
++                default_headers,
++                accounting_qualified,
++            )
++        })
+     }
+
+     pub(crate) fn build_with_custom_ca_fallback(
+@@ -313,7 +324,9 @@ impl HttpClientBuilder {
+             -> Result<reqwest::Client, BuildCustomCaTransportError>,
+     ) -> TransportClient {
+         let request_logging = self.request_logging;
++        let accounting_qualified = crate::accounting::enabled() && !self.http2_prior_knowledge;
+         let default_headers = self.default_headers.take().unwrap_or_default();
++        let mut accounting_dispatch_allowed = true;
+         let inner = match build_with_custom_ca(self.clone().reqwest_builder(proxy_routing)) {
+             Ok(inner) => inner,
+             Err(error) => {
+@@ -327,6 +340,9 @@ impl HttpClientBuilder {
+                 self.reqwest_builder(proxy_routing)
+                     .build()
+                     .unwrap_or_else(|fallback_error| {
++                        if crate::accounting::enabled() {
++                            accounting_dispatch_allowed = false;
++                        }
+                         tracing::warn!(
+                             error = %fallback_error,
+                             "failed to build fallback HTTP client"
+@@ -335,7 +351,14 @@ impl HttpClientBuilder {
+                     })
+             }
+         };
+-        TransportClient::new(inner, request_logging, default_headers)
++        let mut client = TransportClient::new(
++            inner,
++            request_logging,
++            default_headers,
++            accounting_qualified,
++        );
++        client.accounting_dispatch_allowed = accounting_dispatch_allowed;
++        client
+     }
+
+     fn into_reqwest_parts(mut self) -> (reqwest::ClientBuilder, RequestLogging, HeaderMap) {
+@@ -373,7 +396,13 @@ impl HttpClientBuilder {
+         if let Some(identity) = self.tls.client_identity {
+             builder = builder.identity(identity).https_only(true);
+         }
+-        if !self.follow_redirects {
++        if crate::accounting::enabled() && !self.http2_prior_knowledge {
++            builder = builder
++                .redirect(reqwest::redirect::Policy::none())
++                .retry(reqwest::retry::never())
++                .http1_only()
++                .pool_max_idle_per_host(0);
++        } else if !self.follow_redirects {
+             builder = builder.redirect(reqwest::redirect::Policy::none());
+         } else if let Some(redirect_observed) = self.redirect_observed {
+             builder = builder.redirect(reqwest::redirect::Policy::custom(move |attempt| {
+diff --git a/codex-rs/http-client/src/lib.rs b/codex-rs/http-client/src/lib.rs
+index 5eb01f021b263fee0100435a2af5aec4a10c1d3b..f332ae9ee15d2a397fe6c6c78b843025802359ba 100644
+--- a/codex-rs/http-client/src/lib.rs
++++ b/codex-rs/http-client/src/lib.rs
+@@ -1,3 +1,4 @@
++pub mod accounting;
+ mod chatgpt_cloudflare_cookies;
+ mod chatgpt_hosts;
+ mod client;
+diff --git a/codex-rs/http-client/src/route_aware_client_pool.rs b/codex-rs/http-client/src/route_aware_client_pool.rs
+index 905aaf8f0dd11598b9ff4e31e03bb3e42c8bec89..6a69cdec26387973b5a66419242f38b193b33adc 100644
+--- a/codex-rs/http-client/src/route_aware_client_pool.rs
++++ b/codex-rs/http-client/src/route_aware_client_pool.rs
+@@ -201,6 +201,12 @@ impl RouteAwareRequestError {
+     }
+ }
+
++impl From<crate::accounting::Error> for RouteAwareRequestError {
++    fn from(error: crate::accounting::Error) -> Self {
++        Self::Build(error.to_string())
++    }
++}
++
+ impl RouteAwareClientPool {
+     pub(crate) fn request_logging_enabled(&self) -> bool {
+         self.client_builder.request_logging_enabled()
+diff --git a/codex-rs/http-client/src/route_aware_client_pool/execution.rs b/codex-rs/http-client/src/route_aware_client_pool/execution.rs
+index 7ef0d362c46a3a61152c099e9f31f911dc32b3a2..964dccd2717f126b0d671cbeaf60aa79156d4ad5 100644
+--- a/codex-rs/http-client/src/route_aware_client_pool/execution.rs
++++ b/codex-rs/http-client/src/route_aware_client_pool/execution.rs
+@@ -129,7 +129,7 @@ impl RouteAwareClientPool {
+                 };
+                 let response = match result {
+                     Ok(response) => response,
+-                    Err(error) => {
++                    Err(RouteAwareRequestError::Request(error)) => {
+                         let result = self
+                             .retry_with_rustls(
+                                 &current_url,
+@@ -147,6 +147,7 @@ impl RouteAwareClientPool {
+                         }
+                         result?
+                     }
++                    Err(error) => return Err(error),
+                 };
+                 let next_request = if follows_redirects_manually && is_redirect(response.status()) {
+                     redirect_url(&response).and_then(|next_url| {
+@@ -206,9 +207,13 @@ impl RouteAwareClientPool {
+         current_route: &OutboundProxyRoute,
+         selected_tls_backend: SelectedTlsBackend,
+         replay: Option<&reqwest::Request>,
+-        error: reqwest::Error,
++        error: impl Into<RouteAwareRequestError>,
+         timeout_deadline: Option<tokio::time::Instant>,
+     ) -> Result<reqwest::Response, RouteAwareRequestError> {
++        let error = match error.into() {
++            RouteAwareRequestError::Request(error) => error,
++            error => return Err(error),
++        };
+         let Some(rustls_clients) = self.rustls_clients.as_ref() else {
+             return Err(error.into());
+         };
+diff --git a/codex-rs/http-client/src/route_aware_tls_fallback_tests.rs b/codex-rs/http-client/src/route_aware_tls_fallback_tests.rs
+index dc716e3a773f5e135ba393f9b41b33d0218899f7..45020edda8794cf97cbc2e45d2fe7bf106c19ef7 100644
+--- a/codex-rs/http-client/src/route_aware_tls_fallback_tests.rs
++++ b/codex-rs/http-client/src/route_aware_tls_fallback_tests.rs
+@@ -363,6 +363,7 @@ fn spawn_successful_tls_fallback_server() -> io::Result<SuccessfulTlsFallbackSer
+             .map_err(io::Error::other)?,
+         RequestLogging::Enabled,
+         http::HeaderMap::new(),
++        false,
+     );
+
+     let listener = TcpListener::bind(("127.0.0.1", 0))?;
+diff --git a/codex-rs/http-client/src/transport.rs b/codex-rs/http-client/src/transport.rs
+index 369d4ea68c0a0c882bd7338e9f21d4710d22b565..aeda52d62944fbf874d655f2e3f538dc568f3dfa 100644
+--- a/codex-rs/http-client/src/transport.rs
++++ b/codex-rs/http-client/src/transport.rs
+@@ -107,7 +107,7 @@ impl ReqwestTransport {
+                         .execute(request)
+                         .await
+                         .map(HttpResponse::from)
+-                        .map_err(|error| Self::map_error(error.into()))
++                        .map_err(Self::map_error)
+                 }
+             },
+             TransportClient::RouteAware(client) => client
+diff --git a/codex-rs/rmcp-client/src/stdio_server_launcher.rs b/codex-rs/rmcp-client/src/stdio_server_launcher.rs
+index 195e00765f3b5411e2558aa2134e91e1fe946237..e66ef6122bf74302f9be77990181052688766b2b 100644
+--- a/codex-rs/rmcp-client/src/stdio_server_launcher.rs
++++ b/codex-rs/rmcp-client/src/stdio_server_launcher.rs
+@@ -202,6 +202,16 @@ impl StdioServerLauncher for LocalStdioServerLauncher {
+     ) -> BoxFuture<'static, io::Result<StdioServerTransport>> {
+         let fallback_cwd = self.fallback_cwd.clone();
+         async move {
++            if codex_http_client::accounting::unsupported(
++                codex_http_client::accounting::OperationClass::Auxiliary,
++                codex_http_client::accounting::TransportClass::Unknown,
++                codex_http_client::accounting::Reason::UnsupportedOperation,
++            )
++            .await
++            .is_err()
++            {
++                warn!("accounting receiver unavailable before unqualified MCP launch");
++            }
+             // Keep synchronous program resolution and process creation from blocking the
+             // caller's startup deadline.
+             tokio::task::spawn_blocking(move || Self::launch_server(command, fallback_cwd))
+@@ -574,7 +584,20 @@ impl StdioServerLauncher for ExecutorStdioServerLauncher {
+         command: StdioServerCommand,
+     ) -> BoxFuture<'static, io::Result<StdioServerTransport>> {
+         let exec_backend = Arc::clone(&self.exec_backend);
+-        async move { Self::launch_server(command, exec_backend).await }.boxed()
++        async move {
++            if codex_http_client::accounting::unsupported(
++                codex_http_client::accounting::OperationClass::Auxiliary,
++                codex_http_client::accounting::TransportClass::Unknown,
++                codex_http_client::accounting::Reason::UnsupportedOperation,
++            )
++            .await
++            .is_err()
++            {
++                warn!("accounting receiver unavailable before unqualified MCP launch");
++            }
++            Self::launch_server(command, exec_backend).await
++        }
++        .boxed()
+     }
+ }
+
+diff --git a/codex-rs/cli/tests/accounting_descriptor.cjs b/codex-rs/cli/tests/accounting_descriptor.cjs
+new file mode 100644
+index 0000000000000000000000000000000000000000..5fa98c666b8f22ea8948fee2683a7af9ac9e0aca
+--- /dev/null
++++ b/codex-rs/cli/tests/accounting_descriptor.cjs
+@@ -0,0 +1,168 @@
++'use strict';
++
++const assert = require('node:assert/strict');
++const { createHash } = require('node:crypto');
++const { spawn } = require('node:child_process');
++const { mkdtempSync } = require('node:fs');
++const { tmpdir } = require('node:os');
++const { join } = require('node:path');
++const { createServer } = require('node:http');
++const { once } = require('node:events');
++
++function canonical(value) {
++  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
++  if (value !== null && typeof value === 'object') {
++    return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${canonical(value[key])}`).join(',')}}`;
++  }
++  return JSON.stringify(value);
++}
++
++function hash(value) {
++  return createHash('sha256').update(canonical(value)).digest('hex');
++}
++
++async function main() {
++  const binary = process.argv[2];
++  const toolScenario = process.argv[3] === 'tool';
++  assert.ok(binary, 'pass the exact built codex executable');
++  const home = mkdtempSync(join(tmpdir(), 'codex-accounting-descriptor-'));
++  const records = [];
++  const attempts = new Map();
++  let requests = 0;
++  let control = 0;
++  let lastHash = null;
++  let stderrBytes = 0;
++  let receiverFailure = null;
++  const server = createServer((request, response) => {
++    request.resume();
++    assert.equal(request.url, '/v1/responses');
++    requests += 1;
++    assert.equal([...attempts.values()].filter(value => value === 'dispatched').length, 1);
++    response.writeHead(200, { 'content-type': 'text/event-stream', connection: 'close' });
++    const toolItem = { id: 'fc_synthetic', type: 'function_call', call_id: 'call_synthetic',
++      name: 'exec_command', arguments: JSON.stringify({ cmd: 'printf "Synthetic tool output."', yield_time_ms: 1000, max_output_tokens: 100 }) };
++    const events = [
++      { type: 'response.created', response: { id: 'resp_synthetic' } },
++      { type: 'response.output_item.done', item: toolScenario && requests === 1 ? toolItem : {
++        id: 'msg_synthetic', type: 'message', role: 'assistant',
++        content: [{ type: 'output_text', text: 'Synthetic local response.' }],
++      } },
++      { type: 'response.completed', response: {
++        id: 'resp_synthetic', model: 'gpt-6.1-sol',
++        usage: { input_tokens: 3, input_tokens_details: { cached_tokens: 0 },
++          output_tokens: 2, output_tokens_details: { reasoning_tokens: 1 }, total_tokens: 5 },
++      } },
++    ];
++    response.end(events.map(event => `data: ${JSON.stringify(event)}\n\n`).join(''));
++  });
++  server.listen(0, '127.0.0.1');
++  await once(server, 'listening');
++  const url = `http://127.0.0.1:${server.address().port}/v1`;
++  const child = spawn(binary, [
++    '--harness-accounting-fd3', 'exec', '--skip-git-repo-check',
++    '-c', `model_providers.mock={name="mock",base_url="${url}",env_key="HARNESS_SYNTHETIC_KEY",wire_api="responses",supports_websockets=false}`,
++    '-c', 'model_provider="mock"', '-c', 'model="gpt-6.1-sol"',
++    '-c', 'model_reasoning_effort="high"', '-C', home, 'Synthetic local fixture.',
++  ], { env: { ...process.env, CODEX_HOME: home, HARNESS_SYNTHETIC_KEY: 'synthetic' },
++    stdio: ['ignore', 'pipe', 'pipe', 'pipe'] });
++  const exit = once(child, 'exit');
++  child.stdout.resume();
++  child.stderr.on('data', bytes => { stderrBytes += bytes.length; });
++  const stream = child.stdio[3];
++  function receipt(body) {
++    control += 1;
++    stream.write(`${JSON.stringify({ schema_version: 1, receipt_id: `receipt:${control}`,
++      run_id: 'run:fixture', control_sequence: control,
++      recorded_at: '2026-10-12T00:00:00.000Z', body })}\n`);
++  }
++  let buffer = '';
++  stream.setEncoding('utf8');
++  stream.on('data', chunk => {
++    try {
++      buffer += chunk;
++      let end;
++      while ((end = buffer.indexOf('\n')) !== -1) {
++        const record = JSON.parse(buffer.slice(0, end));
++        buffer = buffer.slice(end + 1);
++        assert.equal(record.sequence, records.length + 1);
++        assert.equal(record.previous_record_hash, lastHash);
++        assert.equal(record.run_id, 'run:fixture');
++        assert.equal(record.task_generation, 7);
++        const previousSequence = records.length;
++        const previousHash = lastHash;
++        lastHash = hash(record);
++        records.push(record);
++        const body = record.body;
++        switch (body.kind) {
++          case 'member_ready':
++            assert.equal(record.member_id, 'harness:fixture-root');
++            assert.match(body.native_session_id, /^[a-f0-9-]{36}$/);
++            receipt({ kind: 'member_admitted', member_id: record.member_id, session_id: record.member_id });
++            break;
++          case 'attempt_reserve': {
++            const id = `attempt:${record.sequence}`;
++            attempts.set(id, 'reserved');
++            receipt({ kind: 'attempt_reserved', attempt_id: id, operation_id: body.operation_id,
++              member_id: record.member_id, retry_parent_attempt_id: body.retry_parent_attempt_id });
++            break;
++          }
++          case 'dispatch_commit':
++            assert.equal(attempts.get(body.attempt_id), 'reserved');
++            attempts.set(body.attempt_id, 'dispatched');
++            receipt({ kind: 'dispatch_committed', attempt_id: body.attempt_id });
++            break;
++          case 'close_request':
++            receipt({ kind: 'close_fence', close_fence_id: 'fence:fixture' });
++            break;
++          case 'attempt_terminal':
++            assert.equal(attempts.get(body.attempt_id), 'dispatched');
++            attempts.set(body.attempt_id, 'terminal');
++            assert.equal(body.readings.input_total.value, 3);
++            assert.equal(body.readings.cache_write_input.status, 'missing');
++            assert.equal(body.effective_model, 'gpt-6.1-sol');
++            receipt({ kind: 'record_committed', producer_sequence: record.sequence, producer_record_hash: lastHash });
++            break;
++          case 'member_close':
++            assert.equal(body.final_record_sequence, previousSequence);
++            assert.equal(body.final_record_hash, previousHash);
++            receipt({ kind: 'record_committed', producer_sequence: record.sequence, producer_record_hash: lastHash });
++            break;
++          case 'operation_open':
++          case 'operation_close':
++          case 'unsupported_operation':
++            receipt({ kind: 'record_committed', producer_sequence: record.sequence, producer_record_hash: lastHash });
++            break;
++          default:
++            assert.fail(`unexpected kind ${body.kind}`);
++        }
++      }
++    } catch (error) {
++      receiverFailure = error;
++      child.kill('SIGTERM');
++    }
++  });
++  stream.on('error', error => { receiverFailure ??= error; });
++  stream.write(`${JSON.stringify({ schema_version: 1, protocol: 'harness-codex-accounting-v1',
++    run_id: 'run:fixture', producer_instance_id: 'producer:fixture', task_generation: 7,
++    configuration_receipt_id: 'config:fixture', configuration_revision: 'config:fixture',
++    root_session_id: 'harness:fixture-root' })}\n`);
++  const timer = setTimeout(() => child.kill('SIGTERM'), 60000);
++  const [code, signal] = await exit;
++  clearTimeout(timer);
++  server.close();
++  if (receiverFailure) throw receiverFailure;
++  assert.equal(code, 0, `native CLI exit ${code}, signal ${signal}, stderr bytes ${stderrBytes}`);
++  assert.equal(requests, toolScenario ? 2 : 1);
++  assert.equal(attempts.size, requests);
++  assert.ok([...attempts.values()].every(value => value === 'terminal'));
++  assert.ok(records.some(record => record.body.kind === 'close_request'));
++  assert.ok(records.some(record => record.body.kind === 'member_close'));
++  const partial = records.filter(record => record.body.kind === 'unsupported_operation').map(record => ({
++    sequence: record.sequence, reason: record.body.reason,
++    operation_class: record.body.operation_class, transport_class: record.body.transport_class,
++  }));
++  if (toolScenario) assert.ok(partial.some(value => value.reason === 'unsupported_operation'));
++  console.log(`PASS native descriptor receiver: ${records.length} canonical records, ${requests} gated localhost request, terminal and family fence acknowledged; partial=${JSON.stringify(partial)}`);
++}
++
++main().catch(error => { console.error(error); process.exitCode = 1; });
+diff --git a/codex-rs/http-client/src/accounting/channel.rs b/codex-rs/http-client/src/accounting/channel.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..c918a5a33c0cb9510efb3847fcb96aca1fed8490
+--- /dev/null
++++ b/codex-rs/http-client/src/accounting/channel.rs
+@@ -0,0 +1,231 @@
++use super::Error;
++use super::wire::*;
++use sha2::{Digest, Sha256};
++use std::sync::atomic::{AtomicBool, Ordering};
++use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
++use tokio::net::UnixStream;
++
++pub(super) struct Channel {
++    pub bootstrap: Bootstrap,
++    pub sequence: u64,
++    pub hash: Option<String>,
++    control_sequence: u64,
++    stream: BufReader<UnixStream>,
++}
++
++impl Channel {
++    pub async fn connect(stream: UnixStream) -> Result<Self, Error> {
++        let mut stream = BufReader::new(stream);
++        let bootstrap: Bootstrap = read_frame(&mut stream).await?;
++        if bootstrap.schema_version != 1
++            || bootstrap.protocol != "harness-codex-accounting-v1"
++            || bootstrap.task_generation > 9_007_199_254_740_991
++        {
++            return Err(Error::Protocol);
++        }
++        Ok(Self {
++            bootstrap,
++            sequence: 0,
++            hash: None,
++            control_sequence: 0,
++            stream,
++        })
++    }
++
++    pub async fn send(&mut self, member: &Id, body: Body) -> Result<Gate, Error> {
++        let needs_gate = matches!(
++            &body,
++            Body::MemberReady { .. }
++                | Body::ChildReserve { .. }
++                | Body::AttemptReserve { .. }
++                | Body::DispatchCommit { .. }
++                | Body::CloseRequest
++        );
++        self.sequence = self.sequence.checked_add(1).ok_or(Error::Protocol)?;
++        if self.sequence > 9_007_199_254_740_991 {
++            return Err(Error::Protocol);
++        }
++        let record = Record {
++            schema_version: 1,
++            run_id: &self.bootstrap.run_id,
++            producer_instance_id: &self.bootstrap.producer_instance_id,
++            member_id: member,
++            task_generation: self.bootstrap.task_generation,
++            sequence: self.sequence,
++            previous_record_hash: &self.hash,
++            occurred_at: timestamp(std::time::SystemTime::now())?,
++            body,
++        };
++        let value = serde_json::to_value(&record).map_err(|_| Error::Protocol)?;
++        let bytes = canonical_bytes(&value)?;
++        let hash = format!("{:x}", Sha256::digest(&bytes));
++        self.stream.get_mut().write_all(&bytes).await?;
++        self.stream.get_mut().write_all(b"\n").await?;
++        self.stream.get_mut().flush().await?;
++        self.hash = Some(hash.clone());
++        let receipt = self.receipt().await?;
++        if needs_gate {
++            Ok(receipt)
++        } else {
++            match receipt {
++                Gate::RecordCommitted {
++                    producer_sequence,
++                    producer_record_hash,
++                } if producer_sequence == self.sequence && producer_record_hash == hash => {
++                    Ok(Gate::RecordCommitted {
++                        producer_sequence,
++                        producer_record_hash,
++                    })
++                }
++                _ => Err(Error::Protocol),
++            }
++        }
++    }
++
++    async fn receipt(&mut self) -> Result<Gate, Error> {
++        let receipt: Receipt = read_frame(&mut self.stream).await?;
++        if receipt.schema_version != 1
++            || receipt.run_id != self.bootstrap.run_id
++            || Some(receipt.control_sequence) != self.control_sequence.checked_add(1)
++            || receipt.control_sequence > 9_007_199_254_740_991
++            || receipt.recorded_at.len() > 64
++            || !receipt.recorded_at.ends_with('Z')
++        {
++            return Err(Error::Protocol);
++        }
++        self.control_sequence = receipt.control_sequence;
++        let _receipt_id = receipt.receipt_id;
++        match receipt.body {
++            Gate::ScopeRevoked { reason: _reason } => Err(Error::Revoked),
++            body => Ok(body),
++        }
++    }
++}
++
++pub(super) fn canonical_bytes(value: &serde_json::Value) -> Result<Vec<u8>, Error> {
++    fn encode(value: &serde_json::Value, bytes: &mut Vec<u8>) -> Result<(), Error> {
++        match value {
++            serde_json::Value::Object(object) => {
++                bytes.push(b'{');
++                let mut entries: Vec<_> = object.iter().collect();
++                entries.sort_unstable_by_key(|(key, _)| *key);
++                for (index, (key, value)) in entries.into_iter().enumerate() {
++                    if !key.is_ascii() {
++                        return Err(Error::Protocol);
++                    }
++                    if index > 0 {
++                        bytes.push(b',');
++                    }
++                    serde_json::to_writer(&mut *bytes, key).map_err(|_| Error::Protocol)?;
++                    bytes.push(b':');
++                    encode(value, bytes)?;
++                }
++                bytes.push(b'}');
++            }
++            serde_json::Value::Array(array) => {
++                bytes.push(b'[');
++                for (index, value) in array.iter().enumerate() {
++                    if index > 0 {
++                        bytes.push(b',');
++                    }
++                    encode(value, bytes)?;
++                }
++                bytes.push(b']');
++            }
++            serde_json::Value::Number(number) => {
++                if number
++                    .as_u64()
++                    .is_none_or(|value| value > 9_007_199_254_740_991)
++                {
++                    return Err(Error::Protocol);
++                }
++                serde_json::to_writer(&mut *bytes, value).map_err(|_| Error::Protocol)?;
++            }
++            serde_json::Value::String(text) => {
++                if !text.is_ascii() {
++                    return Err(Error::Protocol);
++                }
++                serde_json::to_writer(&mut *bytes, value).map_err(|_| Error::Protocol)?;
++            }
++            serde_json::Value::Null | serde_json::Value::Bool(_) => {
++                serde_json::to_writer(&mut *bytes, value).map_err(|_| Error::Protocol)?;
++            }
++        }
++        Ok(())
++    }
++    let mut bytes = Vec::new();
++    encode(value, &mut bytes)?;
++    Ok(bytes)
++}
++
++fn timestamp(time: std::time::SystemTime) -> Result<String, Error> {
++    let date = httpdate::fmt_http_date(time);
++    let parts: Vec<_> = date.split_ascii_whitespace().collect();
++    let [_, day, month, year, clock, "GMT"] = parts.as_slice() else {
++        return Err(Error::Protocol);
++    };
++    let month = match *month {
++        "Jan" => "01",
++        "Feb" => "02",
++        "Mar" => "03",
++        "Apr" => "04",
++        "May" => "05",
++        "Jun" => "06",
++        "Jul" => "07",
++        "Aug" => "08",
++        "Sep" => "09",
++        "Oct" => "10",
++        "Nov" => "11",
++        "Dec" => "12",
++        _ => return Err(Error::Protocol),
++    };
++    Ok(format!("{year}-{month}-{day}T{clock}Z"))
++}
++
++async fn read_frame<T: serde::de::DeserializeOwned>(
++    stream: &mut BufReader<UnixStream>,
++) -> Result<T, Error> {
++    let mut bytes = Vec::new();
++    loop {
++        let buffer = stream.fill_buf().await?;
++        if buffer.is_empty() {
++            return Err(Error::Lost);
++        }
++        let count = buffer
++            .iter()
++            .position(|v| *v == b'\n')
++            .map(|v| v + 1)
++            .unwrap_or(buffer.len());
++        if bytes.len().saturating_add(count) > 16_384 {
++            return Err(Error::Protocol);
++        }
++        bytes.extend_from_slice(&buffer[..count]);
++        stream.consume(count);
++        if bytes.last() == Some(&b'\n') {
++            return serde_json::from_slice(&bytes).map_err(|_| Error::Protocol);
++        }
++    }
++}
++
++pub(super) struct Exchange<'a> {
++    broken: &'a AtomicBool,
++    committed: bool,
++}
++impl<'a> Exchange<'a> {
++    pub fn new(broken: &'a AtomicBool) -> Self {
++        Self {
++            broken,
++            committed: false,
++        }
++    }
++    pub fn commit(mut self) {
++        self.committed = true;
++    }
++}
++impl Drop for Exchange<'_> {
++    fn drop(&mut self) {
++        if !self.committed {
++            self.broken.store(true, Ordering::SeqCst);
++        }
++    }
++}
+diff --git a/codex-rs/http-client/src/accounting/descriptor.rs b/codex-rs/http-client/src/accounting/descriptor.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..e829d881e86dd00dd87ce8c3eda80a250a4fdb95
+--- /dev/null
++++ b/codex-rs/http-client/src/accounting/descriptor.rs
+@@ -0,0 +1,21 @@
++use std::os::fd::{FromRawFd, OwnedFd};
++use std::sync::atomic::{AtomicBool, Ordering};
++
++static CLAIMED: AtomicBool = AtomicBool::new(false);
++
++pub(super) fn take_fd3() -> Result<tokio::net::UnixStream, super::Error> {
++    if CLAIMED.swap(true, Ordering::SeqCst) {
++        return Err(super::Error::Protocol);
++    }
++    // SAFETY: [Category 13 - ownership contract] the opt-in trusted launcher
++    // transfers exclusive ownership of open socket FD3 to this entry point.
++    // CLAIMED prevents a second owner; no pointer or memory ABI crosses FFI.
++    let fd = unsafe { OwnedFd::from_raw_fd(3) };
++    // OwnedFd::try_clone uses F_DUPFD_CLOEXEC. Closing the inherited original
++    // before returning leaves only the private, non-inheritable duplicate.
++    let private = fd.try_clone()?;
++    drop(fd);
++    let stream = std::os::unix::net::UnixStream::from(private);
++    stream.set_nonblocking(true)?;
++    Ok(tokio::net::UnixStream::from_std(stream)?)
++}
+diff --git a/codex-rs/http-client/src/accounting/lifecycle.rs b/codex-rs/http-client/src/accounting/lifecycle.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..0f64b9587e13e8ef2ea5e0baa57df125d59e4da5
+--- /dev/null
++++ b/codex-rs/http-client/src/accounting/lifecycle.rs
+@@ -0,0 +1,189 @@
++use super::wire::*;
++use super::{Error, Producer};
++use std::sync::atomic::Ordering;
++
++impl Producer {
++    pub async fn admit(
++        &self,
++        native: &str,
++        parent: Option<&str>,
++        ordinary: bool,
++    ) -> Result<(), Error> {
++        let mut family = self.family.clone().lock_owned().await;
++        if self.closing.load(Ordering::SeqCst) {
++            return Err(Error::Fenced);
++        }
++        let native_id = match parent {
++            Some(_) => Id::parse(native)?,
++            None => self
++                .channel
++                .clone()
++                .lock_owned()
++                .await
++                .bootstrap
++                .root_session_id
++                .clone(),
++        };
++        if let Some(member) = family.members.get_mut(native) {
++            if !ordinary {
++                member.qualified = false;
++                let member_id = member.id.clone();
++                if self
++                    .emit(
++                        &member_id,
++                        Body::UnsupportedOperation {
++                            operation_id: self.id("unsupported")?,
++                            operation_class: OperationClass::Unknown,
++                            transport_class: TransportClass::Unknown,
++                            reason: Reason::UnsupportedProfile,
++                        },
++                    )
++                    .await
++                    .is_err()
++                {
++                    tracing::warn!("accounting receiver unavailable before unqualified resume");
++                }
++                return Ok(());
++            }
++            return Err(Error::Protocol);
++        }
++        let supported_parent = match parent {
++            Some(parent) => family
++                .members
++                .get(parent)
++                .map(|member| member.id.clone())
++                .filter(|id| Some(id) == family.root.as_ref()),
++            None => None,
++        };
++        let topology_ok = match parent {
++            None => family.root.is_none(),
++            Some(_) => supported_parent.is_some() && family.children < 2,
++        };
++        if !ordinary || !topology_ok {
++            let member = family.root.as_ref().unwrap_or(&native_id);
++            if self
++                .emit(
++                    member,
++                    Body::UnsupportedOperation {
++                        operation_id: self.id("unsupported")?,
++                        operation_class: OperationClass::Unknown,
++                        transport_class: TransportClass::Unknown,
++                        reason: if ordinary {
++                            Reason::TopologyMismatch
++                        } else {
++                            Reason::UnsupportedProfile
++                        },
++                    },
++                )
++                .await
++                .is_err()
++            {
++                tracing::warn!(
++                    "accounting receiver unavailable before unqualified session admission"
++                );
++            }
++            return Ok(());
++        }
++        let reservation = match supported_parent.as_ref() {
++            Some(parent) => {
++                match self
++                    .emit(
++                        parent,
++                        Body::ChildReserve {
++                            parent_member_id: parent.clone(),
++                        },
++                    )
++                    .await?
++                {
++                    Gate::ChildReserved {
++                        child_reservation_id,
++                        parent_member_id,
++                    } if parent_member_id == *parent => Some(child_reservation_id),
++                    _ => return Err(Error::Protocol),
++                }
++            }
++            None => None,
++        };
++        let configuration_receipt_id = self
++            .channel
++            .lock()
++            .await
++            .bootstrap
++            .configuration_receipt_id
++            .clone();
++        match self
++            .emit(
++                &native_id,
++                Body::MemberReady {
++                    native_session_id: native.to_owned(),
++                    parent_member_id: supported_parent,
++                    child_reservation_id: reservation,
++                    configuration_receipt_id,
++                },
++            )
++            .await?
++        {
++            Gate::MemberAdmitted {
++                member_id,
++                session_id: _session_id,
++            } if member_id == native_id => {}
++            _ => return Err(Error::Protocol),
++        }
++        if parent.is_some() {
++            family.children = family.children.checked_add(1).ok_or(Error::Protocol)?;
++        } else {
++            family.root = Some(native_id.clone());
++        }
++        family.members.insert(
++            native.to_owned(),
++            super::NativeMember {
++                id: native_id,
++                stopped: false,
++                qualified: true,
++            },
++        );
++        Ok(())
++    }
++
++    pub async fn close_family(&self) -> Result<(), Error> {
++        if self.closing.swap(true, Ordering::SeqCst) {
++            return Err(Error::Fenced);
++        }
++        let root = self.root().await?;
++        let fence = match self.emit(&root, Body::CloseRequest).await? {
++            Gate::CloseFence { close_fence_id } => close_fence_id,
++            _ => return Err(Error::Protocol),
++        };
++        let _drain = self.writers.clone().write_owned().await;
++        let family = self.family.clone().lock_owned().await;
++        for member in family.members.values() {
++            if !member.stopped {
++                self.emit(
++                    &member.id,
++                    Body::UnsupportedOperation {
++                        operation_id: self.id("unclosed")?,
++                        operation_class: OperationClass::Unknown,
++                        transport_class: TransportClass::Unknown,
++                        reason: Reason::MissingMemberClose,
++                    },
++                )
++                .await?;
++                continue;
++            }
++            let channel = self.channel.clone().lock_owned().await;
++            let sequence = channel.sequence;
++            let hash = channel.hash.clone();
++            drop(channel);
++            self.emit(
++                &member.id,
++                Body::MemberClose {
++                    close_fence_id: fence.clone(),
++                    final_record_sequence: sequence,
++                    final_record_hash: hash,
++                },
++            )
++            .await?;
++        }
++        Ok(())
++    }
++}
+diff --git a/codex-rs/http-client/src/accounting/mod.rs b/codex-rs/http-client/src/accounting/mod.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..d7acadce8f257991cfec970cf1eba9d91067793f
+--- /dev/null
++++ b/codex-rs/http-client/src/accounting/mod.rs
+@@ -0,0 +1,243 @@
++mod channel;
++#[cfg(unix)]
++mod descriptor;
++mod lifecycle;
++mod operation;
++mod readings;
++mod wire;
++
++use operation::CURRENT;
++pub use operation::Operation;
++pub use wire::{
++    Id, Model, OperationClass, Reading, Readings, Reason, Terminal, TerminalMetadata,
++    TransportClass,
++};
++
++use channel::{Channel, Exchange};
++use std::collections::BTreeMap;
++use std::sync::Arc;
++use std::sync::OnceLock;
++use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
++use tokio::sync::{Mutex, RwLock};
++use wire::{Body, Gate};
++
++static PRODUCER: OnceLock<Arc<Producer>> = OnceLock::new();
++tokio::task_local! {
++    static FEATURED_PLUGIN_LOOKUP: ();
++    static CURATED_PLUGIN_LOOKUP: Option<reqwest::Url>;
++}
++
++pub async fn featured_plugin_lookup_scope<T>(future: impl std::future::Future<Output = T>) -> T {
++    FEATURED_PLUGIN_LOOKUP.scope((), future).await
++}
++
++pub fn is_featured_plugin_lookup_scope() -> bool {
++    FEATURED_PLUGIN_LOOKUP.try_with(|()| ()).is_ok()
++}
++
++pub async fn curated_plugin_lookup_scope<T>(
++    url: &str,
++    future: impl std::future::Future<Output = T>,
++) -> T {
++    CURATED_PLUGIN_LOOKUP
++        .scope(reqwest::Url::parse(url).ok(), future)
++        .await
++}
++
++pub fn is_curated_plugin_lookup_request(url: &reqwest::Url) -> bool {
++    CURATED_PLUGIN_LOOKUP
++        .try_with(|expected| expected.as_ref() == Some(url))
++        .unwrap_or(false)
++}
++
++const RECEIPT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(15);
++
++#[derive(Debug, thiserror::Error)]
++pub enum Error {
++    #[error("accounting receiver unavailable")]
++    Lost,
++    #[error("accounting protocol violation")]
++    Protocol,
++    #[error("accounting scope revoked")]
++    Revoked,
++    #[error("accounting family fenced")]
++    Fenced,
++    #[error("accounting descriptor I/O failed")]
++    Io(#[from] std::io::Error),
++}
++
++pub(super) struct NativeMember {
++    id: Id,
++    stopped: bool,
++    qualified: bool,
++}
++pub(super) struct Family {
++    members: BTreeMap<String, NativeMember>,
++    root: Option<Id>,
++    children: u8,
++}
++pub struct Producer {
++    channel: Arc<Mutex<Channel>>,
++    family: Arc<Mutex<Family>>,
++    broken: AtomicBool,
++    closing: AtomicBool,
++    ids: AtomicU64,
++    writers: Arc<RwLock<()>>,
++}
++
++impl Producer {
++    pub async fn connect(stream: tokio::net::UnixStream) -> Result<Arc<Self>, Error> {
++        let channel = tokio::time::timeout(RECEIPT_TIMEOUT, Channel::connect(stream))
++            .await
++            .map_err(|_| Error::Lost)??;
++        Ok(Arc::new(Self {
++            channel: Arc::new(Mutex::new(channel)),
++            family: Arc::new(Mutex::new(Family {
++                members: BTreeMap::new(),
++                root: None,
++                children: 0,
++            })),
++            broken: AtomicBool::new(false),
++            closing: AtomicBool::new(false),
++            ids: AtomicU64::new(1),
++            writers: Arc::new(RwLock::new(())),
++        }))
++    }
++
++    fn id(&self, prefix: &str) -> Result<Id, Error> {
++        let id = self
++            .ids
++            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |v| v.checked_add(1))
++            .map_err(|_| Error::Protocol)?;
++        Id::parse(&format!("{prefix}:{id}"))
++    }
++
++    async fn emit(&self, member: &Id, body: Body) -> Result<Gate, Error> {
++        let mut channel = self.channel.clone().lock_owned().await;
++        if self.broken.load(Ordering::SeqCst) {
++            return Err(Error::Lost);
++        }
++        let exchange = Exchange::new(&self.broken);
++        let result = tokio::time::timeout(RECEIPT_TIMEOUT, channel.send(member, body))
++            .await
++            .map_err(|_| Error::Lost)??;
++        exchange.commit();
++        Ok(result)
++    }
++
++    async fn root(&self) -> Result<Id, Error> {
++        self.family.lock().await.root.clone().ok_or(Error::Protocol)
++    }
++}
++
++pub fn enabled() -> bool {
++    PRODUCER.get().is_some()
++}
++pub fn producer() -> Option<Arc<Producer>> {
++    PRODUCER.get().cloned()
++}
++
++#[cfg(unix)]
++pub async fn initialize_fd3() -> Result<(), Error> {
++    let stream = descriptor::take_fd3()?;
++    let producer = Producer::connect(stream).await?;
++    PRODUCER.set(producer).map_err(|_| Error::Protocol)
++}
++
++#[cfg(not(unix))]
++pub async fn initialize_fd3() -> Result<(), Error> {
++    Err(Error::Protocol)
++}
++
++pub async fn admit_native_member(
++    native: &str,
++    parent: Option<&str>,
++    ordinary: bool,
++) -> Result<(), Error> {
++    if let Some(producer) = producer() {
++        producer.admit(native, parent, ordinary).await?;
++    }
++    Ok(())
++}
++
++pub async fn native_member_stopped(native: &str) {
++    if let Some(producer) = producer()
++        && let Some(member) = producer.family.lock().await.members.get_mut(native)
++    {
++        member.stopped = true;
++    }
++}
++
++pub async fn close_family() -> Result<(), Error> {
++    if let Some(producer) = producer() {
++        producer.close_family().await?;
++    }
++    Ok(())
++}
++
++#[cfg(all(test, unix))]
++mod test_receiver;
++#[cfg(all(test, unix))]
++mod tests;
++#[cfg(all(test, unix))]
++mod transport_tests;
++
++pub fn current_operation() -> Option<Arc<Operation>> {
++    CURRENT.try_with(Arc::clone).ok()
++}
++
++pub async fn before_dispatch() -> Result<Option<Arc<Operation>>, Error> {
++    let operation = current_operation();
++    if let Some(operation) = operation.as_ref() {
++        operation.dispatch().await?;
++    } else if producer().is_some()
++        && unsupported(
++            OperationClass::Unknown,
++            TransportClass::HttpOther,
++            Reason::UnsupportedOperation,
++        )
++        .await
++        .is_err()
++    {
++        tracing::warn!("accounting receiver unavailable before unqualified HTTP dispatch");
++    }
++    Ok(operation)
++}
++
++pub async fn unsupported(
++    class: OperationClass,
++    transport: TransportClass,
++    reason: Reason,
++) -> Result<(), Error> {
++    if let Some(producer) = current_operation()
++        .map(|operation| operation.producer())
++        .or_else(producer)
++    {
++        let root = {
++            let family = producer.family.lock().await;
++            family.root.clone()
++        };
++        let root = match root {
++            Some(root) => root,
++            None => producer
++                .channel
++                .lock()
++                .await
++                .bootstrap
++                .producer_instance_id
++                .clone(),
++        };
++        producer
++            .emit(
++                &root,
++                Body::UnsupportedOperation {
++                    operation_id: producer.id("unsupported")?,
++                    operation_class: class,
++                    transport_class: transport,
++                    reason,
++                },
++            )
++            .await?;
++    }
++    Ok(())
++}
+diff --git a/codex-rs/http-client/src/accounting/operation.rs b/codex-rs/http-client/src/accounting/operation.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..8b40125e8f4f0ba286103aea958bf27ca053bf53
+--- /dev/null
++++ b/codex-rs/http-client/src/accounting/operation.rs
+@@ -0,0 +1,216 @@
++use super::wire::*;
++use super::{Error, Producer, producer, unsupported};
++use std::sync::Arc;
++use std::sync::atomic::Ordering;
++use tokio::sync::{Mutex, OwnedRwLockReadGuard};
++
++tokio::task_local! { pub(super) static CURRENT: Arc<Operation>; }
++
++pub struct Operation {
++    producer: Arc<Producer>,
++    member: Id,
++    id: Id,
++    attempts: Arc<Mutex<Attempts>>,
++    _writer: OwnedRwLockReadGuard<()>,
++}
++struct Attempts {
++    previous: Option<Id>,
++    active: Option<Id>,
++    closed: bool,
++}
++
++impl Operation {
++    pub(super) fn producer(&self) -> Arc<Producer> {
++        self.producer.clone()
++    }
++    pub async fn open(
++        native: &str,
++        turn: Option<&str>,
++        qualified: bool,
++    ) -> Result<Option<Arc<Self>>, Error> {
++        let Some(producer) = producer() else {
++            return Ok(None);
++        };
++        let admitted = producer
++            .family
++            .lock()
++            .await
++            .members
++            .get(native)
++            .is_some_and(|member| member.qualified);
++        if !qualified || !admitted {
++            if unsupported(
++                OperationClass::Unknown,
++                TransportClass::HttpResponses,
++                Reason::ConfigurationMismatch,
++            )
++            .await
++            .is_err()
++            {
++                tracing::warn!("accounting receiver unavailable before unqualified generation");
++            }
++            return Ok(None);
++        }
++        producer
++            .open_operation(native, turn, qualified)
++            .await
++            .map(Some)
++    }
++
++    pub async fn scope<F: std::future::Future>(self: Arc<Self>, future: F) -> F::Output {
++        CURRENT.scope(self, future).await
++    }
++
++    pub async fn dispatch(&self) -> Result<(), Error> {
++        let mut attempts = self.attempts.clone().lock_owned().await;
++        if self.producer.closing.load(Ordering::SeqCst) || attempts.closed {
++            return Err(Error::Fenced);
++        }
++        let previous = attempts.previous.clone();
++        let attempt = match self
++            .producer
++            .emit(
++                &self.member,
++                Body::AttemptReserve {
++                    operation_id: self.id.clone(),
++                    retry_parent_attempt_id: previous.clone(),
++                },
++            )
++            .await?
++        {
++            Gate::AttemptReserved {
++                attempt_id,
++                operation_id,
++                member_id,
++                retry_parent_attempt_id,
++            } if operation_id == self.id
++                && member_id == self.member
++                && retry_parent_attempt_id == previous =>
++            {
++                attempt_id
++            }
++            _ => return Err(Error::Protocol),
++        };
++        attempts.previous = Some(attempt.clone());
++        attempts.active = Some(attempt.clone());
++        match self
++            .producer
++            .emit(
++                &self.member,
++                Body::DispatchCommit {
++                    attempt_id: attempt.clone(),
++                },
++            )
++            .await?
++        {
++            Gate::DispatchCommitted { attempt_id } if attempt_id == attempt => Ok(()),
++            _ => Err(Error::Protocol),
++        }
++    }
++
++    pub async fn terminal(
++        &self,
++        disposition: Terminal,
++        metadata: TerminalMetadata,
++    ) -> Result<(), Error> {
++        let mut attempts = self.attempts.clone().lock_owned().await;
++        let attempt = attempts.active.as_ref().ok_or(Error::Protocol)?.clone();
++        self.producer
++            .emit(
++                &self.member,
++                Body::AttemptTerminal {
++                    attempt_id: attempt,
++                    disposition,
++                    response_id: metadata.response_id,
++                    effective_model: metadata.effective_model,
++                    readings: metadata.readings,
++                },
++            )
++            .await?;
++        attempts.active = None;
++        Ok(())
++    }
++
++    pub async fn close(&self, disposition: Terminal) -> Result<(), Error> {
++        let mut attempts = self.attempts.clone().lock_owned().await;
++        if attempts.closed {
++            return Err(Error::Protocol);
++        }
++        let disposition = match disposition {
++            Terminal::ResponseCompleted => CloseDisposition::Completed,
++            Terminal::Cancelled => CloseDisposition::Cancelled,
++            Terminal::ResponseIncomplete | Terminal::HttpError | Terminal::TransportError => {
++                CloseDisposition::Failed
++            }
++        };
++        self.producer
++            .emit(
++                &self.member,
++                Body::OperationClose {
++                    operation_id: self.id.clone(),
++                    disposition,
++                },
++            )
++            .await?;
++        attempts.closed = true;
++        Ok(())
++    }
++}
++
++impl Producer {
++    pub async fn open_operation(
++        self: &Arc<Self>,
++        native: &str,
++        turn: Option<&str>,
++        qualified: bool,
++    ) -> Result<Arc<Operation>, Error> {
++        let writer = self.writers.clone().read_owned().await;
++        if self.closing.load(Ordering::SeqCst) {
++            return Err(Error::Fenced);
++        }
++        let member = self
++            .family
++            .lock()
++            .await
++            .members
++            .get(native)
++            .filter(|member| member.qualified)
++            .map(|v| v.id.clone());
++        let member = member.ok_or(Error::Protocol)?;
++        let id = self.id("operation")?;
++        if !qualified {
++            return Err(Error::Protocol);
++        }
++        let revision = self
++            .channel
++            .lock()
++            .await
++            .bootstrap
++            .configuration_revision
++            .clone();
++        self.emit(
++            &member,
++            Body::OperationOpen {
++                operation_id: id.clone(),
++                turn_id: turn.map(Id::parse).transpose()?,
++                operation_class: OperationClass::Generation,
++                transport_class: TransportClass::HttpResponses,
++                requested_model: Model::Gpt61Sol,
++                requested_effort: Effort::High,
++                configuration_revision: revision,
++            },
++        )
++        .await?;
++        Ok(Arc::new(Operation {
++            producer: self.clone(),
++            member,
++            id,
++            attempts: Arc::new(Mutex::new(Attempts {
++                previous: None,
++                active: None,
++                closed: false,
++            })),
++            _writer: writer,
++        }))
++    }
++}
+diff --git a/codex-rs/http-client/src/accounting/readings.rs b/codex-rs/http-client/src/accounting/readings.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..1edc0ea63d4b3e581aaeff792a96b2e7f3836498
+--- /dev/null
++++ b/codex-rs/http-client/src/accounting/readings.rs
+@@ -0,0 +1,84 @@
++use serde::Serialize;
++
++#[derive(Clone, Debug, Serialize)]
++#[serde(tag = "status", rename_all = "snake_case")]
++pub enum Reading {
++    Observed {
++        value: u64,
++        reason: Option<()>,
++    },
++    Missing {
++        value: Option<()>,
++        reason: MissingReason,
++    },
++    Error {
++        value: Option<()>,
++        reason: ErrorReason,
++    },
++}
++#[derive(Clone, Copy, Debug, Serialize)]
++#[serde(rename_all = "snake_case")]
++pub enum MissingReason {
++    NotAvailable,
++}
++#[derive(Clone, Copy, Debug, Serialize)]
++#[serde(rename_all = "snake_case")]
++pub enum ErrorReason {
++    SourceError,
++}
++#[derive(Clone, Debug, Serialize)]
++pub struct Readings {
++    pub input_total: Reading,
++    pub cached_input: Reading,
++    pub cache_write_input: Reading,
++    pub output_total: Reading,
++    pub reasoning_output: Reading,
++    pub total_tokens: Reading,
++}
++
++impl Readings {
++    pub fn missing() -> Self {
++        Self::from_usage(None)
++    }
++    pub fn from_usage(usage: Option<&serde_json::Value>) -> Self {
++        let reading = |path: &[&str]| {
++            let mut value = usage;
++            for key in path {
++                value = match value {
++                    None | Some(serde_json::Value::Null) => None,
++                    Some(serde_json::Value::Object(object)) => object.get(*key),
++                    Some(_) => {
++                        return Reading::Error {
++                            value: None,
++                            reason: ErrorReason::SourceError,
++                        };
++                    }
++                };
++            }
++            match value {
++                None | Some(serde_json::Value::Null) => Reading::Missing {
++                    value: None,
++                    reason: MissingReason::NotAvailable,
++                },
++                Some(value) => match value.as_u64().filter(|v| *v <= 9_007_199_254_740_991) {
++                    Some(value) => Reading::Observed {
++                        value,
++                        reason: None,
++                    },
++                    None => Reading::Error {
++                        value: None,
++                        reason: ErrorReason::SourceError,
++                    },
++                },
++            }
++        };
++        Self {
++            input_total: reading(&["input_tokens"]),
++            cached_input: reading(&["input_tokens_details", "cached_tokens"]),
++            cache_write_input: reading(&["input_tokens_details", "cache_write_tokens"]),
++            output_total: reading(&["output_tokens"]),
++            reasoning_output: reading(&["output_tokens_details", "reasoning_tokens"]),
++            total_tokens: reading(&["total_tokens"]),
++        }
++    }
++}
+diff --git a/codex-rs/http-client/src/accounting/test_receiver.rs b/codex-rs/http-client/src/accounting/test_receiver.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..69378c56b9e86415132e01a1917bf237b8af52bb
+--- /dev/null
++++ b/codex-rs/http-client/src/accounting/test_receiver.rs
+@@ -0,0 +1,116 @@
++use super::*;
++use serde_json::{Value, json};
++use sha2::{Digest, Sha256};
++use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
++use tokio::net::UnixStream;
++
++pub(super) const ROOT: &str = "00000000-0000-4000-8000-000000000001";
++pub(super) const ROOT_MEMBER: &str = "harness:root";
++
++pub(super) struct Receiver {
++    stream: BufReader<UnixStream>,
++    control: u64,
++    sequence: u64,
++    hash: Option<String>,
++    pub(super) records: Vec<Value>,
++}
++impl Receiver {
++    async fn new(stream: UnixStream) -> Self {
++        let mut receiver = Self {
++            stream: BufReader::new(stream),
++            control: 0,
++            sequence: 0,
++            hash: None,
++            records: Vec::new(),
++        };
++        let bootstrap = json!({
++            "schema_version":1,"protocol":"harness-codex-accounting-v1",
++            "run_id":"run:test","producer_instance_id":"producer:test","task_generation":7,
++            "configuration_receipt_id":"config:test","configuration_revision":"revision:test",
++            "root_session_id":ROOT_MEMBER
++        });
++        receiver.frame(bootstrap).await;
++        receiver
++    }
++    async fn frame(&mut self, value: Value) {
++        let mut bytes = serde_json::to_vec(&value)
++            .unwrap_or_else(|error| panic!("synthetic receiver fixture failed: {error}"));
++        bytes.push(b'\n');
++        self.stream
++            .get_mut()
++            .write_all(&bytes)
++            .await
++            .unwrap_or_else(|error| panic!("synthetic receiver fixture failed: {error}"));
++    }
++    pub(super) async fn read(&mut self) -> Value {
++        let mut bytes = Vec::new();
++        self.stream
++            .read_until(b'\n', &mut bytes)
++            .await
++            .unwrap_or_else(|error| panic!("synthetic receiver fixture failed: {error}"));
++        assert_eq!(bytes.pop(), Some(b'\n'));
++        let record: Value = serde_json::from_slice(&bytes)
++            .unwrap_or_else(|error| panic!("synthetic receiver fixture failed: {error}"));
++        self.sequence += 1;
++        assert_eq!(record["sequence"], self.sequence);
++        assert_eq!(record["previous_record_hash"], json!(self.hash));
++        self.hash = Some(format!("{:x}", Sha256::digest(&bytes)));
++        self.records.push(record.clone());
++        record
++    }
++    pub(super) async fn receipt(&mut self, body: Value) {
++        self.control += 1;
++        self.frame(
++            json!({"schema_version":1,"receipt_id":format!("receipt:{}",self.control),
++            "run_id":"run:test","control_sequence":self.control,
++            "recorded_at":"2026-10-12T00:00:00.000Z","body":body}),
++        )
++        .await;
++    }
++    async fn commit(&mut self) {
++        self.receipt(
++            json!({"kind":"record_committed","producer_sequence":self.sequence,
++            "producer_record_hash":self.hash}),
++        )
++        .await;
++    }
++    pub(super) async fn accept(&mut self) -> Value {
++        let record = self.read().await;
++        let body = &record["body"];
++        let gate = match body["kind"]
++            .as_str()
++            .unwrap_or_else(|| panic!("synthetic receiver kind is missing"))
++        {
++            "member_ready" => Some(json!({"kind":"member_admitted",
++                "member_id":record["member_id"],"session_id":body["native_session_id"]})),
++            "child_reserve" => Some(json!({"kind":"child_reserved",
++                "child_reservation_id":format!("child:{}",self.sequence),
++                "parent_member_id":body["parent_member_id"]})),
++            "attempt_reserve" => Some(json!({"kind":"attempt_reserved",
++                "attempt_id":format!("attempt:{}",self.sequence),"operation_id":body["operation_id"],
++                "member_id":record["member_id"],"retry_parent_attempt_id":body["retry_parent_attempt_id"]})),
++            "dispatch_commit" => {
++                Some(json!({"kind":"dispatch_committed","attempt_id":body["attempt_id"]}))
++            }
++            "close_request" => Some(json!({"kind":"close_fence","close_fence_id":"fence:test"})),
++            _ => None,
++        };
++        match gate {
++            Some(gate) => self.receipt(gate).await,
++            None => self.commit().await,
++        }
++        record
++    }
++}
++
++pub(super) async fn pair() -> (Arc<Producer>, Receiver) {
++    let (producer, receiver) = UnixStream::pair()
++        .unwrap_or_else(|error| panic!("synthetic receiver fixture failed: {error}"));
++    let receiver = Receiver::new(receiver).await;
++    (
++        Producer::connect(producer)
++            .await
++            .unwrap_or_else(|error| panic!("synthetic receiver fixture failed: {error}")),
++        receiver,
++    )
++}
+diff --git a/codex-rs/http-client/src/accounting/tests.rs b/codex-rs/http-client/src/accounting/tests.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..fd62674252c7beb367e7f533100713f774b936f5
+--- /dev/null
++++ b/codex-rs/http-client/src/accounting/tests.rs
+@@ -0,0 +1,214 @@
++use super::test_receiver::{ROOT, ROOT_MEMBER, pair};
++use super::*;
++use serde_json::json;
++
++const CHILD: &str = "00000000-0000-4000-8000-000000000002";
++const CHILD2: &str = "00000000-0000-4000-8000-000000000003";
++const CHILD3: &str = "00000000-0000-4000-8000-000000000004";
++
++#[tokio::test]
++async fn reopening_a_member_stays_partial_without_reusing_its_qualified_membership() {
++    let (producer, mut receiver) = pair().await;
++    let work = async {
++        producer.admit(ROOT, None, true).await.unwrap();
++        producer.admit(CHILD, Some(ROOT), true).await.unwrap();
++        producer.admit(CHILD, Some(ROOT), false).await.unwrap();
++        assert!(matches!(
++            producer.open_operation(CHILD, None, true).await,
++            Err(Error::Protocol)
++        ));
++        producer.admit(CHILD2, Some(ROOT), true).await.unwrap();
++        producer.admit(CHILD3, Some(ROOT), true).await.unwrap();
++    };
++    let receive = async {
++        for _ in 0..7 {
++            receiver.accept().await;
++        }
++        receiver.records
++    };
++    let (_, records) = tokio::time::timeout(RECEIPT_TIMEOUT, async { tokio::join!(work, receive) })
++        .await
++        .unwrap();
++    assert_eq!(records[3]["body"]["reason"], "unsupported_profile");
++    assert_eq!(records[6]["body"]["reason"], "topology_mismatch");
++}
++
++#[tokio::test]
++async fn gates_native_children_before_work_and_keeps_lifetime_limit() {
++    // Given
++    let (producer, mut receiver) = pair().await;
++    let work = async {
++        producer.admit(ROOT, None, true).await.unwrap();
++        producer.admit(CHILD, Some(ROOT), true).await.unwrap();
++        producer
++            .family
++            .lock()
++            .await
++            .members
++            .get_mut(CHILD)
++            .unwrap()
++            .stopped = true;
++        producer.admit(CHILD2, Some(ROOT), true).await.unwrap();
++        producer.admit(CHILD3, Some(ROOT), true).await.unwrap();
++        producer
++            .admit("00000000-0000-4000-8000-000000000005", Some(CHILD), true)
++            .await
++            .unwrap();
++    };
++    // When
++    let receive = async {
++        for _ in 0..7 {
++            receiver.accept().await;
++        }
++        receiver.records
++    };
++    let (_, records) = tokio::time::timeout(RECEIPT_TIMEOUT, async { tokio::join!(work, receive) })
++        .await
++        .unwrap();
++    // Then
++    let kinds: Vec<_> = records
++        .iter()
++        .map(|v| v["body"]["kind"].as_str().unwrap())
++        .collect();
++    assert_eq!(
++        kinds,
++        [
++            "member_ready",
++            "child_reserve",
++            "member_ready",
++            "child_reserve",
++            "member_ready",
++            "unsupported_operation",
++            "unsupported_operation"
++        ]
++    );
++    assert_eq!(records[0]["member_id"], ROOT_MEMBER);
++    assert_eq!(records[0]["body"]["native_session_id"], ROOT);
++    assert_eq!(records[2]["body"]["parent_member_id"], ROOT_MEMBER);
++    assert_eq!(records[5]["body"]["reason"], "topology_mismatch");
++}
++
++#[tokio::test]
++async fn reserves_distinct_physical_attempts_before_each_dispatch() {
++    // Given
++    let (producer, mut receiver) = pair().await;
++    let work = async {
++        producer.admit(ROOT, None, true).await.unwrap();
++        let operation = producer
++            .open_operation(ROOT, Some("turn:test"), true)
++            .await
++            .unwrap();
++        // When
++        operation.dispatch().await.unwrap();
++        operation
++            .terminal(Terminal::TransportError, TerminalMetadata::missing())
++            .await
++            .unwrap();
++        operation.dispatch().await.unwrap();
++        operation
++            .terminal(
++                Terminal::ResponseCompleted,
++                TerminalMetadata {
++                    response_id: Some(Id::parse("response:test").unwrap()),
++                    effective_model: None,
++                    readings: Readings::from_usage(Some(
++                        &json!({"input_tokens":0,"output_tokens":2,"total_tokens":2}),
++                    )),
++                },
++            )
++            .await
++            .unwrap();
++        operation.close(Terminal::ResponseCompleted).await.unwrap();
++    };
++    let receive = async {
++        for _ in 0..9 {
++            receiver.accept().await;
++        }
++        receiver.records
++    };
++    let (_, records) = tokio::time::timeout(RECEIPT_TIMEOUT, async { tokio::join!(work, receive) })
++        .await
++        .unwrap();
++    // Then
++    assert_ne!(
++        records[3]["body"]["attempt_id"],
++        records[6]["body"]["attempt_id"]
++    );
++    assert_eq!(
++        records[5]["body"]["retry_parent_attempt_id"],
++        records[3]["body"]["attempt_id"]
++    );
++    assert_eq!(records[7]["body"]["readings"]["input_total"]["value"], 0);
++    assert_eq!(
++        records[7]["body"]["readings"]["cache_write_input"]["status"],
++        "missing"
++    );
++    assert!(records[7]["body"]["effective_model"].is_null());
++}
++
++#[tokio::test]
++async fn closes_only_stopped_members_after_receiver_fence() {
++    // Given
++    let (producer, mut receiver) = pair().await;
++    let work = async {
++        producer.admit(ROOT, None, true).await.unwrap();
++        producer.admit(CHILD, Some(ROOT), true).await.unwrap();
++        producer
++            .family
++            .lock()
++            .await
++            .members
++            .get_mut(ROOT)
++            .unwrap()
++            .stopped = true;
++        // When
++        producer.close_family().await.unwrap();
++        assert!(matches!(
++            producer.open_operation(ROOT, None, true).await,
++            Err(Error::Fenced)
++        ));
++    };
++    let receive = async {
++        for _ in 0..6 {
++            receiver.accept().await;
++        }
++        receiver.records
++    };
++    let (_, records) = tokio::time::timeout(RECEIPT_TIMEOUT, async { tokio::join!(work, receive) })
++        .await
++        .unwrap();
++    // Then
++    assert_eq!(records[3]["body"]["kind"], "close_request");
++    assert_eq!(records[4]["body"]["kind"], "member_close");
++    assert_eq!(records[4]["body"]["close_fence_id"], "fence:test");
++    assert_eq!(records[5]["body"]["reason"], "missing_member_close");
++}
++
++#[test]
++fn raw_readings_preserve_missing_invalid_and_observed_zero() {
++    // Given
++    let usage = json!({"input_tokens":0,"output_tokens":-1,"total_tokens":9007199254740992u64,
++        "input_tokens_details":{"cached_tokens":0},"output_tokens_details":{}});
++    // When
++    let readings = serde_json::to_value(Readings::from_usage(Some(&usage))).unwrap();
++    // Then
++    assert_eq!(readings["input_total"]["status"], "observed");
++    assert_eq!(readings["cached_input"]["value"], 0);
++    assert_eq!(readings["cache_write_input"]["status"], "missing");
++    assert_eq!(readings["reasoning_output"]["status"], "missing");
++    assert_eq!(readings["output_total"]["status"], "error");
++    assert_eq!(readings["total_tokens"]["status"], "error");
++}
++
++#[test]
++fn raw_readings_preserve_invalid_detail_objects_as_errors() {
++    // Given
++    let usage =
++        json!({"input_tokens":1,"input_tokens_details":"invalid","output_tokens_details":42});
++    // When
++    let readings = serde_json::to_value(Readings::from_usage(Some(&usage))).unwrap();
++    // Then
++    assert_eq!(readings["cached_input"]["status"], "error");
++    assert_eq!(readings["cache_write_input"]["status"], "error");
++    assert_eq!(readings["reasoning_output"]["status"], "error");
++}
+diff --git a/codex-rs/http-client/src/accounting/transport_tests.rs b/codex-rs/http-client/src/accounting/transport_tests.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..5d6ddb77d713bb8925663c6a6543fa7edb2b4eb3
+--- /dev/null
++++ b/codex-rs/http-client/src/accounting/transport_tests.rs
+@@ -0,0 +1,423 @@
++use super::test_receiver::{ROOT, pair};
++use super::*;
++use crate::HttpClient;
++use serde_json::json;
++use tokio::io::{AsyncReadExt, AsyncWriteExt};
++
++#[tokio::test]
++async fn production_builder_profile_disables_redirects_and_excludes_http2() {
++    const ISOLATED: &str = "CODEX_ACCOUNTING_BUILDER_TEST";
++    if std::env::var_os(ISOLATED).is_none() {
++        let status = std::process::Command::new(std::env::current_exe().unwrap())
++            .args([
++                "--exact",
++                "accounting::transport_tests::production_builder_profile_disables_redirects_and_excludes_http2",
++                "--nocapture",
++            ])
++            .env(ISOLATED, "1")
++            .status()
++            .unwrap();
++        assert!(status.success());
++        return;
++    }
++    let (producer, mut receiver) = pair().await;
++    assert!(PRODUCER.set(producer.clone()).is_ok());
++    let http2 = crate::HttpClientBuilder::new()
++        .http2_prior_knowledge()
++        .build_direct()
++        .unwrap();
++    let crate::client::HttpClientBackend::Direct(http2) = http2.backend else {
++        panic!("direct builder returned a routed client");
++    };
++    assert!(!http2.accounting_qualified);
++    let client = crate::HttpClientBuilder::new().build_direct().unwrap();
++    let crate::client::HttpClientBackend::Direct(transport) = &client.backend else {
++        panic!("direct builder returned a routed client");
++    };
++    assert!(transport.accounting_qualified);
++    let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
++        .await
++        .unwrap();
++    let redirect = std::net::TcpListener::bind(("127.0.0.1", 0)).unwrap();
++    redirect.set_nonblocking(true).unwrap();
++    let response = format!(
++        "HTTP/1.1 303 See Other\r\nLocation: http://{}/responses\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
++        redirect.local_addr().unwrap()
++    );
++    let url = format!("http://{}/responses", listener.local_addr().unwrap());
++    let server = async {
++        let (mut stream, _) = listener.accept().await.unwrap();
++        let mut buffer = [0; 4096];
++        assert!(stream.read(&mut buffer).await.unwrap() > 0);
++        stream.write_all(response.as_bytes()).await.unwrap();
++    };
++    let work = async {
++        producer.admit(ROOT, None, true).await.unwrap();
++        let operation = producer.open_operation(ROOT, None, true).await.unwrap();
++        let response = operation
++            .clone()
++            .scope(client.post(url).send())
++            .await
++            .unwrap();
++        assert_eq!(response.status(), http::StatusCode::SEE_OTHER);
++        operation.close(Terminal::HttpError).await.unwrap();
++    };
++    let receive = async {
++        for _ in 0..6 {
++            receiver.accept().await;
++        }
++    };
++    tokio::time::timeout(RECEIPT_TIMEOUT, async {
++        tokio::join!(work, receive, server)
++    })
++    .await
++    .unwrap();
++    assert_eq!(
++        redirect.accept().unwrap_err().kind(),
++        std::io::ErrorKind::WouldBlock
++    );
++}
++
++#[tokio::test]
++async fn transport_handoff_waits_for_durable_dispatch_receipt() {
++    // Given
++    let (producer, mut receiver) = pair().await;
++    let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
++        .await
++        .unwrap();
++    let url = format!("http://{}/responses", listener.local_addr().unwrap());
++    let (sent, mut observed) = tokio::sync::mpsc::channel(1);
++    let server = async {
++        let (mut stream, _) = listener.accept().await.unwrap();
++        let mut buffer = [0; 4096];
++        assert!(stream.read(&mut buffer).await.unwrap() > 0);
++        sent.send(()).await.unwrap();
++        stream
++            .write_all(b"HTTP/1.1 204 No Content\r\nConnection: close\r\n\r\n")
++            .await
++            .unwrap();
++    };
++    let work = async {
++        producer.admit(ROOT, None, true).await.unwrap();
++        let operation = producer.open_operation(ROOT, None, true).await.unwrap();
++        let inner = reqwest::Client::builder()
++            .no_proxy()
++            .redirect(reqwest::redirect::Policy::none())
++            .retry(reqwest::retry::never())
++            .http1_only()
++            .pool_max_idle_per_host(0)
++            .build()
++            .unwrap();
++        // When
++        let response = operation
++            .clone()
++            .scope(HttpClient::new(inner).post(url).send())
++            .await
++            .unwrap();
++        assert_eq!(response.status(), http::StatusCode::NO_CONTENT);
++        operation
++            .terminal(Terminal::ResponseCompleted, TerminalMetadata::missing())
++            .await
++            .unwrap();
++        operation.close(Terminal::ResponseCompleted).await.unwrap();
++    };
++    let receive = async {
++        receiver.accept().await;
++        receiver.accept().await;
++        receiver.accept().await;
++        let commit = receiver.read().await;
++        assert_eq!(commit["body"]["kind"], "dispatch_commit");
++        // Then: the request cannot pass the gate while its receipt is withheld.
++        assert!(matches!(
++            observed.try_recv(),
++            Err(tokio::sync::mpsc::error::TryRecvError::Empty)
++        ));
++        receiver
++            .receipt(json!({"kind":"dispatch_committed","attempt_id":commit["body"]["attempt_id"]}))
++            .await;
++        observed.recv().await.unwrap();
++        receiver.accept().await;
++        receiver.accept().await;
++    };
++    tokio::time::timeout(RECEIPT_TIMEOUT, async {
++        tokio::join!(work, receive, server)
++    })
++    .await
++    .unwrap();
++}
++
++#[tokio::test]
++async fn lost_reservation_receipt_prevents_any_transport_handoff() {
++    // Given
++    let (producer, mut receiver) = pair().await;
++    let listener = std::net::TcpListener::bind(("127.0.0.1", 0)).unwrap();
++    listener.set_nonblocking(true).unwrap();
++    let url = format!("http://{}/responses", listener.local_addr().unwrap());
++    let work = async {
++        producer.admit(ROOT, None, true).await.unwrap();
++        let operation = producer.open_operation(ROOT, None, true).await.unwrap();
++        let inner = reqwest::Client::builder().no_proxy().build().unwrap();
++        // When
++        operation
++            .scope(HttpClient::new(inner).post(url).send())
++            .await
++    };
++    let receive = async move {
++        receiver.accept().await;
++        receiver.accept().await;
++        let record = receiver.read().await;
++        assert_eq!(record["body"]["kind"], "attempt_reserve");
++        drop(receiver);
++    };
++    let (result, _) = tokio::time::timeout(RECEIPT_TIMEOUT, async { tokio::join!(work, receive) })
++        .await
++        .unwrap();
++    // Then
++    assert!(matches!(result, Err(crate::HttpError::Build(_))));
++    assert_eq!(
++        listener.accept().unwrap_err().kind(),
++        std::io::ErrorKind::WouldBlock
++    );
++    assert!(producer.broken.load(std::sync::atomic::Ordering::SeqCst));
++}
++
++#[tokio::test]
++async fn cancellation_during_acknowledgment_poison_stream_instead_of_reusing_it() {
++    // Given
++    let (producer, mut receiver) = pair().await;
++    let record_seen = tokio::sync::Notify::new();
++    let cancellation = record_seen.notified();
++    tokio::pin!(cancellation);
++    cancellation.as_mut().enable();
++    let send = producer.admit(ROOT, None, true);
++    // When
++    let cancel = async {
++        tokio::select! {
++            result = send => panic!("receipt was not delivered: {result:?}"),
++            _ = cancellation => {}
++        }
++    };
++    let receive = async {
++        receiver.read().await;
++        record_seen.notify_one();
++    };
++    tokio::time::timeout(RECEIPT_TIMEOUT, async { tokio::join!(cancel, receive) })
++        .await
++        .unwrap();
++    // Then
++    assert!(producer.broken.load(std::sync::atomic::Ordering::SeqCst));
++    assert!(matches!(
++        producer.admit(ROOT, None, true).await,
++        Err(Error::Lost)
++    ));
++}
++
++#[test]
++fn canonical_hash_sorts_nested_keys_without_reordering_arrays() {
++    // Given
++    let value: serde_json::Value =
++        serde_json::from_str(r#"{"z":[{"b":2,"a":1},0],"a":{"d":null,"c":"x"}}"#).unwrap();
++    // When
++    let bytes = super::channel::canonical_bytes(&value).unwrap();
++    // Then
++    assert_eq!(bytes, br#"{"a":{"c":"x","d":null},"z":[{"a":1,"b":2},0]}"#);
++}
++
++#[tokio::test]
++async fn auxiliary_http_does_not_consume_a_generation_attempt() {
++    // Given
++    let (producer, mut receiver) = pair().await;
++    let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
++        .await
++        .unwrap();
++    let address = listener.local_addr().unwrap();
++    let server = async {
++        for _ in 0..2 {
++            let (mut stream, _) = listener.accept().await.unwrap();
++            let mut buffer = [0; 4096];
++            assert!(stream.read(&mut buffer).await.unwrap() > 0);
++            stream
++                .write_all(b"HTTP/1.1 204 No Content\r\nConnection: close\r\n\r\n")
++                .await
++                .unwrap();
++        }
++    };
++    let work = async {
++        producer.admit(ROOT, None, true).await.unwrap();
++        let operation = producer.open_operation(ROOT, None, true).await.unwrap();
++        let inner = reqwest::Client::builder().no_proxy().build().unwrap();
++        let client = HttpClient::new(inner);
++        // When
++        operation
++            .clone()
++            .scope(async {
++                client
++                    .get(format!("http://{address}/auth"))
++                    .send()
++                    .await
++                    .unwrap();
++                client
++                    .post(format!("http://{address}/responses"))
++                    .send()
++                    .await
++                    .unwrap();
++            })
++            .await;
++        operation
++            .terminal(Terminal::ResponseCompleted, TerminalMetadata::missing())
++            .await
++            .unwrap();
++        operation.close(Terminal::ResponseCompleted).await.unwrap();
++    };
++    let receive = async {
++        for _ in 0..7 {
++            receiver.accept().await;
++        }
++        receiver.records
++    };
++    let (_, records, _) = tokio::time::timeout(RECEIPT_TIMEOUT, async {
++        tokio::join!(work, receive, server)
++    })
++    .await
++    .unwrap();
++    // Then
++    assert_eq!(
++        records
++            .iter()
++            .filter(|record| record["body"]["kind"] == "attempt_reserve")
++            .count(),
++        1
++    );
++    assert_eq!(records[2]["body"]["kind"], "unsupported_operation");
++    assert_eq!(records[2]["body"]["transport_class"], "http_other");
++}
++
++#[tokio::test]
++async fn receiver_loss_preserves_unqualified_http_and_blocks_generation() {
++    // Given
++    let (producer, mut receiver) = pair().await;
++    let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
++        .await
++        .unwrap();
++    let url = format!("http://{}/auth", listener.local_addr().unwrap());
++    let server = async {
++        let (mut stream, _) = listener.accept().await.unwrap();
++        let mut buffer = [0; 4096];
++        assert!(stream.read(&mut buffer).await.unwrap() > 0);
++        stream
++            .write_all(b"HTTP/1.1 204 No Content\r\nConnection: close\r\n\r\n")
++            .await
++            .unwrap();
++    };
++    let work = async {
++        producer.admit(ROOT, None, true).await.unwrap();
++        let operation = producer.open_operation(ROOT, None, true).await.unwrap();
++        let client = HttpClient::new(reqwest::Client::builder().no_proxy().build().unwrap());
++        // When
++        let response = operation
++            .clone()
++            .scope(client.get(url).send())
++            .await
++            .unwrap();
++        let generation = operation.dispatch().await;
++        (response.status(), generation)
++    };
++    let receive = async move {
++        receiver.accept().await;
++        receiver.accept().await;
++        let record = receiver.read().await;
++        assert_eq!(record["body"]["kind"], "unsupported_operation");
++        drop(receiver);
++    };
++    let ((status, generation), _, _) = tokio::time::timeout(RECEIPT_TIMEOUT, async {
++        tokio::join!(work, receive, server)
++    })
++    .await
++    .unwrap();
++    // Then
++    assert_eq!(status, http::StatusCode::NO_CONTENT);
++    assert!(matches!(generation, Err(Error::Lost)));
++}
++
++#[tokio::test]
++async fn reviewed_plugin_lookup_scopes_do_not_exempt_unknown_or_generation_requests() {
++    // Given
++    let (producer, mut receiver) = pair().await;
++    let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
++        .await
++        .unwrap();
++    let address = listener.local_addr().unwrap();
++    let server = async {
++        for _ in 0..4 {
++            let (mut stream, _) = listener.accept().await.unwrap();
++            let mut buffer = [0; 4096];
++            assert!(stream.read(&mut buffer).await.unwrap() > 0);
++            stream
++                .write_all(b"HTTP/1.1 204 No Content\r\nConnection: close\r\n\r\n")
++                .await
++                .unwrap();
++        }
++    };
++    let work = async {
++        producer.admit(ROOT, None, true).await.unwrap();
++        let operation = producer.open_operation(ROOT, None, true).await.unwrap();
++        let client = HttpClient::new(reqwest::Client::builder().no_proxy().build().unwrap());
++        // When
++        operation
++            .clone()
++            .scope(featured_plugin_lookup_scope(async {
++                client
++                    .get(format!("http://{address}/plugins/featured"))
++                    .send()
++                    .await
++                    .unwrap();
++                let curated_url = format!("http://{address}/curated-metadata");
++                curated_plugin_lookup_scope(&curated_url, async {
++                    client.get(&curated_url).send().await.unwrap();
++                    client
++                        .get(format!("http://{address}/unreviewed"))
++                        .send()
++                        .await
++                        .unwrap();
++                    client
++                        .post(format!("http://{address}/responses"))
++                        .send()
++                        .await
++                        .unwrap();
++                })
++                .await;
++            }))
++            .await;
++        operation
++            .terminal(Terminal::ResponseCompleted, TerminalMetadata::missing())
++            .await
++            .unwrap();
++        operation.close(Terminal::ResponseCompleted).await.unwrap();
++    };
++    let receive = async {
++        for _ in 0..7 {
++            receiver.accept().await;
++        }
++        receiver.records
++    };
++    let (_, records, _) = tokio::time::timeout(RECEIPT_TIMEOUT, async {
++        tokio::join!(work, receive, server)
++    })
++    .await
++    .unwrap();
++    // Then
++    assert_eq!(
++        records
++            .iter()
++            .filter(|record| record["body"]["kind"] == "attempt_reserve")
++            .count(),
++        1
++    );
++    assert_eq!(
++        records
++            .iter()
++            .filter(|record| record["body"]["kind"] == "unsupported_operation")
++            .count(),
++        1
++    );
++}
+diff --git a/codex-rs/http-client/src/accounting/wire.rs b/codex-rs/http-client/src/accounting/wire.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..68b1290cf7f183f9626e95490f5412f2dc2bb93b
+--- /dev/null
++++ b/codex-rs/http-client/src/accounting/wire.rs
+@@ -0,0 +1,237 @@
++use serde::{Deserialize, Serialize};
++
++#[derive(Clone, Debug, Deserialize)]
++#[serde(deny_unknown_fields)]
++pub(super) struct Bootstrap {
++    pub schema_version: u8,
++    pub protocol: String,
++    pub run_id: Id,
++    pub producer_instance_id: Id,
++    pub task_generation: u64,
++    pub configuration_receipt_id: Id,
++    pub configuration_revision: Id,
++    pub root_session_id: Id,
++}
++
++#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
++#[serde(transparent)]
++pub struct Id(String);
++
++impl Id {
++    pub fn parse(value: &str) -> Result<Self, super::Error> {
++        let bytes = value.as_bytes();
++        if bytes.is_empty()
++            || bytes.len() > 128
++            || !bytes[0].is_ascii_alphanumeric()
++            || !bytes
++                .iter()
++                .all(|v| v.is_ascii_alphanumeric() || b":_-".contains(v))
++        {
++            return Err(super::Error::Protocol);
++        }
++        Ok(Self(value.to_owned()))
++    }
++}
++
++impl<'de> Deserialize<'de> for Id {
++    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
++        let value = String::deserialize(deserializer)?;
++        Self::parse(&value).map_err(serde::de::Error::custom)
++    }
++}
++
++#[derive(Debug, Serialize)]
++pub(super) struct Record<'a> {
++    pub schema_version: u8,
++    pub run_id: &'a Id,
++    pub producer_instance_id: &'a Id,
++    pub member_id: &'a Id,
++    pub task_generation: u64,
++    pub sequence: u64,
++    pub previous_record_hash: &'a Option<String>,
++    pub occurred_at: String,
++    pub body: Body,
++}
++
++#[derive(Clone, Debug, Serialize)]
++#[serde(tag = "kind", rename_all = "snake_case")]
++pub(super) enum Body {
++    MemberReady {
++        native_session_id: String,
++        parent_member_id: Option<Id>,
++        child_reservation_id: Option<Id>,
++        configuration_receipt_id: Id,
++    },
++    ChildReserve {
++        parent_member_id: Id,
++    },
++    OperationOpen {
++        operation_id: Id,
++        turn_id: Option<Id>,
++        operation_class: OperationClass,
++        transport_class: TransportClass,
++        requested_model: Model,
++        requested_effort: Effort,
++        configuration_revision: Id,
++    },
++    AttemptReserve {
++        operation_id: Id,
++        retry_parent_attempt_id: Option<Id>,
++    },
++    DispatchCommit {
++        attempt_id: Id,
++    },
++    AttemptTerminal {
++        attempt_id: Id,
++        disposition: Terminal,
++        response_id: Option<Id>,
++        effective_model: Option<Model>,
++        readings: Readings,
++    },
++    OperationClose {
++        operation_id: Id,
++        disposition: CloseDisposition,
++    },
++    UnsupportedOperation {
++        operation_id: Id,
++        operation_class: OperationClass,
++        transport_class: TransportClass,
++        reason: Reason,
++    },
++    CloseRequest,
++    MemberClose {
++        close_fence_id: Id,
++        final_record_sequence: u64,
++        final_record_hash: Option<String>,
++    },
++}
++
++#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
++#[serde(rename_all = "snake_case")]
++pub enum OperationClass {
++    Generation,
++    Compaction,
++    Warmup,
++    Guardian,
++    Auxiliary,
++    Control,
++    Unknown,
++}
++#[derive(Clone, Copy, Debug, Serialize)]
++#[serde(rename_all = "snake_case")]
++pub enum TransportClass {
++    HttpResponses,
++    HttpOther,
++    Websocket,
++    Unknown,
++}
++#[derive(Clone, Copy, Debug, Serialize)]
++pub enum Model {
++    #[serde(rename = "gpt-6.1-sol")]
++    Gpt61Sol,
++}
++#[derive(Clone, Copy, Debug, Serialize)]
++pub(super) enum Effort {
++    #[serde(rename = "high")]
++    High,
++}
++#[derive(Clone, Copy, Debug, Serialize)]
++#[serde(rename_all = "snake_case")]
++pub enum Terminal {
++    ResponseCompleted,
++    ResponseIncomplete,
++    HttpError,
++    TransportError,
++    Cancelled,
++}
++#[derive(Clone, Copy, Debug, Serialize)]
++#[serde(rename_all = "snake_case")]
++pub(super) enum CloseDisposition {
++    Completed,
++    Failed,
++    Cancelled,
++}
++#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
++#[serde(rename_all = "snake_case")]
++pub enum Reason {
++    UnsupportedProfile,
++    UnsupportedOperation,
++    UnqualifiedTransport,
++    ConfigurationMismatch,
++    TopologyMismatch,
++    IdentityMismatch,
++    RecordGap,
++    RecordConflict,
++    UnresolvedAttempt,
++    MissingUsage,
++    CounterError,
++    AmbiguousResponse,
++    ScopeRevoked,
++    ReceiverLost,
++    ProducerLost,
++    DurabilityUnavailable,
++    MissingMemberClose,
++    MissingValue,
++    PriceCoverage,
++    TaskCoverage,
++}
++
++#[derive(Debug, Deserialize)]
++#[serde(deny_unknown_fields)]
++pub(super) struct Receipt {
++    pub schema_version: u8,
++    pub receipt_id: Id,
++    pub run_id: Id,
++    pub control_sequence: u64,
++    pub recorded_at: String,
++    pub body: Gate,
++}
++#[derive(Debug, Deserialize)]
++#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
++pub(super) enum Gate {
++    MemberAdmitted {
++        member_id: Id,
++        session_id: Id,
++    },
++    ChildReserved {
++        child_reservation_id: Id,
++        parent_member_id: Id,
++    },
++    AttemptReserved {
++        attempt_id: Id,
++        operation_id: Id,
++        member_id: Id,
++        retry_parent_attempt_id: Option<Id>,
++    },
++    DispatchCommitted {
++        attempt_id: Id,
++    },
++    RecordCommitted {
++        producer_sequence: u64,
++        producer_record_hash: String,
++    },
++    CloseFence {
++        close_fence_id: Id,
++    },
++    ScopeRevoked {
++        reason: Reason,
++    },
++}
++
++pub use super::readings::{Reading, Readings};
++
++pub struct TerminalMetadata {
++    pub response_id: Option<Id>,
++    pub effective_model: Option<Model>,
++    pub readings: Readings,
++}
++
++impl TerminalMetadata {
++    pub fn missing() -> Self {
++        Self {
++            response_id: None,
++            effective_model: None,
++            readings: Readings::missing(),
++        }
++    }
++}

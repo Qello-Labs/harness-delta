@@ -149,6 +149,127 @@ Journals ending after the cutoff cannot prove earlier coverage.
 Empty windows have null coverage evidence and an ineligible decision.
 Priceability does not establish request-universe completeness or terminal delivery.
 
+## 5. Read a separate sealed instrumented window
+
+The separate instrumented receiver provides before-dispatch/terminal records and
+immutable sealed snapshots. Production eligibility requires code-owned
+exact-producer qualification and an
+authenticated owned launch; a caller-created profile or launch row is not enough.
+Conformance without the issuance/launch chain remains
+`source_unverified_partial_amount`.
+Ordinary Codex logs and historical observations are not promoted by this path.
+The first profile is limited to HTTP Responses, `gpt-6.1-sol` / `high`, one fresh
+root and at most two lifetime fresh direct children. Unqualified WebSocket,
+Guardian, auxiliary, tool/extension or unknown work keeps the run partial;
+normal approval and safety behavior must remain enabled.
+The reviewed child path is a direct V2 `collaboration.spawn_agent` call with
+`fork_turns: "none"`. Code-mode execution, history forks and resumed members
+remain partial; the model's default tool mode does not qualify those paths.
+Missing token detail is not zero, and an unaccounted dispatched attempt remains unresolved.
+
+The owned launcher starts a registered, unused task itself. Launching an already
+active task creates only a work window. Successful process retirement does not
+finalize a task: human finalization is required before a later snapshot can
+establish whole-task coverage. The instrumented invocation selects HTTP without
+overriding the builtin OpenAI provider; other transports remain unqualified.
+Native analytics and log/trace/metrics exporters are disabled for that invocation
+only. Global settings and normal approval/sandbox policy are not changed.
+
+### Qualify and launch the exact build
+
+Use Node 24, macOS arm64, the exact accepted Rust 1.95.0 toolchain and a populated
+Cargo download/Git-object cache. The local checkout must be at the profile's pinned
+commit with the shipped `native/instrumented-codex-01621.patch` applied and no other
+changes. The qualifier reconstructs its own source and owns a fresh locked,
+offline build; it never accepts a caller profile, verdict or claimed executable hash.
+Compiler bytes are authenticated before execution, inherited ancestor Cargo
+configuration is rejected, and changes to receiver/build inputs invalidate issuance.
+
+Create a location-only JSON file, replacing the synthetic paths:
+
+```json
+{
+  "checkout_path": "/absolute/reviewed/codex-source",
+  "toolchain_path": "/absolute/reviewed/rust-1.95.0-aarch64-apple-darwin",
+  "cargo_home_path": "/absolute/reviewed/cargo-cache",
+  "build_root_path": "/private/tmp"
+}
+```
+
+```sh
+node dist/cli.js --db .harness-delta/pilot/local.sqlite instrumented-codex qualify \
+  --locations locations.json
+```
+
+Qualification runs controlled synthetic native scenarios with loopback-only
+networking, then stores an immutable build identity and prints its exact binary
+path. It makes no paid model request. Interrupts terminate owned process groups
+and remove unsuccessful temporary builds.
+
+Register the project and task and confirm the required task configuration before
+launch. Use the issued identity/path and the task's current generation:
+
+```json
+{
+  "schema_version": 1,
+  "run_id": "instrumented-run-1",
+  "project_id": "synthetic-project",
+  "task_id": "synthetic-task",
+  "task_generation": 0,
+  "build_identity_id": "issued-build-identity",
+  "binary_path": "/absolute/issued/build/codex",
+  "price_table_id": "registered-prices",
+  "duration_ms": 900000,
+  "termination_grace_ms": 1000
+}
+```
+
+```sh
+node dist/cli.js --db .harness-delta/pilot/local.sqlite instrumented-codex launch \
+  --execution execution.json
+```
+
+This command starts the owned native model run and inherits its stdin/stdout.
+Only metadata on fd3 enters measurement storage. It rehashes the actual executable;
+an unrelated binary, changed file or ordinary binding qualification cannot satisfy
+the gate. Runtime duration is a termination limit, not a hard billing bound.
+Missing counters, unqualified work or incomplete price coverage still prevent a
+complete amount. Prices remain standardized estimates, not proof of a vendor bill.
+
+After the receiver has committed the family seal, replace `run-1` with its run ID:
+
+```sh
+node dist/cli.js --db .harness-delta/pilot/local.sqlite price-table snapshot-instrumented run-1 \
+  --id instrumented-input-1 --valuation-id instrumented-value-1 --cutoff "$reportCutoff"
+```
+
+This command freezes the exact seal and metadata, then values it under the run's
+original immutable price pin. It starts no model request. A cutoff before the
+seal's durable commit cannot use that seal as earlier evidence.
+Without verified launcher evidence, `source_unverified_partial_amount` is separate
+and `partial_amount`, `complete_window_amount` and `complete_amount` remain null.
+
+| Field | Meaning |
+| --- | --- |
+| `coverage_scope: work_window` | The sealed accounting window, not the entire logical task |
+| `complete_window_amount` | Available only when every required usage and price fact is established |
+| `complete_amount` | Requires whole-task coverage, owned producer retirement and human finalization |
+| `source_snapshot_hash` | Immutable seal/metadata identity retained across valuations |
+
+A clean turn or the sum of complete windows cannot erase earlier work or excluded gaps.
+The functional pilot still supplies no inferential adoption result.
+To revalue exactly the same retained evidence, select an already registered new table:
+
+```sh
+node dist/cli.js --db .harness-delta/pilot/local.sqlite price-table reprice-instrumented instrumented-input-1 \
+  --id instrumented-value-2 --price-table prices-2
+node dist/cli.js --db .harness-delta/pilot/local.sqlite price-table instrumented-valuation instrumented-value-1
+```
+
+The original table, snapshot and valuation stay unchanged. New prices cannot repair
+missing usage or establish billing. Deletion purges dependent snapshots/valuations
+and blocks their resurrection.
+
 ## Provenance and verification reference
 
 The JSON includes table contents/hash, deduplicated usage hash, formula `decimal160-disjoint-v1`, report version `observed-cost-v1` and input basis.

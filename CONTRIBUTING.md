@@ -9,7 +9,10 @@ direct child. The child profile is read-only; family resume and broader descenda
 collection are unsupported. Assigned CLI wiring has synthetic coverage and later bounded actual root
 functional observations; exact admission and configuration-scope limits are separate evidence. Claude Code 2.1.291 has a separately admitted
 parent-only launch profile (2.1.288 is retired); Claude child execution and native resume are not admitted. All usage remains
-partial, with no complete task cost or inferential adoption support.
+partial, with no inferential adoption support. The separately qualified instrumented
+Codex source can establish standardized complete cost under its reviewed profile;
+see the [observed-cost runbook](docs/runbooks/observed-cost.md). It does not turn
+ordinary file, binding or workflow observations into complete totals or vendor bills.
 
 Codex 0.162.1 bounded ordinary collection passed fresh ordinary-route native
 acceptance and independent review on 2026-10-13: one fresh CLI root and up to two

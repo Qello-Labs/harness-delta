@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { registerComparisonCommands } from './comparison-cli.js';
 import { registerLocalWebCommand } from './local-web-main.js';
 import { registerTaskWorkflowCommands, type WorkflowCommandDependencies } from './task-workflow-cli.js';
+import { registerInstrumentedCodexCommands } from './instrumented-codex-cli.js';
 import { Store } from './store.js';
 import { Lifecycle, type Outcome } from './lifecycle.js';
 import { Deletion } from './deletion.js';
@@ -88,6 +89,7 @@ export async function main(argv: string[], workflowDependencies:WorkflowCommandD
   registerCompatibilityCommands(program, db, print);
   registerComparisonCommands(program, db, print);
   registerTaskWorkflowCommands(program, db, print, workflowDependencies);
+  registerInstrumentedCodexCommands(program, db, print);
   registerExchangeCommands(program, db, print);
   registerLocalWebCommand(program, db, print);
   try {
