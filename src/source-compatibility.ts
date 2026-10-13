@@ -2,6 +2,7 @@ import { lookupFileProfile, type RegisteredFileProfile } from './adapter-profile
 import { EventSchema, SourceCompatibilitySchema, type SourceCompatibility } from './contracts.js';
 import { productionSourceEvidence } from './readiness.js';
 import type { Store } from './store.js';
+import { codexBindingAdmission } from './codex-binding-admission.js';
 
 export type CompatibilitySource = SourceCompatibility['source'];
 export type CompatibilityBlockReason = 'contract_failed' | 'semantic_incompatibility';
@@ -26,8 +27,17 @@ export const sourceCompatibilityWindows = Object.freeze([
 export function resolveSourceCompatibility(product: string, version: string, source: CompatibilitySource, profileId?: string): SourceCompatibility | null {
   const numbers = stableVersion(version);
   if (!numbers || !['codex', 'claude_code'].includes(product)) return null;
+  if (source === 'codex_binding') return product === 'codex' &&
+    version === codexBindingAdmission.productVersion &&
+    (profileId === undefined || profileId === codexBindingAdmission.profileId)
+    ? SourceCompatibilitySchema.parse({
+      state: 'verified', product, product_version: version, source,
+      parser_version: version, parser_revision: codexBindingAdmission.profileId,
+      profile_id: codexBindingAdmission.profileId, rule_revision: compatibilityRuleRevision,
+    }) : null;
   const file = source === 'file' ? lookupFileProfile(product, version) : 'unsupported';
   const native = source === 'file' ? undefined : productionSourceEvidence.find(row => row.product === product && row.product_version === version &&
+    row.profile_id !== codexBindingAdmission.profileId &&
     (profileId === undefined || row.profile_id === profileId) && (product === 'codex' ? source === 'codex_workflow' : source === 'claude_workflow'));
   const exactId = file !== 'unsupported' ? file.product === 'claude_code' ? 'claude-file-message-components-v1' : file.boundaryMode === 'legacy' ? 'codex-file-legacy-v1' : 'codex-file-checkpoint-v1' : native?.profile_id;
   if (exactId && (profileId === undefined || profileId === exactId)) return SourceCompatibilitySchema.parse({
@@ -88,9 +98,8 @@ export function overlayEventCompatibility(store: Store, input: import('zod').inf
   const event = EventSchema.parse(input);
   if (event.payload.kind !== 'usage' || event.payload.product === 'synthetic') return event;
   if (!event.payload.source_compatibility) {
-    // Unknown historical source: exclude the whole blocked version conservatively,
-    // without inventing a parser/profile or upgrading its original trust.
-    return store.get('SELECT 1 FROM source_compatibility_blocks WHERE product=? AND product_version=?',
+    // Binding observations always carry a pin; unpinned history predates that source.
+    return store.get("SELECT 1 FROM source_compatibility_blocks WHERE product=? AND product_version=? AND source!='codex_binding'",
       [event.payload.product, event.payload.product_version]) ? { ...event, payload: { ...event.payload, source_invalidated: true } } : event;
   }
   return { ...event, payload: { ...event.payload, source_compatibility: effectiveSourceCompatibility(store, event.payload.source_compatibility) } };

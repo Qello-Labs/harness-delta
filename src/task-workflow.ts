@@ -15,6 +15,7 @@ import { productionSourceEvidence, syntheticSourceEvidence } from './readiness.j
 import type { Store } from './store.js';
 import { externalContract } from './external-session-contract.js';
 import { isHumanPilotProtocol } from './session-binding-human-pilot.js';
+import { isAdmittedCodexBindingProtocol } from './codex-binding-admission.js';
 
 const artifactSchema = z.strictObject({ artifact_id: IdSchema, path: z.string().min(1).max(4096) });
 export const AssignedWorkflowInputSchema = z.strictObject({ schema_version: z.literal(1),
@@ -78,6 +79,7 @@ function workflowProtocol(store: Store, protocolId: string) {
 }
 function checkReadiness(store: Store, protocolId: string, at: string, preparationOnly = false) {
   const protocol = workflowProtocol(store, protocolId);
+  if (!preparationOnly && isAdmittedCodexBindingProtocol(protocol)) throw new Error('native_source_unqualified');
   if (protocol.purpose !== 'synthetic_validation' && !comparisonReadiness(store, protocolId, at).real_allocation && !functionalWorkflowEligible(store,protocol) && !(preparationOnly&&isHumanPilotProtocol(protocol))) throw new Error('real_experiment_disabled');
   return protocol;
 }

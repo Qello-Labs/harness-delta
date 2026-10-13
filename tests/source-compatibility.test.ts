@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { Lifecycle } from '../src/lifecycle.js';
 import { Store } from '../src/store.js';
+import { EventSchema } from '../src/contracts.js';
 
 test.each([['codex', '0.161.0'], ['codex', '0.162.1'], ['claude_code', '2.1.292'], ['claude_code', '2.1.293'], ['claude_code', '2.1.296']])('recent regular %s can enroll without opening its source', (product, version) => {
   const root = mkdtempSync(join(tmpdir(), 'compatibility-'));
@@ -37,7 +38,7 @@ test.each(products)('%s latest stable reuses its parser, counts only new turns a
 });
 
 import { Collector } from '../src/collection.js';
-import { effectiveSourceCompatibility, invalidateCompatibility, resolveSourceCompatibility, sessionCompatibility } from '../src/source-compatibility.js';
+import { effectiveSourceCompatibility, invalidateCompatibility, overlayEventCompatibility, resolveSourceCompatibility, sessionCompatibility } from '../src/source-compatibility.js';
 
 test('finite source windows prefer exact verified profiles and reject suffixes and boundary transitions', () => {
   expect(resolveSourceCompatibility('codex', '0.158.0', 'file')?.state).toBe('verified');
@@ -158,4 +159,23 @@ test('known incompatible exact versions stop pre-migration unpinned sessions bef
     expect(f.reads()).toBe(reads);
     expect(sessionCompatibility(f.store, 's1')).toBeNull();
   } finally { f.cleanup(); }
+});
+
+test('binding-only invalidation leaves unpinned historical usage unchanged', () => {
+  const store = new Store(':memory:');
+  const reading = {status:'observed',value:1,reason:null};
+  const historical = EventSchema.parse({
+    id:'historical',project_id:'p',task_id:'t',session_id:'s',source_key:'historical',
+    occurred_at:'2026-01-01T00:00:00Z',payload:{kind:'usage',product:'codex',product_version:'0.162.1',
+      epoch:'legacy',model:'gpt-6.1-sol',input_total:reading,cached_input:reading,output_total:reading,reasoning_output:reading},
+  });
+  try {
+    const compatibility = resolveSourceCompatibility('codex','0.162.1','codex_binding');
+    if(!compatibility)throw new Error('binding_profile_missing');
+
+    invalidateCompatibility(store,compatibility,'contract_failed');
+
+    expect(overlayEventCompatibility(store,historical)).toEqual(historical);
+    expect(resolveSourceCompatibility('codex','0.162.1','file')).toMatchObject({state:'compatibility_unverified'});
+  } finally {store.close();}
 });

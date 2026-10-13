@@ -6,12 +6,14 @@ import { Lifecycle } from './lifecycle.js';
 import type { Store } from './store.js';
 import type { VerifiedSessionIdentity, BindingUsageRecord } from './session-binding-contract.js';
 import type { OwnedCliInvocation } from './owned-cli-invocation.js';
+import { resolveSourceCompatibility } from './source-compatibility.js';
+import { codexBindingQualificationPolicies, codexBindingQualificationVersions } from './codex-binding-qualification-versions.js';
 
 /** Opaque, process-local native qualification capability. No browser/profile flag. */
 export interface BindingQualificationLease { readonly qualificationOnly: true }
-const collectorErrors=['clock_regression','invalid_gap','binding_qualification_revoked','binding_qualification_scope_invalid','binding_qualification_identity_invalid','binding_qualification_family_limit','binding_qualification_runtime_invalid','binding_qualification_request_conflict','binding_qualification_request_limit','binding_qualification_token_limit','binding_scope_revoked','binding_source_changed','binding_source_unavailable','binding_identity_unavailable','binding_ancestry_unverified','binding_usage_incomplete','candidate_invalid_metadata'] as const;
+const collectorErrors=['clock_regression','invalid_gap','binding_qualification_revoked','binding_qualification_scope_invalid','binding_qualification_identity_invalid','binding_qualification_family_limit','binding_qualification_runtime_invalid','binding_qualification_request_conflict','binding_qualification_request_limit','binding_qualification_token_limit','binding_scope_revoked','external_window_closed','binding_source_changed','binding_source_unavailable','binding_identity_unavailable','binding_ancestry_unverified','binding_usage_incomplete','candidate_invalid_metadata'] as const;
 export type QualificationCollectorError=typeof collectorErrors[number]|'unknown_collector_error';
-interface State { store: Store; taskId: string; root: string; owner: OwnedCliInvocation; deadline: number; issuedAt: number; generation: number; taskState: string;
+interface State { store: Store; taskId: string; root: string; productVersion: (typeof codexBindingQualificationVersions)[number]; owner: OwnedCliInvocation; deadline: number; issuedAt: number; generation: number; taskState: string;
  rootId: string|null; childIds: Set<string>; arm: string; pricePin: string; revoked: boolean; requests: Map<string,BindingUsageRecord>; baseline: Set<string>; collectorError:QualificationCollectorError|null; limitWitness:QualificationStopWitness|null }
 type LimitPredicate='root_request_limit'|'child_request_limit'|'total_request_limit'|'token_limit';
 export interface QualificationStopWitness {
@@ -32,9 +34,11 @@ export function issueCodexBindingLease(store: Store, taskId: string, owner: Owne
   parseTaskMetadata(JSON.parse(task.metadata) as unknown).product!=='codex'||comparisonProtocol(store,protocolRow(store,assignment.protocol_id)).purpose!=='functional_pilot'||
   store.all('SELECT id FROM tasks').length!==1||store.all('SELECT id FROM projects').length!==1||store.all('SELECT id FROM sessions').length||store.eventCount())throw new Error('binding_qualification_scope_invalid');
  const protocol=comparisonProtocol(store,protocolRow(store,assignment.protocol_id));
- if(protocol.schema_version!==2)throw new Error('binding_qualification_scope_invalid');
+ if(protocol.schema_version!==2||protocol.source_profiles.length!==1||protocol.source_profiles[0]?.product!=='codex')throw new Error('binding_qualification_scope_invalid');
+ const productVersion=protocol.source_profiles[0].product_version;
+ if(productVersion!=='0.160.0'&&productVersion!=='0.162.1')throw new Error('binding_qualification_scope_invalid');
  const lease=Object.freeze({qualificationOnly:true as const});
- leases.set(lease,{store,taskId,root:realpathSync(root),owner,deadline,issuedAt:Date.now(),generation:task.generation,taskState:task.state,rootId:null,childIds:new Set(),arm:assignment.variant_id,pricePin:protocol.price_table_id,revoked:false,requests:new Map(),baseline:new Set(),collectorError:null,limitWitness:null});
+ leases.set(lease,{store,taskId,root:realpathSync(root),productVersion,owner,deadline,issuedAt:Date.now(),generation:task.generation,taskState:task.state,rootId:null,childIds:new Set(),arm:assignment.variant_id,pricePin:protocol.price_table_id,revoked:false,requests:new Map(),baseline:new Set(),collectorError:null,limitWitness:null});
  return lease;
 }
 /** Private diagnostic only: first fixed code, never error text/stack/content. */
@@ -54,8 +58,14 @@ export function assertBindingQualification(lease: BindingQualificationLease|unde
   parseTaskMetadata(JSON.parse(task.metadata) as unknown).product!=='codex'||store.all('SELECT id FROM tasks').length!==1||store.all('SELECT id FROM projects').length!==1||
   store.get("SELECT 1 FROM tombstones WHERE (kind='task' AND id=?) OR (kind='project' AND id=?)",[taskId,task.project_id]))throw new Error('binding_qualification_revoked');
  const protocol=comparisonProtocol(store,protocolRow(store,assignment.protocol_id));
- if(protocol.schema_version!==2||protocol.price_table_id!==s.pricePin||protocol.purpose!=='functional_pilot')throw new Error('binding_qualification_revoked');
+ if(protocol.schema_version!==2||protocol.price_table_id!==s.pricePin||protocol.purpose!=='functional_pilot'||
+  protocol.source_profiles.length!==1||protocol.source_profiles[0]?.product!=='codex'||protocol.source_profiles[0].product_version!==s.productVersion)throw new Error('binding_qualification_revoked');
  return true;
+}
+export function bindingQualificationCompatibility(lease: BindingQualificationLease | undefined) {
+ if(!lease)return null;
+ const version=leases.get(lease)?.productVersion;
+ return version==='0.162.1'?resolveSourceCompatibility('codex',version,'codex_workflow','codex-workflow-own-response-v1'):null;
 }
 /** Called synchronously after a lifecycle transition, before another body read.
  * Generation/pins and the independent owner deadline never reset on resume. */
@@ -71,7 +81,7 @@ export function bindingQualificationOwnerLive(lease:BindingQualificationLease|un
 }
 export function checkBindingQualificationIdentity(lease:BindingQualificationLease|undefined,store:Store,taskId:string,value:VerifiedSessionIdentity,commit=true):void {
  if(!lease)return;assertBindingQualification(lease,store,taskId);const s=leases.get(lease)!;
- if(value.product!=='codex'||value.productVersion!=='0.160.0'||value.cwd!==s.root||Date.parse(value.createdAt)<s.issuedAt-5000||
+ if(value.product!=='codex'||value.productVersion!==s.productVersion||value.cwd!==s.root||Date.parse(value.createdAt)<s.issuedAt-5000||
   statSync(value.sourceRef).birthtimeMs<s.issuedAt-5000)throw new Error('binding_qualification_identity_invalid');
  // Validate before a DB transaction; adopt family pins only after its commit.
  if(value.parentSessionId===null){if(s.rootId!==null&&s.rootId!==value.sessionId)throw new Error('binding_qualification_family_limit');if(commit)s.rootId=value.sessionId;}
@@ -86,8 +96,9 @@ export function qualificationStopWitness(lease:BindingQualificationLease|undefin
  if(s.limitWitness)return structuredClone(s.limitWitness);
  const records=[...s.requests.values()];const own=(id:string|null)=>records.filter(r=>r.sessionId===id).length;
  const tokens=records.reduce((n,r)=>n+(r.payload.input_total.value??0)+(r.payload.output_total.value??0),0);const reached:LimitPredicate[]=[];
- if(own(s.rootId)>=4)reached.push('root_request_limit');if([...s.childIds].some(id=>own(id)>1))reached.push('child_request_limit');
- if(records.length>=6)reached.push('total_request_limit');if(tokens>=100000)reached.push('token_limit');
+ const policy=codexBindingQualificationPolicies[s.productVersion];
+ if(own(s.rootId)>=policy.rootRequestStop)reached.push('root_request_limit');if([...s.childIds].some(id=>own(id)>1))reached.push('child_request_limit');
+ if(records.length>=policy.totalRequestStop)reached.push('total_request_limit');if(tokens>=policy.tokenStop)reached.push('token_limit');
  return{predicate,safety:{root_requests:own(s.rootId),children:[...s.childIds].sort().map(id=>({session_id:id,requests:own(id),excluded_baseline_requests:records.filter(r=>r.sessionId===id&&s.baseline.has(qualificationRequestKey(r))).length})),total_requests:records.length,excluded_baseline_requests:s.baseline.size,input_output_tokens:tokens,reached},attempted:null};
 }
 export function checkBindingQualificationRecord(lease:BindingQualificationLease|undefined,store:Store,taskId:string,value:BindingUsageRecord,baseline=false):void {
@@ -98,8 +109,9 @@ export function checkBindingQualificationRecord(lease:BindingQualificationLease|
  if(value.sessionId!==s.rootId&&!s.childIds.has(value.sessionId))throw new Error('binding_qualification_identity_invalid');
  const requests=[...s.requests.values()];const own=requests.filter(r=>r.sessionId===value.sessionId).length;
  const tokens=[...requests,value].reduce((n,r)=>n+(r.payload.input_total.value??0)+(r.payload.output_total.value??0),0);
- const reached:LimitPredicate[]=[];if(own>=(value.sessionId===s.rootId?4:1))reached.push(value.sessionId===s.rootId?'root_request_limit':'child_request_limit');
- if(requests.length>=6)reached.push('total_request_limit');if(tokens>100000)reached.push('token_limit');
+ const policy=codexBindingQualificationPolicies[s.productVersion];
+ const reached:LimitPredicate[]=[];if(own>=(value.sessionId===s.rootId?policy.rootRequestStop:1))reached.push(value.sessionId===s.rootId?'root_request_limit':'child_request_limit');
+ if(requests.length>=policy.totalRequestStop)reached.push('total_request_limit');if(tokens>policy.tokenStop)reached.push('token_limit');
  if(reached.length){s.limitWitness??={...qualificationStopWitness(lease,'collector_limit'),attempted:{session_id:value.sessionId,own_requests:own+1,total_requests:requests.length+1,input_output_tokens:tokens,excluded_baseline:baseline,reached}};throw new Error(reached.some(r=>r!=='token_limit')?'binding_qualification_request_limit':'binding_qualification_token_limit');}
  s.requests.set(key,value);if(baseline)s.baseline.add(key);
 }

@@ -148,6 +148,126 @@ cutoff 뒤에 끝난 journal은 이전 관측 범위를 입증하지 못합니�
 빈 구간의 coverage 근거는 null이고 판정은 부적격입니다.
 가격 적용 가능은 요청 전체 집합이나 마지막 전달 완료를 입증하지 않습니다.
 
+## 5. 별도로 봉인된 계측 구간 읽기
+
+별도 계측 receiver는 요청 전 dispatch·terminal 기록과 불변 seal snapshot을 제공합니다.
+production 적격성에는 코드가 소유한 정확한 producer 검증과 인증된 소유 launch가
+필요하며, caller가 만든 profile이나 launch row만으로는 충분하지 않습니다.
+발급·launch chain 없이 수행한 conformance는
+`source_unverified_partial_amount`로 유지됩니다.
+일반 Codex 로그나 과거 관측값을 이 경로로 승격하지 않습니다.
+첫 프로필은 HTTP Responses, `gpt-6.1-sol` / `high`, 새 root 하나와 실행 전체에서
+최대 두 개의 새 direct child로 제한됩니다. 미검증 WebSocket, Guardian, 보조 작업,
+tool/extension 또는 알 수 없는 작업이 있으면 partial을 유지하며,
+기존 승인·안전 동작은 계속 활성화되어야 합니다.
+검토한 자식 경로는 `fork_turns: "none"`인 직접 V2
+`collaboration.spawn_agent` 호출입니다. code-mode 실행, 이력 fork, 재개된 member는
+partial로 남으며 모델의 기본 도구 모드가 이 경로를 검증하지는 않습니다.
+누락된 token detail은 0이 아니며, 정산되지 않은 dispatch 시도는 unresolved로 남습니다.
+
+소유 launcher는 등록된 미사용 작업을 직접 시작합니다. 이미 active인 작업의
+launch는 작업 구간만 만듭니다. 성공한 프로세스 retirement가 작업을 최종 판정하지는
+않으며, 이후 snapshot에서 작업 전체 범위를 입증하려면 사람이 최종 판정해야 합니다.
+계측 실행은 builtin OpenAI provider를 override하지 않고 HTTP를 선택하며
+다른 transport는 미검증 상태로 유지합니다.
+native analytics와 log/trace/metrics exporter는 해당 실행에만 비활성화합니다.
+전역 설정과 기존 승인·sandbox 정책은 변경하지 않습니다.
+
+### 정확한 build 검증과 launch
+
+Node 24, macOS arm64, 정확히 인정된 Rust 1.95.0 toolchain과 다운로드·Git object가
+채워진 Cargo cache를 사용합니다. local checkout은 profile이 고정한 commit에
+배포된 `native/instrumented-codex-01621.patch`를 적용한 상태여야 하며 다른 변경은
+허용하지 않습니다. qualifier는 source를 직접 재구성하고 새로운 locked offline build를
+소유하며, caller의 profile·판정·실행 파일 hash 주장을 받지 않습니다.
+실행 전 compiler bytes를 인증하고 상위 디렉터리의 Cargo 설정을 거부하며,
+receiver·build 입력이 바뀌면 identity를 발급하지 않습니다.
+
+합성 경로를 교체하여 location만 담은 JSON 파일을 만드세요.
+
+```json
+{
+  "checkout_path": "/absolute/reviewed/codex-source",
+  "toolchain_path": "/absolute/reviewed/rust-1.95.0-aarch64-apple-darwin",
+  "cargo_home_path": "/absolute/reviewed/cargo-cache",
+  "build_root_path": "/private/tmp"
+}
+```
+
+```sh
+node dist/cli.js --db .harness-delta/pilot/local.sqlite instrumented-codex qualify \
+  --locations locations.json
+```
+
+qualification은 loopback networking만 허용한 통제된 합성 native 시나리오를 실행한 뒤
+불변 build identity를 저장하고 정확한 binary 경로를 출력합니다.
+유료 모델 요청은 하지 않습니다. 중단 시 소유 process group을 종료하고 실패한
+임시 build를 제거합니다.
+
+launch 전에 프로젝트·작업을 등록하고 필요한 작업 설정을 확인하세요.
+발급된 identity·경로와 작업의 현재 generation을 사용합니다.
+
+```json
+{
+  "schema_version": 1,
+  "run_id": "instrumented-run-1",
+  "project_id": "synthetic-project",
+  "task_id": "synthetic-task",
+  "task_generation": 0,
+  "build_identity_id": "issued-build-identity",
+  "binary_path": "/absolute/issued/build/codex",
+  "price_table_id": "registered-prices",
+  "duration_ms": 900000,
+  "termination_grace_ms": 1000
+}
+```
+
+```sh
+node dist/cli.js --db .harness-delta/pilot/local.sqlite instrumented-codex launch \
+  --execution execution.json
+```
+
+이 command는 소유 native 모델 실행을 시작하며 stdin/stdout을 그대로 연결합니다.
+fd3의 metadata만 측정 저장소에 들어갑니다. 실제 실행 파일을 다시 hashing하며,
+무관한 binary·변경된 파일·일반 binding qualification은 이 gate를 통과하지 못합니다.
+실행 시간은 종료 제한이지 청구액의 hard bound가 아닙니다.
+누락 counter·미검증 작업·불완전한 가격 coverage가 있으면 완전한 금액을 제공하지
+않습니다. 가격은 표준화된 추정이며 vendor 청구의 증명이 아닙니다.
+
+receiver가 family seal을 확정한 뒤 `run-1`을 해당 run ID로 교체하세요.
+
+```sh
+node dist/cli.js --db .harness-delta/pilot/local.sqlite price-table snapshot-instrumented run-1 \
+  --id instrumented-input-1 --valuation-id instrumented-value-1 --cutoff "$reportCutoff"
+```
+
+이 command는 정확한 seal·metadata를 고정하고 run의 원래 불변 가격 pin으로 계산합니다.
+모델 요청을 시작하지 않습니다. seal의 영속 commit보다 이른 cutoff는
+그 seal을 이전 시점의 증거로 사용할 수 없습니다.
+검증된 launcher 증거가 없으면 `source_unverified_partial_amount`를 따로 표시하고
+`partial_amount`, `complete_window_amount`, `complete_amount`는 null로 유지합니다.
+
+| 필드 | 뜻 |
+| --- | --- |
+| `coverage_scope: work_window` | 논리 작업 전체가 아닌 봉인된 정산 구간 |
+| `complete_window_amount` | 필요한 사용량·가격 사실을 모두 입증했을 때만 제공 |
+| `complete_amount` | 작업 전체 범위, 소유 producer의 retirement와 사람의 최종 판정이 있어야 제공 |
+| `source_snapshot_hash` | 재평가에서도 유지되는 불변 seal·metadata 식별값 |
+
+깨끗하게 끝난 turn이나 완전한 여러 구간의 합계로 이전 작업·제외 공백을 지울 수 없습니다.
+functional pilot은 여전히 추론적 도입 결과를 제공하지 않습니다.
+같은 저장 증거를 정확히 재평가하려면 이미 등록된 새 가격표를 선택하세요.
+
+```sh
+node dist/cli.js --db .harness-delta/pilot/local.sqlite price-table reprice-instrumented instrumented-input-1 \
+  --id instrumented-value-2 --price-table prices-2
+node dist/cli.js --db .harness-delta/pilot/local.sqlite price-table instrumented-valuation instrumented-value-1
+```
+
+원래 가격표·snapshot·평가 결과는 그대로 유지합니다. 새 가격으로 사용량 누락을
+고치거나 실제 청구를 입증할 수 없습니다. 삭제는 종속 snapshot·평가 결과를 제거하고
+다시 복구되지 않도록 막습니다.
+
 ## 출처와 검증 참조
 
 JSON은 가격표 내용/hash, 중복 제거된 사용량 hash, 공식 `decimal160-disjoint-v1`, 보고서 버전 `observed-cost-v1`, 입력 가정을 포함합니다.

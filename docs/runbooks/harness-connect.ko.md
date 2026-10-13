@@ -7,7 +7,9 @@
 [공유 스킬](../../skills/harness-connect/SKILL.md), receipt API, 연결 저장/수집 계층,
 Codex/Claude 메타데이터 hook/provider, UI 가족 표시가 구현되어 있습니다. 격리 synthetic
 종단 테스트로 부모 한 번 연결, 자식 자동 수집과 부분 사용량 갱신을 검증합니다.
-일반 native production source는 qualification 차단 상태입니다. Claude 호출 시
+아래의 Codex 0.162.1 제한 일반 profile은 2026-10-13에 실제 ordinary 경로의
+native 검증과 독립 검토를 통과했으며, 다른 일반 native
+production source는 qualification 차단 상태입니다. Claude 호출 시
 세션 hook 등록·receipt 조회·평탄화된 family 멤버의 합성 통합도 구현했습니다. provider 설정이나 스킬 설치만으로 production 경로가 열리지
 않습니다. [설계와 실측 계획](../decisions/012-session-family-bindings.md)을 참고하세요.
 
@@ -17,6 +19,39 @@ instrumentation이 있으면 평소처럼 연 부모가 신뢰 가능한 receipt
 검증된 자식 관계는 자동 추적하며 자식별 호출은 필요 없습니다. 재호출은 기존
 연결을 확인하고 여러 작업이면 한 번 명시적으로 선택합니다. 같은 cwd, 모델 진술,
 환경 힌트나 추측 UUID는 증거가 아닙니다.
+
+## Codex 0.162.1 제한 일반 profile
+
+새 `ordinary_admission` 실행과 독립 검토로 이 정확한 제한 경로를 검증했습니다.
+[날짜별 승인 증거](../validation/codex-ordinary-binding-qualification.md#2026-10-13-ordinary-route-acceptance)를 참고하세요.
+기존 lease 기반 관측과 synthetic fixture는 별도 증거이며,
+다른 일반 경로를 검증한 것은 아닙니다.
+
+고정된 `functional_pilot` protocol에 코드 소유 source profile
+`codex-binding-01621-direct-family-v1`, 정확한 버전 `0.162.1`, 등록 작업의
+초기 모델 `gpt-6.1-sol`을 사용합니다. 이 기능 protocol은 도입 실험을 허용하지
+않습니다. `session_binding`에는 검토된 Codex receipt 디렉터리, 허용 source
+root와 등록 프로젝트를 설정합니다. Qualification lease, `native-pilot` 명령,
+브라우저 지원 플래그가 admission을 부여하지 않습니다.
+
+지원 native 증거는 검토된 read-only·no-daemon 실행의 새 CLI root와 새 직접
+자식 2개, `gpt-6.1-sol/high`입니다. 일반 coordinator는 root 최대 1개·직접
+자식 최대 2개와 native 모델·effort 메타데이터를 확인합니다. 미지원 runtime,
+source 교체, ancestry, 세 번째·중첩 멤버, 다른 정확 버전은 차단합니다.
+하네스 적용과 작업 세션을 분리합니다. 재시작·일시중단 후에는 새 baseline을
+잡으며 제외된 준비·오프라인 사용량은 소급 수집하지 않습니다.
+
+구현은 새 관측에 `source: codex_binding`과 해당 ordinary 실행에서 검증한
+정확한 parser provenance를 고정합니다.
+파일·도구 소유 launch 경로는 기존 호환 미검증 상태를 유지하고,
+과거 관측은 새 trust로 승격되지 않습니다. 일반 수집은 사용자 native
+프로세스를 제어하거나 qualification runner의 요청·토큰·실행 시간 안전
+예산을 강제하지 않습니다.
+
+적격 관측 요청과 가격이 확인된 구성 요소만 부분 비용에 반영합니다.
+응답 기록과 정상 종료는 모든 시도 요청·마지막 usage의 영구 전달을 입증하지
+못하므로 전체 작업 비용은 미지원입니다. 기준 가격 정책의 매칭은 실제 청구
+증거가 아닙니다.
 
 ## 프로젝트 설치 경계
 
@@ -66,8 +101,8 @@ Codex 고정 공식 소스에서 자식 start hook은 자신의 rollout path를 
 
 로컬 UI origin과 명시적 project/task를 지정하고 현재 native hook이 전달한 opaque
 receipt를 사용합니다. receipt를 만들거나 transcript 디렉터리를 검색하지 않습니다.
-아래 명령은 구현된 계약 예시이며 native production admission은 qualification까지
-차단됩니다.
+아래 명령은 구현된 계약 예시입니다. Native production admission은 위의
+정확한 제한 profile을 요구하며 다른 candidate는 차단됩니다.
 
 ```text
 Codex: $harness-connect Connect this session to project PROJECT_ID, task TASK_ID, using http://127.0.0.1:PORT and its native receipt.
@@ -157,6 +192,60 @@ Claude 기준선의 제외 own request ID는 실시간 replay 목록과 별도�
 이미 관측한 요청의 counter 충돌도 수집을 중단합니다.
 
 격리된 일반 Codex CLI qualification 실행기와 실제 호출 승인 범위는 [qualification 절차](../validation/codex-ordinary-binding-qualification.md)를 참고하세요. 준비와 Node fixture 검증만으로 production 지원이 열리지는 않습니다.
+실행기에 별도 정확 버전 0.162.1 후보가 있으며 `--product-version 0.162.1`로
+선택합니다. 일반 `--no-daemon` TUI에서 기존 부모 하나·새 직접 자식 둘의 topology를
+유지합니다. 정확한 실행 파일 고정, intent별 승인과 소유 실행의 안전 검증은
+일반 provider 설정과 별개입니다. 기본 qualification 경로는 source lease를
+사용하고, `ordinary_admission`은 별도로 검증된 일반 source 권한을 사용합니다.
+세션 한정 `projects` 인라인 테이블은 새 임시
+프로젝트만 신뢰하며 사용자 설정을 저장하거나 sandbox·승인 권한을 넓히지 않습니다.
+새 0.162.1 계획은 기본 비활성·`UnderDevelopment`인 `exec_permission_approvals`
+feature를 이번 세션에만 별도로 켭니다. 검토된 helper 실행 1회에 inspect/connect를
+묶고 명시적인 network-only 명령 승인을 받으며 기존 파일 권한은 유지합니다.
+이 권한은 host/port 한정이 아니며 managed proxy가 loopback 접근을 계속 차단할
+수 있습니다. prefix/turn/session grant, sandbox 밖 escalation, 영구 정책 변경은
+허용하지 않습니다. inspect·연결·승인이 차단되면 재시도하거나 자식을 만들지 않고
+중단합니다. 검토된 정지 기준은 root8/child1each/total10입니다.
+자동 시작은 연결만 수행합니다. 연결과 해당 턴이 끝난 뒤 intent에 고정한
+`post_connect_input`을 별도 TUI 턴으로 한 번만 제출하세요.
+제출 키 없이 붙여넣고(지원하면 bracketed paste 사용) 입력창의 초안을 확인한 뒤
+Enter를 별도 동작으로 누르세요. 입력창에 붙여넣은 문구만으로 제출을 판단하지 말고,
+전송된 턴과 실제 작업 시작을 확인한 뒤 완료를 기다리세요.
+루트는 턴마다 최대 3회, 자식은 각 1회 요청을 계획합니다. 제외된 연결 요청도
+안전 한도에는 포함하지만 측정 사용량에는 포함하지 않습니다. 세 세션의 사용량을
+수집하고 작업 턴이 끝나면 대기 중인 TUI를 정상 종료하세요.
+종료 명령 입력과 제출 키도 별도 동작으로 보내세요.
+기존 0.160.0은 root4/child1each/total6을 유지합니다.
+0.162.1의 토큰 정지 한도는 200000이며 0.160.0은 100000을 유지합니다.
+0.162.1의 시간 한도는 900초이며 0.160.0은 120초를 유지합니다.
+target의 연결 기준 수집 창도 900초이며 기존 수집 창은 180초를 유지합니다.
+수집 창이 더 늦게 끝나더라도 native 시작 기준 900초 마감은 실행을 종료합니다.
+권한 모드와 한도는 새 intent에 고정하며
+준비 자체는 native 실행 승인이 아닙니다. 추가 동의 필드는 qualification 절차를
+참고하세요.
+connector 경로/SHA를 고정하며 inspect가 성공한 뒤에만 connect를 실행합니다.
+현재 receipt를 쓰는 고정 Node 명령만 승인하고 다른 명령을 연결하면 안 됩니다.
+두 번째 또는 더 넓은 권한 요청은 사람이 거부하며, 연결 차단 후 작업이 계속되면
+소유 실행을 중단해야 합니다. 미연결 활동은 source ledger가 감시하지 못합니다.
+새 0.162.1 계획은 자동 시작만 허용하며 수동 모드는 기존 0.160.0에만 남습니다.
+승인 요청과 agent-turn-complete를 OSC9로 알리고 `notification_condition="always"`로 고정합니다.
+실행 전에 private `native-attention.json` 생성을 구독하고, 각 알림 뒤에는 변경을
+구독하세요. 해당 경로가 이미 있으면 예약을 소비하기 전에 실행을 거부합니다.
+raw PTY framing으로 줄바꿈을 기다리지 않고 digest/count만 알리며
+메시지 본문은 보관하지 않습니다. 현재 화면을 확인해 정확한 명령의 승인을
+사람에게 받아야 합니다. 알림 자체는 권한을 주거나 고정된 시간 한도를 연장하지 않습니다.
+완료 알림에서도 끝난 턴과 비어 있는 입력창을 확인한 뒤에만 고정된 후속 입력이나
+정상 종료를 제출하세요. 알림 자체는 사용량 수집의 증거가 아니므로 정상 종료 전에
+연결된 세 세션의 사용량을 별도로 확인하세요.
+Node 전용 전달 검증은 target binary의 실제 알림 동작을 검증한 것이 아닙니다.
+고정된 0.162.1 ordinary 경로는 위 제한 profile에서 실제 native 알림,
+명령 권한과 가족 conformance를 검증했습니다. 다른 일반 경로, 버전,
+runtime과 더 넓은 topology는 미검증입니다.
+source를 읽지 않는 작업 준비는 정확한 버전과 단일 own-response profile의
+functional-pilot protocol도 허용하지만 binding·ticket 수집 권한을 주지는 않습니다.
+qualification은 각 정확한 source를 검증된 자체 조상 관계로만 투영하고, 별도 lease가
+전체 가족 한도를 제한합니다. 형제 thread를 가리키는 row는 차단하며 일반 경로의
+더 넓은 topology를 지원한다는 뜻이 아닙니다.
 
 격리 qualification UI는 부모·자식별 자체 요청, 입력·출력, 부분 비용과 관측 합계를 표시합니다. 같은 살아 있는 부모의 측정 재개와 소유 AI 긴급 중단을 분리하며, 기존 기한·안전 카운터는 초기화하지 않습니다. pause 중 원본 카운터는 미확인입니다. [제한된 실행 절차](../validation/codex-ordinary-binding-qualification.md)를 참조하세요.
 
