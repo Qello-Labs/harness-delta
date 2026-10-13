@@ -9,6 +9,23 @@ Claude Code 2.1.296(`claude-workflow-own-trace-v1`, 부모 전용; `claude-workf
 논리적 작업마다 하나의 A/B 배정을 유지합니다.
 모델과 effort는 실행마다 선택합니다. 새 세션을 열어도 배정은 바뀌지 않습니다.
 
+## 세션에 맞는 절차 선택하기
+
+아래 번호 단계는 도구가 소유하는 native launch를 사용합니다. 직접 여는
+세션이라면 입력을 준비하기 전에 해당 절차를 선택하세요.
+
+| 원하는 workflow | 절차와 지원 경계 |
+| --- | --- |
+| 브라우저에서 작업 준비와 결과 검토 | [로컬 브라우저 workflow](local-browser-ui.ko.md); guided setup은 저장 전에 입력을 검토하며 수집을 시작하지 않음 |
+| 일반 터미널 세션 연결 | [Harness Connect](harness-connect.ko.md); 운영자가 별도로 승인하는 `functional_pilot`만 허용; 일반 production source는 계속 차단 |
+| Codex 0.162.0 일반 root | [root 전용 파일럿](harness-connect.ko.md#codex-01620-일반-root-로컬-pilot); 운영자가 승인한 관측, 새 root 하나만 허용, 자식 미지원 |
+| Claude 일반 가족 | [사용자 조작 파일럿](harness-connect.ko.md#claude-사용자-조작-ui-pilot); 정확한 후보 버전, 새 부모와 새 구성원 최대 두 개 |
+| Codex 0.160.0 시작 티켓 | [외부 세션 workflow](external-session-workflow.ko.md); 정확한 새 root와 티켓, 자동 가족 상속 없음 |
+
+이 경로들의 원본 및 권한 조건은 서로 다릅니다. launch workflow의 호환성
+범위가 일반 세션 연결을 허용하지는 않습니다.
+skill 설치나 브라우저 작업 준비만으로 관측 권한이 생기지 않습니다.
+
 ## 지원 범위와 실행 비용
 
 | 경로 | 지원 범위 |
@@ -39,11 +56,15 @@ resume/link/collect·자식 launch에는 적용되지 않습니다.
 
 ## 1. 저장소에서 설치하기
 
-준비물은 Node.js 24, npm, 선택한 workflow 버전에 허용되는 기존 고정 바이너리입니다.
+준비물은 Node.js 24 또는 26, npm, 선택한 workflow 버전에 허용되는 기존 고정 바이너리입니다.
+고정된 Codex 직계 자식 workflow와 실제 native qualification에는 계속 Node 24가 필요합니다.
+Node 26에서도 기존 루트 launch/resume 조정과 Claude 부모 launch를 사용할 수 있지만,
+같은 실행별 승인과 원본 gate를 적용합니다. runtime 검증 범위는 합성이며,
+추가적인 정확한 버전 native qualification을 뜻하지 않습니다.
 로컬 검증 환경은 macOS arm64입니다. 다른 플랫폼은 미검증입니다.
 패키지는 private 상태이며 공개 패키지 설치 절차는 없습니다.
 
-1. 버전 관리자로 Node 24를 선택하세요.
+1. 버전 관리자로 Node 24 또는 26을 선택하세요.
 2. 저장소 루트에서 고정 의존성을 설치하세요.
 
    ```sh
@@ -66,12 +87,13 @@ resume/link/collect·자식 launch에는 적용되지 않습니다.
 `external`은 별도의 [사용자가 여는 세션 절차](external-session-workflow.ko.md)이며,
 아래의 도구 소유 launch 경로와 다릅니다.
 4단계의 `workflow status`로 선택한 v2 native 지원 조건을 확인하세요.
-`npm start -- <arguments>` 진입점은 SQLite를 로드하기 전에 Node 24, 빌드,
+`npm start -- <arguments>` 진입점은 SQLite를 로드하기 전에 Node 24 또는 26, 빌드,
 설치된 의존성을 확인합니다. `unsupported_node`(exit 2), `build_required`(exit 3),
 `dependencies_required`(exit 4)로 첫 실행 문제를 구분합니다.
-`npm ci` 전에 Node 24를 선택하세요. `npm exec node@24`만으로 셸이나 npm script가
-Node 24를 쓰는지 확인할 수 없습니다. 같은 터미널에서 `node --version`을 확인하세요.
-설치가 실패하면 Node 24와 [CONTRIBUTING의 SQLite 빌드 준비물](../../CONTRIBUTING.md#development-environment)을 확인하세요.
+`npm ci` 전에 Node 24 또는 26을 선택하세요. `npm exec node@24`만으로 셸이나 npm script가
+해당 runtime을 쓰는지 확인할 수 없습니다. 같은 터미널에서 `node --version`을 확인하세요.
+Node major를 바꿨다면 `npm ci`를 다시 실행해 SQLite를 선택한 runtime에 맞추세요.
+설치가 실패하면 선택한 Node 버전과 [CONTRIBUTING의 SQLite 빌드 준비물](../../CONTRIBUTING.md#development-environment)을 확인하세요.
 설치는 로컬 Git hooks도 설치합니다. 수집을 시작하거나 제품 인증을 바꾸지는 않습니다.
 아래 명령은 모두 저장소 루트에서 실행하며 데이터베이스를 명시합니다.
 로컬 패키지를 설치하면 `hm`을 사용할 수 있지만 `npm ci`만으로 셸 PATH에 생기지는 않습니다.

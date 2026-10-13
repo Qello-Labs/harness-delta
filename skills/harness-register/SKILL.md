@@ -5,14 +5,49 @@ description: Use when a user wants to package explicitly selected existing harne
 
 # Register a harness version
 
-Use a built Harness Delta checkout with Node 24. This reference package can be
+Use a built Harness Delta checkout with Node 24 or 26. This reference package can be
 copied to a skill directory; it requires no personal plugin or installed global CLI.
 
-Ask for missing harness ID, version, policy version, selected files and the
-README source. Keep the selection explicit. An instruction mentioning a tool
+Inspect the explicit project root and user-prepared candidate instruction and
+optional script/document paths first. Propose missing harness IDs, versions,
+policy versions, selected files and README sources from that evidence; label new
+names as proposals. Group unresolved choices into one confirmation instead of
+asking the user to fill every field individually. Keep the selection explicit.
+An instruction mentioning a tool
 does not authorize running it. Choose the primary instruction's target as
 `harness.md`; preserve relevant relative file layout. Do not generate a replacement
 harness, modify original files, infer a dependency closure or install the skill.
+
+## Current baseline and prepared candidate
+
+A and B are roles in one comparison, not permanent version names. A represents
+the project's currently applied instructions and tools; B is the prepared
+improvement while preserving the common rules. A candidate file merely existing
+in the checkout does not make it part of the applied baseline. Inspect the actual
+entry instructions and application evidence, then ask the user to confirm any
+ambiguous inclusion. Never infer adoption from the newest manifest, a successful
+task, lower partial cost or an earlier B assignment.
+
+Reuse an existing immutable baseline only after checking that its selected
+artifacts match the confirmed current configuration. Otherwise propose a new
+baseline version and explicitly selected files. Registration snapshots selected
+artifacts, not the entire checkout or native configuration. Missing baseline
+instructions, README or a composed candidate procedure require a separate
+creation request; do not silently fabricate a no-op baseline or replace common
+project policies with the candidate document.
+
+Review the candidate instruction, optional supporting files, README and local
+references as a proposed selection before registering. Ask before adding
+referenced files. Select `snapshot` for prepared instructions or `agent_applied`
+for an explicit application procedure; executable examples alone do not choose
+the mode. If the requested composition cannot be represented by existing files,
+explain the missing preparation and obtain approval before creating it.
+
+After a person chooses and actually applies an improvement, that verified current
+configuration can be A in a new comparison against the next prepared candidate.
+Use new version/comparison IDs where contents change, preserve historical bundles
+and assignments, and never rename the former B to A. Registration does not choose,
+apply or persist an adopted winner.
 
 Create an input JSON file from the explicit selection:
 

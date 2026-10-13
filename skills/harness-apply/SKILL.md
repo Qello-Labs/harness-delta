@@ -13,15 +13,16 @@ tools or publish a draft. Installation starts nothing. This application session
 must remain separate from the later working session using harness-connect.
 
 1. Obtain the UI origin, task ID and attempt ID from the copied/opening context.
-   Use Node 24 and this skill's script path. Retrieve context:
+   Use Node 24 or 26 and this skill's script path. Retrieve context:
    `node <skill-dir>/scripts/apply.mjs context --origin <origin> --task <task-id> --attempt <attempt-id>`.
    Check the exact assigned variant, bundle hash and target cwd. Never substitute
    another assignment, project, target, or bundle. Unsupported identity is explicit.
 2. If the existing native metadata integration can provide a receipt, register it
    with the identity helper before any measurement source access. Its JSON input
    contains attempt_id, product and receipt. Do not invent identity from cwd,
-   environment hints or your own claim. Unavailable identity prevents later
-   measurement connection; it does not prevent direct file application.
+   environment hints or your own claim. When this applying agent is also the
+   task's measured agent, unavailable identity prevents later measurement
+   connection; it never prevents direct file application.
 3. Read the assigned instruction and tool artifacts. Inspect project structure,
    discover domain-specific paths, preserve unrelated dirty/untracked files, and
    use the bundled scripts where the procedure requires them. Keep common

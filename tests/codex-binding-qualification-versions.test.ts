@@ -319,7 +319,8 @@ test('native preparation rejects an unpinned executable before creating an inten
   const p = await prepared(); const destination = join(p.root, 'invalid-native');
   await expect(prepareCodexSessionBindingQualification(destination, {
     binary: realpathSync(process.execPath), codexHome: p.home, productVersion: '0.162.1',
-  })).rejects.toThrow('binding_qualification_binary_mismatch');
+  // Native preparation stays Node 24 only, so the Node gate precedes the binary pin on Node 26.
+  })).rejects.toThrow(process.versions.node.startsWith('24.') ? 'binding_qualification_binary_mismatch' : 'node24_required');
   expect(() => readFileSync(join(destination, 'execution-intent.json'))).toThrow();
 });
 

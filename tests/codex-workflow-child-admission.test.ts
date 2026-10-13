@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { appendFileSync, lstatSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { join } from 'node:path';
-import { expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { evaluateReadiness, productionSourceEvidence, type ReadinessInput } from '../src/readiness.js';
 import { evaluateCostCoverage } from '../src/cost-coverage.js';
 import { createCodexWorkflowAdapter, pinnedCodexWorkflowBinarySha } from '../src/codex-workflow-adapter.js';
@@ -24,6 +24,11 @@ const profile={product:'codex' as const,product_version:'0.160.0',profile_id:chi
 const hash=(v:string)=>createHash('sha256').update(v).digest('hex');
 const permissions={sandbox_policy:{type:'read-only'},approval_policy:'on-request',approvals_reviewer:'auto_review',
   permission_profile:{type:'managed',file_system:{type:'restricted',entries:[{path:{type:'special',value:{kind:'root'}},access:'read'}]},network:'restricted'}};
+
+// Admission fixtures model the pinned runtime independently of the test runner.
+const nodeVersion=process.versions.node;
+beforeEach(()=>{Object.defineProperty(process.versions,'node',{value:'24.21.0'});});
+afterEach(()=>{Object.defineProperty(process.versions,'node',{value:nodeVersion});});
 
 test('verified direct-child evidence admits only exact partial source allocation and wired status',()=>{
   const f=makeFlexibleFixture();const input:ReadinessInput={protocol:{...f.protocol,purpose:'real_experiment',source_profiles:[profile]},source_evidence_ids:[childEvidence],
@@ -87,7 +92,8 @@ function seededProductionFamily(){
 
 test('production CLI recollects only its durable child, stops and reopens without duplicate usage or complete-cost claims',async()=>{
   const f=seededProductionFamily();try{
-    const compiled=compiledWorker(f.root);const entry=join(compiled,'cli.js');const config=join(f.root,'workflow.json');const runtime=join(f.root,'runtime.json');const execution=join(f.root,'execution.json');
+    const compiled=compiledWorker(f.root);const entry=join(f.root,'pinned-runtime-cli.mjs');const config=join(f.root,'workflow.json');const runtime=join(f.root,'runtime.json');const execution=join(f.root,'execution.json');
+    writeFileSync(entry,`Object.defineProperty(process.versions,'node',{value:'24.21.0'});const {main}=await import(${JSON.stringify(join(compiled,'cli.js'))});process.exitCode=await main(process.argv.slice(2));`);
     writeFileSync(runtime,JSON.stringify({model:null,effort:null}));
     const args=(id:string)=>{writeFileSync(config,JSON.stringify({...f.input,confirmation_id:id+'-confirmation'}));writeFileSync(execution,JSON.stringify(f.execution(id)));return ['workflow','codex','collect','--config',config,'--runtime',runtime,'--execution',execution];};
     const waitBound=async(id:string)=>{await vi.waitFor(()=>expect(f.store.get('SELECT identity_verified FROM codex_workflow_runs WHERE id=?',[id])).toEqual({identity_verified:1}),{timeout:4000});};
@@ -106,6 +112,17 @@ test('production CLI recollects only its durable child, stops and reopens withou
     expect(collected.stdout+replayed.stdout+JSON.stringify(cost)).not.toContain('SYNTHETIC_PRIVATE');
   }finally{f.cleanup();}
 },15000);
+
+test.each(['25.0.0','26.10.0','27.0.0'])('unqualified Node %s rejects production child collection before source access',version=>{
+  const f=seededProductionFamily();const read=vi.spyOn(collection,'readSource');
+  try{
+    Object.defineProperty(process.versions,'node',{value:version});
+    const adapter=createCodexWorkflowAdapter(f.store,f.execution('unqualified-runtime'));
+    expect(()=>adapter.preflight?.({model:null,effort:null})).toThrow('codex_workflow_child_operation_unsupported');
+    expect(read).not.toHaveBeenCalled();expect(f.store.eventCount()).toBe(2);
+    expect(f.store.all('SELECT id FROM codex_workflow_runs')).toEqual([{id:'seed-launch'}]);
+  }finally{read.mockRestore();f.cleanup();}
+});
 
 test.each(['resume','external-link','foreign-child','foreign-source','wrong-task','generation','orphan-binding','rewrite','deleted','new-turn','permissions','second-child','compaction','fork'])('production family rejects %s before measurement or unsafe source access',async mode=>{
   const f=seededProductionFamily();const read=vi.spyOn(collection,'readSource');try{

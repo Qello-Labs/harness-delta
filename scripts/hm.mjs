@@ -8,16 +8,16 @@ export async function launch(argv, root = new URL('../', import.meta.url), nodeV
     process.stderr.write(JSON.stringify({ error, message }) + '\n');
     return code;
   };
-  if (Number(nodeVersion.split('.')[0]) !== 24) {
-    return fail('unsupported_node', 'Select Node.js 24, verify node --version, then run npm ci and npm run build in the checkout. Use the same Node 24 to run npm start -- <arguments>.', 2);
+  if (![24, 26].includes(Number(nodeVersion.split('.')[0]))) {
+    return fail('unsupported_node', 'Select Node.js 24 or 26, verify node --version, then run npm ci and npm run build in the checkout. Use the same Node version to run npm start -- <arguments>.', 2);
   }
   const entry = new URL('dist/cli.js', root);
   if (!existsSync(entry)) {
-    return fail('build_required', 'From the checkout with Node.js 24 selected, run npm ci and npm run build, then npm start -- <arguments>.', 3);
+    return fail('build_required', 'From the checkout with Node.js 24 or 26 selected, run npm ci and npm run build, then npm start -- <arguments>.', 3);
   }
   const require = createRequire(new URL('package.json', root));
   try { require.resolve('better-sqlite3'); require.resolve('commander'); }
-  catch { return fail('dependencies_required', 'Run npm ci with Node.js 24 in the checkout, then npm run build and retry.', 4); }
+  catch { return fail('dependencies_required', 'Run npm ci with Node.js 24 or 26 in the checkout, then npm run build and retry.', 4); }
   const { main } = await import(entry.href);
   return main(argv);
 }

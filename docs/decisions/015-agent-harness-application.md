@@ -12,7 +12,10 @@ applying agent investigates the selected project.
 ## Decision
 
 The UI preserves assignment and selects an existing checkout/worktree and native
-product. It prepares an immutable task-scoped application context. The fresh native
+product. The applying product is the user's choice and need not equal the task's
+measured product; working-session guidance and connection always use the task's
+product, and application identity is registered only through that product's
+provider. It prepares an immutable task-scoped application context. The fresh native
 session's own agent invokes harness-apply, reads the assigned bundle, investigates
 project structure, runs its scripts and edits the selected workspace directly.
 Native tools decide permissions in that native window.
@@ -72,8 +75,14 @@ cwd or agent claims or inspect unlinked sessions to identify them.
 Reject registered application identities and their evidenced immediate parent
 relations before working-session source access. Unsupported broader ancestry
 remains subject to existing family/source gates. An application-required task
-also needs verified application identity and a fresh working root created after
-completion. The UI supplies populated target, assignment and harness-connect
+also needs a fresh working root created after completion, and verified
+application identity when the applying product equals the working session's
+product. A different applying product can never be the working session, so its
+identity is not required; exclusion of registered identities, freshness and
+epoch checks are unchanged. In that case separation rests on product inequality
+and freshness alone: a task-product session that the applying agent itself
+starts after completion is not detected, as was already true for any
+independently started same-product session. The UI supplies populated target, assignment and harness-connect
 context for a separate session. Native instruction-loading and source qualification
 remain pending; this feature does not enable unsupported measurement sources.
 

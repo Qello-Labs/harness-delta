@@ -3,7 +3,7 @@
 Developer-only synthetic method study. It does not enable production inference.
 For ordinary task work, use [the task procedure](workflow-quickstart.md).
 
-Select Node.js 24, then run from a Git checkout:
+Select Node.js 24 or 26, then run from a Git checkout:
 
 ```sh
 npm ci

@@ -44,7 +44,7 @@ export function verifyClaudeProbeBinary(binary: ClaudeNativeProbeOptions['binary
 export async function prepareClaudeProbeSupervisor(input: ClaudeProbeSupervisorOptions) {
   const options = { ...input, rootScope: structuredClone(input.rootScope), binary: { ...input.binary }, child: { ...input.child } };
   const durationMs = options.durationMs ?? 120000;
-  if (process.platform === 'win32' || Number(process.versions.node.split('.')[0]) !== 24 ||
+  if (process.platform === 'win32' || ![24, 26].includes(Number(process.versions.node.split('.')[0])) ||
       !Number.isSafeInteger(durationMs) || durationMs < 1 || durationMs > (options.workflow ? 3600000 : 120000)) throw new Error('claude_probe_invalid_supervisor');
   if(options.workflow&&!isClaudeWorkflowProductVersion(options.binary.version))throw new Error('claude_probe_executable_mismatch');
   const versions = options.workflow ? [options.binary.version] : [claudeProbeProductVersion];

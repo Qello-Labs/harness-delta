@@ -313,7 +313,9 @@ test('deleting a sibling preserves retained task reads and price pin while proto
     expect(await domain.bootstrap()).toMatchObject({ setups: [], tasks: [{ id, price }] });
     expect(() => create()).toThrow('protocol_not_active');
     await domain.taskAction(id, 'observe', {});
-    await expect.poll(() => domain.task(id).reason).toBe('local_operation_failed');
+    // Use the public settlement boundary instead of racing the collector's rejection.
+    await domain.taskAction(id, 'pause', {});
+    expect(domain.task(id).reason).toBe('protocol_not_active');
     expect(f.store.all("SELECT id FROM codex_workflow_runs WHERE task_id=? AND operation='collect'", [id])).toEqual([]);
     await domain.taskAction(id, 'finish-success', {});
     expect(domain.task(id)).toMatchObject({ status: 'success', outcome: { status: 'success' } });

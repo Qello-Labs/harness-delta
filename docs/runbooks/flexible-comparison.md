@@ -3,7 +3,7 @@
 The v2 workflow keeps a task's original A/B harness assignment when model or
 reasoning effort changes. Runtime choices are descriptive policy outcomes; they
 never allocate another task or reset followup. V1 fixed configuration and frozen
-reports remain readable unchanged. Use Node 24 and `npm run build`.
+reports remain readable unchanged. Use Node 24 or 26 and `npm run build`.
 
 ## Inputs and scope
 

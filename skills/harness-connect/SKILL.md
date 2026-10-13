@@ -29,7 +29,7 @@ family observation. This path currently has synthetic end-to-end validation;
 ordinary production sources still require qualification. Preserve server blockers.
 
 1. Obtain the user-selected UI origin (`http://127.0.0.1:PORT`). Locate this skill
-   directory from the host's loaded skill path. Run with Node 24:
+   directory from the host's loaded skill path. Run with Node 24 or 26:
    `node <skill-dir>/scripts/connect.mjs inspect --origin <origin> --product codex`
    (use `claude_code` for Claude). Return unsupported/unavailable blockers.
 2. Select an explicit registered project ID and logical task ID from that result.
@@ -106,5 +106,5 @@ are in the repository's paired runbook.
 For agent-applied tasks, use a separate fresh working session after verified files.
 The server rejects registered application roots and evidenced parent relations
 before source access. File application does not establish native loading/source
-qualification. Missing application identity, drift, abandonment and stale epochs
-remain blockers. Never connect the applying session or bypass those blockers.
+qualification. Missing application identity after a same-agent application, drift,
+abandonment and stale epochs remain blockers. Never connect the applying session or bypass those blockers.

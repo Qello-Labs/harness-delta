@@ -2,7 +2,7 @@
 import {readFileSync} from 'node:fs';
 const fail=code=>{process.stderr.write(code+'\n');process.exitCode=1;};
 try{
- if(Number(process.versions.node.split('.')[0])!==24)throw new Error('node24_required');
+ if(![24,26].includes(Number(process.versions.node.split('.')[0])))throw new Error('unsupported_node');
  const [action,...args]=process.argv.slice(2),options=new Map();
  if(!['status','context','checkpoint','report','identity'].includes(action)||args.length%2)throw new Error('invalid_application_request');
  for(let i=0;i<args.length;i+=2){if(!['--origin','--task','--attempt','--input'].includes(args[i])||options.has(args[i])||!args[i+1])throw new Error('invalid_application_request');options.set(args[i],args[i+1]);}
@@ -21,4 +21,4 @@ try{
   else{const bytes=readFileSync(options.get('--input'));if(bytes.length>1048576)throw new Error('invalid_application_request');const input=JSON.parse(bytes.toString('utf8'));if(!input||input.attempt_id!==attempt)throw new Error('application_attempt_stale');if(action==='report'&&input.bundle_hash!==context.bundle_hash)throw new Error('application_input_changed');const bootstrap=await request('/api/bootstrap');result=await request(`/api/tasks/${encodeURIComponent(task)}/application-${action}`,{method:'POST',headers:{'Content-Type':'application/json','X-Harness-CSRF':bootstrap.csrf,'Idempotency-Key':crypto.randomUUID(),'If-Match':current.version},body:JSON.stringify(input)});}
  }
  process.stdout.write(JSON.stringify(result)+'\n');
-}catch(error){fail(error instanceof Error&&/^(?:node24_required|invalid_application_request|(?:application_|ui_|local_|binding_)[a-z_]+)$/.test(error.message)?error.message:'application_request_failed');}
+}catch(error){fail(error instanceof Error&&/^(?:unsupported_node|invalid_application_request|(?:application_|ui_|local_|binding_)[a-z_]+)$/.test(error.message)?error.message:'application_request_failed');}

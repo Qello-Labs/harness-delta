@@ -7,6 +7,8 @@ import { ApplicationCoordinator, applicationRequired, effectiveTaskWorkspace } f
 import { SharedBindingSchema, assertSharedTask } from './local-web-shared-guard.js';
 import { createSharedSetupManager } from './local-web-shared.js';
 import { createSetupReviewManager } from './local-web-setup-review.js';
+import { localWebRecruitment } from './local-web-recruitment.js';
+import { convertTaskToAgentApplication } from './local-web-task-application.js';
 import { externalContract } from './external-session-contract.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { execFile, execFileSync } from 'node:child_process';
@@ -17,7 +19,7 @@ import Database from 'better-sqlite3';
 import { z } from 'zod';
 import { Lifecycle } from './lifecycle.js';
 import { Store } from './store.js';
-import { comparisonProtocol, protocolRow } from './comparison.js';
+import { comparisonProtocol, comparisonVariant, protocolRow } from './comparison.js';
 import { CodexWorkflowExecutionSchema } from './codex-workflow-adapter.js';
 import { recoverCodexWorkflow } from './codex-workflow-journal.js';
 import { ExternalTaskSetupSchema, buildExternalTaskSetup, createExternalTask, prepareExternalTask, issueExternalStartTicket, connectExternalTask, collectExternalTask, pauseExternalTask, externalTaskState, recordExternalTaskOutcome, externalTaskResult } from './external-session-service.js';
@@ -255,13 +257,20 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
   const taskDto = (id: string) => {
     const record = row(id); const setup = setupFor(record); const task = store.get('SELECT id FROM tasks WHERE id=?',[id])?life.task(id):{id,project_id:setup.workflow.assignment.project_id,state:'registered' as const};
     const supportDetails = localWebSupport(store, profileFor(record.profile_id));
+    const taskProtocol = parseProtocol(JSON.parse(protocolRow(store, setup.workflow.assignment.protocol_id).settings) as unknown);
+    const recruitment = localWebRecruitment(taskProtocol);
+    const assignedVariant = store.get<{variant_id:string}>('SELECT variant_id FROM comparison_assignments WHERE task_id=?',[id])?.variant_id ?? null;
+    const assignedIndex = assignedVariant === null ? -1 : taskProtocol.variant_ids.indexOf(assignedVariant);
+    const harness = { arm: assignedIndex === 0 ? 'A' as const : assignedIndex === 1 ? 'B' as const : null, variant_id: assignedVariant,
+      version: assignedVariant === null ? null : comparisonVariant(store, assignedVariant).harness_version,
+      application_mode: setup.workflow.application || applicationRequired(store,id) ? 'agent_applied' as const : 'selected_markdown_only' as const };
     if (!externalContract(store,id) || (task.state!=='finalized' && record.reason?.startsWith('shared_') && externalContract(store,id)?.started_at===null)) {
       const assignment=store.get<{variant_id:string}>('SELECT variant_id FROM comparison_assignments WHERE task_id=?',[id]);
       const reason=record.reason??'external_preparation_required';
-      const nativeApplication=!!setup.workflow.application;
+      const nativeApplication=harness.application_mode==='agent_applied';
       const blockedApplication=nativeApplication?{state:'blocked_configuration',jobId:null,epoch:0,reason,workspace:null,launchState:'not_requested',identity:'unavailable',capabilities:[getApplicationLaunchCapability('codex'),getApplicationLaunchCapability('claude_code')],baseline:setup.workflow.assignment.code_base_commit}:undefined;
       return {id,name:record.name,project_id:task.project_id,setup_id:record.profile_id,version:'"'+createHash('sha256').update(JSON.stringify({task,record})).digest('hex')+'"',state:task.state,status:'blocked_configuration',...(blockedApplication?{application:blockedApplication}:{}),
-        support_details:supportDetails,measurement:{state:'waiting_connection',active_ms:null,requests:null,window:{started_at:null,ends_at:null}},outcome:null,attempt:1,
+        support_details:supportDetails,recruitment,harness,measurement:{state:'waiting_connection',active_ms:null,requests:null,window:{started_at:null,ends_at:null}},outcome:null,attempt:1,
         preparation:{state:'blocked_configuration',configuration_evidence:'unverified',native_context_evidence:'unverified',freshness_evidence:'unverified',tool_use_evidence:'unavailable',assigned_variant_id:assignment?.variant_id??null},
         price:{partial_amount:null,currency:'USD',unpriced_events:0,basis:null},criteria:setup.workflow.assignment.metadata.criterion_ids,startup:null,source:null,reason,
         actions:[{code:'prepare',enabled:task.state!=='finalized',reason:null},...(!nativeApplication?[{code:'apply',enabled:task.state!=='finalized',reason:null}]:[])]};
@@ -314,7 +323,7 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
     const connectionReadiness = ready && supportDetails.context === 'real' && supportDetails.connection_route === 'family' && bindingProduct === 'claude_code'
       ? { skill: inspectClaudeProjectSkill(effectiveTaskWorkspace(store, id)), configured_version: setup.workflow.product_version,
         installed_version: null, collection_revoked: !!bindingCollectionControl(store, id)?.revoked_at } : undefined;
-    return { id, name: record.name, project_id: task.project_id, setup_id: record.profile_id, version, ...(application?{application}:{}), state: task.state, status, support_details: supportDetails,
+    return { id, name: record.name, project_id: task.project_id, setup_id: record.profile_id, version, ...(application?{application}:{}), state: task.state, status, support_details: supportDetails, recruitment, harness,
       ...(connectionReadiness ? { connection_readiness: connectionReadiness } : {}),
       measurement: { state: measurementState, active_ms: result.time.active_ms, requests: result.cost?.event_count ?? null, window: state.window, end_condition: state.collection_end_condition },
       outcome: state.outcome === null ? null : { status: state.outcome, assessed_at: result.outcome_at! }, attempt: state.rework_count + 1,
@@ -337,7 +346,8 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
       const setups = allProfiles.map(p => {
         const protocol = comparisonProtocol(store, protocolRow(store, p.setup.workflow.assignment.protocol_id));
         const strata = protocol.strata.filter(s => s.assignees.includes(p.setup.workflow.assignment.metadata.assignee));
-        return { id: p.id, name: p.name, project_id: p.setup.workflow.assignment.project_id, arm_a: protocol.variant_ids[0], arm_b: protocol.variant_ids[1],
+        return { id: p.id, name: p.name, project_id: p.setup.workflow.assignment.project_id, arm_a: protocol.variant_ids[0], arm_b: protocol.variant_ids[1], recruitment: localWebRecruitment(protocol),
+          application_mode: p.setup.workflow.application ? 'agent_applied' as const : 'selected_markdown_only' as const,
           ...(p.shared_binding?{shared:{revision_id:p.id,template_id:p.shared_binding.template_id,template_name:profiles().find(row=>row.id===p.shared_binding!.template_id)?.name??p.shared_binding.template_id,runtime:p.setup.runtime}}:{}),
           types: [...new Set(strata.flatMap(s => s.types))], sizes: [...new Set(strata.flatMap(s => s.sizes))], support: `${p.setup.workflow.assignment.metadata.product} ${p.setup.workflow.product_version}: route-specific gates; partial cost only`, support_details: localWebSupport(store, p) };
       });
@@ -414,6 +424,11 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
       if(action==='application-report'){applications.report(id,ApplicationReportSchema.parse(input));return taskDto(id);}
       if(action==='application-identity'){const request=ApplicationIdentitySchema.parse(input);applications.context(id,request.attempt_id);const provider=providersForTask(id).find(p=>p.product===request.product);if(!provider?.resolveApplicationIdentity||provider.capabilities().currentIdentity==='unavailable')throw new Error('application_identity_unavailable');const identity=await provider.resolveApplicationIdentity({receipt:request.receipt});return applications.registerIdentity(id,request.attempt_id,identity);}
       if(action==='application-cancel'){applications.cancel(id);return taskDto(id);}
+      if(action==='application-mode'){
+        z.strictObject({mode:z.literal('agent_applied')}).parse(input);
+        if(jobs.has(id)||running(id).length)throw new Error('workflow_run_active');
+        convertTaskToAgentApplication(store,id,setup.preparation);providers.delete(id);return taskDto(id);
+      }
 
       if (action === 'prepare' || action === 'apply') {
         if(action==='apply'&&setup.workflow.application)throw new Error('application_required');

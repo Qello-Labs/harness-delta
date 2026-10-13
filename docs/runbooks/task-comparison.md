@@ -13,7 +13,7 @@ local measurement continues under its own [runbook](local-measurement.md).
 See [ADR 008](../decisions/008-task-comparison-workflow.md) and
 [requirements R09/R10](../requirements.md#r09---randomized-task-comparisons).
 
-Use Node 24, install with `npm ci`, then `npm run build`. Commands below use
+Use Node 24 or 26, install with `npm ci`, then `npm run build`. Commands below use
 `node dist/cli.js`; an installed package uses `hm`. Keep the database and example
 input files in an ignored local directory such as `.harness-delta/comparison-demo/`.
 Create that directory before writing the input files. Use a dedicated synthetic

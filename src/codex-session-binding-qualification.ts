@@ -100,7 +100,8 @@ function verify(i:Intent,fixture?:BindingQualificationFixture){
   if(i.start_mode!=='automatic')throw new Error('binding_qualification_invalid_intent');
   if(i.connector!==join(i.directory,'connect-once.mjs')||i.connector_sha256!==hash(privateBytes(i.connector,65536)))throw new Error('binding_qualification_drift');
  }else if(i.connector!==null||i.connector_sha256!==null||i.post_connect_input!==null)throw new Error('binding_qualification_invalid_intent');
- if(Number(process.versions.node.split('.')[0])!==24||realpathSync(i.node)!==realpathSync(process.execPath)||
+ const nodeMajor=Number(process.versions.node.split('.')[0]);
+ if((nodeMajor!==24&&(nodeMajor!==26||i.validation_kind!=='synthetic'))||realpathSync(i.node)!==realpathSync(process.execPath)||
   i.node_sha256!==hash(privateBytes(i.node,256*1024*1024))||i.binary_sha256!==hash(privateBytes(i.binary,256*1024*1024))||
   i.python_sha256!==hash(privateBytes(i.python,256*1024*1024))||i.python!==OwnedCliInvocation.pythonExecutable()||
   i.worker!==realpathSync(fileURLToPath(new URL('../scripts/owned-cli-pty.py',import.meta.url)))||i.worker_sha256!==hash(privateBytes(i.worker,65536))||
@@ -122,7 +123,8 @@ function verify(i:Intent,fixture?:BindingQualificationFixture){
  * no product/auth execution, original project hook/trust or global config writes.
  */
 export async function prepareCodexSessionBindingQualification(directory:string,input:{binary:string;codexHome:string;startMode?:'automatic'|'manual';productVersion?:string;route?:'qualification'|'ordinary_admission'},fixture?:BindingQualificationFixture){
- if(Number(process.versions.node.split('.')[0])!==24)throw new Error('node24_required');
+ const nodeMajor=Number(process.versions.node.split('.')[0]);
+ if(nodeMajor!==24&&(nodeMajor!==26||!fixture))throw new Error('node24_required');
  const route=routeSchema.parse(input.route??'qualification');
  const startMode=startModeSchema.parse(input.startMode??'automatic');
  const productVersion=productVersionSchema.parse(input.productVersion??'0.160.0');

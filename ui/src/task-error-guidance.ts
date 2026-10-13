@@ -1,0 +1,96 @@
+import { isLocalWebTaskErrorCode, type LocalWebTaskErrorCode } from '../../src/local-web-task-errors.js';
+import type { RecruitmentWindow } from '../../src/local-web-recruitment.js';
+import type { Locale } from './types';
+
+type Message = readonly [enTitle: string, koTitle: string, enMessage: string, koMessage: string];
+const messages = {
+  outside_recruitment: ['Outside the recruitment period', '작업 모집 기간을 확인하세요',
+    'New tasks can only be assigned during the agreed recruitment period. Check the start and end times in the measurement settings, then retry when eligible.',
+    '새 작업은 합의한 모집 기간 안에서만 배정할 수 있습니다. 측정 설정의 시작·종료 시각을 확인한 뒤 기간 안에서 다시 준비하세요.'],
+  ineligible_task: ['This task does not meet the comparison rules', '이 비교에서 허용하지 않은 작업입니다',
+    'The participant, environment, task type or size does not match the saved conditions. Check those conditions and select an eligible type and size; other work needs separately reviewed settings.',
+    '참가자·실행 환경·작업 유형·크기가 저장된 조건과 맞지 않습니다. 조건을 확인하고 허용된 유형과 크기를 선택하세요. 다른 작업에는 별도로 검토한 설정이 필요합니다.'],
+  allocator_conflict: ['Assignment owner does not match', '배정 담당자 설정이 일치하지 않습니다',
+    'The saved allocator differs from the owner of this assignment group. Ask the setup author to check the allocator; do not force or repeat the A/B assignment.',
+    '저장된 배정 담당자가 이 작업 그룹의 담당자와 다릅니다. 설정을 준비한 담당자와 배정자 정보를 확인하세요. A/B를 임의로 다시 배정하지 마세요.'],
+  task_already_started: ['This task has already started', '이미 시작한 작업입니다',
+    'A started task cannot receive a new assignment. Return to the existing task and use its available resume or outcome actions.',
+    '이미 시작한 작업은 새로 배정할 수 없습니다. 기존 작업으로 돌아가 재개하거나 결과를 판정하세요.'],
+  preregistration_conflict: ['The registered task conditions changed', '이미 등록된 작업 조건과 다릅니다',
+    'The participant, environment, code baseline or task metadata differs from the original registration. Keep the original task; prepare a new task for changed requirements.',
+    '참가자·환경·코드 기준·작업 정보가 최초 등록과 다릅니다. 기존 작업은 원래 조건으로 유지하고, 요구사항이 바뀌었다면 새 작업을 준비하세요.'],
+  identity_conflict: ['Task identity conflicts', '작업 식별 정보가 충돌했습니다',
+    'The same logical task is linked to conflicting records. Stop retrying the assignment and ask the setup author to reconcile the records using the technical code below.',
+    '같은 논리적 작업이 서로 다른 기록에 연결되어 있습니다. 배정을 반복하지 말고 아래 오류 코드를 전달해 기존 기록을 확인하세요.'],
+  project_mismatch: ['The project does not match', '선택한 프로젝트와 설정이 다릅니다',
+    'This task or comparison belongs to another registered project. Select the matching project and its measurement settings.',
+    '이 작업이나 비교 설정은 다른 등록 프로젝트에 속합니다. 일치하는 프로젝트와 측정 설정을 선택하세요.'],
+  protocol_not_active: ['The comparison is not active', '사용할 수 있는 비교 설정이 아닙니다',
+    'The comparison is not frozen or is no longer valid. Open Settings and select a valid confirmed comparison, or review a new one.',
+    '비교 조건이 아직 확정되지 않았거나 더 이상 유효하지 않습니다. 설정에서 유효한 확정 비교를 선택하거나 새 비교 조건을 검토하세요.'],
+  real_experiment_disabled: ['Measurement support is not ready', '이 설정으로 측정을 진행할 수 없습니다',
+    'The selected purpose, source or analysis has not passed its required support checks. Review measurement support in Settings; a flow-checking pilot needs its own approved settings.',
+    '선택한 목적·원본·분석의 필수 지원 검증이 완료되지 않았습니다. 설정의 측정 지원 상태를 확인하세요. 흐름 확인용 파일럿으로 진행하려면 그 목적에 맞는 설정을 별도로 승인해야 합니다.'],
+  separate_store_required: ['A separate measurement database is required', '별도 측정 데이터베이스가 필요합니다',
+    'This database already contains records that cannot be mixed with the requested measurement. Ask the operator to use a separate database while preserving the existing records.',
+    '이 데이터베이스에는 이번 측정과 섞을 수 없는 기록이 있습니다. 기존 기록을 지우지 말고 운영자에게 별도 데이터베이스 사용을 요청하세요.'],
+  synthetic_store_required: ['Validation and real measurements cannot be mixed', '검증용 기록과 실측 기록을 섞을 수 없습니다',
+    'Synthetic validation requires a separate validation database. Preserve this database and use the appropriate measurement setup.',
+    '합성 검증은 별도의 검증용 데이터베이스에서 진행해야 합니다. 현재 기록은 유지하고 작업 목적에 맞는 측정 설정을 선택하세요.'],
+  clock_regression: ['The clock moved backwards', '시스템 시각이 이전 기록보다 과거입니다',
+    'The current time precedes a recorded event. Check the computer clock and time synchronization, then refresh the task. Do not change measurement dates to bypass this check.',
+    '현재 시각이 이미 저장한 기록보다 과거입니다. 컴퓨터 시계와 시간 동기화를 확인한 뒤 작업을 새로고침하세요. 측정 날짜를 바꿔 우회하지 마세요.'],
+  workflow_configuration_mismatch: ['Task and measurement settings differ', '작업과 측정 설정이 일치하지 않습니다',
+    'The project, agent version, source or harness references do not match the saved comparison. Reload the reviewed settings for this project and retry preparation.',
+    '프로젝트·에이전트 버전·원본·하네스 참조가 저장된 비교와 다릅니다. 이 프로젝트의 검토된 설정을 다시 확인한 뒤 준비를 재시도하세요.'],
+  workflow_protocol_mismatch: ['This task belongs to another comparison', '작업에 고정된 비교 설정이 다릅니다',
+    'The task already belongs to another protocol. Continue it with its original settings, or prepare a new task for the new comparison.',
+    '이 작업에는 다른 비교 조건이 이미 고정되어 있습니다. 원래 설정으로 계속하거나 새 비교를 위한 새 작업을 준비하세요.'],
+  workflow_manifest_mismatch: ['Harness contents changed', '하네스 내용이 등록 당시와 다릅니다',
+    'The instruction files no longer match their registered hashes. Review the changed files and register a new harness version if the change is intended.',
+    '지침 파일이 등록 당시 해시와 일치하지 않습니다. 변경된 파일을 확인하고, 의도한 변경이라면 새 하네스 버전으로 등록해 검토하세요.'],
+  unknown_setup: ['Measurement settings are unavailable', '측정 설정을 찾을 수 없습니다',
+    'These settings are not registered on the current server. Refresh Settings and select a saved setting, or load the reviewed setup bundle.',
+    '현재 서버에 이 설정이 등록되어 있지 않습니다. 설정 화면을 새로고침해 저장된 설정을 선택하거나 검토된 묶음 파일을 불러오세요.'],
+  unknown_task: ['This task is unavailable', '작업을 찾을 수 없습니다',
+    'The task may have been deleted or belong to another local database. Refresh the task list and check that the intended server is running.',
+    '작업이 삭제되었거나 다른 로컬 데이터베이스에 있을 수 있습니다. 작업 목록을 새로고침하고 올바른 서버에 연결했는지 확인하세요.'],
+  unknown_project: ['Check the project and its settings', '프로젝트와 측정 설정을 확인하세요',
+    'The project is not registered on this server, or the selected settings belong to another project. Refresh Settings and select a matching project and setting; register the directory if it is missing.',
+    '현재 서버에 프로젝트가 없거나 선택한 측정 설정이 다른 프로젝트에 속합니다. 설정을 새로고침하고 서로 일치하는 프로젝트와 설정을 선택하세요. 프로젝트가 없다면 디렉토리를 등록하세요.'],
+  preparation_failed: ['Preparation could not finish', '작업 준비를 완료하지 못했습니다',
+    'The configuration could not be fully prepared. Inspect the project files and saved settings, then retry preparation on the same task; do not create duplicate work.',
+    '구성을 끝까지 준비하지 못했습니다. 프로젝트 파일과 저장된 설정을 확인한 뒤 같은 작업에서 준비를 재시도하세요. 중복 작업을 만들 필요는 없습니다.'],
+  application_mode_mismatch: ['The application method does not match the comparison file', '선택한 적용 방식이 비교 파일과 다릅니다',
+    'The comparison file was registered with a different application method. Select the method the file uses, or ask your agent to prepare a new comparison with the method you want. Nothing was saved.',
+    '비교 파일이 다른 적용 방식으로 등록되어 있습니다. 파일과 같은 방식을 선택하거나, 원하는 방식으로 새 비교 파일을 에이전트와 준비하세요. 저장하지 않았습니다.'],
+  application_mode_locked: ['This task can no longer change its application method', '이 작업의 적용 방식은 더 이상 바꿀 수 없습니다',
+    'The task already has start instructions, a connected session, observations or an outcome. Keep it as it is and prepare a new task with a comparison that uses the method you want.',
+    '이미 시작 안내·연결된 세션·관측 기록·결과가 있는 작업입니다. 이 작업은 그대로 두고, 원하는 방식의 비교 설정으로 새 작업을 준비하세요.'],
+  application_mode_unsupported: ['This task cannot change its application method', '적용 방식을 바꿀 수 없는 작업입니다',
+    'Only an assigned task created from a saved comparison can switch to agent application. Prepare a new task from a comparison that uses the method you want.',
+    '저장된 비교 설정으로 만들고 하네스가 배정된 작업만 에이전트 적용으로 전환할 수 있습니다. 원하는 방식의 비교 설정으로 새 작업을 준비하세요.'],
+} satisfies Record<LocalWebTaskErrorCode, Message>;
+
+const recruitmentMessages = {
+  before_start: ['Recruitment has not started', '아직 작업 모집이 시작되지 않았습니다',
+    'A/B assignment is unavailable before the start time below. Retry preparation after that time; if you already created this task, retry on the same task rather than creating another.',
+    '아래 시작 시각 전에는 A/B 배정과 작업 준비를 진행할 수 없습니다. 시작 시각 이후 다시 준비하세요. 이미 만든 작업은 새로 만들지 말고 같은 작업에서 ‘준비 재시도’를 누르세요.'],
+  ended: ['Recruitment has ended', '작업 모집 기간이 종료되었습니다',
+    'New assignments are closed for this comparison. Review a new comparison period before preparing new work. Recruitment is separate from the follow-up deadline of an already assigned task.',
+    '이 비교에는 더 이상 새 작업을 배정할 수 없습니다. 새 모집 기간의 비교 설정을 검토한 뒤 작업을 준비하세요. 모집 기간은 이미 배정된 작업의 관찰·판정 기한과는 다릅니다.'],
+  open: ['Recruitment is now open', '현재 확인한 모집 기간은 열려 있습니다',
+    'The earlier preparation attempt was outside recruitment, but the latest server check is within the period. Retry preparation on the same task to refresh its state.',
+    '이전 준비 시도는 모집 기간 밖이었지만, 서버가 확인한 현재 시각은 기간 안입니다. 같은 작업에서 준비를 재시도해 상태를 갱신하세요.'],
+} satisfies Record<RecruitmentWindow['state'], Message>;
+
+export function taskErrorGuidance(code: string, locale: Locale, recruitment?: RecruitmentWindow) {
+  if (!isLocalWebTaskErrorCode(code)) return null;
+  const contextual = code === 'outside_recruitment' && recruitment;
+  const message = contextual ? recruitmentMessages[contextual.state] : messages[code];
+  return {
+    kind: contextual ? `${code}_${contextual.state}` : code,
+    title: message[locale === 'ko' ? 1 : 0],
+    message: message[locale === 'ko' ? 3 : 2],
+  };
+}
