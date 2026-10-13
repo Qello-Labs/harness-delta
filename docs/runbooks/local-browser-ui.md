@@ -174,6 +174,40 @@ Absent usage/cost remains unavailable, not zero.
 
 ## Prepare, connect and observe
 
+### Guided Claude connection
+
+After configuration preparation and, where required, verified harness application,
+real Claude family tasks show **Claude connection** in task details. The card
+follows **Check installation → Connect → Measure**, with one primary next action.
+Synthetic validation and ticket tasks retain their separate existing flows.
+
+The installation check reads only the expected bundled skill files in the selected
+project or application workspace. It does not execute Claude, inspect transcripts,
+change files, or grant observation authority. Missing installations offer a quoted,
+project-only command; existing, different, incomplete or symlinked installations
+are preserved and need review. Expand **View installation command** to inspect it.
+Installation is checked again on the normal UI refresh; copying is not confirmation.
+
+For an already authorized route, **Copy connection prompt** fills the selected
+project ID, task ID and current local server origin. Invoke it in a separate fresh
+Claude working session. Hooks register on invocation, so current-session evidence
+is pending beforehand; users do not supply receipts. The server separately confirms
+native identity, durable task binding and active collection. A family connection
+already starts authorized observation, so there is no second start button.
+
+**Installation and connection diagnostics** separates configured version, unknown
+installed version, project package, session, task binding, collection and source
+trust. Installation does not widen ordinary Claude admission, which remains closed.
+Failed connection attempts retain a sanitized blocker code in the local task UI.
+No command or project path is included in measurement records or shared reports.
+
+Starting, measuring, paused, revoked and ended remain distinct. Active collection
+without usage shows **waiting for first usage**, with unknown cost rather than zero.
+Pause/resume uses the existing binding controls; a required reconnect provides the
+parent prompt only if authorized. Claude and metadata hooks may continue while
+paused. Revoked authority cannot be restored by this card, and paused/offline usage
+is never backfilled. Desktop behavior is the validation target for this flow.
+
 1. In **Tasks**, select **New task**. Enter a recognizable name and project, then
    select **Measurement criteria for tasks**.
    Optional settings contain type, size and the automatically read baseline.

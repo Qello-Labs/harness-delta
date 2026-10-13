@@ -9,6 +9,10 @@ export interface BindingReading {status: 'observed'|'partial'|'missing';value:nu
 export interface CostAmounts { partial_amount:string|null;currency:string|null;compatibility_unverified_partial_amount?:string|null;legacy_unverified_partial_amount?:string|null;compatibility?:{invalidated_events:number}|null }
 export interface BindingSummary extends CostAmounts {requests:number|null;input_total:BindingReading;output_total:BindingReading;unpriced_events:number;price_table_id:string|null;complete_cost:null}
 export interface Task {
+ connection_readiness?: {
+  skill: { state: 'installed' | 'missing' | 'conflict' | 'unavailable'; reason: string | null; install_command: string | null };
+  configured_version: string; installed_version: string | null; collection_revoked: boolean;
+ };
  support_details?: SupportDetails;
  application?:{product?:string|null;launchState:string;identity:string;state:string;jobId:string|null;epoch:number;reason:string|null;workspace:string|null;baseline:string;capabilities:{id:string;product:string;available:boolean;reason:string|null}[]};
  id: string; name: string; project_id: string; setup_id: string; version: string; state: string; status: string;

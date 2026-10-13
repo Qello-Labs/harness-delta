@@ -40,6 +40,7 @@ import type { BindingProduct, SessionBindingProvider } from './session-binding-c
 import { issueClaudeHumanPilotScope, assertClaudeHumanPilotSource, isClaudeHumanPilotScope } from './session-binding-claude-human-pilot.js';
 import { setTimeout as delay } from 'node:timers/promises';
 import { codexBindingAdmission, isAdmittedCodexBindingProtocol } from './codex-binding-admission.js';
+import { inspectClaudeProjectSkill } from './claude-connect-readiness.js';
 
 const identifier = z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,199}$/);
 const executionFields = CodexWorkflowExecutionSchema.shape;
@@ -310,7 +311,11 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
     const version = '"' + createHash('sha256').update(JSON.stringify({ task, application, control: { revision: state.revision, window: state.window, configuration_evidence: state.configuration_evidence }, record, collectionControl:bindingCollectionControl(store,id), runs, ownJob: jobs.has(id) })).digest('hex') + '"';
     const measurementState = finalized ? 'measurement_ended' : active ? (state.state === 'measuring' ? 'active' : 'starting') : task.state === 'active' ? 'connected' : connected ? 'paused' : 'waiting_connection';
     const status = state.outcome ?? (measurementState === 'waiting_connection' ? ready ? supportDetails.context === 'synthetic_validation_only' ? 'validation_ready' : 'waiting_for_session' : 'draft' : measurementState);
+    const connectionReadiness = ready && supportDetails.context === 'real' && supportDetails.connection_route === 'family' && bindingProduct === 'claude_code'
+      ? { skill: inspectClaudeProjectSkill(effectiveTaskWorkspace(store, id)), configured_version: setup.workflow.product_version,
+        installed_version: null, collection_revoked: !!bindingCollectionControl(store, id)?.revoked_at } : undefined;
     return { id, name: record.name, project_id: task.project_id, setup_id: record.profile_id, version, ...(application?{application}:{}), state: task.state, status, support_details: supportDetails,
+      ...(connectionReadiness ? { connection_readiness: connectionReadiness } : {}),
       measurement: { state: measurementState, active_ms: result.time.active_ms, requests: result.cost?.event_count ?? null, window: state.window, end_condition: state.collection_end_condition },
       outcome: state.outcome === null ? null : { status: state.outcome, assessed_at: result.outcome_at! }, attempt: state.rework_count + 1,
       preparation: { state: state.state, configuration_evidence: state.configuration_evidence, native_context_evidence: state.native_context_evidence,
@@ -440,6 +445,7 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
         let connection;
         try { connection = await bindings.connect(id, product, { receipt }); }
         catch (error) {
+          privateDb.prepare('UPDATE web_tasks SET reason=? WHERE id=?').run(localWebError(error), id);
           // A rejected new receipt must not silently stop a previously authorized
           // live family. Failed baseline acquisition already pauses its scope.
           if (store.get<{state: string}>('SELECT state FROM tasks WHERE id=?', [id])?.state === 'active' && bindings.status(id).roots > 0) beginBindingObservation(id);
