@@ -122,16 +122,19 @@ test('slow exact-member metadata during teardown stays within the existing budge
   // scheduling are outside the production teardown budget. Keep its 5s limit.
   // Teardown cost grows per escaped group; three keep slow CI hosts inside it.
   const source=readFileSync(fileURLToPath(new URL('../scripts/owned-cli-pty.py',import.meta.url)),'utf8');
-  writeFileSync(worker,source.replace('known = {}','known = {}\ntearing_down = False').replace('def metadata(pid):\n','def metadata(pid):\n    if tearing_down: time.sleep(.06)\n').replace('finally:\n','finally:\n    tearing_down = True\n').replace("emit({'type': 'result',", "emit({'syntheticCleanupElapsedMs': (time.monotonic() - (cleanup_until - cfg['terminationMs'] / 1000)) * 1000, 'type': 'result',"));
+  const metadataSignature='def metadata(pid, missing=None):\n';
+  expect(source).toContain(metadataSignature);
+  writeFileSync(worker,source.replace('known = {}','known = {}\ntearing_down = False\nslow_metadata_calls = 0').replace(metadataSignature,`${metadataSignature}    global slow_metadata_calls\n    if tearing_down:\n        slow_metadata_calls += 1\n        time.sleep(.06)\n`).replace('finally:\n','finally:\n    tearing_down = True\n').replace("emit({'type': 'result',", "emit({'syntheticSlowMetadataCalls': slow_metadata_calls, 'syntheticCleanupElapsedMs': (time.monotonic() - (cleanup_until - cfg['terminationMs'] / 1000)) * 1000, 'type': 'result',"));
   const cfg={command:realpathSync(process.execPath),args:[script],cwd:dir,durationMs:3000,terminationMs:5000,termGraceMs:100};
   const owner=spawn(OwnedCliInvocation.pythonExecutable(),[worker,JSON.stringify(cfg)],{stdio:['ignore','ignore','pipe','pipe']});let lines='';
   if(!owner.stderr)throw new Error('synthetic_result_stream_missing');owner.stderr.on('data',(b:Buffer)=>{lines+=b.toString();});
   const ended=new Promise<void>((resolve,reject)=>{owner.once('exit',code=>code===0?resolve():reject(new Error('synthetic_owner_failed')));});
   await expect.poll(()=>{try{pids=JSON.parse(readFileSync(marker,'utf8')) as number[];return pids.length===4;}catch{return false;}},{timeout:1500}).toBe(true);
   await new Promise(r=>setTimeout(r,400));const control=owner.stdio[3];if(!(control instanceof Writable))throw new Error('synthetic_control_missing');control.write('stop\n');await ended;
-  const result=lines.trim().split('\n').map(s=>JSON.parse(s) as {type:string;ownedMembers:number;exitCode:number|null;terminationVerified:boolean;escapedMemberObserved:boolean;syntheticCleanupElapsedMs:number}).find(r=>r.type==='result');
+  const result=lines.trim().split('\n').map(s=>JSON.parse(s) as {type:string;ownedMembers:number;exitCode:number|null;terminationVerified:boolean;escapedMemberObserved:boolean;syntheticCleanupElapsedMs:number;syntheticSlowMetadataCalls:number}).find(r=>r.type==='result');
   expect(result,`Synthetic owner result: ${JSON.stringify(result)}`).toMatchObject({ownedMembers:4,terminationVerified:true,escapedMemberObserved:true});expect(result?.exitCode).not.toBeNull();
   expect(result?.syntheticCleanupElapsedMs).toBeGreaterThanOrEqual(0);
+  expect(result?.syntheticSlowMetadataCalls).toBeGreaterThan(0);
   expect(result?.syntheticCleanupElapsedMs).toBeLessThanOrEqual(cfg.terminationMs);
   await expect.poll(()=>pids.every(pid=>{try{process.kill(pid,0);return false;}catch{return true;}}),{timeout:500}).toBe(true);
  }finally{for(const pid of pids)try{process.kill(pid,'SIGKILL');}catch{/* own fixture already gone */}rmSync(dir,{recursive:true,force:true});}
@@ -168,6 +171,37 @@ for returncode,expired in [(0,False),(1,False),(2,False),(0,True)]:
 print(json.dumps(out))`;
  const values=JSON.parse(execFileSync(OwnedCliInvocation.pythonExecutable(),['-c',code,fileURLToPath(new URL('../scripts/owned-cli-pty.py',import.meta.url))],{encoding:'utf8'})) as unknown;
  expect(values).toEqual([{returncode:0,expired:false,coverage:true,queries:1},{returncode:1,expired:false,coverage:true,queries:1},{returncode:2,expired:false,coverage:false,queries:1},{returncode:0,expired:true,coverage:false,queries:0}]);
+});
+
+test('discovery disposes of a vanished candidate only after exact parent and child absence',()=>{
+ const code=`import ast,json,sys,types,subprocess
+tree=ast.parse(open(sys.argv[1]).read())
+functions=[n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name in ['metadata','identity_matches','discover']]
+out=[]
+for outcome in ['absent','live','timeout','malformed','reused_parent','query_error']:
+ root=(42,1,42,501,'synthetic root');parent=(43,42,42,501,'synthetic helper');child=(44,43,42,501,'synthetic child')
+ observations=iter([(42,root),(43,parent),(44,child),(43,(43,42,42,501,'foreign start') if outcome=='reused_parent' else 'query_error' if outcome=='query_error' else 'absent'),(44,outcome)])
+ calls=[]
+ def check_output(args,**kwargs):
+  target=int(args[-1]);expected,value=next(observations);assert target==expected;(calls.append(target))
+  if value=='absent':raise subprocess.CalledProcessError(1,args)
+  if value=='query_error':raise subprocess.CalledProcessError(2,args)
+  if value=='timeout':raise subprocess.TimeoutExpired(args,kwargs['timeout'])
+  if value=='malformed':return b'invalid'
+  return ('%d %d %d %d %s'%(child if value=='live' else value)).encode()
+ def run(args,**kwargs):
+  return types.SimpleNamespace(returncode=0,stdout={42:b'43',43:b'44'}[int(args[-1])])
+ ns={'known':{42:root,43:parent},'proofs':{42:None,43:root},'absent':set(),'pid':42,'uid':501,'escape_seen':False,'ownership_failed':False,'cleanup_exhausted':False,'cleanup_until':None,'ps_env':{},'note_group_change':lambda *args:None,'time':types.SimpleNamespace(monotonic=lambda:100),'subprocess':types.SimpleNamespace(check_output=check_output,run=run,PIPE=-1,DEVNULL=-3,CalledProcessError=subprocess.CalledProcessError,SubprocessError=subprocess.SubprocessError)}
+ exec(compile(ast.Module(body=functions,type_ignores=[]),'<synthetic transient discovery>','exec'),ns)
+ covered=ns['discover']()
+ out.append({'outcome':outcome,'coverage':covered,'failed':ns['ownership_failed'],'members':sorted(ns['known']),'proofs':sorted(ns['proofs']),'absent':sorted(ns['absent']),'calls':calls})
+print(json.dumps(out))`;
+ const result=JSON.parse(execFileSync(OwnedCliInvocation.pythonExecutable(),['-c',code,fileURLToPath(new URL('../scripts/owned-cli-pty.py',import.meta.url))],{encoding:'utf8'})) as unknown;
+ expect(result).toEqual([
+  {outcome:'absent',coverage:true,failed:false,members:[42,43],proofs:[42,43],absent:[43],calls:[42,43,44,43,44]},
+  ...['live','timeout','malformed'].map(outcome=>({outcome,coverage:false,failed:true,members:[42,43],proofs:[42,43],absent:[43],calls:[42,43,44,43,44]})),
+  ...['reused_parent','query_error'].map(outcome=>({outcome,coverage:false,failed:true,members:[42,43],proofs:[42,43],absent:[],calls:[42,43,44,43]})),
+ ]);
 });
 
 test('cleanup discovery refreshes a parent without resampling known children or childless leaves',()=>{

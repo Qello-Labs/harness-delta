@@ -38,7 +38,7 @@ def emit(value):
     sys.stderr.write(json.dumps(value) + '\n')
     sys.stderr.flush()
 
-def metadata(pid):
+def metadata(pid, missing=None):
     global cleanup_exhausted, ownership_failed
     try:
         timeout = .2 if cleanup_until is None else min(.2, cleanup_until - time.monotonic())
@@ -57,6 +57,8 @@ def metadata(pid):
         if isinstance(error, subprocess.CalledProcessError) and error.returncode == 1:
             if pid in known:
                 absent.add(pid)
+            if missing is not None:
+                missing.add(pid)
         else:
             ownership_failed = True
             if cleanup_until is not None:
@@ -148,6 +150,13 @@ def discover():
             if fresh is None:
                 continue  # Exact child absence grants no new identity.
             parent = metadata(record[0])
+            if parent is None and record[0] in absent and fresh[1] == record[0] and fresh[3] == uid:
+                # Both exact PIDs must be gone; no candidate identity or signal
+                # authority is inferred from a parent that exited during sampling.
+                missing = set()
+                metadata(fresh[0], missing)
+                if fresh[0] in missing:
+                    continue
             if not identity_matches(record, parent) or fresh[1] != record[0] or fresh[3] != uid:
                 ownership_failed = True
                 return False
