@@ -3,7 +3,7 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { IdSchema, TimestampSchema } from './contracts.js';
 import { authorizeClaudeTraceScope, ingestClaudeTraceBatch, type ClaudeTraceBatchResult } from './claude-trace-candidate.js';
 import type { CandidateScope, ClaudeTraceProductVersion } from './nested-candidate.js';
-import { claudeProbeProductVersion, isClaudeWorkflowProductVersion } from './claude-workflow-versions.js';
+import { claudeProbeProductVersion, claudeWorkflowChildProfileId, claudeWorkflowProfileId, isClaudeWorkflowProductVersion } from './claude-workflow-versions.js';
 import { decodeLogsRequest, type DecodedRecord } from './otel-projection.js';
 import { recordObservationGap } from './runtime-history.js';
 import type { Clock } from './lifecycle.js';
@@ -70,7 +70,9 @@ export interface ClaudeProbeOptions {
   /** Internal workflow mode; public CLI cannot supply synthetic admission. */
   workflow?: { synthetic: boolean; childEnabled: boolean; childRuntime?: {model:string;effort:string}|undefined; requestLimit:number; durationMs:number; assertActive:()=>void; onChildBound:(sessionId:string)=>void;
     /** Trusted external candidate only: no usage before verified connection. */
-    observationStartedAt?:()=>string|null };
+    observationStartedAt?:()=>string|null;
+    /** A resumed native session reports resume; every other run must report startup. */
+    startSource?:'startup'|'resume' };
   /** Caller owns a durable one-use reservation; a failure must hold, never retry. */
   reserveChild: () => void;
 }
@@ -95,7 +97,9 @@ export class ClaudeProbeCoordinator {
   private rootRequests = 0;
   private childRequests = 0;
   private lastVerifiedAt: string | null = null;
-  private get compatibility(){return this.options.workflow&&!this.options.workflow.synthetic?resolveSourceCompatibility('claude_code',this.productVersion,'claude_workflow'):null;}
+  // A child-enabled run is pinned to the direct-child profile, which exists only as an exact admission:
+  // a conditional version resolves to nothing and cannot start a child.
+  private get compatibility(){return this.options.workflow&&!this.options.workflow.synthetic?resolveSourceCompatibility('claude_code',this.productVersion,'claude_workflow',this.options.workflow.childEnabled?claudeWorkflowChildProfileId:claudeWorkflowProfileId):null;}
   private get productVersion(): ClaudeTraceProductVersion { return this.options.productVersion ?? claudeProbeProductVersion; }
   constructor(private readonly store: Store, private readonly options: ClaudeProbeOptions) {
     if (options.rootScope.sessions.length !== 1 || !IdSchema.safeParse(options.child.sessionId).success ||
@@ -114,8 +118,8 @@ export class ClaudeProbeCoordinator {
     // A non-synthetic root session must already carry the launched binary's version.
     if (!options.workflow?.synthetic && store.get<{ product_version: string | null }>('SELECT product_version FROM sessions WHERE id=?',
       [options.rootScope.sessions[0]!.sessionId])?.product_version !== (options.productVersion ?? claudeProbeProductVersion)) fail('claude_probe_invalid_options');
+    if(options.workflow&&!options.workflow.synthetic&&!this.compatibility)fail('claude_probe_invalid_options');
     if(this.compatibility){
-      if(this.compatibility.state==='compatibility_unverified'&&options.workflow?.childEnabled)fail('claude_probe_invalid_options');
       pinSessionCompatibility(store,options.rootScope.sessions[0]!.sessionId,this.compatibility);
     }
     this.scope = authorizeClaudeTraceScope(store, options.rootScope, options.generation, options.workflow?.synthetic,this.compatibility??undefined);
@@ -173,14 +177,15 @@ export class ClaudeProbeCoordinator {
     if (raw.hook_event_name === 'SessionStart') {
       if (this.sessionEnded) this.stop('claude_probe_restart', 'incomplete');
       // Native print-mode SessionStart may omit model; every request trace still enforces the requested runtime.
-      if (raw.source !== 'startup' || this.options.model !== null && raw.model !== undefined && raw.model !== this.options.model) this.stop('claude_probe_configuration_changed');
+      if (raw.source !== (this.options.workflow?.startSource ?? 'startup') || this.options.model !== null && raw.model !== undefined && raw.model !== this.options.model) this.stop('claude_probe_configuration_changed');
       this.rootStarted = true; return;
     }
     if (!this.rootStarted) this.stop('claude_probe_not_started');
     if (raw.hook_event_name === 'PreToolUse') {
       const input = raw.tool_input;
       if (this.options.workflow?.childEnabled === false || this.sessionEnded || raw.tool_name !== 'Agent' || !IdSchema.safeParse(raw.tool_use_id).success || !object(input) ||
-        input.subagent_type !== this.options.child.agentType || input.resume !== undefined || input.run_in_background === true ||
+        input.subagent_type !== this.options.child.agentType || input.resume !== undefined || input.isolation !== undefined || input.run_in_background === true ||
+        input.effort !== undefined && input.effort !== (this.options.workflow?.childRuntime?.effort ?? this.options.effort) ||
         input.model !== undefined && input.model !== (this.options.workflow?.childRuntime?.model ?? this.options.model)) this.stop('claude_probe_child_scope', 'unknown_parent');
       if (this.toolUseId === raw.tool_use_id) return;
       if (this.toolUseId !== null) this.stop('claude_probe_child_limit', 'unknown_parent');

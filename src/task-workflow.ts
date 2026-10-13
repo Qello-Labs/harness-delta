@@ -13,7 +13,6 @@ import type { Clock, Outcome } from './lifecycle.js';
 import { comparisonReadiness, functionalWorkflowEligible } from './readiness-store.js';
 import { productionSourceEvidence, syntheticSourceEvidence } from './readiness.js';
 import type { Store } from './store.js';
-import { claudeWorkflowProfileId, isClaudeWorkflowProductVersion } from './claude-workflow-versions.js';
 import { externalContract } from './external-session-contract.js';
 import { isHumanPilotProtocol } from './session-binding-human-pilot.js';
 
@@ -48,7 +47,7 @@ export interface WorkflowAdapter {
   product: 'synthetic' | 'codex' | 'claude_code'; productVersion: string; profileId: string;
   /** Local file and qualification checks before assignment or task activation.
    * Never launches a product, reads session sources or writes measurement data. */
-  preflight?(runtime: WorkflowRuntime, scope?: { projectRoot: string | null }): void | Promise<void>;
+  preflight?(runtime: WorkflowRuntime, scope?: { projectRoot: string | null; taskId?: string; projectId?: string }): void | Promise<void>;
   /** Throwing means no native process was started; return a result otherwise. */
   run(context: WorkflowExecutionContext): Promise<void | WorkflowAdapterResult>;
 }
@@ -65,7 +64,8 @@ export interface WorkflowAdapterResult {
 const workflowAdapterCodes = new Set(['binary_mismatch', 'binary_unreadable', 'invalid_hook_recorder', 'invalid_prompt', 'unsafe_home',
   'compatibility_invalidated', 'invalid_execution', 'codex_workflow_source_unqualified', 'codex_workflow_child_operation_unsupported', 'codex_workflow_child_binding_invalid',
   'synthetic_store_required', 'workflow_run_active', 'claude_probe_executable_mismatch', 'claude_workflow_prompt_failed',
-  'claude_workflow_effort_unsupported', 'claude_workflow_already_reserved', 'claude_workflow_child_unadmitted', 'claude_workflow_harness_inside_project', 'claude_workflow_private_workspace_required', 'claude_workflow_source_conflict', 'candidate_mixed_sources']);
+  'claude_workflow_effort_unsupported', 'claude_workflow_already_reserved', 'claude_workflow_child_unadmitted', 'claude_workflow_child_read_only_required',
+  'claude_workflow_resume_unadmitted', 'claude_workflow_resume_source_invalid', 'claude_workflow_harness_inside_project', 'claude_workflow_private_workspace_required', 'claude_workflow_source_conflict', 'candidate_mixed_sources']);
 function workflowAdapterCode(error: unknown, fallback: string): string {
   try { return error instanceof Error && workflowAdapterCodes.has(error.message) ? error.message : fallback; }
   catch { return fallback; }
@@ -160,7 +160,7 @@ export async function runAssignedWorkflow(store: Store, input: unknown, adapter:
   // Environment checks precede assignment so a broken binary, recorder or prompt
   // never enrolls the task, starts its first attempt or opens an active interval.
   const registeredRoot = store.get<{ local_root: string | null }>('SELECT local_root FROM projects WHERE id=?', [config.assignment.project_id])?.local_root ?? null;
-  try { await adapter.preflight?.(runtime, { projectRoot: registeredRoot }); }
+  try { await adapter.preflight?.(runtime, { projectRoot: registeredRoot, taskId: existingTaskId, projectId: config.assignment.project_id }); }
   // Only allowlisted fixed codes survive; producer text and paths are dropped.
   // eslint-disable-next-line preserve-caught-error
   catch (error) { throw new Error(workflowAdapterCode(error, 'workflow_preflight_failed')); }
@@ -233,7 +233,7 @@ export function finishAssignedWorkflow(store: Store, taskId: string, outcome: Ou
 export function workflowStatus(store: Store, protocolId: string, at = utcNow()) {
   const protocol = workflowProtocol(store, protocolId); const readiness = comparisonReadiness(store, protocolId, at);
   const implemented=protocol.source_profiles.some(p=>p.product==='codex'&&resolveSourceCompatibility(p.product,p.product_version,'codex_workflow',p.profile_id)!==null||
-    p.product==='claude_code'&&isClaudeWorkflowProductVersion(p.product_version)&&p.profile_id===claudeWorkflowProfileId);
+    p.product==='claude_code'&&resolveSourceCompatibility(p.product,p.product_version,'claude_workflow',p.profile_id)!==null);
   const sourceCompatibility=protocol.source_profiles.flatMap(p=>{
     const source=p.product==='codex'?'codex_workflow':p.product==='claude_code'?'claude_workflow':null;
     const compatibility=source&&resolveSourceCompatibility(p.product,p.product_version,source,p.profile_id);

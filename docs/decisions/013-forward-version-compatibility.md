@@ -153,12 +153,21 @@ recovery procedure. Exact admission still requires separate reviewed evidence.
 | Codex file | 0.158.0 checkpoint parser | >0.158.0 and <0.164.0 | Linked sequential root, partial usage |
 | Claude file | 2.1.283 message components | >2.1.283 and <2.2.0 | Linked sequential root, partial usage |
 | Codex workflow | 0.160.0 own responses | >0.160.0 and <0.164.0 | Existing root operations and read-only direct-child profile |
-| Claude workflow | 2.1.291 own trace | >2.1.291 and <2.2.0 | Fresh parent-only launch |
+| Claude workflow | 2.1.296 own trace | >2.1.296 and <2.2.0 | Fresh parent-only launch |
 
 As of 2026-10-10 the official stable releases are [Codex 0.162.1](https://github.com/openai/codex/releases/tag/rust-v0.162.1)
 and [Claude Code 2.1.296](https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md#21296).
-Both fall within the implemented windows. Their exact counter/native semantics
-remain unverified; synthetic tests establish conditional behavior, not new live admission.
+Both file sources fall within the implemented conditional windows and remain
+unverified. Codex 0.162.1 workflow collection is also conditional, not an exact
+admission. Claude 2.1.296 is now the exact workflow base described below, not a
+conditional workflow release. Synthetic fallback tests establish conditional behavior,
+not new live admission.
+
+On 2026-10-13 the Claude workflow base moved from 2.1.291 to 2.1.296 with its own
+[exact admission](../validation/claude-workflow-02196-source-readiness.md); 2.1.289
+through 2.1.295 are unsupported for that source. Keeping or resuming a session and the
+separate `claude-workflow-direct-child-v1` profile need the exact version and have no
+conditional window. Claude Code 2.1.296 file collection remains conditional.
 
 Migration 024 preserves original events and stores session provenance and durable
 version/source blocks separately. New usage inherits the enrollment pin; legacy

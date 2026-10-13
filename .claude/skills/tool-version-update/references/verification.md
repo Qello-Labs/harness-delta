@@ -37,12 +37,18 @@ for required counter/checkpoint evidence. Its runner accepts only registered
 Claude's public changelog is not the CLI's implementation. Review official
 [hooks](https://code.claude.com/docs/en/hooks) and
 [telemetry](https://code.claude.com/docs/en/monitoring-usage) plus available pinned
-schema/docs. Undocumented transcript fields remain candidate evidence. Compare
+schema/docs. Undocumented transcript fields remain candidate evidence unless an
+explicitly reviewed decision qualifies an exact profile for a bounded evidence
+scope. Claude 2.1.296 is qualified only for bounded native print-mode evidence,
+not interactive qualification or production admission. Every ordinary Claude
+profile, even qualified, requires `allowCandidateProfiles: true`; default provider
+refusal and ordinary service admission remain closed. Current UI/observation labels
+remain `native_unverified_pilot`, `legacy_unverified` and `candidate_pilot`. Compare
 actual old/target binaries against an isolated localhost synthetic API when
 authorized, recording only allowlisted key names, numeric usage, fixed statuses
 and ordering. Keep missing source material explicitly `unknown`.
 The existing
-[parent-workflow evidence](../../../../docs/validation/claude-workflow-02191-source-readiness.md)
+[parent-workflow evidence](../../../../docs/validation/claude-workflow-02196-source-readiness.md)
 is a comparison recipe, not evidence for another version.
 
 ## Actual target-binary verification
@@ -68,8 +74,8 @@ Choose a supported existing lane for the exact requested topology:
 | Codex own-response/root or direct-child workflow | `tests/codex-workflow-admission.test.ts`, `tests/codex-workflow-child-admission.test.ts`; [root](../../../../docs/validation/codex-workflow-01600-source-readiness.md) and [child](../../../../docs/validation/codex-workflow-01600-direct-child-source-readiness.md) evidence |
 | Codex ordinary root | [human pilot](../../../../docs/runbooks/harness-connect.md#codex-01620-ordinary-root-local-pilot); one fresh root, separate observer authority |
 | Codex ordinary family qualification | [isolated qualification](../../../../docs/validation/codex-ordinary-binding-qualification.md); its exact pinned version, native intent and own limits apply |
-| Claude parent workflow | `tests/claude-workflow-admission.test.ts`, `tests/claude-workflow-adapter.test.ts`; [parent evidence](../../../../docs/validation/claude-workflow-02191-source-readiness.md) |
-| Claude ordinary family | [human pilot](../../../../docs/runbooks/harness-connect.md#claude-human-operated-ui-pilot); exact candidate, one fresh root and two flattened members |
+| Claude parent workflow | `tests/claude-workflow-admission.test.ts`, `tests/claude-workflow-adapter.test.ts`; [parent](../../../../docs/validation/claude-workflow-02196-source-readiness.md) and [child](../../../../docs/validation/claude-workflow-02196-direct-child-source-readiness.md) evidence |
+| Claude ordinary family | [human pilot](../../../../docs/runbooks/harness-connect.md#claude-human-operated-ui-pilot); exact listed profile under explicit pilot authority, one fresh root and two flattened members; 2.1.296 qualified only for bounded native print-mode evidence, other listed versions candidate |
 | Claude internal probe | [probe preparation](../../../../docs/validation/claude-native-probe-preparation.md); this is an exact historical lane, not a generic latest-version launcher |
 
 Read and qualify a lane before using it with a new target. Preparation alone

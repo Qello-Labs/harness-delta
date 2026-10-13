@@ -104,8 +104,10 @@ Claude는 SubagentStart/Stop hooks로 이후 멤버를 기록하고 각 transcri
 멤버를 root 아래에 평탄화합니다. 자식 재호출은 활성 family에서 독립적으로
 발견된 연결만 확인합니다. 중지된 family는 아래의 코드 소유 사용자 UI pilot
 권한으로 같은 살아 있는 부모를 재개할 수 있으면 UI 재개를 사용하고,
-그 외에는 부모에서 다시 연결해야 합니다. Native profile·counter·source 형식은
-candidate 상태이며 model이나 effort 설정을 강제하지 않습니다.
+그 외에는 부모에서 다시 연결해야 합니다. Native profile·counter·source 형식의
+interactive qualification은 아직 완료되지 않았습니다. 아래에서 설명하는 제한된 print-mode
+qualification은 2.1.296에만 해당하며 나머지 나열된 버전은 candidate 상태입니다.
+model이나 effort 설정은 강제하지 않습니다.
 
 UI는 가족 수와 부분 사용량을 갱신합니다. pause/서버 재시작은 수집을 멈춥니다.
 같은 살아 있는 부모의 허용된 UI 재개 또는 부모에서 다시 한 번 호출하면 새
@@ -197,7 +199,7 @@ native 시험이 계속 필요합니다.
 
 ## Claude 사용자 조작 UI pilot
 
-로컬 운영자는 ordinary provider에 나열된 정확한 후보 버전(현재 2.1.291,
+로컬 운영자는 ordinary provider에 나열된 정확한 버전(현재 2.1.291,
 2.1.293, 2.1.294 또는 2.1.296)과 `claude-ordinary-human-pilot` source profile을 사용한 준비된
 `functional_pilot` 작업 하나를 선택할 수 있습니다. 기존 file·실행 workflow의
 버전 호환성은 일반 가족 원본의 지원 검증이 아닙니다. 설치·실제 관측 전에
@@ -235,10 +237,19 @@ command hook 로딩이나 counter 호환성을 증명하지 않습니다. ordina
 합성 검증 범위를 갖습니다.
 
 [2.1.296 변경 기록](https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md#21296)은
-managed hook과 token count 수정을 포함하지만 일반 원본의 지원을 검증하지는 않습니다.
+managed hook과 token count 수정을 포함하지만 변경 기록만으로 일반 원본을 검증하지는 않습니다.
 변경하지 않은 파서는 2.1.296 신원, 자체 요청 replay, 기준선 제외, 가족 수 한도와
 pilot gate의 합성 검증 범위를 갖습니다.
 
-이 준비는 합성 증거만 갖습니다. 실제 2.1.293, 2.1.294 또는 2.1.296 skill 로딩, 가족 counter,
+2.1.296 transcript profile의 qualified 상태는 제한된 native print-mode 증거만 뜻하며,
+대화형 검증이나 제품 수집 허용이 아닙니다. 오프라인 실제 바이너리 리허설과 native print-mode
+pilot 한 번으로 skill 로딩, receipt, 가족 구성원과 자체 counter를 확인했습니다.
+[검증 기록](../validation/claude-ordinary-binding-02196-qualification.md)을 참고하세요.
+그 관측에서 skill 범위의 `SubagentStop` hook은 receipt를 남기지 않았고, 구성원 탐색은 여기에 의존하지 않습니다.
+나머지 나열된 버전은 합성 증거만 갖습니다. 실제 2.1.291, 2.1.293 또는 2.1.294 skill 로딩, 가족 counter,
 pause/resume과 사용자 완료는 별도로 승인된 native 시험이 필요합니다.
+qualified인 2.1.296을 포함한 모든 ordinary Claude profile에는
+`allowCandidateProfiles: true`가 필요합니다. 기본 provider 거부와 ordinary service
+수집 gate는 계속 닫혀 있습니다. 현재 label인 `native_unverified_pilot`,
+`legacy_unverified`, `candidate_pilot`은 유지됩니다.
 일반 제품 수집 지원, 전체 작업 비용과 추론 결정은 아직 사용할 수 없습니다.

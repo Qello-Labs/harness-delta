@@ -136,3 +136,11 @@ test('malformed JSON classification never retains decoder exception text', async
     expect(JSON.stringify(f.diagnostics)).not.toContain('PRIVATE');
   } finally { await f.gateway.close(); }
 });
+
+test('hook mediator forwards an Agent effort and marks an isolation request without its value', () => {
+  const input = { hook_event_name: 'PreToolUse', session_id: 'native-root', tool_name: 'Agent', tool_use_id: 'tool-child' };
+  const metadata = projectClaudeProbeHook({ ...input, tool_input: { subagent_type: 'workflow-child', effort: 'max', isolation: 'PRIVATE_SENTINEL', prompt: 'PRIVATE_SENTINEL' } });
+  expect(metadata.tool_input).toEqual({ subagent_type: 'workflow-child', effort: 'max', isolation: true });
+  expect(JSON.stringify(metadata)).not.toContain('PRIVATE_SENTINEL');
+  expect(() => projectClaudeProbeHook({ ...input, tool_input: { subagent_type: 'workflow-child', effort: 'PRIVATE CONTENT' } })).toThrow('claude_probe_hook_invalid');
+});

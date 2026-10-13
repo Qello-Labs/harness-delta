@@ -58,7 +58,8 @@ export async function prepareClaudeProbeSupervisor(input: ClaudeProbeSupervisorO
   const startedAt = utcNow(); const until = Date.now() + durationMs;
   const coordinator = new ClaudeProbeCoordinator(options.store, { rootScope: options.rootScope, child: options.child,
     generation: options.generation, startedAt, productVersion, model: options.workflow ? options.workflow.model : 'claude-sonnet-5-5', effort: options.workflow ? options.workflow.effort : 'high', clock: utcNow,
-    ...(options.workflow ? {workflow:{synthetic:options.workflow.synthetic,childEnabled:options.workflow.childRuntime !== undefined,childRuntime:options.workflow.childRuntime,requestLimit:options.workflow.requestLimit,durationMs,assertActive:options.workflow.assertActive,onChildBound:options.workflow.onChildBound}} : {}),
+    ...(options.workflow ? {workflow:{synthetic:options.workflow.synthetic,childEnabled:options.workflow.childRuntime !== undefined,childRuntime:options.workflow.childRuntime,requestLimit:options.workflow.requestLimit,durationMs,assertActive:options.workflow.assertActive,onChildBound:options.workflow.onChildBound,
+      ...(options.workflow.session === 'resume' ? {startSource:'resume' as const} : {})}} : {}),
     reserveChild: () => reserveClaudeProbeAction(options.workspace, 'child', root.processId!) });
   const token = coordinator.exporterHeaders()['x-harness-delta-token']!;
   const abort = new AbortController(); let stopReason: string | null = null;

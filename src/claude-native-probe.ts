@@ -18,6 +18,8 @@ export interface ClaudeNativeProbeOptions {
 export interface ClaudeProbeManifest {
   schemaVersion: 1; processId: string; nativeSessionId: string; binary: ClaudeNativeProbeOptions['binary'];
   model: string | null; effort: string | null; nativeSchemaQualified: false;
+  /** Present only when the native session is kept: a later resume reads it from this run's manifest. */
+  sessionPersistence?: 'persistent' | 'resume';
   limits: { plannedRequests: number; wallTimeMs: number; estimatedBudgetUsd: string | null; hardBillingBound: null };
 }
 export interface PreparedClaudeNativeProbe {
@@ -26,6 +28,8 @@ export interface PreparedClaudeNativeProbe {
   dispose: () => Promise<void>;
 }
 const invalid = (): never => { throw new Error('claude_probe_invalid_preparation'); };
+/** The one agent type an assigned workflow may start as its direct child. */
+export const claudeWorkflowChildAgentType = 'workflow-child';
 /** Preparation only: no spawn, authentication lookup, product update or settings
  * activation. The production builder remains unchanged. Native invocation and a
  * hook/log/trace gateway require separate authorization and supervisor wiring.
@@ -34,6 +38,9 @@ export interface ClaudeWorkflowInvocation {
   model:string|null; effort:string|null; childRuntime?:{model:string;effort:string}|undefined;
   instructions:string; maxTurns:number; requestLimit:number; durationMs:number;
   permissions:'read-only'|'workspace-edit'; maxBudgetUsd?:number|undefined;
+  /** fresh (default): nothing is persisted. persistent: the native session is kept for a later
+   * resume. resume: continue that kept session, which the CLI identifies instead of a new id. */
+  session?:'fresh'|'persistent'|'resume'|undefined;
   /** An unadmitted candidate pinned to the probe binary (the manual external candidate);
    * never set by the admitted workflow adapter. */
   pinnedProbeCandidate?:true;
@@ -47,6 +54,7 @@ export async function prepareClaudeNativeProbe(options: ClaudeNativeProbeOptions
     options.hookCommand.length === 0 || options.hookCommand.length > 4096 || /[\n\r\0]/.test(options.hookCommand)) invalid();
   if (workflow && (workflow.instructions.length === 0 || workflow.instructions.length > 1048576 || !Number.isSafeInteger(workflow.maxTurns) || workflow.maxTurns < 1 || workflow.maxTurns > 1024 ||
     !['read-only', 'workspace-edit'].includes(workflow.permissions) ||
+    workflow.session !== undefined && (!['fresh', 'persistent', 'resume'].includes(workflow.session) || workflow.session !== 'fresh' && workflow.childRuntime !== undefined) ||
     workflow.maxBudgetUsd !== undefined && !(Number.isFinite(workflow.maxBudgetUsd) && workflow.maxBudgetUsd > 0 && workflow.maxBudgetUsd <= 1000))) invalid();
   const env = { ...claudeTelemetryEnv(options.destination),
     CLAUDE_CODE_ENHANCED_TELEMETRY_BETA: '1', ENABLE_ENHANCED_TELEMETRY_BETA: '1', OTEL_TRACES_EXPORTER: 'otlp',
@@ -59,7 +67,8 @@ export async function prepareClaudeNativeProbe(options: ClaudeNativeProbeOptions
   if (lstatSync(workspace).isSymbolicLink() || !lstatSync(workspace).isDirectory()) invalid();
   const manifest: ClaudeProbeManifest = { schemaVersion: 1, processId: options.destination.processId,
     nativeSessionId: options.nativeSessionId, binary: { ...options.binary }, model: workflow ? workflow.model : options.model, effort: workflow ? workflow.effort : options.effort,
-    nativeSchemaQualified: false, limits: { plannedRequests: workflow?.requestLimit ?? 3, wallTimeMs: workflow?.durationMs ?? 120000,
+    nativeSchemaQualified: false, ...(workflow?.session === 'persistent' || workflow?.session === 'resume' ? { sessionPersistence: workflow.session } : {}),
+    limits: { plannedRequests: workflow?.requestLimit ?? 3, wallTimeMs: workflow?.durationMs ?? 120000,
       estimatedBudgetUsd: workflow ? workflow.maxBudgetUsd === undefined ? null : String(workflow.maxBudgetUsd) : '0.10', hardBillingBound: null } };
   const manifestPath = join(workspace, 'claude-probe-manifest.json');
   const serialized = JSON.stringify(manifest);
@@ -77,16 +86,24 @@ export async function prepareClaudeNativeProbe(options: ClaudeNativeProbeOptions
   const instructionPath = join(directory, 'assigned-instructions.md');
   const mcpPath = join(directory, 'mcp.json'); const dispose = () => rm(directory, { recursive: true, force: true });
   const command = { type: 'command', command: options.hookCommand, timeout: 5 };
+  const childType = workflow ? claudeWorkflowChildAgentType : 'qualification-child';
+  // A resumed session reports SessionStart source resume, which a startup matcher never sees.
   const hooks = Object.fromEntries([
-    ['SessionStart', 'startup'], ['PreToolUse', '^Agent$'], ['SubagentStart', '^qualification-child$'],
-    ['SubagentStop', '^qualification-child$'], ['SessionEnd', ''],
+    ['SessionStart', workflow?.session === 'resume' ? 'resume' : 'startup'], ['PreToolUse', '^Agent$'], ['SubagentStart', `^${childType}$`],
+    ['SubagentStop', `^${childType}$`], ['SessionEnd', ''],
   ].map(([event, matcher]) => [event!, [{ matcher, hooks: [command] }]]));
+  const disallowedTools = ['Agent', 'Bash', 'Read', 'Write', 'Edit', 'WebFetch', 'WebSearch'];
+  const childAgent = workflow
+    ? { description: 'Read-only helper for one delegated part of the assigned task',
+      prompt: 'Complete the delegated read-only subtask and report the result concisely. Do not start other agents.',
+      model: workflow.childRuntime?.model ?? options.model, effort: workflow.childRuntime?.effort ?? options.effort,
+      tools: ['Read', 'Glob', 'Grep'], disallowedTools: disallowedTools.filter(tool => tool !== 'Read'), maxTurns: workflow.maxTurns, omitClaudeMd: true, background: false }
+    : { description: 'Synthetic one-response qualification child',
+      prompt: 'Return one short synthetic acknowledgment. Use no tools or other agents.', model: options.model, effort: options.effort,
+      tools: [], disallowedTools, maxTurns: 1, omitClaudeMd: true, background: false };
   try {
     await writeFile(settingsPath, JSON.stringify({ env, ...(workflow ? { ...(workflow.model !== null ? {model:workflow.model} : {}), ...(workflow.effort !== null ? {effortLevel:workflow.effort} : {}) } : {model:options.model,effortLevel:options.effort}), hooks }), { mode: 0o600, flag: 'wx' });
-    await writeFile(agentsPath, JSON.stringify({ 'qualification-child': { description: 'Synthetic one-response qualification child',
-      prompt: 'Return one short synthetic acknowledgment. Use no tools or other agents.', model: workflow?.childRuntime?.model ?? options.model, effort: workflow?.childRuntime?.effort ?? options.effort,
-      tools: [], disallowedTools: ['Agent', 'Bash', 'Read', 'Write', 'Edit', 'WebFetch', 'WebSearch'],
-      maxTurns: 1, omitClaudeMd: true, background: false } }), { mode: 0o600, flag: 'wx' });
+    await writeFile(agentsPath, JSON.stringify({ [childType]: childAgent }), { mode: 0o600, flag: 'wx' });
     if (workflow) await writeFile(instructionPath,workflow.instructions,{mode:0o600,flag:'wx'});
     await writeFile(mcpPath, JSON.stringify({ mcpServers: {} }), { mode: 0o600, flag: 'wx' });
   } catch { await dispose(); throw new Error('claude_probe_settings_failed'); }
@@ -106,7 +123,9 @@ export async function prepareClaudeNativeProbe(options: ClaudeNativeProbeOptions
       '--allowedTools',tools,'--strict-mcp-config','--mcp-config',mcpPath,
       '--setting-sources','','--settings',settingsPath,...(workflow.childRuntime ? ['--agents',agentsPath] : []),
       '--append-system-prompt-file',instructionPath,...(workflow.childRuntime ? ['--append-subagent-system-prompt-file',instructionPath] : []),
-      '--session-id',options.nativeSessionId,'--no-session-persistence','--no-chrome','--disable-slash-commands',
+      // The CLI refuses --session-id together with --resume.
+      ...(workflow.session === 'resume' ? ['--resume',options.nativeSessionId] : workflow.session === 'persistent' ? ['--session-id',options.nativeSessionId]
+        : ['--session-id',options.nativeSessionId,'--no-session-persistence']),'--no-chrome','--disable-slash-commands',
       '--prompt-suggestions','false','--output-format','stream-json','--verbose']);
   }
   return { manifest, manifestPath, settingsPath, argv, dispose };

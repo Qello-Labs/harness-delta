@@ -116,8 +116,8 @@ const hook = (name, fields = {}) => post('/v1/hooks', { hook_event_name: name, s
  await hook('PreToolUse', { tool_name: 'Agent', tool_use_id: 'tool-child', tool_input: { subagent_type: 'qualification-child' } });
  await hook('SubagentStart', { agent_id: 'synthetic-agent', agent_type: 'qualification-child' });
  await hook('SubagentStart', { agent_id: 'synthetic-agent', agent_type: 'qualification-child' });
- const start = Date.now(); await new Promise(resolve => setTimeout(resolve, 3)); const end = Date.now();
- const spans = [0, 1, 2].map(i => ({ name: 'claude_code.llm_request', traceId: '1'.repeat(32), spanId: String(i + 2).repeat(16), startTimeUnixNano: String(BigInt(start) * 1000000n), endTimeUnixNano: String(BigInt(end) * 1000000n), attributes: attrs({ 'session.id': session, 'app.version': '2.1.288', 'harness_delta.process_id': 'process-1', model: 'claude-sonnet-5-5', effort: 'high', request_id: 'synthetic-request-' + i, success: true, attempt: 1, input_tokens: 10, output_tokens: 5, ...(i === 1 ? { agent_id: 'synthetic-agent' } : {}) }) }));
+ const end = BigInt(Date.now()) * 1000000n;
+ const spans = [0, 1, 2].map(i => ({ name: 'claude_code.llm_request', traceId: '1'.repeat(32), spanId: String(i + 2).repeat(16), startTimeUnixNano: String(end - 1n), endTimeUnixNano: String(end), attributes: attrs({ 'session.id': session, 'app.version': '2.1.288', 'harness_delta.process_id': 'process-1', model: 'claude-sonnet-5-5', effort: 'high', request_id: 'synthetic-request-' + i, success: true, attempt: 1, input_tokens: 10, output_tokens: 5, ...(i === 1 ? { agent_id: 'synthetic-agent' } : {}) }) }));
  const traces = { resourceSpans: [{ scopeSpans: [{ spans }] }] };
  await post('/v1/traces', traces); await post('/v1/traces', traces);
  await hook('SubagentStop', { agent_id: 'synthetic-agent', agent_type: 'qualification-child' });
@@ -138,7 +138,7 @@ test('the internal probe keeps its 120 s window while an assigned workflow may u
   const probe = fixture(); try { await expect(prepareClaudeProbeSupervisor({ ...probe.options, durationMs: 120001 })).rejects.toThrow('claude_probe_invalid_supervisor'); }
   finally { probe.cleanup(); }
   // The assigned workflow runs an admitted workflow version.
-  const f = fixture(undefined, undefined, '2.1.291'); try {
+  const f = fixture(undefined, undefined, '2.1.296'); try {
     const workflow = { synthetic: false, prompt: 'SYNTHETIC', model: null, effort: null, instructions: 'SYNTHETIC', maxTurns: 1, requestLimit: 1, durationMs: 3600001,
       permissions: 'read-only' as const, assertActive: () => undefined, onChildBound: () => undefined, stopRequested: () => false };
     await expect(prepareClaudeProbeSupervisor({ ...f.options, durationMs: 3600001, workflow })).rejects.toThrow('claude_probe_invalid_supervisor');

@@ -7,8 +7,9 @@ for Codex CLI 0.156.1/0.158.0 and Claude Code 2.1.283, and two separately admitt
 Codex 0.160.0 workflow profiles: root own responses and a fresh root with one fresh
 direct child. The child profile is read-only; family resume and broader descendant
 collection are unsupported. Assigned CLI wiring has synthetic coverage and later bounded actual root
-functional observations; exact admission and configuration-scope limits are separate evidence. Claude Code 2.1.291 has a separately admitted
-parent-only launch profile (2.1.288 is retired); Claude child execution and native resume are not admitted. All usage remains
+functional observations; exact admission and configuration-scope limits are separate evidence. Claude Code 2.1.296 has two separately admitted
+profiles (2.1.288 and 2.1.291 are retired): a parent-only profile covering launch and resume of a kept session, and a
+read-only profile with one direct child. Deeper or additional Claude children and child resume are unsupported. All usage remains
 partial, with no complete task cost or inferential adoption support. See the
 [current native workflow and limits](docs/runbooks/task-native-workflow.md),
 [capability evidence](docs/decisions/001-adapter-capabilities.md), and
@@ -109,10 +110,17 @@ allows conditional reuse of a verified parser for newer releases within declared
 source-specific windows, with unverified estimates kept separate and incompatible
 data invalidated. Runtime rules live in `src/source-compatibility.ts`; exact profiles
 remain the evidence boundary for verified support. The current stable Codex CLI
-0.162.1 and Claude Code 2.1.296 use conditional parser reuse, not new exact
-admissions. Ordinary binding separately permits the exact Codex 0.162.0/0.162.1
-root-only and Claude 2.1.291/2.1.293/2.1.294/2.1.296 candidates under explicit
+0.162.1 and Claude Code 2.1.296 use conditional parser reuse for file collection, not new exact
+admissions. Codex 0.162.1 workflow collection also remains conditional; the Claude
+workflow source is exactly admitted for 2.1.296. Ordinary binding separately permits the exact Codex 0.162.0/0.162.1
+root-only and Claude 2.1.291/2.1.293/2.1.294/2.1.296 profiles under explicit
 local human-pilot authority; see [Harness Connect](docs/runbooks/harness-connect.md).
+The Claude 2.1.296 transcript profile is qualified only for bounded native print-mode
+evidence, not interactive qualification or production admission; the others are
+candidates. All ordinary Claude profiles, even qualified ones, require
+`allowCandidateProfiles: true`. Default provider refusal and ordinary service admission
+remain closed. Current labels stay `native_unverified_pilot`, `legacy_unverified`
+and `candidate_pilot`.
 
 Registered file adapters live in `src/adapter-profiles.ts`. Verified registration is an exact `(product, version)` allowlist. Conditional parser selection is separate. A new version whose semantics are unchanged is data, fixtures, and evidence. A semantic change is a named code variant plus tests; the old variant is not edited to fit the new version. Codex 0.158.0 uses the checkpoint variant and a historical exact-version admission. See the [admission workflow](docs/runbooks/codex-version-admission.md) and [current offline readiness limits](docs/validation/codex-01580-offline-readiness.md). The archived live report does not qualify the current source identity or establish whole-task completeness. The conformance runner is manual. `npm test` runs offline synthetic unit tests of the report projector, the candidate parser, and the confirmation helpers. It does not run the conformance runner, spawn product CLIs, or open real sessions. See [ADR 007](docs/decisions/007-adapter-version-profiles.md).
 

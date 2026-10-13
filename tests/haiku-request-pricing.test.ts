@@ -186,8 +186,8 @@ test('conditional source trust retains request tiers and excludes invalidated re
   const legacy = request('legacy-reference', 100000);
   const invalidated = request('invalidated', 100001);
   for (const row of [conditional, invalidated]) {
-    row.event.payload.product_version = row.runtime.product_version = '2.1.293';
-    row.event.payload.source_compatibility = resolveSourceCompatibility('claude_code', '2.1.293', 'claude_workflow')!;
+    row.event.payload.product_version = row.runtime.product_version = '2.1.297';
+    row.event.payload.source_compatibility = resolveSourceCompatibility('claude_code', '2.1.297', 'claude_workflow')!;
   }
   invalidated.event.payload.source_compatibility = { ...invalidated.event.payload.source_compatibility!, state: 'invalidated' };
   const report = projectCatalogCost([conditional.event, legacy.event, invalidated.event], basis(), 'task', cutoff, 'output-only-v1',

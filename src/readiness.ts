@@ -16,11 +16,15 @@ export const productionSourceEvidence:readonly SourceReadinessEvidence[]=Object.
   id:'codex-workflow-01600-direct-child-native-v1',product:'codex',product_version:'0.160.0',profile_id:'codex-workflow-direct-child-v1',
   semantics_digest:'f60bfac70ddc3c4054d0f104386a07d438dab5d2bc4a1ebbfb297a9fbc6a839b',validation_kind:'real_operations',complete_cost:false,
 }),Object.freeze({
-  // Parent-only fresh launch; child execution and native resume are not covered.
-  // Replaces claude-workflow-02188-root-native-v1 (2.1.288, retired from the workflow on 2026-10-06);
-  // see validation/claude-workflow-02191-source-readiness.md.
-  id:'claude-workflow-02191-root-native-v1',product:'claude_code',product_version:'2.1.291',profile_id:'claude-workflow-own-trace-v1',
-  semantics_digest:'ff8f469f129e9c1ccf3ee0f57698775f80976ba013fa3998c048a6599d040046',validation_kind:'real_operations',complete_cost:false,
+  // Parent-only fresh launch. Replaces claude-workflow-02191-root-native-v1 (2.1.291, retired from
+  // the workflow on 2026-10-13); see validation/claude-workflow-02196-source-readiness.md.
+  id:'claude-workflow-02196-root-native-v1',product:'claude_code',product_version:'2.1.296',profile_id:'claude-workflow-own-trace-v1',
+  semantics_digest:'27298b4ecb2fc8c2982afc6307268a19ccf2652db787c96dff4b52321526333a',validation_kind:'real_operations',complete_cost:false,
+}),Object.freeze({
+  // Separate exact profile: a fresh read-only root with one fresh direct child;
+  // see validation/claude-workflow-02196-direct-child-source-readiness.md.
+  id:'claude-workflow-02196-direct-child-native-v1',product:'claude_code',product_version:'2.1.296',profile_id:'claude-workflow-direct-child-v1',
+  semantics_digest:'dfe01a0be5489858a2d60cf2dc0076073296e2f34d11ca62f5b184e4b37690d8',validation_kind:'real_operations',complete_cost:false,
 })]);
 export const productionAnalysisEvidence:readonly string[]=Object.freeze([]);
 export const syntheticSourceEvidence:readonly SourceReadinessEvidence[]=Object.freeze([Object.freeze({id:'synthetic-flexible-v1',product:'synthetic',product_version:'1.0.0',profile_id:'synthetic-flexible-v1',
