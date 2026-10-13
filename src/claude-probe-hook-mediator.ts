@@ -24,7 +24,10 @@ export function projectClaudeProbeHook(input: unknown): Record<string, unknown> 
     result.tool_name = field(input.tool_name); result.tool_use_id = field(input.tool_use_id);
     const control: Record<string, unknown> = { subagent_type: field(toolInput.subagent_type) };
     if (toolInput.model !== undefined) control.model = field(toolInput.model);
+    // 2.1.292 added effort and 2.1.296 exposes isolation on the Agent tool input.
+    if (toolInput.effort !== undefined) control.effort = field(toolInput.effort);
     if (toolInput.resume !== undefined) control.resume = true; // Presence rejects resume; no private value is forwarded.
+    if (toolInput.isolation !== undefined) control.isolation = true; // Presence rejects another working directory.
     if (toolInput.run_in_background !== undefined) {
       if (typeof toolInput.run_in_background !== 'boolean') invalid(); control.run_in_background = toolInput.run_in_background;
     }

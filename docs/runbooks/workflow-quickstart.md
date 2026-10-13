@@ -4,7 +4,7 @@
 
 Use this procedure for a small **functional pilot** with descriptive partial costs.
 It covers Codex 0.160.0 (`codex-workflow-own-response-v1`) and
-Claude Code 2.1.291 parent-only launch (`claude-workflow-own-trace-v1`), plus
+Claude Code 2.1.296 (`claude-workflow-own-trace-v1`, parent-only; `claude-workflow-direct-child-v1`), plus
 the conditional forward versions described below.
 Use one persistent A/B assignment for each logical task.
 Choose model and effort per invocation; a new session does not change the assignment.
@@ -33,15 +33,16 @@ Installing the skill or preparing a browser task does not authorize observation.
 | Codex 0.160.0 root workflow | Launch, same-session resume, explicit independent-root link, foreground collect, stop and recover; partial usage |
 | Codex 0.160.0 direct-child workflow | Separate profile: fresh root and one fresh child, pinned macOS arm64/Node24, read-only; no family resume or external child link |
 | Legacy file collector | Exact profiles: Codex 0.156.1/0.158.0 and Claude Code 2.1.283; conditional file versions also available; use [local measurement](local-measurement.md) |
-| Claude Code 2.1.291 parent-only workflow | Fresh launch per run (read-only or `workspace-edit`), another launch on the same task, stop and recover; partial usage. No child or native resume; 2.1.288 is retired |
+| Claude Code 2.1.296 parent-only workflow | Fresh launch per run (read-only or `workspace-edit`), another launch on the same task, resume of a session kept with `resumable`, stop and recover; partial usage. 2.1.288 and 2.1.291 are retired |
+| Claude Code 2.1.296 direct-child workflow | Separate profile: fresh read-only root and at most one read-only `workflow-child`; exact version only; no resume, no deeper or additional children |
 | App/IDE/MCP, forks, compaction, deeper descendants | Unsupported for this procedure |
 | Complete task cost, actual billing, savings or adoption inference | Unavailable |
 | Team file exchange | Synthetic validation only; functional-pilot results cannot use that exchange |
 
 Stable Codex versions `>0.160.0` and `<0.164.0` (including 0.162.1), and Claude Code versions
-`>2.1.291` and `<2.2.0` (including 2.1.296), may reuse their workflow
+`>2.1.296` and `<2.2.0`, may reuse their workflow
 profiles in a `functional_pilot`. They remain `compatibility_unverified`, with
-separate reference estimates. These windows do not qualify ticket connections or
+separate reference estimates. The Claude window covers a fresh parent-only launch only: no child and no resume. These windows do not qualify ticket connections or
 ordinary session families. See [version configuration and checks](task-native-workflow.md#conditional-forward-versions).
 
 **Execution notice:** Native launch/resume uses your existing authenticated product and can consume paid or subscription usage.
@@ -150,13 +151,16 @@ Those values require the owner's choice; they do not establish statistical power
 | `launch.json`, `resume.json` | Canonical absolute binary/home/recorder/prompt paths, approved sandbox and timeout |
 | `link.json`, `collect.json` | The same canonical setup; exact linked session UUID and source path where required |
 | `claude-launch.json` (Claude only) | Selected binary path/version/SHA, private mode-0700 workspace, built mediator, prompt, `permissions`, limits |
+| `claude-resume.json` (Claude only) | The same setup, a fresh `run_id`, `resume_run_id` of an earlier resumable run of the task, and that run's `workspace` |
 
 Keep the workflow configuration, protocol source profile and executable version
 identical. The checked-in Codex examples use 0.160.0; for a conditional version,
 set execution `product_version` and its actual `binary.sha256` too.
 For Claude, use `product: "claude_code"`, profile `claude-workflow-own-trace-v1`,
 and the selected version in `workflow.json`, `protocol.json` and `binary.version`.
-A functional protocol permits one Claude workflow profile at 2.1.291 or a version
+A protocol holds one profile per product/version and at most one entry per Claude
+workflow profile; use a separate protocol with `claude-workflow-direct-child-v1` for child runs.
+A functional protocol permits each Claude workflow profile at 2.1.296, or the own-trace profile at a version
 inside its conditional window. Other non-synthetic protocols require the newest
 exact admission; see [registration rules](task-native-workflow.md#claude-parent-only-workflow).
 Point `binary.path` at the exact versioned file, not the `claude` launcher.
@@ -239,7 +243,15 @@ node dist/cli.js --db .harness-delta/pilot/local.sqlite workflow codex launch \
 ```
 
 For Claude Code, run `workflow claude launch` with the same options and `claude-launch.json`.
-`child_runtime` is rejected before assignment (`claude_workflow_child_unadmitted`).
+`child_runtime` needs a direct-child protocol, the exact version and `permissions: "read-only"`.
+Conditional child execution on an own-trace protocol fails before assignment with
+`workflow_adapter_mismatch`; matching-profile child execution with edit permissions
+fails with `claude_workflow_child_read_only_required`. Direct adapter preflight may
+give `claude_workflow_child_unadmitted` for a version without direct-child admission.
+To continue the same native session later, add `"resumable": true` to the launch, then run `workflow claude resume` with `claude-resume.json`. A resumable launch makes Claude Code keep its own transcript in your Claude configuration; Harness Delta never reads it, and the time between runs is an `offline` gap.
+The resume example is read-only. Only a read-only kept launch followed by a read-only
+resume has native evidence; edit-mode resume and changing permissions between runs
+are not established. Resume does not compare permissions with the kept launch.
 
 Launch assigns and starts the task. Do not run `task register` for this v2 assignment.
 `workflow begin` prepares assignment/start without product execution; it does not apply a harness by itself.

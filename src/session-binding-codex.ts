@@ -7,6 +7,7 @@ import { IdSchema, TimestampSchema } from './contracts.js';
 import { parseCodexCandidateRollout, type CodexCandidateSnapshot } from './codex-candidate-rollout.js';
 import { checkedCandidateScope, type CandidateScope } from './nested-candidate.js';
 import { resolveSourceCompatibility } from './source-compatibility.js';
+import { codexBindingAdmission } from './codex-binding-admission.js';
 import { bindingIdentityKey, CurrentIdentityRequestSchema, VerifiedSessionIdentitySchema, type BindingCapabilities, type BindingReadBoundary, type ChildDiscovery,
   type SessionBindingProvider, type UsageBatch, type VerifiedSessionIdentity } from './session-binding-contract.js';
 
@@ -41,6 +42,9 @@ export interface CodexSessionBindingOptions {
   productVersion?: string;
   /** Trusted local operator's exact root-only pilot; never profile/browser authority. */
   ordinaryRootPilot?: boolean;
+  /** Internal bounded qualification reader; ordinary service admission still applies. */
+  ordinaryFamilyQualification?: boolean;
+  ordinaryFamilyAdmission?: boolean;
   clock?: () => string;
   maxDepth?: number;
   maxReceipts?: number;
@@ -79,6 +83,8 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
   private readonly projectRoot: string;
   private readonly productVersion: z.infer<typeof receiptVersionSchema>;
   private readonly ordinaryRootPilot: boolean;
+  private readonly ordinaryFamilyQualification: boolean;
+  private readonly ordinaryFamilyAdmission: boolean;
   private readonly clock: () => string;
   private readonly maxDepth: number;
   private readonly maxReceipts: number;
@@ -90,6 +96,8 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
     if (!version.success) throw new Error('binding_configuration_invalid');
     this.productVersion = version.data;
     this.ordinaryRootPilot = options.ordinaryRootPilot === true;
+    this.ordinaryFamilyQualification = options.ordinaryFamilyQualification === true;
+    this.ordinaryFamilyAdmission = options.ordinaryFamilyAdmission === true;
     this.directory = realpathSync(options.receiptDirectory);
     this.projectRoot = realpathSync(options.projectRoot);
     this.roots = options.sourceRoots.map(root => realpathSync(root));
@@ -98,16 +106,21 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
     this.maxDepth = options.maxDepth ?? 8; this.maxReceipts = options.maxReceipts ?? 1024; this.maxSourceBytes = options.maxSourceBytes ?? 8 * 1024 * 1024;
     this.maxFamilyMembers = options.maxFamilyMembers ?? 32;
     if(this.ordinaryRootPilot&&(!codexRootPilotVersions.some(version=>version===this.productVersion)||this.maxDepth!==1||this.maxFamilyMembers!==1))throw new Error('binding_configuration_invalid');
+    if(this.ordinaryFamilyQualification&&(this.productVersion!=='0.162.1'||this.ordinaryRootPilot||this.maxDepth!==1||this.maxFamilyMembers!==3))throw new Error('binding_configuration_invalid');
+    if(this.ordinaryFamilyAdmission&&(this.productVersion!==codexBindingAdmission.productVersion||this.ordinaryRootPilot||this.ordinaryFamilyQualification||this.maxDepth!==codexBindingAdmission.maxDepth||this.maxFamilyMembers!==codexBindingAdmission.maxFamilyMembers))throw new Error('binding_configuration_invalid');
     for (const [value, limit] of [[this.maxFamilyMembers, 32], [this.maxDepth, 31], [this.maxReceipts, 65536], [this.maxSourceBytes, 8 * 1024 * 1024]] as const) {
       if (!Number.isSafeInteger(value) || value < 1 || value > limit) throw new Error('binding_configuration_invalid');
     }
     this.checkDirectory();
   }
   capabilities(): BindingCapabilities {
-    return { currentIdentity: 'native_hook', ancestry: 'verified_relations', usage: 'own_requests', productionSupported: false,
-      maxDepth: this.maxDepth, reasons: ['codex_ordinary_source_unqualified', 'codex_native_hook_path_and_header_conformance_pending', 'codex_paginated_descendant_history_unsupported',
+    return { currentIdentity: 'native_hook', ancestry: 'verified_relations', usage: 'own_requests', productionSupported: this.ordinaryFamilyAdmission,
+      maxDepth: this.maxDepth, reasons: [...(this.ordinaryFamilyAdmission?[]:['codex_ordinary_source_unqualified', 'codex_native_hook_path_and_header_conformance_pending']), 'codex_paginated_descendant_history_unsupported',
         `binding_receipt_limit_${this.maxReceipts}`, `binding_source_byte_limit_${this.maxSourceBytes}`, `binding_family_scope_limit_${this.maxFamilyMembers}`,
         'binding_turn_limit_64', 'binding_metadata_header_byte_limit_65536'] };
+  }
+  admissionProfile(): string | null {
+    return this.ordinaryFamilyAdmission ? codexBindingAdmission.profileId : null;
   }
   /** Metadata-only pilot scope check before any receipt/source access. */
   assertProjectRoot(projectRoot: string): void {
@@ -300,7 +313,7 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
     } finally { closeSync(fd); }
   }
   private readHeader(record: Receipt): z.infer<typeof headerSchema>['payload'] {
-    if(record.productVersion!=='0.160.0'&&!this.ordinaryRootPilot)throw new Error('binding_source_unqualified');
+    if(record.productVersion!=='0.160.0'&&!this.ordinaryRootPilot&&!this.ordinaryFamilyQualification&&!this.ordinaryFamilyAdmission)throw new Error('binding_source_unqualified');
     const bytes = this.readSource(record, true);
     try {
       const header = headerSchema.parse(JSON.parse(bytes.toString('utf8')) as unknown).payload;
@@ -319,8 +332,14 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
     let record = this.readReceipt(CurrentIdentityRequestSchema.parse(input).receipt);
     if (record.cwd !== this.projectRoot) throw new Error('binding_identity_unavailable');
     const records = this.receipts(); record = this.canonical(record, records);
-    // Stat is metadata only: root identity does not inspect transcript contents.
+    // The trusted receipt bounds metadata verification without a history scan.
     this.sourceMetadata(record);
+    if(this.ordinaryFamilyAdmission&&record.parentSessionId===null) {
+      const header=this.readHeader(record);
+      if(header.id!==record.sessionId||header.session_id!==record.sessionId||header.cwd!==this.projectRoot||
+        header.cli_version!==record.productVersion||header.source!=='cli'||
+        header.parent_thread_id!==undefined&&header.parent_thread_id!==null)throw new Error('binding_scope_mismatch');
+    }
     const ancestry = record.parentSessionId === null ? null : this.verifyAncestry(record, records);
     return await Promise.resolve(this.identity(record, ancestry?.agentMetadata));
   }
@@ -389,7 +408,9 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
   async readUsage(session: VerifiedSessionIdentity, cursor: string | null, inputScope: CandidateScope, boundary?: BindingReadBoundary): Promise<UsageBatch> {
     let scope: CandidateScope;
     try { scope = checkedCandidateScope(inputScope); } catch { throw new Error('binding_scope_mismatch'); }
-    const compatibility = this.ordinaryRootPilot ? resolveSourceCompatibility('codex',this.productVersion,'codex_workflow','codex-workflow-own-response-v1') : null;
+    const compatibility = this.ordinaryFamilyAdmission
+      ? resolveSourceCompatibility('codex',this.productVersion,'codex_binding',codexBindingAdmission.profileId)
+      : this.ordinaryRootPilot || this.ordinaryFamilyQualification ? resolveSourceCompatibility('codex',this.productVersion,'codex_workflow','codex-workflow-own-response-v1') : null;
     if(this.ordinaryRootPilot&&(scope.sessions.length!==1||session.parentSessionId!==null||!compatibility))throw new Error('binding_pilot_family_scope');
     const record = this.verified(session);
     const mapping = scope.sessions.find(s => s.nativeSessionId === session.sessionId);
@@ -407,7 +428,8 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
       // read. A receipt's path alone cannot admit a different native source.
       const header = this.readHeader(record);
       if (header.id !== record.sessionId || header.session_id !== mapping.nativeSessionId ||
-        (header.parent_thread_id ?? null) !== null || typeof header.source !== 'string' || header.cwd !== this.projectRoot) throw new Error('binding_scope_mismatch');
+        (header.parent_thread_id ?? null) !== null || typeof header.source !== 'string' ||
+        this.ordinaryFamilyAdmission&&header.source!=='cli' || header.cwd !== this.projectRoot) throw new Error('binding_scope_mismatch');
     }
     const bytes = this.readSource(record); const now = TimestampSchema.parse(this.clock());
     if (previous && (bytes.length < previous.size || hash(bytes.subarray(0, previous.size)) !== previous.prefix)) throw new Error('binding_source_changed');
@@ -436,7 +458,8 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
     if (rootTurns.size > 64) throw new Error('binding_turn_limit');
     // With no native context, parser still validates header/counters and reports
     // missing runtime. No request can be attributed via this sentinel permission.
-    scope = { ...scope, allowedRootTurnIds: rootTurns.size ? [...rootTurns] : ['binding-observation'] };
+    scope = { ...scope, ...(this.ordinaryFamilyQualification ? { sessions: [...lineage].reverse() } : {}),
+      allowedRootTurnIds: rootTurns.size ? [...rootTurns] : ['binding-observation'] };
     let snapshot: CodexCandidateSnapshot; let historyGap = false;
     try { snapshot = parseCodexCandidateRollout(bytes.toString('utf8'), scope, mapping.sourceId, this.projectRoot, now, compatibility ?? undefined); }
     catch (error) {
@@ -455,6 +478,7 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
       settled.add(projection.event.id);
       const { runtime_evidence_id: runtimeEvidenceId, ...payload } = projection.event.payload;
       void runtimeEvidenceId;
+      if(this.ordinaryFamilyAdmission&&(payload.model!==codexBindingAdmission.model||projection.runtime.effort!==codexBindingAdmission.effort))throw new Error('binding_runtime_unsupported');
       const excluded = previous?.baselineAt != null && Date.parse(contextAt) <= Date.parse(previous.baselineAt);
       if (excluded) gaps.add('binding_unobserved_context');
       (excluded ? excludedRecords : records).push({ requestId: projection.runtime.request_id!, sessionId: session.sessionId, occurredAt: projection.event.occurred_at,

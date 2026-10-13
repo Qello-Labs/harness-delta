@@ -1,5 +1,6 @@
 import type { SourceCompatibility } from './contracts.js';
 import { assertCompatibilityAllowed, resolveSourceCompatibility } from './source-compatibility.js';
+import { codexBindingAdmission } from './codex-binding-admission.js';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { addTokens, IdSchema, ModelSchema, TimestampSchema, TokenSchema, type Reading } from './contracts.js';
@@ -220,9 +221,10 @@ export function projectCandidateObservation(inputScope: CandidateScope, sourceId
   throw new Error('candidate_scope_mismatch');
 }
 function checkWorkflowCompatibility(scope:CandidateScope,compatibility:SourceCompatibility):void {
-  const source=scope.sessions[0]?.product==='codex'?'codex_workflow':'claude_workflow';
+  const source=compatibility.source==='codex_binding'?'codex_binding':scope.sessions[0]?.product==='codex'?'codex_workflow':'claude_workflow';
   const resolved=resolveSourceCompatibility(compatibility.product,compatibility.product_version,source,compatibility.profile_id);
   if(!resolved||JSON.stringify(resolved)!==JSON.stringify(compatibility)||scope.sessions.some(s=>s.product!==compatibility.product)||
+    source==='codex_binding'&&(scope.sessions.length>codexBindingAdmission.maxFamilyMembers||scope.sessions.some(s=>s.parentSessionId!==null&&s.parentSessionId!==s.rootSessionId))||
     compatibility.state==='compatibility_unverified'&&(source==='claude_workflow'?scope.sessions.length!==1:scope.sessions.length>2||scope.sessions.some(s=>s.parentSessionId!==null&&s.parentSessionId!==s.rootSessionId)))throw new Error('candidate_scope_mismatch');
 }
 export function authorizeCandidateScope(store: Store, scope: CandidateScope, compatibility?:SourceCompatibility): void {

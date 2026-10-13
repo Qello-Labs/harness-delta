@@ -7,6 +7,7 @@ import { preparePriceBasis, refreshPriceCatalog } from './price-catalog-store.js
 import { readOnlinePriceCatalogStatus,refreshOnlinePriceCatalog } from './price-catalog-online.js';
 import { selectTaskPriceTable } from './price-catalog-selection.js';
 import { captureComparisonCostSnapshot, captureTaskCostSnapshot, createPriceRevaluation, readPriceRevaluation } from './price-revaluation.js';
+import { captureInstrumentedCostSnapshot, createInstrumentedValuation, readInstrumentedValuation } from './instrumented-codex-cost.js';
 import type { LegacyInputBasis } from './pricing.js';
 import type { Store } from './store.js';
 
@@ -63,4 +64,26 @@ export function registerPriceCatalogCommands(prices:Command,store:()=>Store,prin
       const db=store();print(createPriceRevaluation(db,{id:options.id??randomUUID(),inputId,targetTableId:options.priceTable??preparePriceBasis(db).table.id}));
     });
   prices.command('revaluation <id>').action((id:string)=>{print(readPriceRevaluation(store(),id));});
+  prices.command('snapshot-instrumented <run-id>')
+    .description('Freeze a sealed instrumented window and value it under its original immutable price pin')
+    .option('--id <id>').option('--valuation-id <id>').requiredOption('--cutoff <UTC>')
+    .action((runId:string,options:{id?:string;valuationId?:string;cutoff:string})=>{
+      const db=store();
+      const snapshot=captureInstrumentedCostSnapshot(db,{
+        inputId:options.id??randomUUID(),runId,cutoff:options.cutoff,
+      });
+      print(createInstrumentedValuation(db,{
+        id:options.valuationId??randomUUID(),inputId:snapshot.input_id,targetTableId:snapshot.price_table.id,
+      }));
+    });
+  prices.command('reprice-instrumented <input-id>')
+    .description('Revalue exactly the retained instrumented seal without changing usage coverage or the original pin')
+    .option('--id <id>').requiredOption('--price-table <id>')
+    .action((inputId:string,options:{id?:string;priceTable:string})=>{
+      print(createInstrumentedValuation(store(),{
+        id:options.id??randomUUID(),inputId,targetTableId:options.priceTable,
+      }));
+    });
+  prices.command('instrumented-valuation <id>')
+    .action((id:string)=>{print(readInstrumentedValuation(store(),id));});
 }

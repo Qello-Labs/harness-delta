@@ -26,10 +26,12 @@ using the pinned binary with a localhost stub API.
 
 This is an internal probe contract, still pinned to 2.1.288. The ordinary assigned workflow
 was later admitted separately as parent-only `claude-workflow-own-trace-v1`, first for 2.1.288
-([retired record](claude-workflow-02188-source-readiness.md)) and now for 2.1.291
-([admission evidence](claude-workflow-02191-source-readiness.md)). That admission
-does not qualify this probe's child topology, asynchronous children in workflow mode,
-other versions, complete cost or inference.
+([retired record](claude-workflow-02188-source-readiness.md)), then for 2.1.291
+([retired record](claude-workflow-02191-source-readiness.md)) and now for 2.1.296
+([admission evidence](claude-workflow-02196-source-readiness.md)). 2.1.296 also has a
+separate [single direct-child admission](claude-workflow-02196-direct-child-source-readiness.md).
+Those admissions do not qualify this probe's child topology, other versions,
+complete cost or inference.
 
 ## Preparation and admission interfaces
 
@@ -46,7 +48,7 @@ Launch arguments pin `--permission-mode dontAsk` in both probe and workflow mode
 another model. The two-root/one-child probe also sets
 `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1`, because 2.1.288 otherwise launches the
 Agent child asynchronously and adds a root request. Workflow mode keeps native
-background behavior; the admitted workflow profile is parent-only, so that path is not used natively.
+background behavior; the separately admitted 2.1.296 direct-child profile uses that asynchronous single-child path.
 
 `reserveClaudeProbeAction` creates exclusive one-use launch and child reservations
 bound to the manifest's process ID. It fsyncs the file and containing directory

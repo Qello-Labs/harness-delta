@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
-import { prepareClaudeNativeProbe, reserveClaudeProbeAction } from '../src/claude-native-probe.js';
+import { claudeWorkflowChildAgentType, prepareClaudeNativeProbe, reserveClaudeProbeAction } from '../src/claude-native-probe.js';
 
 function options(workspace: string) {
   return { workspace, binary: { path: '/synthetic/claude-2.1.288', version: '2.1.288', sha256: 'a'.repeat(64) },
@@ -12,7 +12,7 @@ function options(workspace: string) {
 }
 // The assigned workflow takes its own version list; the internal probe stays on 2.1.288.
 function workflowOptions(workspace: string) {
-  return { ...options(workspace), binary: { path: '/synthetic/claude-2.1.291', version: '2.1.291', sha256: 'a'.repeat(64) } };
+  return { ...options(workspace), binary: { path: '/synthetic/claude-2.1.296', version: '2.1.296', sha256: 'a'.repeat(64) } };
 }
 test('prepare-only probe writes private ephemeral candidate settings and token-free argv/manifest', async () => {
   const root = mkdtempSync(join(tmpdir(), 'claude-probe-prepare-'));
@@ -93,5 +93,48 @@ test('workflow permissions choose a Bash-free toolset and pass a budget only whe
     expect(edit.argv.join(' ')).not.toMatch(/Bash/);
     await edit.dispose();
     await expect(prepareClaudeNativeProbe(options(join(root, 'c')), { ...base, permissions: 'bypass' as 'read-only' })).rejects.toThrow('claude_probe_invalid_preparation');
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('workflow session modes choose the persistence flags, the SessionStart matcher and the manifest marker', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'claude-probe-session-'));
+  const flag = (argv: readonly string[], name: string) => argv.includes(name) ? argv[argv.indexOf(name) + 1] : undefined;
+  const matcher = (path: string) => (JSON.parse(readFileSync(path, 'utf8')) as { hooks: { SessionStart: { matcher: string }[] } }).hooks.SessionStart[0]!.matcher;
+  const base = { model: null, effort: null, instructions: 'Synthetic instructions.', maxTurns: 4, requestLimit: 8, durationMs: 120000, permissions: 'read-only' as const };
+  const id = workflowOptions(root).nativeSessionId;
+  try {
+    const fresh = await prepareClaudeNativeProbe(workflowOptions(join(root, 'fresh')), base);
+    expect([flag(fresh.argv, '--session-id'), fresh.argv.includes('--no-session-persistence'), fresh.argv.includes('--resume'), matcher(fresh.settingsPath)]).toEqual([id, true, false, 'startup']);
+    expect(fresh.manifest).not.toHaveProperty('sessionPersistence'); await fresh.dispose();
+    const kept = await prepareClaudeNativeProbe(workflowOptions(join(root, 'kept')), { ...base, session: 'persistent' });
+    expect([flag(kept.argv, '--session-id'), kept.argv.includes('--no-session-persistence'), kept.argv.includes('--resume'), matcher(kept.settingsPath)]).toEqual([id, false, false, 'startup']);
+    expect(kept.manifest.sessionPersistence).toBe('persistent'); await kept.dispose();
+    // The CLI refuses --session-id together with --resume.
+    const resumed = await prepareClaudeNativeProbe(workflowOptions(join(root, 'resumed')), { ...base, session: 'resume' });
+    expect([flag(resumed.argv, '--resume'), resumed.argv.includes('--session-id'), resumed.argv.includes('--no-session-persistence'), matcher(resumed.settingsPath)]).toEqual([id, false, false, 'resume']);
+    expect(JSON.parse(readFileSync(resumed.manifestPath, 'utf8'))).toMatchObject({ nativeSessionId: id, sessionPersistence: 'resume' }); await resumed.dispose();
+    for (const session of ['persistent', 'resume'] as const)
+      await expect(prepareClaudeNativeProbe(workflowOptions(join(root, 'child-' + session)), { ...base, session, childRuntime: { model: 'claude-sonnet-5-5', effort: 'high' } }))
+        .rejects.toThrow('claude_probe_invalid_preparation');
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+test('the workflow child is one read-only agent type bounded by the run turn limit; the probe keeps its acknowledgment child', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'claude-probe-child-'));
+  const agents = (argv: readonly string[]) => JSON.parse(readFileSync(argv[argv.indexOf('--agents') + 1]!, 'utf8')) as Record<string, { tools: string[]; disallowedTools: string[]; maxTurns: number; model: string; effort: string; background: boolean }>;
+  const matchers = (path: string) => { const hooks = (JSON.parse(readFileSync(path, 'utf8')) as { hooks: Record<string, { matcher: string }[]> }).hooks; return [hooks.SubagentStart![0]!.matcher, hooks.SubagentStop![0]!.matcher]; };
+  try {
+    const workflow = await prepareClaudeNativeProbe(workflowOptions(join(root, 'workflow')), { model: null, effort: null, childRuntime: { model: 'claude-haiku-5-5', effort: 'low' },
+      instructions: 'Synthetic instructions.', maxTurns: 7, requestLimit: 8, durationMs: 120000, permissions: 'read-only' });
+    const workflowAgents = agents(workflow.argv);
+    expect(Object.keys(workflowAgents)).toEqual([claudeWorkflowChildAgentType]);
+    expect(workflowAgents[claudeWorkflowChildAgentType]).toMatchObject({ tools: ['Read', 'Glob', 'Grep'], maxTurns: 7, model: 'claude-haiku-5-5', effort: 'low', background: false });
+    const denied = workflowAgents[claudeWorkflowChildAgentType]!.disallowedTools;
+    expect(denied).toEqual(expect.arrayContaining(['Agent', 'Bash', 'Write', 'Edit'])); expect(denied).not.toContain('Read');
+    expect(matchers(workflow.settingsPath)).toEqual(['^workflow-child$', '^workflow-child$']); await workflow.dispose();
+    const probe = await prepareClaudeNativeProbe(options(join(root, 'probe')));
+    const probeAgents = agents(probe.argv);
+    expect(Object.keys(probeAgents)).toEqual(['qualification-child']);
+    expect(probeAgents['qualification-child']).toMatchObject({ tools: [], maxTurns: 1 });
+    expect(matchers(probe.settingsPath)).toEqual(['^qualification-child$', '^qualification-child$']); await probe.dispose();
   } finally { rmSync(root, { recursive: true, force: true }); }
 });

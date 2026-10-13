@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { appendFileSync, openSync, closeSync, unlinkSync, mkdtempSync, realpathSync, mkdirSync, writeFileSync, rmSync, readFileSync, existsSync, statSync } from 'node:fs';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { Socket } from 'node:net';
+import { once } from 'node:events';
 import { join, resolve } from 'node:path';
 import { expect, test, vi } from 'vitest';
 
@@ -118,10 +119,23 @@ else {response(root,'root-final');process.exit(mode==='nonzero'?2:0);}}
     const native=spawn(process.execPath,[script],{detached:true,stdio:['ignore','ignore','pipe','ipc'],env:{...process.env,HD_SYNTHETIC_SETUP_DELAY_MS:String(startupDelayMs)}});primedNative=native;
     await new Promise<void>((ok,no)=>{const timer=setTimeout(()=>no(new Error('synthetic_fixture_startup_timeout')),15000);native.once('message',()=>{clearTimeout(timer);ok();});native.once('error',no);});
     vi.mocked(spawn).mockImplementationOnce((command,args)=>{if(command!==executable)throw new Error('unexpected_fixture_executable');native.send({args,startedAt:Date.now()});return native;});
+    return native;
   }
   const timing=()=>({shellReadyAt:existsSync(join(dir,'shell-ready'))?statSync(join(dir,'shell-ready')).birthtimeMs:null,marks:existsSync(join(dir,'synthetic-timing.jsonl'))?readFileSync(join(dir,'synthetic-timing.jsonl'),'utf8').trim().split('\n').map(line=>JSON.parse(line) as unknown):[]});
-  return { dir, store, lifecycle, options, sourceReadSpy, timing, primeNative, cleanup: () => { if(primedNative?.pid){try{process.kill(-primedNative.pid,'SIGKILL');}catch{/* already reaped */}}vi.mocked(spawn).mockClear();sourceReadSpy.mockRestore();clockSpy?.mockRestore();store.close(); rmSync(dir, { recursive: true, force: true }); } };
+  return { dir, store, lifecycle, options, sourceReadSpy, timing, primeNative, cleanup: () => { if(primedNative?.pid){try{process.kill(-primedNative.pid,'SIGKILL');}catch{/* already reaped */}}vi.mocked(spawn).mockReset();sourceReadSpy.mockRestore();clockSpy?.mockRestore();store.close(); rmSync(dir, { recursive: true, force: true }); } };
 }
+
+test('abandoning a primed fixture cannot substitute a later process launch',async()=>{
+  const f=fixture();let cleaned=false;
+  try{
+    const primed=await f.primeNative();
+    const exited=once(primed,'exit',{signal:AbortSignal.timeout(3000)});
+    f.cleanup();cleaned=true;await exited;
+    const next=spawn(process.execPath,['-e','process.exit(0)'],{stdio:'ignore'});
+    const result=await once(next,'exit',{signal:AbortSignal.timeout(3000)});
+    expect(result[0]).toBe(0);
+  }finally{if(!cleaned)f.cleanup();}
+});
 
 test('concrete qualification entry registers real lifecycle sources before callback return and preserves initial contexts, root continuation and replay', async () => {
   const f = fixture(); try {
@@ -281,7 +295,7 @@ test('permission relaxation appended between handoff validation and Collector re
 
 test.each(['timing-slow','timing-legacy','timing-callback-first'])('stage timing %s preserves slow root reasoning and accepts callback/progress in either order', async mode=>{
   const f=fixture(mode);try{await f.primeNative();const lane=await prepareCodexQualification(f.options);const result=await lane.run();
-    expect(result).toMatchObject({status:'completed',reason:null,observedRequests:3,registeredSessions:2});
+    expect(result,JSON.stringify({result,timing:f.timing()})).toMatchObject({status:'completed',reason:null,observedRequests:3,registeredSessions:2});
     expect(lane.argv.at(-1)).toContain('V2: fork_turns="none"');expect(lane.argv.at(-1)).toContain('V1: fork_context=false');
     expect(result.diagnostics).toEqual(expect.arrayContaining([expect.objectContaining({phase:'progress',code:'candidate_spawn_progress_observed'})]));
     const exported=JSON.stringify(result)+JSON.stringify(f.store.all('SELECT payload FROM runtime_evidence'));
@@ -290,7 +304,7 @@ test.each(['timing-slow','timing-legacy','timing-callback-first'])('stage timing
 },12000);
 
 test('stage timing starts the bounded missing-child wait only after independently observed persisted spawn progress',async()=>{
-  const f=fixture('timing-missing-child');try{const lane=await prepareCodexQualification(f.options);const result=await lane.run();
+  const f=fixture('timing-missing-child');try{await f.primeNative();const lane=await prepareCodexQualification(f.options);const result=await lane.run();
     expect(result).toMatchObject({status:'stopped',reason:'candidate_missing_child_handshake',registeredSessions:1});
     expect(result.diagnostics).toEqual(expect.arrayContaining([expect.objectContaining({phase:'progress',code:'candidate_spawn_progress_observed'})]));
     expect(result.elapsedMs).toBeGreaterThan(4000);expect(result.elapsedMs).toBeLessThan(8000);
@@ -309,14 +323,14 @@ test.each(['timing-no-progress','timing-unknown'])('stage timing %s stays unknow
 },12000);
 
 test('stage timing explicitly disabled multi-agent declaration stops distinctly without treating root acknowledgment as tool/auth readiness',async()=>{
-  const f=fixture('timing-disabled');try{const lane=await prepareCodexQualification(f.options);const result=await lane.run();
+  const f=fixture('timing-disabled');try{await f.primeNative();const lane=await prepareCodexQualification(f.options);const result=await lane.run();
     expect(result).toMatchObject({status:'stopped',reason:'candidate_multi_agent_disabled',observedRequests:0});
     expect(result.diagnostics).toEqual(expect.arrayContaining([expect.objectContaining({phase:'capability',field:'multi_agent_version',code:'candidate_multi_agent_disabled'})]));
   }finally{f.cleanup();}
 },12000);
 
 test.each(['timing-extra','timing-late-reader','timing-conflict','timing-wrong-turn','timing-permissions'])('stage timing %s preserves scope/permission checks before trusting progress',async mode=>{
-  const f=fixture(mode);try{const lane=await prepareCodexQualification(f.options);const result=await lane.run();
+  const f=fixture(mode);try{await f.primeNative();const lane=await prepareCodexQualification(f.options);const result=await lane.run();
     expect(result.reason).toBe({'timing-extra':'candidate_unapproved_spawn','timing-late-reader':'candidate_missing_child_handshake','timing-conflict':'candidate_unapproved_handshake','timing-wrong-turn':'candidate_scope_mismatch','timing-permissions':'candidate_permissions_invalid'}[mode]);
     if(mode==='timing-conflict')expect(result.registeredSessions).toBe(1);
     if(mode==='timing-late-reader')expect(result.observedRequests).toBe(1);

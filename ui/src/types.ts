@@ -13,6 +13,10 @@ export interface BindingSummary extends CostAmounts {requests:number|null;input_
 export interface Task {
  recruitment?: RecruitmentWindow;
  harness?: { arm: 'A' | 'B' | null; variant_id: string | null; version: string | null; application_mode: ApplicationMode };
+ connection_readiness?: {
+  skill: { state: 'installed' | 'missing' | 'conflict' | 'unavailable'; reason: string | null; install_command: string | null };
+  configured_version: string; installed_version: string | null; collection_revoked: boolean;
+ };
  support_details?: SupportDetails;
  application?:{product?:string|null;launchState:string;identity:string;state:string;jobId:string|null;epoch:number;reason:string|null;workspace:string|null;baseline:string;capabilities:{id:string;product:string;available:boolean;reason:string|null}[]};
  id: string; name: string; project_id: string; setup_id: string; version: string; state: string; status: string;

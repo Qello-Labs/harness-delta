@@ -19,12 +19,12 @@ import { attrs, receivedAt, seedTraceScope, span, startedAt, traceScope, traces 
 // probe path must not depend on the list, and the adapter must label sessions by binary version.
 vi.mock('../src/claude-workflow-versions.js', async importOriginal => {
   const actual = await importOriginal<typeof import('../src/claude-workflow-versions.js')>();
-  const list = Object.freeze(['2.1.291', '2.1.999'] as const);
+  const list = Object.freeze(['2.1.296', '2.1.999'] as const);
   return { ...actual, claudeWorkflowProductVersions: list, isClaudeWorkflowProductVersion: (value: unknown) => (list as readonly unknown[]).includes(value) };
 });
 
 test('the pinned probe version is independent of a workflow list without it', () => {
-  expect(claudeWorkflowProductVersions).toEqual(['2.1.291', '2.1.999']);
+  expect(claudeWorkflowProductVersions).toEqual(['2.1.296', '2.1.999']);
   expect(claudeProbeProductVersion).toBe('2.1.288');
 });
 test('probe preparation and binary verification keep 2.1.288 while the workflow refuses it', async () => {
@@ -39,7 +39,7 @@ test('probe preparation and binary verification keep 2.1.288 while the workflow 
     // Only an explicitly pinned, unadmitted candidate keeps the probe binary in workflow-shaped preparation.
     const pinned = await prepareClaudeNativeProbe(options(join(root, 'candidate')), { model: null, effort: null, instructions: 'SYNTHETIC', maxTurns: 1, requestLimit: 1,
       durationMs: 1000, permissions: 'read-only', pinnedProbeCandidate: true }); await pinned.dispose();
-    await expect(prepareClaudeNativeProbe({ ...options(join(root, 'candidate-new')), binary: { path: '/synthetic/claude-2.1.291', version: '2.1.291', sha256: 'a'.repeat(64) } },
+    await expect(prepareClaudeNativeProbe({ ...options(join(root, 'candidate-new')), binary: { path: '/synthetic/claude-2.1.296', version: '2.1.296', sha256: 'a'.repeat(64) } },
       { model: null, effort: null, instructions: 'SYNTHETIC', maxTurns: 1, requestLimit: 1, durationMs: 1000, permissions: 'read-only', pinnedProbeCandidate: true }))
       .rejects.toThrow(/^claude_probe_invalid_preparation$/);
     const binary = { path, version: '2.1.288', sha256: createHash('sha256').update(readFileSync(path)).digest('hex') };

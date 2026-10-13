@@ -5,8 +5,68 @@ Codex CLI candidate, separate from production admission. Preparation runs no nat
 product or model. Execution requires explicit consent for the frozen intent and an
 interactive terminal. The public command has no synthetic-mode switch.
 
-The exact candidate is Codex 0.160.0 on macOS arm64, binary SHA256
+The historical candidate is Codex 0.160.0 on macOS arm64, binary SHA256
 `112fae7a5a1223e673c8a1791d32338f37df8b527ff1159bb8adac6c4dbf1b4b`.
+The separate 0.162.1 candidate pins macOS arm64 binary SHA256
+`74c6a6d263f40d65f99c27a815275f5b4ed0bcc2baecc396b4cf3255498bdfc0`.
+Select it explicitly with `--product-version 0.162.1`; omitting that option
+retains 0.160.0. The target version is frozen in the intent, protocol, workflow,
+metadata recorder and lease. The 0.162.1 ordinary TUI uses `--no-daemon` so the
+owned trial does not attach to a shared background server. Neither candidate
+opens ordinary admission beyond the separately qualified 0.162.1 bounded profile
+described below.
+
+The `--route ordinary_admission` option selects the qualified exact
+`codex-binding-01621-direct-family-v1` functional-pilot profile and the code-owned
+ordinary provider. It passes no qualification lease to the domain or binding
+service; the runner retains separate owned-run safety guards for limits,
+immutable intent, task scope and emergency termination. Those guards never grant
+source access. The default `--route qualification` retains the historical route.
+Select `--product-version 0.162.1` with the ordinary option.
+
+The [2026-10-13 ordinary-route acceptance](#2026-10-13-ordinary-route-acceptance)
+proves that exact route on the pinned native binary, with independent review.
+The earlier lease-gated evidence and Node fixtures cannot substitute for this run
+or qualify a different ordinary profile.
+Synthetic results may set `ordinary_path_verified`, but only real execution can
+set `ordinary_admission_verified`; preparation always reports the latter false.
+All such observation still has partial cost. No successful family reconciliation
+establishes all attempted requests, durable final delivery or complete task cost.
+
+The 0.162.1 argv also supplies a session-only `projects` inline table marking only
+the new canonical disposable project as trusted. It does not save folder trust
+in user configuration or change the read-only sandbox/on-request approval policy.
+Execution rejects any `.codex` entry inside that project before reservation,
+because trusting it could load project configuration that the intent did not freeze.
+This exact flag is frozen with the implementation; an older consumed intent
+cannot be reused after changing it.
+The new 0.162.1 plan also enables `exec_permission_approvals` for that session
+only. This feature is default-off and `UnderDevelopment` in the
+[pinned source](https://github.com/openai/codex/blob/092d3acd6bec3e3a14bdc7e7a2810ab628ab759d/codex-rs/features/src/lib.rs#L1284-L1307).
+Its frozen `helper_network_permission` is `single_command_network_only`.
+The frozen `connect-once.mjs` program inspects and then connects only if inspection
+succeeds, in one command requesting
+`sandbox_permissions: "with_additional_permissions"` and
+`additional_permissions: {"network":{"enabled":true}}`. Omit `file_system`;
+the [network overlay preserves the existing filesystem policy](https://github.com/openai/codex/blob/092d3acd6bec3e3a14bdc7e7a2810ab628ab759d/codex-rs/sandboxing/src/policy_transforms.rs#L582-L643).
+Approve only that execution, with no reusable prefix, turn or session grant.
+This is command-wide networking, not a host/port restriction; without proxy
+enforcement macOS permits inbound and outbound networking for that execution.
+The reviewed helper itself targets only the fixed loopback UI and rejects redirects.
+Managed proxy/local-binding restrictions can still block it. Do not fall back to
+`require_escalated`, which removes the filesystem sandbox, or change proxy policy.
+The 2026-10-13 accepted trial observed the exact network-only command approval
+and successful loopback connection on the pinned target binary.
+The historical 0.160.0 plan does not enable this feature and records permission `none`.
+Preparation freezes the connector path and SHA alongside the installed package.
+The only runtime argument is `--receipt` with the current native opaque UUID.
+At the native approval screen, approve only the pinned Node executable running
+that exact connector and receipt, with no extra flags or chained commands.
+The human approver is the only control over the number and kind of grants:
+deny a second network request, filesystem grant, unsandboxed escalation or
+reusable grant, and stop the owner if work/children continue after a blocked
+connection. The prompt and source-side request ledger cannot enforce these
+rules before a session is linked.
 This qualification pins root and both children to `gpt-6.1-sol` / `high`; it does not change
 the portable skill's model policy or require contributors to install that version.
 A different binary/runtime needs separate qualification. Claude ordinary-session
@@ -21,6 +81,7 @@ Build the checkout before preparation. No new Python package is required.
 npm run build
 node scripts/codex-session-binding-qualification-command.mjs prepare \
   --directory /private/tmp/harness-delta-binding-qualification-unique \
+  --product-version 0.162.1 \
   --binary /absolute/path/to/reviewed/codex \
   --codex-home /absolute/path/to/existing/codex-home
 ```
@@ -32,7 +93,7 @@ measurement/UI stores, and `execution-intent.json`. It registers one draft
 functional-pilot task with a fixed assignment and price table. The protocol's
 allocation boilerplate does not authorize multiple native runs or statistical use.
 Preparation leaves configuration application to the browser, outside the native
-120-second clock. Preparation only checks the existing native sessions directory's path; it does not
+frozen native clock. Preparation only checks the existing native sessions directory's path; it does not
 scan it, read conversations/credentials, or launch Codex.
 
 Review the entire intent and printed ordinary CLI arguments. The intent freezes
@@ -53,6 +114,21 @@ Only that task's Apply action is permitted; no source picker, connection, launch
 extra task or online price refresh is enabled. Stop this server before execution.
 The intent stays unreserved and no native process starts. Task creation was done
 by preparation, not by this browser click. Execution rejects an unapplied task.
+The default 0.162.1 qualification route retains compatibility-unverified
+own-response parser provenance from 0.160.0. The accepted ordinary profile uses
+separate `codex_binding` provenance. Preparation does not promote historical
+observations or broaden the ordinary root-only human pilot.
+A functional-pilot protocol with this exact version and single own-response
+profile may also create and apply a source-free task through ordinary preparation.
+That preparation grants neither ordinary binding nor ticket collection authority.
+
+For 0.162.1 qualification, each source is projected with only its proved ancestry:
+the root alone, or the root and that direct child. This preserves the existing
+two-member forward-parser bound per source; the separate lease and receipt
+metadata enforce the total one-root/two-child trial ceiling. An ancestor copy is
+ignored, but a row naming a sibling is a scope conflict and invalidates the
+candidate tuple. This does not extend the ordinary compatibility topology or
+admit descendants.
 
 After explicit approval, create a private consent JSON file (`chmod 600`) with:
 
@@ -63,11 +139,43 @@ After explicit approval, create a private consent JSON file (`chmod 600`) with:
   "actual_model_run": true,
   "transient_hooks": true,
   "native_source_reads": true,
-  "owned_process_termination": true
+  "owned_process_termination": true,
+  "network_command_permission": true
 }
 ```
 
-Do not create a consent witness before receiving that approval. In a terminal:
+Do not create a consent witness before receiving that approval.
+For the new 0.162.1 plan, approval must explicitly include the one-command
+network scope and the witness must contain `network_command_permission: true`.
+The historical 0.160.0 plan does not require that field. Metadata preparation
+and approval of code/plan changes are not exact-intent native execution approval.
+
+Before starting a new 0.162.1 execution, subscribe to creation of
+`native-attention.json` in the prepared directory. Do not wait for newline output
+from the TUI: approval screens may render without any newline.
+This candidate freezes session-only `tui.notifications=["approval-requested","agent-turn-complete"]`,
+`tui.notification_method="osc9"` and `tui.notification_condition="always"`.
+An existing attention path is refused before consuming the reservation.
+The owned raw PTY stream observes complete OSC9 framing across chunks and
+discards its message bytes. It writes only the intent digest and notification
+count in a private metadata file; ordinary text and OSC9 progress do not wake it.
+After each notification, inspect the current terminal screen. Relay a pending
+command, receipt and permission scope to the human immediately. For a completed
+turn, verify connection and the idle composer before submitting the fixed work
+input, or separately verify all three sessions' usage before normal quit. Do not
+infer event type or usage from the notification message, which is discarded.
+Arm a modify
+subscription before responding so a later notification also wakes the operator.
+The file is an untrusted attention hint, not proof of a particular pending command
+or authority to approve it. Do not send Yes/Enter without explicit human approval
+of the current native permission screen, and deny broader, repeated or off-plan
+requests. File publication failure stops the owned trial; it does not grant anything.
+The frozen deadline continues while approval is pending: 900 seconds for 0.162.1,
+120 seconds for 0.160.0. A new duration requires a fresh reviewed intent and consent.
+Synthetic PTY tests establish delivery mechanics only; the target's notification
+and effective permission behavior still require the separately approved native trial.
+
+In a terminal:
 
 ```sh
 node scripts/codex-session-binding-qualification-command.mjs execute \
@@ -78,14 +186,17 @@ node scripts/codex-session-binding-qualification-command.mjs execute \
 The runner opens the ordinary interactive CLI under a controlling PTY, using
 transient `-c` SessionStart/SubagentStart hooks and the canonical trusted-hash shape
 for those exact session flags. It writes no permanent project hook/trust or global
-configuration. Native startup may still require ordinary project/auth approval;
-that prompt is not bypassed or evidence of a successful connection. Do not broaden
-permissions or change permanent settings to make the smoke succeed.
+configuration. If native startup still requests persistent folder trust, quit
+instead of saving it. Authentication prompts are not bypassed or evidence of a
+successful connection. Outside the separately reviewed one-command network scope,
+do not broaden permissions or change permanent settings to make the smoke succeed.
 
 In the new disposable root, observe the automatically submitted `harness-connect`
 input for origin `http://127.0.0.1:4319`, project `qualification-project`, and the
 exact prepared `task_id`, followed by the two fresh direct children. Do not submit
-another connect or child-creation request. Exit normally after the bounded work
+another connect or child-creation request. If permission, inspection or connection
+is denied, unavailable or blocked, stop without retrying or starting children.
+Exit normally after the bounded work
 completes. Do no other work. The child does not invoke the skill. The installed helper uses the
 native opaque receipt; cwd, guessed UUIDs or model self-report are not identity.
 Open that loopback UI to inspect automatic family/partial usage updates.
@@ -95,6 +206,9 @@ Open that loopback UI to inspect automatic family/partial usage updates.
 ### Manual first input in a human terminal
 
 Preparation accepts `--start-mode manual` to freeze an explicitly manual startup.
+This mode is available only for historical 0.160.0. The new permission-enabled
+0.162.1 plan rejects manual mode before creating its workspace, since only
+automatic mode freezes its bounded connector and permission instructions.
 Omitting the option retains `automatic`. The selected `start_mode` is included in
 the intent digest and printed preparation metadata; it cannot be switched at
 execute time under the old consent. Old intents without this field parse as
@@ -117,23 +231,47 @@ the approved recipe, reconnect twice, or start extra children. Preparation-mode
 selection alone does not approve a model run or trust/configuration change.
 
 Prepare the command, first input, browser and approval before execution. The
-120-second deadline starts at reservation, before TUI startup and human typing;
+version-specific deadline starts at reservation, before TUI startup and human typing
+(900 seconds for 0.162.1, 120 seconds for historical 0.160.0);
 measurement pause does not pause that deadline or change physical usage limits.
-Root4/child1each/total6 includes excluded setup and resumed baselines. A human
+The reviewed 0.162.1 stop envelope is root8/child1each/total10; the historical 0.160.0
+envelope remains root4/child1each/total6. Both include excluded setup and resumed
+baselines. The intended new work uses at most three root requests for connection
+and three for a separate work turn, plus one request from each child,
+not a request to use the extra stop headroom. A human
 message is not necessarily one native model request. A connect-confirmation then
 separate child-work turn may exhaust these stops before completion; sufficient
-budget for this human flow is unverified. Do not treat nine requests as approved
-or silently extend limits. Review the exact interaction and new bounds separately
+budget for arbitrary human flows is unverified. Do not silently extend limits.
+Review the exact interaction and version-specific bounds separately
 if complete human-flow validation needs more time or requests.
 
 The human controls input, while the owner still stops on its safety/error/deadline
-conditions. Chrome measurement pause stops collection without terminating the
+conditions. The 0.162.1 protocol's first-connection-relative collection window
+is 900 seconds; the historical 0.160.0 window remains 180 seconds.
+The independent native deadline is still 900 seconds from launch (120 seconds
+historically), with no reset on connection, input or resume. Collection may not
+continue past that deadline even when its own window ends later.
+Chrome measurement pause stops collection without terminating the
 agent. Emergency stop revokes the owned qualification; termination confirmation
 failure remains a failed trial. After positively verified teardown, `results-ui`
 supports human outcome/reload without native source reads.
 
-In automatic mode, the ordinary TUI receives a fixed initial prompt naming the prepared task and
-`$harness-connect`, followed by the bounded two-child work. Codex submits this
+In automatic 0.162.1 mode, the ordinary TUI receives a fixed connection-only prompt
+naming the prepared task and `$harness-connect`. After successful connection and
+completion of that turn, the operator submits the intent's frozen
+`post_connect_input` once as a separate TUI turn. Do not append it to the
+connection context: responses from that context remain excluded baselines.
+Paste without a submit key (bracketed paste when supported), inspect the draft,
+then press Enter in a separate action. The target's paste-burst detector can
+treat a rapid text-plus-Enter stream as pasted text with a newline instead of
+submission. Observe the sent turn and active work; composer text alone is not
+evidence that the request started. Do not send a second work prompt.
+The work turn requests two fresh children in parallel and one wait. After each
+of the three linked sessions has measured own usage and the work turn has ended,
+exit the idle TUI through its normal quit path; "stop" in a model prompt does not
+exit the process. Enter the quit command and submit key separately, then verify
+actual exit. The historical automatic 0.160.0 prompt remains single-turn.
+Codex submits the automatic
 startup input after session configuration; no long manual composer paste is
 required. Preparation prints the exact argv for review and freezes the
 implementation bytes. This is still the ordinary TUI, not `codex exec`.
@@ -151,12 +289,18 @@ Default ordinary production binding remains gated, and existing admitted workflo
 profiles are unchanged.
 
 This smoke permits one root, two direct children and depth one as test bounds.
-The product still targets multiple verified descendants. Stop limits are root four,
-each child one, total six observed own request IDs, and 100,000 input-plus-output tokens
+The product still targets multiple verified descendants. The new 0.162.1 stop
+limits are root eight, each child one and total ten observed own request IDs;
+0.160.0 retains root four, each child one and total six.
+The 0.162.1 token stop is 200,000; 0.160.0 retains 100,000 input-plus-output tokens.
+Both count all own requests,
 including excluded pre-connect/restart baselines and continued old contexts. Cached input and reasoning
-are not added again. The native owner has a 120-second deadline and at most a
+are not added again. The native owner has a 900-second deadline for 0.162.1
+(120 seconds for 0.160.0) and at most a
 five-second teardown budget, with up to two seconds TERM grace followed by KILL. Cleanup
 discovery, identity checks and disappearance checks share that original budget.
+Discovery and TERM authorization also consume the TERM grace measured from
+cleanup entry; they do not start an additional grace clock afterward.
 Queries use its remaining time; exhaustion or query failure leaves termination
 unverified. A final nonblocking root reap also runs when polling time is exhausted.
 Operating-system scheduling can delay returning the failure result. Observed limits
@@ -208,7 +352,7 @@ watchdog. It closes the active observation interval and prohibits source-body
 reads. The separate emergency-stop action terminates the owned native process.
 Resume revalidates only the same live owned root's stored receipt, preserves task,
 assignment/price pins and cumulative safety ledger, and baselines all known members.
-Repeated cycles never reset the native 120-second clock or request/token limits.
+Repeated cycles never reset the frozen native clock or request/token limits.
 A continued pre-baseline context is excluded from measurement and retained as
 separate safety metadata on the next authorized active read. Faults still stop the
 owner; expected pause gaps remain partial.
@@ -228,6 +372,10 @@ or queries the native state database. After owned termination, a separate provid
 projection of those exact three sources checks identity/ancestry, final gaps, every
 own request's model/effort/counters, request/token bounds, and agreement with stored
 observations or explicitly excluded baseline IDs. Late unmatched usage fails;
+Coordinator-added source compatibility must match the code-owned decision and
+every immutable session pin before final source reads. Reconciliation compares
+native readings with that expected provenance, not by ignoring stored provenance
+or depending on JSON property order.
 pre-connect baseline usage stays excluded from measured usage. No prompt, response,
 source code or raw rows enter measurement/report diagnostics.
 
@@ -244,8 +392,8 @@ node scripts/codex-session-binding-qualification-command.mjs results-ui \
 Per-session and sum rows show eligible own requests, input/output and pinned partial
 estimated cost. Missing, observed zero and unpriced values remain distinct. This
 results server cannot read native sources, launch or reconnect. Refreshing it
-retains the recorded outcome.  A successful first smoke attests only this exact CLI
-root/direct-child acquisition case: it does not admit production, wider topology,
+retains the recorded outcome. The accepted ordinary route attests only this exact CLI
+root/direct-child acquisition case: it does not admit other ordinary routes, wider topology,
 Claude, IDE/MCP/system agents, complete cost or inferential adoption decisions.
 
 ## Local verification
@@ -264,18 +412,20 @@ transaction commits. Failed binding writes cannot advance those pins. Qualificat
 evidence retains the first fixed diagnostic stage/code separately from overall
 termination failure; arbitrary error messages and stacks are excluded.
 
-The measurement product has no four-request limit. The qualification owner stops
-at observed root4, total6 or 100000 input/output tokens, including excluded setup
+The measurement product has no qualification request limit. The new 0.162.1
+qualification owner stops at observed root8 or total10; 0.160.0 retains root4/total6.
+The 0.162.1 token stop is 200000 input/output tokens; 0.160.0 retains 100000, including excluded setup
 requests. These are conservative stop thresholds, not promises that every workflow
 within those counts will complete. The collector can accept the boundary record
-while the next owner monitor sample stops execution. The fixed prompt's "within
-four" instruction does not remove that stop rule or establish a minimum native
+while the next owner monitor sample stops execution. The fixed two-turn plan does
+not remove the version-specific stop rule or establish a minimum native
 request path. A different trial budget/interaction recipe requires separate review
 and approval; do not change `>=` to `>` to claim native success.
 
-An independently started human terminal currently cannot issue this qualification
-lease. Real ordinary binding remains gated to the existing isolated owner and
-frozen one-use intent. Human terminal operation through that owner would retain
+An independently started human terminal cannot issue the qualification route's
+lease. That route remains gated to the isolated owner and frozen one-use intent;
+the accepted ordinary profile uses its separate code-owned authority instead.
+Human terminal operation through the qualification owner would retain
 its fixed initial prompt, stop thresholds and verified cleanup; it is not a
 general user-managed-terminal admission or a way to bypass production gates.
 
@@ -283,6 +433,7 @@ Before native approval, run harmless fixtures on Node 24:
 
 ```sh
 npm test -- tests/owned-cli-invocation.test.ts \
+  tests/codex-binding-qualification-versions.test.ts \
   tests/codex-session-binding-qualification.test.ts \
   tests/session-binding-service.test.ts tests/session-binding-api.test.ts
 npm run lint
@@ -300,3 +451,60 @@ Independent review is required under the repository workflow.
 See [source acquisition evidence](codex-ordinary-hook-source-acquisition.md),
 [the portable runbook](../runbooks/harness-connect.md), and
 [the binding decision](../decisions/012-session-family-bindings.md).
+
+## 2026-10-13 ordinary-route acceptance
+
+An explicitly approved fresh `ordinary_admission` intent passed on the pinned
+macOS arm64 Codex 0.162.1 binary with `gpt-6.1-sol/high`, read-only/no-daemon
+invocation, one fresh CLI root and two fresh direct children without inherited
+history. The domain and binding service received ordinary source authority, not
+a qualification lease; separate owned-run guards enforced the frozen trial limits.
+This controlled synthetic work used the actual native backend, not a mock executable.
+It qualifies only `codex-binding-01621-direct-family-v1`.
+
+The accepted intent SHA256 is
+`bc6a3cdca7f0750c901e3f95087f63b34e5ecd6c1584fdae78f2729145f9fc2e`;
+its frozen implementation SHA256 is
+`8d6afc8d788d9967f34782f9b1b89247d3a285b0c9b62beb6f036e27115cd312`.
+The code-owned admission cites this ordinary-route intent, not the earlier
+lease-route intent. Historical evidence, frozen intents and measured provenance
+are unchanged.
+
+SessionStart delivered the verified root receipt; the root connected once through
+the pinned helper after separate human approval of its current network-only
+command screen. SubagentStart receipts and materialized native sources linked both
+fresh direct children automatically. No child invoked the skill, no second helper
+grant was requested, and no permanent trust or global configuration was changed.
+The pinned native OSC9 approval and turn-complete notifications were observed.
+
+| Measured source | Own requests | Input tokens | Output tokens |
+| --- | ---: | ---: | ---: |
+| Root | 4 | 89616 | 193 |
+| Direct child A | 1 | 19995 | 22 |
+| Direct child B | 1 | 19998 | 21 |
+| Observed sum | 6 | 129609 | 236 |
+
+Independent final reconciliation covered exactly these three newly linked
+sources: nine native own requests, six measured request matches and three
+explicitly excluded pre-connect baseline requests. The database retained six
+request keys and six distinct event IDs, matching the six observations; refresh
+and collection did not duplicate them. Every measured payload matched its own
+native source, runtime and immutable compatibility pin. The baseline exclusion
+remains `binding_unobserved_context`; it was not recovered or counted as zero.
+All native own requests, including excluded setup, passed the frozen request/token
+checks. Normal TUI quit produced exit 0 with ownership and termination verified,
+and `ordinary_admission_verified` and `safety_usage_verification` passed.
+
+Source-free results UI QA confirmed the desktop per-session counts and sum,
+partial estimated cost USD 0.0577764, no native launch/resume authority and no
+fabricated human task outcome. At a 390px mobile viewport, all three session
+counts and the sum rendered, but the page overflowed horizontally to 499px
+(425px family table). This is a recorded nonblocking results-layout limitation.
+Independent review accepted the bounded ordinary evidence and replacement of
+the historical citation with no new material source/authority finding.
+
+This evidence does not qualify another version, model, effort, platform, IDE/MCP
+source, resumed/history-bearing family, third child or nested topology. Other
+file/launch observations keep their previous trust. Ordinary cost remains partial,
+complete cost and inferential adoption remain unavailable, and observed thresholds
+are not hard request, token or billing caps.

@@ -1,4 +1,4 @@
-import { readFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { readFileSync, readdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
@@ -81,9 +81,24 @@ test('migration_preserves_v1_snapshot_bytes', async () => {
   try {
     const { reportStore, request, evaluation } = await import('./helpers/comparison-report-fixture.js');
     const { createComparisonSnapshot, readComparisonSnapshot } = await import('../src/reports/comparison-snapshot.js');
-    const legacy = reportStore(file); const report = createComparisonSnapshot(legacy, request, () => evaluation);
-    const bytes = legacy.get('SELECT input_json,report_json,snapshot_hash FROM comparison_report_snapshots'); legacy.close();
-    const db = new Database(file); db.exec('DROP TRIGGER retain_application_role_exclusion; DROP TRIGGER retain_legacy_application_exclusion; DROP TABLE harness_application_exclusions; DROP TABLE harness_application_cleanup; DROP TRIGGER delete_external_application_attempt; DROP TABLE harness_application_roles; DROP TABLE harness_application_checkpoints; DROP TABLE harness_application_attempts; DROP TABLE harness_application_execution_receipts; DROP TABLE harness_application_owners; DROP TABLE harness_application_requests; DROP TABLE harness_application_grants; DROP TRIGGER delete_harness_application_task; DROP TABLE harness_application_session_epochs; DROP TABLE harness_application_setup_sessions; DROP TABLE harness_application_jobs; DROP TABLE harness_application_tasks; ALTER TABLE tasks DROP COLUMN application_mode; DROP TABLE session_source_compatibility; DROP TABLE source_compatibility_blocks; DROP TABLE binding_collection_controls; DROP TABLE session_binding_forgets; DROP TABLE binding_requests; DROP TABLE session_bindings; DROP TRIGGER price_cost_report_invalidated; DROP TABLE price_revaluations; DROP TABLE price_cost_input_dependencies; DROP TABLE price_cost_inputs; DROP TABLE price_cost_tombstones; DROP TABLE price_catalog_bases; DROP TABLE price_catalog_default; DROP TABLE price_catalogs; DROP TABLE external_surface_leases; DROP TABLE external_start_tickets; DROP TABLE external_task_contracts; DROP TABLE external_preparations; DROP TRIGGER prevent_trace_log_owner; DROP TRIGGER prevent_trace_managed_owner; DROP TRIGGER prevent_trace_file_owner_insert; DROP TRIGGER prevent_trace_file_owner_update; DROP TABLE claude_workflow_runs; DROP TABLE codex_workflow_children; DROP TABLE codex_workflow_runs; DROP TABLE runtime_evidence; DROP TABLE price_tables; DROP TABLE observation_gaps; DROP TRIGGER separate_synthetic_workspace; DROP TRIGGER flexible_real_task_insert; DROP TRIGGER flexible_real_task_update; DROP TRIGGER preserve_synthetic_workspace; DROP TABLE flexible_report_dependencies; DROP TABLE flexible_report_snapshots; DROP TABLE flexible_workspace_scope; PRAGMA user_version=10;'); db.close();
+    const legacy = reportStore(); const report = createComparisonSnapshot(legacy, request, () => evaluation);
+    const bytes = legacy.get('SELECT input_json,report_json,snapshot_hash FROM comparison_report_snapshots');
+    const db = new Database(file);
+    try {
+      const migrations = new URL('../src/migrations/', import.meta.url);
+      for (const name of readdirSync(migrations).sort().slice(0, 10)) {
+        db.exec(readFileSync(new URL(name, migrations), 'utf8'));
+      }
+      for (const { name } of db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all() as { name: string }[]) {
+        const columns = (db.prepare('PRAGMA table_info("' + name + '")').all() as { name: string }[]).map(column => column.name);
+        const statement = db.prepare('INSERT INTO "' + name + '" (' + columns.map(column => '"' + column + '"').join(',') + ') VALUES (' + columns.map(() => '?').join(',') + ')');
+        for (const row of legacy.all<Record<string, unknown>>('SELECT * FROM "' + name + '"')) {
+          statement.run(...columns.map(column => row[column]));
+        }
+      }
+      expect(db.prepare('PRAGMA foreign_key_check').all()).toEqual([]);
+      db.pragma('user_version=10');
+    } finally { db.close(); legacy.close(); }
     const upgraded = new Store(file);
     try {
       expect(upgraded.get('SELECT input_json,report_json,snapshot_hash FROM comparison_report_snapshots')).toEqual(bytes);

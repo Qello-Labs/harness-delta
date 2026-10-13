@@ -1,6 +1,7 @@
 import { Pause, Play } from 'lucide-react';
 import { Button } from './components/ui/button.js';
 import type { Locale, Task } from './types.js';
+import { claudeConnectionStage } from './claude-connection-state.js';
 
 /** Choose by the linked collection route, never by the native product name. */
 export function measurementActionCode(task: Task): 'pause' | 'resume-binding' | 'observe' {
@@ -11,7 +12,7 @@ export function MeasurementControls({ task, locale, busy, online, onAction, reas
   task: Task; locale: Locale; busy: boolean; online: boolean; onAction: (code: string) => void; reason: (code: string) => string;
 }) {
   const t = (en: string, ko: string) => locale === 'ko' ? ko : en;
-  if (task.outcome || task.state === 'finalized' || task.measurement.state === 'measurement_ended') return null;
+  if (task.outcome || task.state === 'finalized' || task.measurement.state === 'measurement_ended' || claudeConnectionStage(task)) return null;
   const code = measurementActionCode(task);
   const option = task.actions.find(action => action.code === code);
   const paused = task.measurement.state === 'paused';

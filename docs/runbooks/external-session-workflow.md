@@ -8,7 +8,7 @@ not expand this ticket-based coordinator's exact source guard.
 
 ## Support and evidence
 
-The production source guard remains the exact Codex 0.160.0 own-response profile with independent `cli`/`exec` roots. The new manual coordinator has offline synthetic coverage. Actual startup-before-work timing is pending separately approved native verification. IDE/app/MCP, fork, compaction and children are not admitted here. Claude manual support is pending its own external-process/telemetry qualification; the admitted Claude 2.1.291 tool-owned parent launch (2.1.288 retired) is a different path, not evidence for a manually opened source. Do not silently admit a newer installed version.
+The production source guard remains the exact Codex 0.160.0 own-response profile with independent `cli`/`exec` roots. The new manual coordinator has offline synthetic coverage. Actual startup-before-work timing is pending separately approved native verification. IDE/app/MCP, fork, compaction and children are not admitted here. Claude manual support is pending its own external-process/telemetry qualification; the admitted Claude 2.1.296 tool-owned workflow (2.1.288 and 2.1.291 retired) is a different path, not evidence for a manually opened source. Do not silently admit a newer installed version.
 
 Keep these evidence levels separate:
 

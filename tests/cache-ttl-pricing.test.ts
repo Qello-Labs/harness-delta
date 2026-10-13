@@ -119,7 +119,8 @@ test('v3 missing one-hour rate keeps five-minute and other components with expli
 
 test('v3 rates do not promote compatibility trust or revive invalidated source usage', () => {
   const r = request(10, 10);
-  r.event.payload.source_compatibility = resolveSourceCompatibility('claude_code', '2.1.294', 'claude_workflow')!;
+  r.event.payload.product_version = r.runtime.product_version = '2.1.297';
+  r.event.payload.source_compatibility = resolveSourceCompatibility('claude_code', '2.1.297', 'claude_workflow')!;
   expect(projectCatalogCost([r.event], basis(), r.event.task_id, cutoff, 'output-only-v1')).toMatchObject({ partial_amount: null,
     compatibility_unverified_partial_amount: '0.000276', legacy_unverified_partial_amount: null, complete_amount: null });
   r.event.payload.source_compatibility.state = 'invalidated';

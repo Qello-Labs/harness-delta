@@ -47,13 +47,16 @@ export function registerTaskWorkflowCommands(program: Command, store: () => Stor
       });
   }
   const claude=workflow.command('claude').description('Claude assigned task execution with request trace collection');
-  claude.command('launch').description('start a fresh Claude Code session with the assigned harness')
+  for(const [operation,description,executionHelp] of [
+    ['launch','start a fresh Claude Code session with the assigned harness','execution JSON with "operation": "launch" and a fresh run_id'],
+    ['resume','continue the native session kept by an earlier resumable run of the same task','execution JSON with "operation": "resume", a fresh run_id and resume_run_id'],
+  ] as const)claude.command(operation).description(description)
     .requiredOption('--config <file>','workflow JSON: assignment, product version, confirmation ID and A/B artifacts')
     .requiredOption('--runtime <file>','runtime JSON: {"model": ..., "effort": ...}; null means unspecified')
-    .requiredOption('--execution <file>','execution JSON with "operation": "launch" and a fresh run_id')
+    .requiredOption('--execution <file>',executionHelp)
     .option('--confirmation <id>',confirmationHelp)
     .action(async(options:RunOptions)=>{
-      const execution=parseExecution(ClaudeWorkflowExecutionSchema,options.execution);
+      const execution=parseExecution(ClaudeWorkflowExecutionSchema,options.execution);if(execution.operation!==operation)throw new Error('workflow_operation_mismatch');
       const db=store();const result=await runAssignedWorkflow(db,withConfirmation(readConfig(options.config,'config'),options.confirmation),(dependencies.claudeAdapter??createClaudeWorkflowAdapter)(db,execution),readConfig(options.runtime,'runtime'));print(result);
       if(result.adapter_result?.state==='failed')throw new Error('claude_workflow_failed');
     });

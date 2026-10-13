@@ -18,8 +18,8 @@ are additionally eligible for functional pilots with unverified trust.
 Both exact profiles collect partial own-response usage and have no complete cost. The child
 profile requires read-only permissions and does not support family resume.
 A v2 protocol accepts one profile per product/version, so choose one Codex profile
-for that protocol. Claude Code 2.1.291 is admitted for parent-only launch
-(`claude-workflow-own-trace-v1`; 2.1.288 is retired); its child execution remains unqualified. Candidate parsers for Codex CLI 0.158.0 and Claude Code 2.1.283 are
+for that protocol. Claude Code 2.1.296 is admitted for parent-only launch and resume
+(`claude-workflow-own-trace-v1`; 2.1.288 and 2.1.291 are retired) and, as a separate profile, for a read-only root with one direct child (`claude-workflow-direct-child-v1`). Candidate parsers for Codex CLI 0.158.0 and Claude Code 2.1.283 are
 synthetic test candidates, not admitted sources. The existing v1 partial adapters
 remain separate. No desktop/app support or complete usage is inferred.
 

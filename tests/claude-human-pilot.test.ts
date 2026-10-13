@@ -14,7 +14,7 @@ import { beginAssignedWorkflow, workflowStatus } from '../src/task-workflow.js';
 import { invalidateCompatibility, resolveSourceCompatibility } from '../src/source-compatibility.js';
 
 // Native-shaped synthetic data only. No Claude binary or user source is accessed.
-test.each(['2.1.293', '2.1.294'])('Claude %s human UI pilot connects once, retains own family usage and resumes an old live binding', async productVersion => {
+test.each(['2.1.293', '2.1.294', '2.1.296'])('Claude %s human UI pilot connects once, retains own family usage and resumes an old live binding', async productVersion => {
   const f = localWebFixture('claude-ordinary-human-pilot', { product: 'claude_code', productVersion, priceTable: compilePriceBasis(bundledPriceCatalog()).table });
   const receipts = join(f.root, 'receipts'); const projects = join(f.root, 'claude-projects');
   const sources = join(projects, claudeProjectDirName(f.project));
@@ -67,7 +67,7 @@ test.each(['2.1.293', '2.1.294'])('Claude %s human UI pilot connects once, retai
     await domain.close?.(); domain = open(true);
     expect(domain.task(id)).toMatchObject({ status: 'success', binding: { requests: 4 } });
     const savedEvents = f.store.all('SELECT id,payload FROM events ORDER BY id');
-    invalidateCompatibility(f.store, resolveSourceCompatibility('claude_code', productVersion, 'claude_workflow')!, 'semantic_incompatibility');
+    invalidateCompatibility(f.store, resolveSourceCompatibility('claude_code', productVersion, 'file')!, 'semantic_incompatibility');
     expect(domain.task(id)).toMatchObject({
       price: { partial_amount: null, legacy_unverified_partial_amount: null, compatibility: { invalidated_events: 4 } },
       binding: { summary: { partial_amount: null, legacy_unverified_partial_amount: null, compatibility: { invalidated_events: 4 } },

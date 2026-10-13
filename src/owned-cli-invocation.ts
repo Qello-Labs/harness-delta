@@ -7,6 +7,7 @@ import { z } from 'zod';
 export interface OwnedCliOptions {
  command:string;args:readonly string[];cwd:string;durationMs:number;stdio:'inherit'|'ignore';env?:NodeJS.ProcessEnv;
  terminationMs?:number;termGraceMs?:number;pythonExecutable?:string;
+ onTerminalAttention?:()=>void;
 }
 const startIdentity=z.string().max(64).regex(/^(Mon|Tue|Wed|Thu|Fri|Sat|Sun) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2} \d{2}:\d{2}:\d{2} \d{4}$/);
 const groupChangeSchema=z.strictObject({pid:z.number().int().positive(),ppid:z.number().int().nonnegative(),uid:z.number().int().nonnegative(),startedAt:startIdentity,fromPgid:z.number().int().positive().nullable(),toPgid:z.number().int().positive(),parentPid:z.number().int().positive().nullable(),parentUid:z.number().int().nonnegative().nullable(),parentStartedAt:startIdentity.nullable(),sampleOffsetMs:z.number().int().nonnegative()});
@@ -20,7 +21,7 @@ export class OwnedCliInvocation {
  private readonly options:OwnedCliOptions;private started=false;private alive=false;private spawned=false;
  private readonly stopController=new AbortController();
  constructor(options:OwnedCliOptions){
-  if(process.platform==='win32'||!isAbsolute(options.command)||!isAbsolute(options.cwd)||options.args.some(a=>a.includes('\0'))||[options.command,options.cwd].some(a=>a.includes('\0'))||!Number.isInteger(options.durationMs)||options.durationMs<1||options.durationMs>120000||!Number.isInteger(options.terminationMs??5000)||(options.terminationMs??5000)<100||(options.terminationMs??5000)>5000||!Number.isInteger(options.termGraceMs??2000)||(options.termGraceMs??2000)<1||(options.termGraceMs??2000)>2000)throw new Error('owned_cli_invalid');
+  if(process.platform==='win32'||!isAbsolute(options.command)||!isAbsolute(options.cwd)||options.args.some(a=>a.includes('\0'))||[options.command,options.cwd].some(a=>a.includes('\0'))||!Number.isInteger(options.durationMs)||options.durationMs<1||options.durationMs>900000||!Number.isInteger(options.terminationMs??5000)||(options.terminationMs??5000)<100||(options.terminationMs??5000)>5000||!Number.isInteger(options.termGraceMs??2000)||(options.termGraceMs??2000)<1||(options.termGraceMs??2000)>2000)throw new Error('owned_cli_invalid');
   this.options={...options,args:[...options.args],...(options.env?{env:{...options.env}}:{})};
  }
  static pythonExecutable():string{return realpathSync(execFileSync('which',['python3'],{encoding:'utf8',timeout:2000}).trim());}
@@ -42,7 +43,26 @@ export class OwnedCliInvocation {
    const abort=()=>{if(control&&'write'in control)control.write('stop\n');};
    const input=(b:Buffer)=>{child.stdin.write(b);};
    if(o.stdio==='inherit'){process.stdin.setRawMode(true);process.stdin.on('data',input);process.stdin.resume();}
-   child.stdout.on('data',(b:Buffer)=>{if(o.stdio==='inherit')process.stdout.write(b);});
+   // Observe framing only; notification messages can contain private command text.
+   const attentionPrefix=[0x1b,0x5d,0x39,0x3b];
+   let prefixLength=0,payloadLength=0,progressCandidate=false,progress=false;
+   child.stdout.on('data',(b:Buffer)=>{
+    if(o.onTerminalAttention)for(const byte of b){
+     if(prefixLength<attentionPrefix.length){
+      prefixLength=byte===attentionPrefix[prefixLength]?prefixLength+1:byte===0x1b?1:0;
+     }else if(byte===0x1b){
+      prefixLength=1;payloadLength=0;progressCandidate=false;progress=false;
+     }else if(byte===0x07){
+      if(payloadLength>0&&!progress)o.onTerminalAttention();
+      prefixLength=0;payloadLength=0;progressCandidate=false;progress=false;
+     }else{
+      if(payloadLength===0)progressCandidate=byte===0x34;
+      if(payloadLength===1)progress=progressCandidate&&byte===0x3b;
+      payloadLength=Math.min(payloadLength+1,2);
+     }
+    }
+    if(o.stdio==='inherit')process.stdout.write(b);
+   });
    child.stdin.on('error',()=>{});control?.on('error',()=>{});
    child.stderr.on('data',(b:Buffer)=>{
     pending+=b.toString('utf8');if(pending.length>8192){abort();return;}

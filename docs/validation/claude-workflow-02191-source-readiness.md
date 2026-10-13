@@ -1,6 +1,15 @@
-# Claude Code 2.1.291 parent-only workflow source admission
+# Claude Code 2.1.291 parent-only workflow source admission (retired)
 
-The code-owned source registry admits `claude_code / 2.1.291 /
+> **Retired on 2026-10-13.** 2.1.296 replaced 2.1.291 as the only admitted Claude Code
+> version of the parent-only workflow profile
+> ([2.1.296 admission](claude-workflow-02196-source-readiness.md)). The evidence entry
+> `claude-workflow-02191-root-native-v1` was removed from the registry, and 2.1.291 was
+> removed from the workflow version list. Tasks on registered 2.1.291 protocols can no
+> longer launch and need a new protocol. Usage stored with 2.1.291 labels keeps those
+> labels. The text below describes the state at admission and is kept as historical
+> evidence.
+
+The code-owned source registry admitted `claude_code / 2.1.291 /
 claude-workflow-own-trace-v1` with evidence ID `claude-workflow-02191-root-native-v1`,
 `validation_kind: real_operations` and `complete_cost: false`. This enables local
 partial per-request usage collection for fresh parent (root) launches through

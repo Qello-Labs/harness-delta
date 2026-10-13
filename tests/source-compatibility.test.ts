@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { Lifecycle } from '../src/lifecycle.js';
 import { Store } from '../src/store.js';
+import { EventSchema } from '../src/contracts.js';
 
 test.each([['codex', '0.161.0'], ['codex', '0.162.1'], ['claude_code', '2.1.292'], ['claude_code', '2.1.293'], ['claude_code', '2.1.296']])('recent regular %s can enroll without opening its source', (product, version) => {
   const root = mkdtempSync(join(tmpdir(), 'compatibility-'));
@@ -37,18 +38,27 @@ test.each(products)('%s latest stable reuses its parser, counts only new turns a
 });
 
 import { Collector } from '../src/collection.js';
-import { effectiveSourceCompatibility, invalidateCompatibility, resolveSourceCompatibility, sessionCompatibility } from '../src/source-compatibility.js';
+import { effectiveSourceCompatibility, invalidateCompatibility, overlayEventCompatibility, resolveSourceCompatibility, sessionCompatibility } from '../src/source-compatibility.js';
 
 test('finite source windows prefer exact verified profiles and reject suffixes and boundary transitions', () => {
   expect(resolveSourceCompatibility('codex', '0.158.0', 'file')?.state).toBe('verified');
   expect(resolveSourceCompatibility('codex', '0.160.0', 'codex_workflow')?.state).toBe('verified');
-  expect(resolveSourceCompatibility('claude_code', '2.1.291', 'claude_workflow')?.state).toBe('verified');
+  expect(resolveSourceCompatibility('claude_code', '2.1.296', 'claude_workflow')?.state).toBe('verified');
   for (const version of ['0.158.1', '0.159.0', '0.163.999']) expect(resolveSourceCompatibility('codex', version, 'file')?.state).toBe('compatibility_unverified');
   for (const version of ['0.157.0', '0.164.0', '1.0.0', '0.161.0-rc.1', '0.161.0+build', '00.161.0', '0.161.0 ', '0.161.1000000000']) {
     expect(resolveSourceCompatibility('codex', version, 'file')).toBeNull();
   }
   for (const version of ['2.1.282', '2.2.0', '3.0.0', '2.1.292-rc.1', '2.1.0292']) expect(resolveSourceCompatibility('claude_code', version, 'file')).toBeNull();
-  expect(resolveSourceCompatibility('claude_code', '2.1.290', 'claude_workflow')).toBeNull();
+  for (const version of ['2.1.288', '2.1.289', '2.1.290', '2.1.291', '2.1.292', '2.1.293', '2.1.294', '2.1.295']) {
+    expect(resolveSourceCompatibility('claude_code', version, 'claude_workflow')).toBeNull();
+  }
+  for (const version of ['2.1.297', '2.1.298']) {
+    expect(resolveSourceCompatibility('claude_code', version, 'claude_workflow'))
+      .toMatchObject({ state: 'compatibility_unverified', product_version: version, parser_version: '2.1.296' });
+    expect(resolveSourceCompatibility('claude_code', version, 'claude_workflow', 'claude-workflow-direct-child-v1')).toBeNull();
+  }
+  expect(resolveSourceCompatibility('claude_code', '2.1.296', 'claude_workflow', 'claude-workflow-direct-child-v1'))
+    .toMatchObject({ state: 'verified', profile_id: 'claude-workflow-direct-child-v1', product_version: '2.1.296' });
   expect(resolveSourceCompatibility('codex', '0.161.0', 'claude_workflow')).toBeNull();
   expect(resolveSourceCompatibility('codex', '0.161.0', 'codex_workflow', 'unknown')).toBeNull();
 });
@@ -149,4 +159,23 @@ test('known incompatible exact versions stop pre-migration unpinned sessions bef
     expect(f.reads()).toBe(reads);
     expect(sessionCompatibility(f.store, 's1')).toBeNull();
   } finally { f.cleanup(); }
+});
+
+test('binding-only invalidation leaves unpinned historical usage unchanged', () => {
+  const store = new Store(':memory:');
+  const reading = {status:'observed',value:1,reason:null};
+  const historical = EventSchema.parse({
+    id:'historical',project_id:'p',task_id:'t',session_id:'s',source_key:'historical',
+    occurred_at:'2026-01-01T00:00:00Z',payload:{kind:'usage',product:'codex',product_version:'0.162.1',
+      epoch:'legacy',model:'gpt-6.1-sol',input_total:reading,cached_input:reading,output_total:reading,reasoning_output:reading},
+  });
+  try {
+    const compatibility = resolveSourceCompatibility('codex','0.162.1','codex_binding');
+    if(!compatibility)throw new Error('binding_profile_missing');
+
+    invalidateCompatibility(store,compatibility,'contract_failed');
+
+    expect(overlayEventCompatibility(store,historical)).toEqual(historical);
+    expect(resolveSourceCompatibility('codex','0.162.1','file')).toMatchObject({state:'compatibility_unverified'});
+  } finally {store.close();}
 });

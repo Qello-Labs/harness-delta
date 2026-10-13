@@ -4,7 +4,7 @@
 
 부분 비용을 기술하는 작은 **기능 파일럿**에 이 절차를 사용하세요.
 대상은 Codex 0.160.0(`codex-workflow-own-response-v1`)과
-Claude Code 2.1.291 부모 전용 launch(`claude-workflow-own-trace-v1`)와
+Claude Code 2.1.296(`claude-workflow-own-trace-v1`, 부모 전용; `claude-workflow-direct-child-v1`)과
 아래의 조건부 후속 버전입니다.
 논리적 작업마다 하나의 A/B 배정을 유지합니다.
 모델과 effort는 실행마다 선택합니다. 새 세션을 열어도 배정은 바뀌지 않습니다.
@@ -33,15 +33,16 @@ skill 설치나 브라우저 작업 준비만으로 관측 권한이 생기지 �
 | Codex 0.160.0 루트 workflow | launch, 같은 세션 resume, 명시적 독립 루트 link, 전경 collect, stop, recover; 부분 사용량 |
 | Codex 0.160.0 직계 자식 workflow | 별도 프로필: 새 루트와 새 자식 1개, 고정 macOS arm64/Node24, read-only; family resume·외부 자식 link 미지원 |
 | 기존 파일 수집기 | 정확한 프로필: Codex 0.156.1/0.158.0, Claude Code 2.1.283; 조건부 파일 버전도 허용; [로컬 측정](local-measurement.ko.md) 참고 |
-| Claude Code 2.1.291 부모 전용 workflow | 실행마다 새 launch(read-only 또는 `workspace-edit`), 같은 작업의 추가 launch, stop, recover; 부분 사용량. 자식·native resume 미지원; 2.1.288은 지원 종료 |
+| Claude Code 2.1.296 부모 전용 workflow | 실행마다 새 launch(read-only 또는 `workspace-edit`), 같은 작업의 추가 launch, `resumable`로 유지한 세션의 resume, stop, recover; 부분 사용량. 2.1.288과 2.1.291은 지원 종료 |
+| Claude Code 2.1.296 직계 자식 workflow | 별도 프로필: 새 read-only 루트와 read-only `workflow-child` 최대 1개; 정확한 버전 전용; resume·더 깊은 자식·추가 자식 미지원 |
 | App/IDE/MCP, fork, compaction, 더 깊은 자식 | 이 절차에서 미지원 |
 | 작업 전체 비용, 실제 청구액, 절감·도입 추론 | 제공하지 않음 |
 | 팀 파일 교환 | 합성 검증 전용; 기능 파일럿 결과는 이 경로로 교환할 수 없음 |
 
-정규 Codex 버전 `>0.160.0`, `<0.164.0`(0.162.1 포함)과 Claude Code 버전 `>2.1.291`,
-`<2.2.0`(2.1.296 포함)은 `functional_pilot`에서 workflow 프로필을
+정규 Codex 버전 `>0.160.0`, `<0.164.0`(0.162.1 포함)과 Claude Code 버전 `>2.1.296`,
+`<2.2.0`은 `functional_pilot`에서 workflow 프로필을
 재사용할 수 있습니다. 신뢰 상태는 `compatibility_unverified`이며 기준 추정액을
-별도로 표시합니다. 이 범위가 티켓 연결이나 일반 세션 가족의 검증을 대신하지는
+별도로 표시합니다. Claude 범위는 새 부모 전용 launch만 허용합니다. 자식과 resume은 허용하지 않습니다. 이 범위가 티켓 연결이나 일반 세션 가족의 검증을 대신하지는
 않습니다. [버전 설정과 검사](task-native-workflow.md#conditional-forward-versions)를 참고하세요.
 
 **실행 주의:** native launch/resume는 기존 인증 상태를 사용하며 유료 또는 구독 사용량을 소비할 수 있습니다.
@@ -150,13 +151,17 @@ finish는 이 기한 전에 실행해야 합니다. 늦은 결과는 별도 저�
 | `launch.json`, `resume.json` | 정규 절대 binary/home/recorder/prompt 경로, 승인된 sandbox·timeout |
 | `link.json`, `collect.json` | 같은 정규 설정; 필요한 정확한 연결 세션 UUID·source 경로 |
 | `claude-launch.json` (Claude 전용) | 선택한 바이너리 경로/버전/SHA, mode 0700 비공개 workspace, 빌드된 mediator, prompt, `permissions`, 한도 |
+| `claude-resume.json` (Claude 전용) | 같은 설정, 새 `run_id`, 같은 작업의 이전 resumable 실행을 가리키는 `resume_run_id`, 그 실행의 `workspace` |
 
 workflow 설정·protocol의 source profile·바이너리 버전을 일치시키세요.
 저장소 Codex 예제는 0.160.0입니다. 조건부 버전은 execution의 `product_version`과
 실제 `binary.sha256`도 설정하세요. Claude는 `product: "claude_code"`,
 프로필 `claude-workflow-own-trace-v1`을 쓰고 `workflow.json`, `protocol.json`,
-`binary.version`에 선택한 버전을 넣으세요. 기능 protocol은 2.1.291 또는 조건부
-범위 버전의 Claude workflow 프로필 하나를 허용합니다. 다른 비합성 protocol은
+`binary.version`에 선택한 버전을 넣으세요. protocol은 product/version마다 profile 하나,
+Claude workflow profile마다 항목 최대 하나를 갖습니다. 자식 실행에는
+`claude-workflow-direct-child-v1`을 쓰는 별도 protocol을 사용하세요.
+기능 protocol은 각 Claude workflow 프로필을 2.1.296으로, 또는 own-trace 프로필을 조건부
+범위 버전으로 허용합니다. 다른 비합성 protocol은
 최신 정확한 admission을 요구합니다. [등록 규칙](task-native-workflow.md#claude-parent-only-workflow)을 참고하세요.
 `binary.path`는 `claude` 실행기 대신 정확한 버전 파일을 가리켜야 합니다.
 그 파일이 없거나 바뀌면 배정 전 preflight가 `claude_probe_executable_mismatch`로 실패합니다.
@@ -237,7 +242,15 @@ node dist/cli.js --db .harness-delta/pilot/local.sqlite workflow codex launch \
 ```
 
 Claude Code는 같은 옵션과 `claude-launch.json`으로 `workflow claude launch`를 실행하세요.
-`child_runtime`은 배정 전에 거부됩니다(`claude_workflow_child_unadmitted`).
+`child_runtime`에는 직계 자식 protocol, 정확한 버전, `permissions: "read-only"`가 필요합니다.
+own-trace protocol에서 조건부 버전의 자식을 실행하면 배정 전에 `workflow_adapter_mismatch`로 실패합니다.
+profile이 일치해도 편집 권한을 쓰면 `claude_workflow_child_read_only_required`로 실패합니다.
+adapter preflight를 직접 호출하면 직계 자식 admission이 없는 버전에
+`claude_workflow_child_unadmitted`가 나올 수 있습니다.
+같은 native 세션을 나중에 이어 가려면 launch에 `"resumable": true`를 추가한 뒤 `claude-resume.json`으로 `workflow claude resume`을 실행하세요. resumable launch에서는 Claude Code가 자체 transcript를 사용자의 Claude 설정에 보관합니다. Harness Delta는 그 파일을 읽지 않으며, 실행 사이의 시간은 `offline` gap으로 기록됩니다.
+resume 예제는 read-only입니다. 유지한 read-only launch를 read-only로 resume한 경우만
+native 증거가 있습니다. 편집 모드 resume이나 실행 사이 권한 변경은 입증되지 않았습니다.
+resume은 유지한 launch의 권한과 비교하지 않습니다.
 
 launch가 작업을 배정하고 시작합니다. 이 v2 배정에 `task register`를 실행하지 마세요.
 `workflow begin`은 제품 실행 없이 배정/시작을 준비합니다. 그 자체로 harness를 적용하지 않습니다.

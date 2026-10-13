@@ -62,9 +62,9 @@ test('protocol registration names the newest admitted Claude workflow version ru
     return main(['--db', db, 'comparison', 'register', '--config', path]); };
   errors = '';
   expect(await register('protocol-new', [claude('2.1.288')])).toBe(2);
-  expect(errors).toBe('claude_workflow_version_not_latest\nhint: a new protocol may list one claude_code workflow source profile, only at the newest admitted Claude Code version (none while no version is admitted); a registered protocol keeps its version until that version is retired, then its tasks cannot launch and need a new protocol\n');
+  expect(errors).toBe(describeCliError(new Error('claude_workflow_version_not_latest')).join('\n')+'\n');
   errors = '';
-  expect(await register('protocol-two', [claude('2.1.288'), { ...claude('2.1.288'), product_version: '2.1.291' }])).toBe(2);
+  expect(await register('protocol-two', [claude('2.1.288'), { ...claude('2.1.288'), product_version: '2.1.296' }])).toBe(2);
   expect(errors).toMatch(/^claude_workflow_version_not_latest\n/);
-  expect(await register('protocol-latest', [claude('2.1.291')])).toBe(0);
+  expect(await register('protocol-latest', [claude('2.1.296')])).toBe(0);
 });

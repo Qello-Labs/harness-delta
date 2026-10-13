@@ -37,6 +37,7 @@ export function SupportGuidance({ support, locale, compact = false }: { support:
         <dt className="text-muted-foreground">{t('Session connection', '세션 연결')}</dt>
         <dd className="mt-1 font-medium">{support.family === 'candidate_root_pilot'
           ? t('Pilot · one root only', '실험용 · root 1개만')
+          : support.family === 'verified_bounded_family' ? t('Verified · one root and two direct children', '검증됨 · root 1개와 직접 자식 2개')
           : support.family === 'candidate_pilot' ? t('Pilot · approval required', '실험용 · 별도 승인 필요')
           : t('Source verification required', '원본 지원 검증 필요')}</dd>
       </div>
@@ -66,6 +67,12 @@ export function SupportGuidance({ support, locale, compact = false }: { support:
       <div className="mt-3"><SupportGuidance support={support} locale={locale} /></div>
     </details>
   </section>;
+  if (support.family === 'verified_bounded_family') return <div data-support-context={support.context} className="space-y-3 text-sm">
+    <p>{t('Codex 0.162.1 ordinary family: one fresh root and up to two fresh direct children, gpt-6.1-sol/high.', 'Codex 0.162.1 일반 가족: 새 root 1개와 새 직접 자식 최대 2개, gpt-6.1-sol/high.')}</p>
+    <p>{t('Usage parser', '사용량 파서')}: {trust(support.family_parser_compatibility?.state ?? 'unsupported')}</p>
+    <p>{t('Reviewed hooks, explicit project/task/source scope and a fresh working session are required. Other versions, nested children and model changes are unsupported.', '검토된 hook, 명시적 프로젝트·작업·원본 범위와 새 작업 세션이 필요합니다. 다른 버전·중첩 자식·모델 변경은 미지원입니다.')}</p>
+    <p className="text-muted-foreground">{t('Cost remains partial, not complete task cost or an actual bill. Paused and setup intervals are not backfilled.', '비용은 부분 관측이며 전체 작업 비용이나 실제 청구액이 아닙니다. 중단·준비 구간은 소급 수집하지 않습니다.')}</p>
+  </div>;
   return <div data-support-context={support.context} className="space-y-3 text-sm">
     <p>{t('Configured product/version (not installed-version detection): ', '설정된 제품·버전(설치 버전 탐지가 아님): ')}{support.product} {support.product_version}</p>
     <dl className="space-y-2">

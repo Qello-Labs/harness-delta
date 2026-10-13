@@ -29,7 +29,7 @@ import { bindingCollectionControl, registerBindingCollectionControl, revokeBindi
 import { releaseExternalWorkflow } from './external-session-workflow.js';
 import { readOnlinePriceCatalogStatus, refreshOnlinePriceCatalog } from './price-catalog-online.js';
 import { localWebError, type LocalWebDomain } from './local-web-server.js';
-import { createSessionBindingService } from './session-binding-service.js';
+import { createSessionBindingService, type BindingObservation } from './session-binding-service.js';
 import { ClaudeSessionBindingProvider } from './session-binding-claude.js';
 import { CodexSessionBindingProvider, codexRootPilotVersions } from './session-binding-codex.js';
 import { resolveSourceCompatibility, effectiveSourceCompatibility } from './source-compatibility.js';
@@ -41,6 +41,8 @@ import { issueCodexHumanPilotScope, assertHumanPilotScope, isHumanPilotProtocol,
 import type { BindingProduct, SessionBindingProvider } from './session-binding-contract.js';
 import { issueClaudeHumanPilotScope, assertClaudeHumanPilotSource, isClaudeHumanPilotScope } from './session-binding-claude-human-pilot.js';
 import { setTimeout as delay } from 'node:timers/promises';
+import { codexBindingAdmission, isAdmittedCodexBindingProtocol } from './codex-binding-admission.js';
+import { inspectClaudeProjectSkill } from './claude-connect-readiness.js';
 
 const identifier = z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,199}$/);
 const executionFields = CodexWorkflowExecutionSchema.shape;
@@ -65,10 +67,14 @@ export function localWebSupport(store: Store, profile: LocalWebProfile) {
   const synthetic = workflow.assignment.metadata.product === 'synthetic' || protocol.schema_version === 2 && protocol.purpose === 'synthetic_validation';
   const familyPilot = protocol.schema_version === 2 && isHumanPilotProtocol(protocol);
   const rootPilot = familyPilot && protocol.schema_version === 2 && protocol.source_profiles[0]?.profile_id === codexRootHumanPilotProfileId;
-  const parserCompatibility = rootPilot ? resolveSourceCompatibility('codex', workflow.product_version, 'codex_workflow', 'codex-workflow-own-response-v1') : null;
-  const launchAllowed = protocolRecord.status === 'frozen' && protocol.schema_version === 2 && (functionalWorkflowEligible(store, protocol) || comparisonReadiness(store, protocol.id).real_allocation);
+  const ordinaryFamily = protocol.schema_version === 2 && isAdmittedCodexBindingProtocol(protocol);
+  const parserCompatibility = ordinaryFamily
+    ? resolveSourceCompatibility('codex',workflow.product_version,'codex_binding',codexBindingAdmission.profileId)
+    : rootPilot ? resolveSourceCompatibility('codex', workflow.product_version, 'codex_workflow', 'codex-workflow-own-response-v1') : null;
+  const parserState=parserCompatibility?effectiveSourceCompatibility(store,parserCompatibility):null;
+  const launchAllowed = !ordinaryFamily && protocolRecord.status === 'frozen' && protocol.schema_version === 2 && (functionalWorkflowEligible(store, protocol) || comparisonReadiness(store, protocol.id).real_allocation);
   const launch = protocol.schema_version === 2 ? protocol.source_profiles.map(source => {
-    const compatibility = source.product === 'synthetic' ? null : resolveSourceCompatibility(source.product, source.product_version,
+    const compatibility = source.product === 'synthetic' || ordinaryFamily ? null : resolveSourceCompatibility(source.product, source.product_version,
       source.product === 'codex' ? 'codex_workflow' : 'claude_workflow', source.profile_id);
     return { profile_id: source.profile_id, state: !synthetic && launchAllowed && compatibility ? effectiveSourceCompatibility(store, compatibility).state : 'unsupported' };
   }) : [];
@@ -78,8 +84,8 @@ export function localWebSupport(store: Store, profile: LocalWebProfile) {
     product: workflow.assignment.metadata.product, product_version: workflow.product_version,
     launch,
     ticket: synthetic ? 'synthetic_validation_only' : workflow.assignment.metadata.product === 'codex' && workflow.product_version === '0.160.0' ? 'exact_version_only' : 'unsupported',
-    family: synthetic ? 'synthetic_validation_only' : protocolRecord.status === 'frozen' && familyPilot ? rootPilot ? 'candidate_root_pilot' : 'candidate_pilot' : 'qualification_required',
-    ...(parserCompatibility ? { family_parser_compatibility: effectiveSourceCompatibility(store, parserCompatibility) } : {}),
+    family: synthetic ? 'synthetic_validation_only' : protocolRecord.status === 'frozen' && ordinaryFamily && parserState?.state!=='invalidated' ? 'verified_bounded_family' : protocolRecord.status === 'frozen' && familyPilot ? rootPilot ? 'candidate_root_pilot' : 'candidate_pilot' : 'qualification_required',
+    ...(parserState ? { family_parser_compatibility: parserState } : {}),
     complete_cost: false, inference: false,
   };
 }
@@ -93,6 +99,8 @@ export interface LocalWebDomainOptions {
   bindingProviders?: SessionBindingProvider[];
   /** Internal consumed, isolated qualification intent; never profile/browser input. */
   qualificationLease?: BindingQualificationLease;
+  /** Trusted execution instrumentation; does not grant collection authority. */
+  bindingObservation?: BindingObservation;
   /** Local operator selection only; profiles and browser requests cannot activate it. */
   nativePilot?: { taskId: string; observe: boolean; untilExplicitStop?: boolean };
   /** Opt-in local pilot instrumentation only; never browser/profile input. */
@@ -187,13 +195,17 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
       }
       const record = privateDb.prepare('SELECT * FROM web_tasks WHERE id=?').get(id) as PrivateTask | undefined;
       if (!record) return [];
+      const protocol = comparisonProtocol(store,protocolRow(store,setupFor(record).workflow.assignment.protocol_id));
+      const ordinaryFamily = !options.qualificationLease && !options.nativePilot && protocol.schema_version === 2 && isAdmittedCodexBindingProtocol(protocol);
       const config = profileFor(record.profile_id).session_binding;
       if (!config) return [];
       if (config.product === 'codex' && !applicationRequired(store,id) && config.project_root !== projectRoot) throw new Error('binding_scope_mismatch');
       const result = config.product === 'codex'
         ? [new CodexSessionBindingProvider({ receiptDirectory: config.receipt_directory, sourceRoots: config.source_roots, projectRoot,
           ...(setupFor(record).workflow.assignment.metadata.product==='synthetic' ? {} : {productVersion:setupFor(record).workflow.product_version}),
-          ...(options.qualificationLease || options.nativePilot ? {maxDepth:1,maxFamilyMembers:codexRootPilotVersions.some(version=>version===setupFor(record).workflow.product_version)?1:3} : {}),
+          ...(options.qualificationLease ? {maxDepth:1,maxFamilyMembers:3,
+            ...(setupFor(record).workflow.product_version==='0.162.1'?{ordinaryFamilyQualification:true}:{})} : options.nativePilot ? {maxDepth:1,maxFamilyMembers:codexRootPilotVersions.some(version=>version===setupFor(record).workflow.product_version)?1:3} : {}),
+          ...(ordinaryFamily ? { ordinaryFamilyAdmission:true,maxDepth:codexBindingAdmission.maxDepth,maxFamilyMembers:codexBindingAdmission.maxFamilyMembers } : {}),
           ...(options.nativePilot?.observe && options.nativePilot.taskId===id && codexRootPilotVersions.some(version=>version===setupFor(record).workflow.product_version) ? {ordinaryRootPilot:true} : {}) })]
         : [new ClaudeSessionBindingProvider({ receiptDir: config.receipt_directory, claudeProjectsDir: config.claude_projects_directory, projectRoot, ...(options.nativePilot ? { allowCandidateProfiles: true, maxFamilyMembers: 3, authorizeSource: source => { if (!humanPilot || options.nativePilot?.taskId !== id) throw new Error('binding_source_unqualified'); assertClaudeHumanPilotSource(humanPilot, store, id, source); } } : {}) })];
       providers.set(id, result); return result;
@@ -210,6 +222,7 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
   const familyDiagnosticsEnabled = !!humanPilot && isClaudeHumanPilotScope(humanPilot);
   const writeFamilyDiagnostic = (diagnostic: unknown) => appendFamilyDiagnostic(options.metadataFile + '.family-diagnostics.jsonl',diagnostic);
   const bindings = createSessionBindingService({store,providers:options.bindingProviders??[],setupFor:id=>setupFor(row(id)),providersForTask,
+    ...(options.bindingObservation ? {bindingObservation:options.bindingObservation} : {}),
     ...(options.qualificationLease ? {qualificationLease:options.qualificationLease} : {}),
     ...(humanPilot ? {humanPilot, ...(familyDiagnosticsEnabled ? {onFamilyRejection:writeFamilyDiagnostic, ...(options.onChildReadiness ? {onChildReadiness:options.onChildReadiness} : {})} : {})} : {}),
     syntheticProviderForTask(provider,id){return !!options.bindingProviderFactory&&!!providers.get(id)?.includes(provider);},
@@ -226,9 +239,10 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
           await bindings.tick(id); await delay(250);
         }
       } catch (error) {
+        const expectedPause = job.pauseRequested && error instanceof Error && error.message === 'binding_scope_revoked';
+        if (!expectedPause) options.bindingObservation?.error(error);
         if (store.get('SELECT id FROM tasks WHERE id=?', [id])) {
           const diagnostic = familyDiagnosticsEnabled && options.nativePilot?.taskId === id && !job.pauseRequested ? takeFamilyDiagnostic(error,id,store) : null;
-          const expectedPause = job.pauseRequested && error instanceof Error && error.message === 'binding_scope_revoked';
           privateDb.prepare('UPDATE web_tasks SET reason=? WHERE id=?').run(expectedPause ? 'measurement_paused' : localWebError(error), id);
           if (!expectedPause && options.qualificationLease) { noteQualificationCollectorError(options.qualificationLease,error); revokeBindingQualification(options.qualificationLease); }
           try{bindings.pause(id);}catch(pauseError){
@@ -306,14 +320,18 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
     const version = '"' + createHash('sha256').update(JSON.stringify({ task, application, control: { revision: state.revision, window: state.window, configuration_evidence: state.configuration_evidence }, record, collectionControl:bindingCollectionControl(store,id), runs, ownJob: jobs.has(id) })).digest('hex') + '"';
     const measurementState = finalized ? 'measurement_ended' : active ? (state.state === 'measuring' ? 'active' : 'starting') : task.state === 'active' ? 'connected' : connected ? 'paused' : 'waiting_connection';
     const status = state.outcome ?? (measurementState === 'waiting_connection' ? ready ? supportDetails.context === 'synthetic_validation_only' ? 'validation_ready' : 'waiting_for_session' : 'draft' : measurementState);
+    const connectionReadiness = ready && supportDetails.context === 'real' && supportDetails.connection_route === 'family' && bindingProduct === 'claude_code'
+      ? { skill: inspectClaudeProjectSkill(effectiveTaskWorkspace(store, id)), configured_version: setup.workflow.product_version,
+        installed_version: null, collection_revoked: !!bindingCollectionControl(store, id)?.revoked_at } : undefined;
     return { id, name: record.name, project_id: task.project_id, setup_id: record.profile_id, version, ...(application?{application}:{}), state: task.state, status, support_details: supportDetails, recruitment, harness,
+      ...(connectionReadiness ? { connection_readiness: connectionReadiness } : {}),
       measurement: { state: measurementState, active_ms: result.time.active_ms, requests: result.cost?.event_count ?? null, window: state.window, end_condition: state.collection_end_condition },
       outcome: state.outcome === null ? null : { status: state.outcome, assessed_at: result.outcome_at! }, attempt: state.rework_count + 1,
       preparation: { state: state.state, configuration_evidence: state.configuration_evidence, native_context_evidence: state.native_context_evidence,
         freshness_evidence: state.freshness_evidence, tool_use_evidence: state.tool_use_evidence, assigned_variant_id: state.assigned_variant_id },
       price: { partial_amount: result.cost?.partial_amount ?? null, compatibility_unverified_partial_amount: result.cost?.compatibility_unverified_partial_amount ?? null, legacy_unverified_partial_amount: result.cost?.legacy_unverified_partial_amount ?? null, compatibility: result.cost?.compatibility ?? null, currency: result.cost?.currency ?? 'USD', unpriced_events: result.cost?.unpriced_events ?? 0, basis: result.cost?.price_table_hash ?? null },
       criteria: setup.workflow.assignment.metadata.criterion_ids, actions, startup, source: source ? { handle: source.handle, label: source.label } : null,
-      binding: { ...binding, ...(supportDetails.context === 'synthetic_validation_only' ? {} : { product: bindingProduct }), support: supportDetails.context === 'synthetic_validation_only' ? 'synthetic_validation_only' : options.nativePilot && id===options.nativePilot.taskId ? (humanPilot ? 'native_unverified_pilot' : 'native_pilot_preparation_only') : options.qualificationLease ? 'native_qualification_only' : bindingAvailable ? ordinaryAvailable ? 'synthetic_validation_only' : 'qualification_required' : 'instrumentation_required' },
+      binding: { ...binding, ...(supportDetails.context === 'synthetic_validation_only' ? {} : { product: bindingProduct }), support: supportDetails.context === 'synthetic_validation_only' ? 'synthetic_validation_only' : options.nativePilot && id===options.nativePilot.taskId ? (humanPilot ? 'native_unverified_pilot' : 'native_pilot_preparation_only') : options.qualificationLease ? 'native_qualification_only' : bindingAvailable ? ordinaryAvailable ? 'verified_bounded_family' : 'qualification_required' : 'instrumentation_required' },
       reason: record.reason === 'measurement_paused' ? null : record.reason ?? state.reason_code,
     };
   };
@@ -442,6 +460,7 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
         let connection;
         try { connection = await bindings.connect(id, product, { receipt }); }
         catch (error) {
+          privateDb.prepare('UPDATE web_tasks SET reason=? WHERE id=?').run(localWebError(error), id);
           // A rejected new receipt must not silently stop a previously authorized
           // live family. Failed baseline acquisition already pauses its scope.
           if (store.get<{state: string}>('SELECT state FROM tasks WHERE id=?', [id])?.state === 'active' && bindings.status(id).roots > 0) beginBindingObservation(id);

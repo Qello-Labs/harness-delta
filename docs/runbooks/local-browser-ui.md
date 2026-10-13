@@ -195,9 +195,13 @@ gates remain separate checks when choosing and preparing a task.
 
 The steps below describe the exact Codex 0.160.0 ticket path. For ordinary
 terminal sessions and family collection, use [Harness Connect](harness-connect.md).
-That path has separate candidate qualification and local pilot authority, including
+That path has separate profile evidence and local pilot authority, including
 Codex 0.162.0/0.162.1 roots and Claude 2.1.291/2.1.293/2.1.294/2.1.296 families;
-installing a skill alone does not enable collection.
+2.1.296 is qualified only for bounded native print-mode evidence, not interactive
+qualification or production admission. Every ordinary Claude profile requires
+`allowCandidateProfiles: true`; default provider refusal and ordinary service admission
+remain closed. The labels `native_unverified_pilot`, `legacy_unverified` and
+`candidate_pilot` remain; installing a skill alone does not enable collection.
 File or launch-workflow compatibility windows do not widen either UI source gate.
 
 Setup, task details and Getting started show route-specific descriptions derived
@@ -212,6 +216,40 @@ agents for it; actual work needs a separately reviewed real protocol and route.
 Absent usage/cost remains unavailable, not zero.
 
 ## Prepare, connect and observe
+
+### Guided Claude connection
+
+After configuration preparation and, where required, verified harness application,
+real Claude family tasks show **Claude connection** in task details. The card
+follows **Check installation → Connect → Measure**, with one primary next action.
+Synthetic validation and ticket tasks retain their separate existing flows.
+
+The installation check reads only the expected bundled skill files in the selected
+project or application workspace. It does not execute Claude, inspect transcripts,
+change files, or grant observation authority. Missing installations offer a quoted,
+project-only command; existing, different, incomplete or symlinked installations
+are preserved and need review. Expand **View installation command** to inspect it.
+Installation is checked again on the normal UI refresh; copying is not confirmation.
+
+For an already authorized route, **Copy connection prompt** fills the selected
+project ID, task ID and current local server origin. Invoke it in a separate fresh
+Claude working session. Hooks register on invocation, so current-session evidence
+is pending beforehand; users do not supply receipts. The server separately confirms
+native identity, durable task binding and active collection. A family connection
+already starts authorized observation, so there is no second start button.
+
+**Installation and connection diagnostics** separates configured version, unknown
+installed version, project package, session, task binding, collection and source
+trust. Installation does not widen ordinary Claude admission, which remains closed.
+Failed connection attempts retain a sanitized blocker code in the local task UI.
+No command or project path is included in measurement records or shared reports.
+
+Starting, measuring, paused, revoked and ended remain distinct. Active collection
+without usage shows **waiting for first usage**, with unknown cost rather than zero.
+Pause/resume uses the existing binding controls; a required reconnect provides the
+parent prompt only if authorized. Claude and metadata hooks may continue while
+paused. Revoked authority cannot be restored by this card, and paused/offline usage
+is never backfilled. Desktop behavior is the validation target for this flow.
 
 1. In **Tasks**, select **New task**. Enter a recognizable name and project, then
    select **Measurement criteria for tasks**.
