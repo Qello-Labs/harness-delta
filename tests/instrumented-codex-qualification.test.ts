@@ -18,6 +18,10 @@ import { instrumentedFixtureProfile } from './helpers/instrumented-codex-fixture
 import { main } from '../src/cli.js';
 
 const directories: string[] = [];
+const gitEnvironment = {
+  ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_'))),
+  GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1',
+} as const;
 vi.mock('node:child_process', { spy: true });
 vi.mock('node:fs/promises', { spy: true });
 vi.mock('node:http', { spy: true });
@@ -54,7 +58,7 @@ test('does not generalize the release repair to another workspace package set', 
 test('a checkout claiming a different HEAD cannot reach source qualification', async () => {
   const root = mkdtempSync(join(tmpdir(), 'hd-source-rejection-'));
   directories.push(root);
-  execFileSync('/usr/bin/git', ['init', '--quiet', root]);
+  execFileSync('/usr/bin/git', ['init', '--quiet', root], { env: gitEnvironment });
   writeFileSync(join(root, '.git/HEAD'), `${'a'.repeat(40)}\n`);
   const before = readFileSync(join(root, '.git/HEAD'));
   await expect(inspectInstrumentedCodexSource(root)).rejects.toThrow('source_mismatch');
@@ -64,7 +68,7 @@ test('a checkout claiming a different HEAD cannot reach source qualification', a
 test('canonical patch rendering reaches source rejection through real Git diff commands', async () => {
   const root = mkdtempSync(join(tmpdir(), 'hd-source-rendering-'));
   directories.push(root);
-  const env = { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' };
+  const env = gitEnvironment;
   execFileSync('/usr/bin/git', ['init', '--quiet', root], { env });
   mkdirSync(join(root, 'codex-rs'));
   const metadata = join(root, 'codex-rs/source.txt');
@@ -281,7 +285,7 @@ test('caller profile, passed verdict, and hash flags never authorize identity in
 test('source rejection leaves the caller database without production qualification', async () => {
   const root = mkdtempSync(join(tmpdir(), 'hd-qualification-rejection-'));
   directories.push(root);
-  execFileSync('/usr/bin/git', ['init', '--quiet', root]);
+  execFileSync('/usr/bin/git', ['init', '--quiet', root], { env: gitEnvironment });
   writeFileSync(join(root, '.git/HEAD'), `${'b'.repeat(40)}\n`);
   const store = new Store(join(root, 'store.sqlite'));
   try {
