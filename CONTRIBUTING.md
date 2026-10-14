@@ -149,6 +149,14 @@ gpt-6.1-sol/high, without qualification authority. Its route-specific verified
 provenance never promotes file/launch or historical observations. Costs remain
 partial; complete request-universe and terminal accounting are not qualified.
 
+Ordinary Claude observation (a task with no A/B assignment, prepared in the
+normal UI) is implemented and qualification-pending. Its code-owned
+`claude-binding-02196-family-v1` admission for Claude Code 2.1.296 is closed, so
+connection returns `binding_source_unqualified`. Don't describe it as supported
+or verified until an accepted native trial changes that admission. See
+[ADR 016](docs/decisions/016-ordinary-observation.md) and the
+[user flow and limits](docs/runbooks/harness-connect.md#ordinary-claude-observation-qualification-pending).
+
 Registered file adapters live in `src/adapter-profiles.ts`. Verified registration is an exact `(product, version)` allowlist. Conditional parser selection is separate. A new version whose semantics are unchanged is data, fixtures, and evidence. A semantic change is a named code variant plus tests; the old variant is not edited to fit the new version. Codex 0.158.0 uses the checkpoint variant and a historical exact-version admission. See the [admission workflow](docs/runbooks/codex-version-admission.md) and [current offline readiness limits](docs/validation/codex-01580-offline-readiness.md). The archived live report does not qualify the current source identity or establish whole-task completeness. The conformance runner is manual. `npm test` runs offline synthetic unit tests of the report projector, the candidate parser, and the confirmation helpers. It does not run the conformance runner, spawn product CLIs, or open real sessions. See [ADR 007](docs/decisions/007-adapter-version-profiles.md).
 
 ## Branch names

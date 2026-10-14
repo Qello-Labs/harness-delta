@@ -2,6 +2,7 @@ import { registerProtocol, protocolRow } from './comparison.js';
 import { IdSchema } from './contracts.js';
 import { parseProtocol } from './flexible-contracts.js';
 import { preparePriceBasis } from './price-catalog-store.js';
+import { ordinaryTask } from './ordinary-observation.js';
 import type { Store } from './store.js';
 
 /** Fill only the new preparation's missing reference. Repeated registration retains its first pin. */
@@ -23,6 +24,8 @@ export function registerProtocolWithCatalogDefaults(store: Store, input: unknown
 export function selectTaskPriceTable(store: Store, taskId: string, now=new Date().toISOString()) {
   IdSchema.parse(taskId);
   if(!store.get('SELECT id FROM tasks WHERE id=?',[taskId]))throw new Error('unknown_task');
+  const ordinary = ordinaryTask(store, taskId);
+  if (ordinary) return {tableId:ordinary.price_table_id,selection:'ordinary_task_pin' as const};
   const assignment=store.get<{protocol_id:string}>('SELECT protocol_id FROM comparison_assignments WHERE task_id=?',[taskId]);
   if(assignment) {
     const row=protocolRow(store,assignment.protocol_id);

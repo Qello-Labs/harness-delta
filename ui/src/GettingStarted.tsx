@@ -30,8 +30,8 @@ export function GettingStarted({ locale, setups, onNavigate }: {
       description: t('Review measurement support and source authorization first. Follow the task’s session guidance; use harness-connect for the ordinary-session route. The application session is not the working session. A blocked route must be resolved before continuing.',
         '측정 지원 상태와 원본 관측 권한부터 확인하세요. 작업의 세션 안내를 따르고, 일반 세션 경로에서는 harness-connect를 사용하세요. 적용 세션을 작업 세션으로 연결하지 마세요. 연결이 막혔다면 표시된 조건부터 해결하세요.') },
     { id: 'measure', title: t('Check that measurement is active, then work', '측정 중 표시를 확인한 뒤 작업하세요.'),
-      description: t('After connecting, choose Start measurement when enabled. Work in the connected agent once the status is Measuring. Pause measurement and Resume measurement control collection, not the AI process.',
-        '연결 후 측정 시작이 활성화되면 누르세요. 측정 중 표시를 확인한 뒤 연결한 에이전트에서 작업하세요. 측정 일시중단·측정 재개는 수집을 제어하며 AI 실행·종료와는 별개입니다.') },
+      description: t('Check Measuring after connecting. A family connection starts authorized observation; other routes show Start measurement when needed. Pause measurement and Resume measurement control collection, not the AI process.',
+        '연결 후 측정 중 표시를 확인하세요. 가족 연결은 허용된 관측을 시작하며 다른 경로에서 필요하면 측정 시작을 표시합니다. 측정 일시중단·측정 재개는 수집을 제어하며 AI 실행·종료와는 별개입니다.') },
     { id: 'decide', title: t('Review the result and record your decision', '결과를 검토하고 직접 판정하세요.'),
       description: t('Use Complete successfully, Continue rework, or End task. Rework keeps the same assignment and earlier usage. Added requirements belong in a new task; leaving the page or exiting the agent does not mark success.',
         '성공으로 완료·재작업 계속·작업 종료 중 선택하세요. 재작업은 배정과 이전 사용량을 유지합니다. 요구사항을 추가했다면 새 작업으로 시작하세요. 화면 이탈이나 에이전트 종료만으로 성공이 확정되지는 않습니다.') },
@@ -42,8 +42,8 @@ export function GettingStarted({ locale, setups, onNavigate }: {
       <div className="max-w-2xl space-y-3">
         <Badge variant="secondary">{t('Getting started', '시작 안내')}</Badge>
         <h1 id="getting-started-title" className="text-balance text-3xl font-semibold leading-tight">{t('Set up once. Follow the same flow for every task.', '설정은 한 번, 작업은 이 순서로.')}</h1>
-        <p className="text-pretty leading-relaxed text-muted-foreground">{t('Compare two harness versions while working in your usual agent. Prepare and review here; run the agent and judge the result yourself.',
-          '두 하네스 버전을 비교하며 평소 에이전트에서 작업하세요. 이곳에서 준비와 측정 상태를 확인하고, 에이전트 실행과 결과 판정은 직접 합니다.')}</p>
+        <p className="text-pretty leading-relaxed text-muted-foreground">{t('Observe ordinary Claude work or compare two harness versions in your usual agent. Prepare and review here; run the agent and judge the result yourself.',
+          '평소 Claude 작업을 관측하거나 두 하네스 버전을 비교하세요. 이곳에서 준비와 측정 상태를 확인하고, 에이전트 실행과 결과 판정은 직접 합니다.')}</p>
       </div>
       <div className="flex flex-wrap gap-3">
         <Button data-guide-link="setup" onClick={() => onNavigate('setup')}><Settings aria-hidden="true" />{t('Open settings', '설정 열기')}<ArrowRight aria-hidden="true" /></Button>
@@ -51,9 +51,26 @@ export function GettingStarted({ locale, setups, onNavigate }: {
       </div>
     </section>
 
+    <Card data-guide-mode="ordinary">
+      <CardHeader><div className="flex items-center gap-3"><Link className="size-5" aria-hidden="true" /><h2 className="text-lg font-semibold">{t('Ordinary Claude work · no A/B assignment', '일반 Claude 작업 · A/B 배정 없음')}</h2></div></CardHeader>
+      <CardContent className="space-y-4">
+        <ol className="space-y-3">
+          <li>{t('Register the project, then select Ordinary Claude observation when creating a task. Choose its completion criterion; comparison files and harness application are not required.',
+            '프로젝트를 등록하고 새 작업에서 일반 Claude 관측을 선택하세요. 완료 기준을 선택하며 비교 파일이나 하네스 적용은 필요하지 않습니다.')}</li>
+          <li>{t('Review the project-local package preview, then install or update the owned package. Follow the Claude connection card; installation and source qualification are separate.',
+            '프로젝트 전용 패키지 미리보기를 검토하고 소유한 패키지를 설치·갱신하세요. Claude 연결 안내를 따르며 설치와 원본 지원 검증은 별개입니다.')}</li>
+          <li>{t('Invoke harness-connect in your current native parent. Pause/resume controls observation; stop observation before connecting another task on the same retained native root.',
+            '현재 네이티브 부모에서 harness-connect를 호출하세요. 일시중단·재개는 관측을 제어하며 유지된 native root를 다른 작업에 연결하기 전에 관측을 종료하세요.')}</li>
+        </ol>
+        <p className="border-t pt-4 text-muted-foreground">{t('Native qualification is pending. No installation or copied prompt grants authority; blocked collection stays blocked. Costs remain partial.',
+          '네이티브 지원 검증은 대기 중입니다. 설치나 문구 복사로 권한을 부여하지 않으며 차단된 수집은 유지됩니다. 비용은 부분 관측입니다.')}</p>
+        <Button data-guide-link="ordinary-tasks" variant="outline" onClick={() => onNavigate('tasks')}>{t('Open tasks', '작업 열기')}<ArrowRight aria-hidden="true" /></Button>
+      </CardContent>
+    </Card>
+
     <section aria-labelledby="workflow-title" className="space-y-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 id="workflow-title" className="text-lg font-semibold">{t('The flow at a glance', '한눈에 보는 사용 순서')}</h2>
+        <h2 id="workflow-title" className="text-lg font-semibold">{t('Comparison workflow at a glance', '한눈에 보는 비교 작업 순서')}</h2>
         <p className="text-sm text-muted-foreground">{t('Step 1 first · repeat steps 2–6 for each task', '처음에는 1번부터 · 이후에는 2~6번을 반복')}</p>
       </div>
       <ol aria-label={t('Setup-to-result workflow', '설정부터 결과 판정까지')} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">

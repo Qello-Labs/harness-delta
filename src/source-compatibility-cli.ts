@@ -12,7 +12,7 @@ export function registerCompatibilityCommands(program: Command, db: () => Store,
   });
   for (const operation of ['inspect', 'invalidate'] as const) {
     const command = compatibility.command(operation).requiredOption('--product <codex|claude_code>').requiredOption('--version <version>')
-      .requiredOption('--source <file|codex_workflow|claude_workflow|codex_binding>').option('--profile <id>');
+      .requiredOption('--source <file|codex_workflow|claude_workflow|codex_binding|claude_binding>').option('--profile <id>');
     if (operation === 'invalidate') command.option('--reason <semantic_incompatibility|contract_failed>', 'Fixed metadata-only reason', 'semantic_incompatibility');
     command.action((options: { product: string; version: string; source: string; profile?: string; reason?: string }) => {
       const source = SourceCompatibilitySchema.shape.source.parse(options.source);

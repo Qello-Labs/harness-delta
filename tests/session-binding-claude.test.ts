@@ -1,11 +1,12 @@
 import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { appendFileSync, chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, truncateSync, utimesSync, writeFileSync } from 'node:fs';
+import { appendFileSync, chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, truncateSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import Database from 'better-sqlite3';
 import type { CandidateScope } from '../src/nested-candidate.js';
-import type { BindingUsageRecord, VerifiedSessionIdentity } from '../src/session-binding-contract.js';
+import type { BindingBaselineLedger, BindingUsageRecord, VerifiedSessionIdentity } from '../src/session-binding-contract.js';
 import { ClaudeSessionBindingProvider, claudeBindingProfiles, claudeProjectDirName, type ClaudeBindingOptions } from '../src/session-binding-claude.js';
 import { EventV2Schema, RuntimeEvidenceSchema } from '../src/flexible-contracts.js';
 import { compilePriceBasis, parsePriceCatalog } from '../src/price-catalog.js';
@@ -17,6 +18,7 @@ const privateText = 'SYNTHETIC-PRIVATE-CONTENT';
 const connectCommand = 'node "/skills/harness-connect/scripts/connect.mjs" connect --origin http://127.0.0.1:4100 --product claude_code --task-name demo';
 const quiet = () => Date.now() + 60000; // transcripts look finished unless a test says otherwise
 let root: string; let receipts: string; let projects: string; let projectDir: string; let cwd: string; let otherProjectDir: string;
+const baselineDatabases = new Set<Database.Database>();
 
 beforeEach(() => {
   root = realpathSync(mkdtempSync(join(tmpdir(), 'hd-claude-binding-')));
@@ -25,7 +27,11 @@ beforeEach(() => {
   projectDir = join(projects, claudeProjectDirName(cwd)); otherProjectDir = join(projects, claudeProjectDirName(join(root, 'other')));
   mkdirSync(projectDir, { recursive: true }); mkdirSync(otherProjectDir); mkdirSync(join(cwd, 'sub'), { recursive: true }); mkdirSync(join(root, 'other'));
 });
-afterEach(() => { rmSync(root, { recursive: true, force: true }); });
+afterEach(() => {
+  for (const database of baselineDatabases) if (database.open) database.close();
+  baselineDatabases.clear();
+  rmSync(root, { recursive: true, force: true });
+});
 
 const provider = (extra: Partial<ClaudeBindingOptions> = {}) => new ClaudeSessionBindingProvider({ receiptDir: receipts, claudeProjectsDir: projects,
   projectRoot: cwd, allowCandidateProfiles: true, now: quiet, ...extra });
@@ -158,6 +164,129 @@ describe('Claude current-session identity', () => {
     // Documented local-trust limit: a same-user forgery naming a live session of this project is not detectable.
     const sibling = randomUUID(); writeRoot(sibling);
     expect((await provider().resolveCurrent({ receipt: forgedReceipt(sibling, rootPath(sibling), process.pid) })).sessionId).toBe(sibling);
+  });
+});
+
+describe('Claude durable baseline exclusions', () => {
+  function openLedger(sourceIdentity: string) {
+    const database = new Database(join(root, 'baseline.sqlite'));
+    baselineDatabases.add(database);
+    database.exec('CREATE TABLE IF NOT EXISTS exclusions (source TEXT NOT NULL, request TEXT NOT NULL, PRIMARY KEY (source, request))');
+    const lookup = database.prepare('SELECT 1 FROM exclusions WHERE source = ? AND request = ?');
+    const insert = database.prepare('INSERT OR IGNORE INTO exclusions (source, request) VALUES (?, ?)');
+    const batches: number[] = [];
+    const insertMany = database.transaction((requestIds: readonly string[]) => {
+      for (const requestId of requestIds) insert.run(sourceIdentity, requestId);
+    });
+    const ledger: BindingBaselineLedger = {
+      has: requestId => lookup.get(sourceIdentity, requestId) !== undefined,
+      add: requestId => { insert.run(sourceIdentity, requestId); },
+      addMany: requestIds => { batches.push(requestIds.length); insertMany(requestIds); },
+    };
+    return { database, ledger, batches };
+  }
+
+  it('excludes large history and in-flight IDs after live rollover and a durable restart', async () => {
+    const sid = randomUUID();
+    const pending = assistant(sid, 'pending', [1, 0, 0, 1]);
+    writeRoot(sid, [
+      ...Array.from({ length: 1500 }, (_, i) => assistant(sid, `prior_${i}`, [1, 0, 0, 1])),
+      assistant(sid, 'foreign_agent', [1, 0, 0, 1], { agentId: 'child', isSidechain: true }),
+      { ...pending, message: { ...pending.message, usage: undefined } },
+      assistant(sid, 'in_flight', [1, 0, 0, 1]),
+    ]);
+    connect(sid); const p = provider(); const parent = await currentIdentity(sid, p); const scope = scopeFor([parent]);
+    const initial = openLedger(parent.sourceIdentity);
+    const writingAt = statSync(rootPath(sid)).mtimeMs;
+    const baseline = await provider({ now: () => writingAt }).readUsage(parent, null, scope, { baseline: true, baselineLedger: initial.ledger });
+    expect(baseline).toMatchObject({ records: [], gaps: [] });
+    expect(JSON.parse(Buffer.from(baseline.cursor, 'base64url').toString('utf8'))).toMatchObject({ v: 3, baselineExcluded: [] });
+    expect(initial.ledger.has('prior_0')).toBe(true);
+    expect(initial.ledger.has('prior_1499')).toBe(true);
+    expect(initial.ledger.has('pending')).toBe(true);
+    expect(initial.ledger.has('in_flight')).toBe(true);
+    expect(initial.ledger.has('foreign_agent')).toBe(false);
+    appendFileSync(rootPath(sid), lines(Array.from({ length: 1025 }, (_, i) => assistant(sid, `live_${i}`, [1, 0, 0, 1]))));
+    const live = await p.readUsage(parent, baseline.cursor, scope, { baseline: false, baselineLedger: initial.ledger });
+    expect(live.records).toHaveLength(1025);
+    expect(initial.ledger.has('live_0')).toBe(false);
+    initial.database.close();
+    const reopened = openLedger(parent.sourceIdentity);
+    appendFileSync(rootPath(sid), lines([
+      assistant(sid, 'prior_0', [9, 0, 0, 9]), assistant(sid, 'prior_1499', [9, 0, 0, 9]),
+      assistant(sid, 'pending', [2, 0, 0, 3]), assistant(sid, 'fresh', [2, 0, 0, 2]),
+      assistant(sid, 'in_flight', [3, 0, 0, 3]),
+    ]));
+    const replay = await provider().readUsage(parent, live.cursor, scope, { baseline: false, baselineLedger: reopened.ledger });
+    expect(ids(replay.records)).toEqual(['fresh']);
+    expect(replay.gaps).toEqual([]);
+  });
+
+  it('excludes every historical ID across bounded baseline read windows', async () => {
+    const sid = randomUUID();
+    const historySize = 10240;
+    writeRoot(sid, Array.from({ length: historySize }, (_, i) => assistant(sid, `prior_${i}`, [1, 0, 0, 1])));
+    connect(sid); const p = provider({ maxReadBytes: 65536 }); const parent = await currentIdentity(sid, p);
+    const { ledger, batches } = openLedger(parent.sourceIdentity);
+    const baseline = await p.readUsage(parent, null, scopeFor([parent]), { baseline: true, baselineLedger: ledger });
+    expect(baseline.records).toEqual([]);
+    expect(Array.from({ length: historySize }, (_, i) => ledger.has(`prior_${i}`)).every(Boolean)).toBe(true);
+    const nonemptyBatches = batches.filter(size => size > 0);
+    expect(nonemptyBatches.reduce((total, size) => total + size, 0)).toBe(historySize);
+    expect(nonemptyBatches.length).toBeGreaterThan(1);
+    expect(nonemptyBatches.length).toBeLessThan(100);
+    appendFileSync(rootPath(sid), lines([assistant(sid, 'prior_0', [2, 0, 0, 2]), assistant(sid, 'new', [1, 0, 0, 1])]));
+    expect(ids((await p.readUsage(parent, baseline.cursor, scopeFor([parent]), { baseline: false, baselineLedger: ledger })).records)).toEqual(['new']);
+  });
+
+  it('migrates legacy cursor exclusions into the ledger without losing replay protection', async () => {
+    const sid = randomUUID(); writeRoot(sid, [assistant(sid, 'prior', [1, 0, 0, 1])]); connect(sid);
+    const p = provider(); const parent = await currentIdentity(sid, p); const scope = scopeFor([parent]);
+    const legacy = await p.readUsage(parent, null, scope, { baseline: true });
+    const { ledger } = openLedger(parent.sourceIdentity);
+    appendFileSync(rootPath(sid), lines([assistant(sid, 'prior', [2, 0, 0, 2]), assistant(sid, 'new', [1, 0, 0, 1])]));
+    const migrated = await p.readUsage(parent, legacy.cursor, scope, { baseline: false, baselineLedger: ledger });
+    expect(ids(migrated.records)).toEqual(['new']);
+    expect(ledger.has('prior')).toBe(true);
+    expect(JSON.parse(Buffer.from(migrated.cursor, 'base64url').toString('utf8'))).toMatchObject({ v: 3, baselineExcluded: [] });
+  });
+
+  it('refuses a partial durable baseline and excludes its completed tail on retry', async () => {
+    const sid = randomUUID(); writeRoot(sid, [assistant(sid, 'prior', [1, 0, 0, 1])]); connect(sid);
+    const p = provider(); const parent = await currentIdentity(sid, p); const scope = scopeFor([parent]);
+    const { ledger } = openLedger(parent.sourceIdentity);
+    const tail = JSON.stringify(assistant(sid, 'tail', [1, 0, 0, 1]));
+    appendFileSync(rootPath(sid), tail.slice(0, 40));
+    await expect(p.readUsage(parent, null, scope, { baseline: true, baselineLedger: ledger })).rejects.toThrow('claude_baseline_incomplete');
+    appendFileSync(rootPath(sid), tail.slice(40) + '\n');
+    const baseline = await p.readUsage(parent, null, scope, { baseline: true, baselineLedger: ledger });
+    appendFileSync(rootPath(sid), lines([assistant(sid, 'tail', [2, 0, 0, 2])]));
+    expect((await provider().readUsage(parent, baseline.cursor, scope, { baseline: false, baselineLedger: ledger })).records).toEqual([]);
+    expect(ledger.has('tail')).toBe(true);
+  });
+
+  it('reports live compaction as a gap with the durable ledger', async () => {
+    const sid = randomUUID(); writeRoot(sid); connect(sid);
+    const p = provider(); const parent = await currentIdentity(sid, p); const scope = scopeFor([parent]);
+    const { ledger } = openLedger(parent.sourceIdentity);
+    const baseline = await p.readUsage(parent, null, scope, { baseline: true, baselineLedger: ledger });
+    appendFileSync(rootPath(sid), lines([{ type: 'system', subtype: 'compact_boundary', sessionId: sid }, assistant(sid, 'new', [1, 0, 0, 1])]));
+    const live = await p.readUsage(parent, baseline.cursor, scope, { baseline: false, baselineLedger: ledger });
+    expect(ids(live.records)).toEqual(['new']);
+    expect(live.gaps).toEqual(['binding_usage_incomplete']);
+  });
+
+  it('never invokes the ledger when source authorization or process ownership fails', async () => {
+    const sid = randomUUID(); writeRoot(sid, [assistant(sid, 'prior', [1, 0, 0, 1])]); connect(sid);
+    const p = provider(); const parent = await currentIdentity(sid, p);
+    const baseline = await p.readUsage(parent, null, scopeFor([parent]), { baseline: true });
+    const ledger: BindingBaselineLedger = { has: vi.fn(() => false), add: vi.fn() };
+    const denied = provider({ authorizeSource: () => { throw new Error('scope_denied_before_read'); } });
+    await expect(denied.readUsage(parent, baseline.cursor, scopeFor([parent]), { baseline: false, baselineLedger: ledger })).rejects.toThrow('scope_denied_before_read');
+    const changed = provider({ readProcessIdentity: () => 'synthetic-reused-start' });
+    await expect(changed.readUsage(parent, null, scopeFor([parent]), { baseline: true, baselineLedger: ledger })).rejects.toThrow('claude_bound_identity_changed');
+    await expect(p.readUsage(parent, null, scopeFor([]), { baseline: true, baselineLedger: ledger })).rejects.toThrow('claude_scope_mismatch');
+    expect(ledger.has).not.toHaveBeenCalled(); expect(ledger.add).not.toHaveBeenCalled();
   });
 });
 

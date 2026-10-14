@@ -7,6 +7,7 @@ import { join, sep } from 'node:path';
 import Fastify, {type FastifyRequest,type FastifyReply} from 'fastify';
 import Database from 'better-sqlite3';
 import { z } from 'zod';
+import { OrdinaryProjectActionSchema, type OrdinaryProjectAction } from './local-web-ordinary.js';
 
 /** Accepted imports retain imported:true; counts describe actual transactional saves. */
 export type LocalWebSetupImportResult = { cancelled: true } | { imported: true; added_count: number; existing_count: number };
@@ -16,7 +17,9 @@ export interface LocalWebDomain {
   bootstrap(): unknown;
   task(id: string): { version: string } & Record<string, unknown>;
   registerProject(directory: string): Promise<unknown>;
-  createTask(input: { name: string; project_id: string; setup_id: string; type?: string | undefined; size?: string | undefined }): Promise<unknown>;
+  createTask(input: LocalWebCreateTaskInput): Promise<unknown>;
+  ordinaryProject?(this: void, projectId: string): unknown;
+  ordinaryProjectAction?(this: void, projectId: string, input: OrdinaryProjectAction): Promise<unknown>;
   taskAction(id: string, action: string, input: Record<string, unknown>): Promise<unknown>;
   refreshPrices(): Promise<unknown>;
   chooseDirectory(): Promise<unknown>;
@@ -35,8 +38,16 @@ export interface LocalWebDomain {
 export interface LocalWebOptions { origin: string; domain: LocalWebDomain; metadataFile: string; uiRoot?: string }
 const id = z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,199}$/);
 const empty = z.strictObject({});
-const createInput = z.strictObject({ name: z.string().trim().min(1).max(200), project_id: id, setup_id: id,
+const comparisonCreateInput = z.strictObject({ name: z.string().trim().min(1).max(200), project_id: id, setup_id: id,
   type: z.enum(['feature', 'fix', 'infra', 'chore', 'docs', 'ci']).optional(), size: z.enum(['small', 'medium', 'large']).optional() });
+const ordinaryCreateInput = z.strictObject({
+  mode: z.literal('ordinary'), name: z.string().trim().min(1).max(200), project_id: id,
+  type: z.enum(['feature', 'fix', 'infra', 'chore', 'docs', 'ci']).optional(),
+  size: z.enum(['small', 'medium', 'large']).optional(), assignee: id.optional(),
+  criterion_ids: z.array(id).min(1).max(256).refine(values => new Set(values).size === values.length),
+});
+const createInput = z.union([comparisonCreateInput, ordinaryCreateInput]);
+export type LocalWebCreateTaskInput = z.infer<typeof createInput>;
 const actionSchemas = {
  'application-prepare':ApplicationSelectionSchema,'application-open':empty,'application-checkpoint':ApplicationCheckpointSchema,'application-report':ApplicationReportSchema,'application-identity':ApplicationIdentitySchema,
   'application-start':z.strictObject({workspace:z.string().min(1).max(4096),inputPaths:z.array(z.string().min(1).max(2048)).max(256),outputPaths:z.array(z.string().min(1).max(2048)).min(1).max(256),runner:z.enum(['codex','claude_code','synthetic']),workspaceDigest:z.string().regex(/^[a-f0-9]{64}$/)}),
@@ -45,7 +56,7 @@ const actionSchemas = {
   'application-recover':empty,'application-cancel':empty,'application-publish':z.strictObject({approvalDigest:z.string().regex(/^[a-f0-9]{64}$/)}),
   prepare: empty, apply: empty, ticket: empty, connect: z.strictObject({ source_handle: id }),
   'session-connect': z.strictObject({ product: z.enum(['codex','claude_code']), receipt: z.uuid() }),
-  observe: empty, pause: empty, 'revoke-collection': empty, 'resume-binding': empty, 'emergency-stop': empty, rework: empty, recover: empty,
+  observe: empty, pause: empty, 'stop-observation': empty, 'revoke-collection': empty, 'resume-binding': empty, 'emergency-stop': empty, rework: empty, recover: empty,
   'finish-success': z.strictObject({ criteria: z.array(id).max(256).optional() }),
   'finish-failed': empty, 'finish-abandoned': empty,
   release: z.strictObject({ external_session_stopped: z.literal(true) }),
@@ -61,6 +72,12 @@ const safeCodes = new Set(['application_cleanup_pending','application_managed_re
   'ui_action_conflict', 'invalid_ui_request', 'binding_provider_unavailable', 'binding_source_unqualified',
   'binding_pilot_scope_invalid', 'binding_pilot_family_scope', 'binding_family_limit', 'binding_pilot_control_only',
   'binding_admission_family_scope', 'binding_runtime_unsupported', 'compatibility_invalidated',
+  'ordinary_project_setup_required', 'ordinary_preparation_required', 'ordinary_configuration_changed',
+  'ordinary_installation_in_use', 'binding_native_root_owned', 'binding_observer_owned',
+  'installation_preview_changed', 'installation_busy', 'installation_recovery_required',
+  'changed_path', 'package_drift', 'installation_rollback_failed', 'installation_cleanup_failed',
+  'binding_handover_receipt_stale', 'claude_binary_unqualified',
+  'binding_receipt_stale', 'binding_member_ineligible',
   'binding_scope_revoked', 'binding_identity_mismatch', 'binding_identity_unavailable', 'binding_session_conflict',
   'binding_relation_invalid', 'binding_request_conflict', 'binding_usage_invalid', 'binding_configuration_invalid',
   'binding_source_changed', 'binding_source_unapproved', 'binding_metadata_untrusted', 'binding_cursor_invalid',
@@ -116,10 +133,10 @@ export function createLocalWebServer(options: LocalWebOptions) {
   app.get<{ Params: { id: string } }>('/api/tasks/:id', (request, reply) => {
     const task = options.domain.task(id.parse(request.params.id)); reply.header('ETag', task.version); return task;
   });
-  const mutation = async (request: { body: unknown; url: string; headers: Record<string, unknown> },
-    parse: (input: unknown) => unknown, execute: (input: unknown) => Promise<unknown>, taskId?: string) => {
+  const mutation = async <T>(request: { body: unknown; url: string; headers: Record<string, unknown> },
+    parse: (input: unknown) => T, execute: (input: T) => Promise<unknown>, taskId?: string) => {
     const key = z.uuid().parse(request.headers['idempotency-key']);
-    const body: unknown = parse(request.body);
+    const body = parse(request.body);
     const hash = createHash('sha256').update(JSON.stringify({ url: request.url, body })).digest('hex');
     let unlock: (() => void) | undefined;
     const previous = queue; queue = new Promise<void>(resolve => { unlock = resolve; }); await previous;
@@ -162,6 +179,22 @@ export function createLocalWebServer(options: LocalWebOptions) {
     return options.domain.saveReviewedSetup(z.strictObject({token:z.uuid()}).parse(input).token);
   });
   addMutation('/api/tasks', createInput, async input => options.domain.createTask(createInput.parse(input)));
+  app.get<{ Params: { id: string } }>('/api/projects/:id/ordinary-setup', request => {
+    if (!options.domain.ordinaryProject) throw new Error('invalid_ui_request');
+    return options.domain.ordinaryProject(id.parse(request.params.id));
+  });
+  app.post<{ Params: { id: string } }>('/api/projects/:id/ordinary-setup', async (request, reply) => {
+    try {
+      const projectId = id.parse(request.params.id);
+      const action = options.domain.ordinaryProjectAction;
+      const inspect = options.domain.ordinaryProject;
+      if (!action || !inspect) throw new Error('invalid_ui_request');
+      inspect(projectId);
+      const value = await mutation(request, input => OrdinaryProjectActionSchema.parse(input),
+        input => action(projectId, input));
+      await reply.code(value.status).send(value.result);
+    } catch (error) { await reply.code(400).send({ error: localWebError(error) }); }
+  });
   addMutation('/api/catalog/refresh', empty, async () => options.domain.refreshPrices());
   const taskMutation=async(request:FastifyRequest<{Params:{id:string;action?:string}}>,reply:FastifyReply,action:string)=>{
     const taskId = id.parse(request.params.id);

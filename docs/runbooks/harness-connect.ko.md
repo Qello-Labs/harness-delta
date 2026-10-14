@@ -12,6 +12,8 @@ native 검증과 독립 검토를 통과했으며, 다른 일반 native
 production source는 qualification 차단 상태입니다. Claude 호출 시
 세션 hook 등록·receipt 조회·평탄화된 family 멤버의 합성 통합도 구현했습니다. provider 설정이나 스킬 설치만으로 production 경로가 열리지
 않습니다. [설계와 실측 계획](../decisions/012-session-family-bindings.md)을 참고하세요.
+A/B 배정이 없는 작업을 위한 일반 Claude 관측은 구현되어 있으며
+[지원 검증 대기](#일반-claude-관측-지원-검증-대기) 상태입니다.
 
 먼저 UI에서 등록 프로젝트의 논리 작업과 A/B 배정을 준비합니다. 승인된 native
 instrumentation이 있으면 평소처럼 연 부모가 신뢰 가능한 receipt를 전달하고,
@@ -52,6 +54,103 @@ source 교체, ancestry, 세 번째·중첩 멤버, 다른 정확 버전은 차�
 응답 기록과 정상 종료는 모든 시도 요청·마지막 usage의 영구 전달을 입증하지
 못하므로 전체 작업 비용은 미지원입니다. 기준 가격 정책의 매칭은 실제 청구
 증거가 아닙니다.
+
+## 일반 Claude 관측 (지원 검증 대기)
+
+이 흐름은 구현되어 있지만 native admission은 닫혀 있습니다. 코드 소유 profile
+`claude-binding-02196-family-v1`은 Claude Code 2.1.296을 지정하며 현재
+`qualified: false`입니다. 이 값이 바뀌기 전에는 일반 작업을 연결하면
+`binding_source_unqualified`를 반환하고 native 원본을 읽지 않습니다. 프로젝트 설정,
+패키지 설치와 작업 생성은 지금 동작합니다. 그것만으로 수집이 시작되지는 않습니다.
+현재 증거에는 합성 unit, fake-provider, HTTP, UI 테스트, 범위가 제한된 실제 binary의
+localhost conformance, 개발 전용 qualification factory를 통한 대화형 연결 관측이
+포함됩니다. 연결 전용 시험 한 건에서 측정 행과 독립 API counter의 일치를 확인하고
+Bash approve-once 승인 두 건을 처리했습니다. 이 결과는 production source admission이나
+전체 가족·일시중단/재개·작업 인계 profile의 qualification을 의미하지 않습니다.
+[ADR 016](../decisions/016-ordinary-observation.md)을 참고하세요.
+
+평소의 [로컬 브라우저 UI](local-browser-ui.ko.md#로컬-서비스-시작)를 사용합니다.
+pilot 플래그, qualification lease, 브라우저 입력으로는 이 경로를 열 수 없습니다.
+
+1. **프로젝트 설정.** 로컬 설정에서 등록 프로젝트의 일반 Claude 관측 카드를 열고
+   Claude 2.1.296 설정을 선택합니다. 정확한 버전, 프로젝트 안의 receipt 디렉토리
+   `.harness-delta/claude-connect/receipts`, Claude projects 디렉토리를 저장합니다.
+   다른 버전은 `claude_source_version_unsupported`를 반환합니다.
+2. **미리보기 후 설치.** 설치·갱신 미리보기를 선택합니다. 상태 조회와 미리보기는
+   파일을 쓰지 않습니다. 미리보기는 `.claude/skills/harness-connect` 아래의 상대
+   경로마다 동작과 hash를 보여 줍니다. 검토한 뒤 설치 버튼을 선택하세요. 이
+   설치기가 소유한 파일만 바뀝니다. 수정되었거나 소유하지 않았거나 안전하지 않은
+   경로는 `package_unowned`, `package_drift` 같은 고정 코드로 차단합니다. 제거도
+   같은 미리보기 후 적용 순서를 따릅니다. 프로젝트에 활성 일반 작업이 있으면
+   `ordinary_installation_in_use`로 거부하며, receipt와 native transcript는 남깁니다.
+3. **작업 생성.** 새 작업에서 일반 Claude 관측 모드, 이름, 프로젝트와 완료 기준을
+   선택합니다. UI는 `user_confirmed_completion`을 제공합니다. 비교 setup, protocol,
+   arm은 없습니다. 작업은 생성 시점의 프로젝트 설정과 가격표를 고정합니다.
+4. **native 부모에서 연결.** Claude를 직접 열고 작업 화면에 표시된 명령을 부모
+   세션에서 한 번 실행합니다.
+5. **관측 제어.** 작업 화면의 일시중단, 재개, 관측 종료와 결과 버튼을 사용합니다.
+   완료는 사용자가 결과를 직접 확인해야 합니다.
+
+```text
+/harness-connect Connect this session to project PROJECT_ID, task TASK_ID, using http://127.0.0.1:PORT and its native receipt.
+```
+
+패키지를 설치해도 hook이 등록되지는 않습니다. hook은 native 부모에서 skill을
+호출할 때 등록되며, 설정 카드는 hook 등록을 `unverified`로 표시합니다. 패키지 복사,
+hook 등록, native receipt, 관측 중은 서로 다른 네 가지 사실입니다. 모델, effort,
+권한, 실행과 종료는 Claude에서 사용자가 직접 제어합니다.
+
+닫힌 admission 뒤에서 구현은 다음과 같이 동작합니다.
+
+- **작업당 측정 root 하나.** 연결할 때마다 새 측정 root ID를 만듭니다. native 세션
+  identity는 따로 저장하며 다시 쓰지 않습니다.
+- **native root 독점.** 살아 있는 native root는 한 작업만 예약합니다. 해당 segment가
+  acquiring, paused, stopping인 동안에도 예약은 유지됩니다. 같은 root를 제시한 다른
+  작업은 `binding_session_conflict`를 받습니다.
+- **작업 넘기기.** 첫 작업에서 관측 종료를 선택합니다. Claude는 계속 실행됩니다.
+  그다음 두 번째 작업으로 skill을 다시 호출합니다. 종료 전에 기록된 receipt는
+  `binding_receipt_stale`을 반환합니다. 두 번째 작업은 새 baseline, 자체 측정 ID와
+  가격 고정으로 시작합니다. 과거 기록은 다른 작업으로 옮기지 않습니다.
+- **일시중단과 재개.** 일시중단은 segment를 유지합니다. 재개는 선택된 live
+  identity만 재검증한 뒤 새 baseline을 잡습니다.
+- **재시작과 재실행.** 서버 재시작 후 작업은 paused로 남고 스스로 읽지 않습니다.
+  같은 native session ID를 재개하더라도 다시 실행한 Claude의 process identity는
+  새로 생깁니다. skill을 다시 호출하여 hook을 등록하고 새 측정 segment를 명시적으로 엽니다.
+- **소급 수집 없음.** 일시중단, 오프라인, 연결 전 사용량은 미관측으로 남습니다.
+- **Baseline 저장.** 제외 ID를 SQLite에 보관하므로 pilot 경로의 1,024개 한도가
+  여기에는 적용되지 않습니다. pilot 경로의 한도는 그대로입니다.
+- **가족 한도.** root를 포함해 최대 8개입니다. 아홉 번째는 `binding_family_limit`을
+  반환합니다. 멤버는 root 아래로 평탄화하며, 중첩 멤버의 직접 부모는 검증하지 않습니다.
+- **모델.** profile은 `claude-opus-5-5`를 지정합니다. 다른 모델의 사용량 기록은
+  `binding_runtime_unsupported`로 수집을 중단합니다. 같은 batch의 지원 모델 기록을
+  포함해 해당 source batch 전체를 거부합니다. 명시적 재개는 새 baseline으로 그
+  batch를 제외하며 소급 수집하지 않습니다.
+- **삭제.** 관측한 작업을 삭제하면 그 native root를 잊습니다. 같은 root에 연결된
+  다른 작업은 일시중단되고 그 root의 이후 연결은 거부됩니다. 새 native root로
+  계속하세요. native transcript는 삭제하지 않습니다.
+- **비용.** 사용량은 부분 관측입니다. 전체 비용, 청구, 추론 결과는 제공하지 않습니다.
+
+새 관측은 별도의 `claude_binding` provenance를 갖게 되며 이후 관측에만 적용됩니다.
+비교, Codex, 파일, workflow의 trust 상태는 바뀌지 않습니다.
+
+설정에서 `installation_recovery_required`가 나오면 설치 프로세스를 중단하고
+`.harness-delta/claude-connect/installation-lock/owner.json`의 PID가 존재하지 않는지
+확인하세요. UI 복구는 종료된 설치 프로세스의 깨끗한 잠금만 해제합니다.
+남아 있는 `transaction-*` 디렉토리는 거부하며 알 수 없는 파일을 삭제하지 않습니다.
+중단된 transaction은 먼저 설치 패키지를 `installation.json`의 모든
+`installed_sha256`과 비교하세요. 일치하면 설치가 commit된 상태이므로 되돌리지 말고
+transaction을 검토용으로 보관하세요. 현재 패키지는 다르지만
+`transaction-*/previous`가 manifest와 일치하면 현재 패키지를 다른 위치로 옮겨
+보존한 뒤 검증된 이전 디렉토리만 복원하세요. 둘 다 다르면 모든 파일을 보존하고
+소유권 manifest를 대조한 뒤 다시 시도하세요. 불일치를 우회하려고 잠금이나
+transaction을 삭제하지 마세요.
+
+이 경로에서 실제 backend로 아직 검증하지 않은 항목: 전체 가족·일시중단/재개·작업 인계
+profile, 선언된 8개까지의 가족, compaction, background agent, 재개된 history,
+중첩 멤버의 직접 부모. 범위가 제한된 연결 관측이 이 기준들을 대신하지 않습니다. 정식
+qualification 대상은 macOS arm64, Node 24의 정확한 2.1.296 binary입니다. runtime
+검사는 Node 26도 받아들이고 그 외에는 `binding_runtime_unsupported`를 반환합니다.
+Node 26은 별도 증거가 필요합니다.
 
 ## 프로젝트 설치 경계
 
@@ -189,7 +288,8 @@ adapter 계약은 [session-binding-contract.ts](../../src/session-binding-contra
 Claude 기준선의 제외 own request ID는 실시간 replay 목록과 별도로 최대 1,024개를
 보존합니다. 한도 초과(`claude_baseline_limit`)나 부분/해석 불가능한 기준선
 (`claude_baseline_incomplete`)은 연결을 차단하며 제외 ID를 버리지 않습니다.
-이미 관측한 요청의 counter 충돌도 수집을 중단합니다.
+이미 관측한 요청의 counter 충돌도 수집을 중단합니다. 일반 관측 경로는 제외 ID를
+SQLite에 보관하며 이 한도가 없습니다.
 
 격리된 일반 Codex CLI qualification 실행기와 실제 호출 승인 범위는 [qualification 절차](../validation/codex-ordinary-binding-qualification.md)를 참고하세요. 준비와 Node fixture 검증만으로 production 지원이 열리지는 않습니다.
 실행기에 별도 정확 버전 0.162.1 후보가 있으며 `--product-version 0.162.1`로
@@ -342,3 +442,5 @@ qualified인 2.1.296을 포함한 모든 ordinary Claude profile에는
 수집 gate는 계속 닫혀 있습니다. 현재 label인 `native_unverified_pilot`,
 `legacy_unverified`, `candidate_pilot`은 유지됩니다.
 일반 제품 수집 지원, 전체 작업 비용과 추론 결정은 아직 사용할 수 없습니다.
+이 pilot 권한은 [일반 관측 admission](#일반-claude-관측-지원-검증-대기)과 별개이며,
+그 admission도 닫혀 있습니다.

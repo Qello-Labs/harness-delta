@@ -18,7 +18,7 @@ export const ProductVersionSchema = z.string().regex(/^[0-9]+\.[0-9]+\.[0-9]+(?:
 export const SourceCompatibilitySchema = z.strictObject({
   state: z.enum(['verified', 'compatibility_unverified', 'invalidated']),
   product: z.enum(['codex', 'claude_code']), product_version: ProductVersionSchema,
-  source: z.enum(['file', 'codex_workflow', 'claude_workflow', 'codex_binding']),
+  source: z.enum(['file', 'codex_workflow', 'claude_workflow', 'codex_binding', 'claude_binding']),
   parser_version: ProductVersionSchema, parser_revision: IdSchema,
   profile_id: IdSchema, rule_revision: IdSchema,
 });

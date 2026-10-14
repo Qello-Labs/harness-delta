@@ -1,4 +1,5 @@
 import type { Locale, Task } from './types';
+import { claudeConnectionStage } from './claude-connection-state.js';
 
 export function TaskNextStep({ task, locale }: { task: Task; locale: Locale }) {
   const t = (en: string, ko: string) => locale === 'ko' ? ko : en;
@@ -16,6 +17,8 @@ export function TaskNextStep({ task, locale }: { task: Task; locale: Locale }) {
   if (task.application && task.application.state !== 'applied') return <p className="text-sm">
     {applicationSteps[task.application.state] ?? t('Check the application state before proceeding.', '하네스 적용 상태를 확인한 뒤 진행하세요.')}
   </p>;
+  if (claudeConnectionStage(task)) return <p className="text-sm">{t('Follow the Claude connection card. It shows the next available action and confirms measurement separately.',
+    '본문의 Claude 연결 안내를 따르세요. 다음 동작과 측정 상태를 확인할 수 있습니다.')}</p>;
   const measurementSteps: Record<string, string> = {
     waiting_connection: task.application
       ? t('Use the working-session guidance to connect a separate fresh session after source authorization.', '원본 관측 권한을 확인한 뒤 작업 세션 안내로 별도의 새 세션을 연결하세요.')

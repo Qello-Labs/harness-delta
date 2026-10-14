@@ -5,6 +5,11 @@
 
 0.158.0과 후속 후보 버전의 개발 검증은 [정확한 버전 admission](codex-version-admission.md)을 참고하세요.
 
+브라우저 UI의 일반 Claude 관측은 자체 admission을 가진 별도 경로이며, native 지원
+검증을 기다리는 동안 닫혀 있습니다.
+[Harness Connect](harness-connect.ko.md#일반-claude-관측-지원-검증-대기)를 참고하세요.
+이 수집기의 버전, trust 상태와 제한은 바뀌지 않습니다.
+
 
 [English](local-measurement.md)
 
