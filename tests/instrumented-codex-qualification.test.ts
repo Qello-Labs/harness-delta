@@ -4,7 +4,7 @@ import { readFile as readAsyncFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { Store } from '../src/store.js';
 import { runInstrumentedCodexConformance } from '../src/instrumented-codex-conformance.js';
 import {
@@ -106,12 +106,14 @@ test('version-reporting shell shims are not an inspected native Rust toolchain',
   await expect(inspectInstrumentedCodexToolchain(root)).rejects.toThrow('toolchain_mismatch');
 });
 
-test.runIf(process.platform === 'darwin' && process.arch === 'arm64')(
-  'native version-reporting compiler shims are rejected before execution', async () => {
-    const root = mkdtempSync(join(tmpdir(), 'hd-native-toolchain-rejection-'));
+describe.runIf(process.platform === 'darwin' && process.arch === 'arm64')('native compiler shims', () => {
+  let root: string;
+  let marker: string;
+  beforeEach(async ({ signal }) => {
+    root = mkdtempSync(join(tmpdir(), 'hd-native-toolchain-rejection-'));
     directories.push(root);
     mkdirSync(join(root, 'bin'));
-    const marker = join(root, 'executed');
+    marker = join(root, 'executed');
     const source = join(root, 'compiler.c');
     writeFileSync(source, `#include <stdio.h>
 #include <string.h>
@@ -123,12 +125,16 @@ int main(int argc, char **argv) {
   return 0;
 }
 `);
-    execFileSync('/usr/bin/clang', [source, '-o', join(root, 'bin/rustc')]);
+    await runQualificationCommand('/usr/bin/clang', [source, '-o', join(root, 'bin/rustc')],
+      root, process.env, undefined, [0], signal);
     writeFileSync(join(root, 'bin/cargo'), readFileSync(join(root, 'bin/rustc')), { mode: 0o755 });
+  });
+
+  test('native version-reporting compiler shims are rejected before execution', async () => {
     await expect(inspectInstrumentedCodexToolchain(root)).rejects.toThrow('toolchain_mismatch');
     expect(existsSync(marker)).toBe(false);
-  },
-);
+  });
+});
 
 test('ancestor Cargo configuration cannot execute an inherited compiler wrapper', async () => {
   const root = mkdtempSync(join(tmpdir(), 'hd-cargo-config-rejection-'));
