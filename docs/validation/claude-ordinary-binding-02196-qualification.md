@@ -58,6 +58,29 @@ structure.
 The helper's same-command receipt lookup needs a runnable `ps` for process ancestry;
 without it the helper reports `hook_receipt_missing`.
 
+## Counter finality
+
+A further localhost-only rehearsal with the same pinned binary observed an own
+child thinking row with output 16 and `message.stop_reason: null`, followed by a
+row with output 111 and `message.stop_reason: "tool_use"`. Both rows retained the
+same request ID and message ID. The provisional row remained in the transcript;
+it was not a second billable request. This is synthetic stream-format evidence,
+not an additional authenticated pilot or interactive qualification.
+
+For 2.1.296, the provider requires a valid message ID and a recognized
+`stop_reason`. Null-stop rows remain provisional even after a user/tool row or a
+quiet interval. A correlated terminal row supplies the counters and retains the
+first row's occurrence time. Contradictory message IDs or terminal counters are
+excluded; changed committed counters still raise `binding_request_conflict`.
+Missing or unrecognized finality metadata remains incomplete.
+
+A pending request rewinds the existing cursor across polls and provider restart.
+Its forward scan is bounded to 16 MiB, including read-window splits; requests
+observed at a baseline stay permanently excluded. Cursor version 3, committed
+fingerprints, production admission and cost-coverage labels are unchanged.
+The synthetic candidate versions retain their prior unverified trailing-row
+policy; this observation does not qualify their native finality semantics.
+
 ## Native pilot
 
 One separately approved native session ran on 2026-10-13 (UTC) on macOS arm64 with

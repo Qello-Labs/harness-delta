@@ -20,7 +20,7 @@ describe('ordinary Claude provider boundary', () => {
   const assistant = (requestId: string, extra: Record<string, unknown> = {}) => ({
     type: 'assistant', sessionId: native, version: '2.1.296', requestId,
     timestamp: new Date(now - 1000).toISOString(),
-    message: { model: 'claude-opus-5-5', content: 'SYNTHETIC-PRIVATE-CONTENT',
+    message: { id: `msg_${requestId}`, model: 'claude-opus-5-5', stop_reason: 'end_turn', content: 'SYNTHETIC-PRIVATE-CONTENT',
       usage: { input_tokens: 11, cache_read_input_tokens: 7, cache_creation_input_tokens: 3, output_tokens: 5 } },
     ...extra,
   });

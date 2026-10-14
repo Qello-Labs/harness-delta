@@ -61,7 +61,7 @@ const userRow = (sid: string, at: string, extra: Record<string, unknown> = {}) =
 function assistant(sid: string, request: string, tokens: [number, number, number, number], extra: Record<string, unknown> = {}, model = 'claude-opus-5-5') {
   const [input, write, read, output] = tokens;
   return { type: 'assistant', sessionId: sid, version: '2.1.291', timestamp: '2026-10-07T01:00:00.000Z', requestId: request, ...extra,
-    message: { id: 'msg_' + request, model, content: [{ type: 'text', text: privateText }],
+    message: { id: 'msg_' + request, model, stop_reason: 'end_turn', content: [{ type: 'text', text: privateText }],
       usage: { input_tokens: input, cache_creation_input_tokens: write, cache_read_input_tokens: read, output_tokens: output } } };
 }
 const lines = (rows: unknown[]) => rows.map(row => JSON.stringify(row) + '\n').join('');
@@ -671,6 +671,127 @@ describe('Claude bound-session authorization', () => {
     expect(batches.flatMap(batch => ids(batch.records)).sort()).toEqual(['one', 'two']);
     writeChild(sid, 'extra', []); subagent(sid, 'extra', 'SubagentStart');
     await expect(p.discoverChildren(parent)).rejects.toThrow('claude_family_scope_limit');
+  });
+
+  it('waits for correlated terminal child counters even after a quiet nonassistant boundary', async () => {
+    const sid = randomUUID(); const version = '2.1.296'; const agent = 'finality';
+    writeFileSync(rootPath(sid), lines([userRow(sid, '2026-10-07T00:59:00.000Z', { version })]), { mode: 0o600 });
+    connect(sid); const p = provider({ quiescenceMs: 0 }); const parent = await currentIdentity(sid, p);
+    const row = assistant(sid, 'native_pending', [104, 15, 27, 16], { version, agentId: agent, isSidechain: true });
+    const provisional = { ...row, message: { ...row.message, stop_reason: null } };
+    writeChild(sid, agent, [
+      { ...childRow(sid, agent, '2026-10-07T00:59:30.000Z'), version },
+      provisional, userRow(sid, '2026-10-07T01:00:01.000Z', { version, agentId: agent, isSidechain: true }),
+    ]);
+    subagent(sid, agent, 'SubagentStart');
+    const child = (await p.discoverChildren(parent)).children[0]?.identity;
+    expect(child).toBeDefined(); if (!child) throw new Error('synthetic_child_missing');
+    const scope = scopeFor([parent, child]);
+    const pending = await p.readUsage(child, null, scope, { baseline: false });
+    expect(pending.records).toEqual([]);
+    const terminal = { ...row, timestamp: '2026-10-07T01:00:02.000Z',
+      message: { ...row.message, stop_reason: 'tool_use', usage: { ...row.message.usage, output_tokens: 111 } } };
+    appendFileSync(childPath(sid, agent), lines([terminal]));
+    const complete = await p.readUsage(child, pending.cursor, scope);
+    expect(complete.records).toHaveLength(1);
+    expect(complete.records[0]).toMatchObject({ requestId: 'native_pending', occurredAt: row.timestamp,
+      payload: { input_total: { value: 146 }, cached_input: { value: 27 }, output_total: { value: 111 } } });
+    appendFileSync(childPath(sid, agent), lines([provisional, terminal]));
+    const replay = await provider({ quiescenceMs: 0 }).readUsage(child, complete.cursor, scope);
+    expect(replay.records).toEqual([]);
+    appendFileSync(childPath(sid, agent), lines([{ ...terminal,
+      message: { ...terminal.message, usage: { ...terminal.message.usage, output_tokens: 112 } } }]));
+    await expect(p.readUsage(child, replay.cursor, scope)).rejects.toThrow('binding_request_conflict');
+    expect(JSON.stringify(complete)).not.toContain(privateText);
+  });
+
+  it('retains pending terminality across read windows and provider restart', async () => {
+    const sid = randomUUID(); const version = '2.1.296';
+    writeFileSync(rootPath(sid), lines([userRow(sid, '2026-10-07T00:59:00.000Z', { version })]), { mode: 0o600 });
+    connect(sid); const p = provider({ quiescenceMs: 0, maxReadBytes: 4096 });
+    const identity = await currentIdentity(sid, p); const scope = scopeFor([identity]);
+    const baseline = await p.readUsage(identity, null, scope, { baseline: true });
+    const row = assistant(sid, 'window_pending', [1, 0, 0, 16], { version });
+    appendFileSync(rootPath(sid), lines([
+      { ...row, message: { ...row.message, stop_reason: null } },
+      ...Array.from({ length: 24 }, () => userRow(sid, '2026-10-07T01:00:01.000Z', { version })),
+    ]));
+    const pending = await p.readUsage(identity, baseline.cursor, scope);
+    expect(pending.records).toEqual([]);
+    appendFileSync(rootPath(sid), lines([{ ...row, timestamp: '2026-10-07T01:00:02.000Z',
+      message: { ...row.message, usage: { ...row.message.usage, output_tokens: 111 } } }]));
+    const resumed = await provider({ quiescenceMs: 0, maxReadBytes: 4096 }).readUsage(identity, pending.cursor, scope);
+    expect(resumed.records).toHaveLength(1);
+    expect(resumed.records[0]).toMatchObject({ occurredAt: row.timestamp, payload: { output_total: { value: 111 } } });
+    expect(resumed.gaps).toEqual([]);
+  });
+
+  it('permanently excludes a native provisional request observed at baseline', async () => {
+    const sid = randomUUID(); const version = '2.1.296';
+    const row = assistant(sid, 'baseline_pending', [1, 0, 0, 16], { version });
+    writeFileSync(rootPath(sid), lines([
+      userRow(sid, '2026-10-07T00:59:00.000Z', { version }),
+      { ...row, message: { ...row.message, stop_reason: null } },
+    ]), { mode: 0o600 });
+    connect(sid); const p = provider({ quiescenceMs: 0 }); const identity = await currentIdentity(sid, p);
+    const scope = scopeFor([identity]); const baseline = await p.readUsage(identity, null, scope, { baseline: true });
+    appendFileSync(rootPath(sid), lines([
+      { ...row, message: { ...row.message, usage: { ...row.message.usage, output_tokens: 111 } } },
+      assistant(sid, 'fresh_terminal', [2, 0, 0, 7], { version }),
+    ]));
+    expect(ids((await p.readUsage(identity, baseline.cursor, scope)).records)).toEqual(['fresh_terminal']);
+  });
+
+  it.each(['message_id', 'final_counters'])('excludes contradictory native %s evidence before commitment', async conflict => {
+    const sid = randomUUID(); const version = '2.1.296';
+    const row = assistant(sid, 'contradictory', [1, 0, 0, 111], { version });
+    const second = { ...row, message: { ...row.message,
+      id: conflict === 'message_id' ? 'msg_other' : row.message.id,
+      usage: { ...row.message.usage, output_tokens: conflict === 'final_counters' ? 112 : 111 } } };
+    const initial = conflict === 'message_id' ? { ...row, message: { ...row.message, stop_reason: null } } : row;
+    writeFileSync(rootPath(sid), lines([userRow(sid, '2026-10-07T00:59:00.000Z', { version }), initial, second]), { mode: 0o600 });
+    connect(sid); const p = provider({ quiescenceMs: 0 }); const identity = await currentIdentity(sid, p);
+    const batch = await p.readUsage(identity, null, scopeFor([identity]), { baseline: false });
+    expect(batch.records).toEqual([]);
+    expect(batch.gaps).toContain('incomplete_request');
+  });
+
+  it.each([4096, 65536])('rejects contradictory message IDs across %s-byte snapshot windows without dropping a neighbor', async maxReadBytes => {
+    const sid = randomUUID(); const version = '2.1.296';
+    const row = assistant(sid, 'window_conflict', [1, 0, 0, 111], { version });
+    writeFileSync(rootPath(sid), lines([
+      userRow(sid, '2026-10-07T00:59:00.000Z', { version }), row,
+      ...Array.from({ length: 40 }, () => userRow(sid, '2026-10-07T01:00:01.000Z', { version })),
+      { ...row, message: { ...row.message, id: 'msg_other' } },
+      assistant(sid, 'valid_neighbor', [2, 0, 0, 7], { version }),
+    ]), { mode: 0o600 });
+    connect(sid); const p = provider({ quiescenceMs: 0, maxReadBytes }); const identity = await currentIdentity(sid, p);
+    const batch = await p.readUsage(identity, null, scopeFor([identity]), { baseline: false });
+    expect(ids(batch.records)).toEqual(['valid_neighbor']);
+    expect(batch.gaps).toContain('incomplete_request');
+  });
+
+  it('bounds oversized-line probing within the pending native forward scan', async () => {
+    const sid = randomUUID(); const version = '2.1.296';
+    const row = assistant(sid, 'oversized_pending', [1, 0, 0, 16], { version });
+    writeFileSync(rootPath(sid), lines([
+      userRow(sid, '2026-10-07T00:59:00.000Z', { version }),
+      { ...row, message: { ...row.message, stop_reason: null } },
+      { ...userRow(sid, '2026-10-07T01:00:01.000Z', { version }),
+        message: { role: 'user', content: 'S'.repeat(20 * 1024 * 1024) } },
+      { ...row, message: { ...row.message, usage: { ...row.message.usage, output_tokens: 111 } } },
+    ]), { mode: 0o600 });
+    connect(sid); const authorizeSource = vi.fn();
+    const p = provider({ quiescenceMs: 0, maxReadBytes: 1024 * 1024, authorizeSource,
+      readProcessIdentity: () => 'synthetic-process' });
+    const identity = await currentIdentity(sid, p); authorizeSource.mockClear();
+    const batch = await p.readUsage(identity, null, scopeFor([identity]), { baseline: false });
+    expect(batch.records).toEqual([]);
+    expect(batch.gaps).toContain('missing_usage');
+    expect(authorizeSource.mock.calls.length).toBeLessThanOrEqual(260);
+    expect(JSON.parse(Buffer.from(batch.cursor, 'base64url').toString())).toMatchObject({ offset: Buffer.byteLength(lines([
+      userRow(sid, '2026-10-07T00:59:00.000Z', { version }),
+    ])) });
   });
 
   it('keeps packaged hook root and Unicode agent-type projection synchronized', () => {
