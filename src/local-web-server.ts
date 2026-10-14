@@ -1,5 +1,6 @@
 import type { SharedSetupImportResult } from './local-web-shared.js';
-import type { SetupReviewResult } from './local-web-setup-review.js';
+import { isLocalWebTaskErrorCode } from './local-web-task-errors.js';
+import type { SetupReviewResult, SetupSaveResult } from './local-web-setup-review.js';
 import {ApplicationSelectionSchema,ApplicationCheckpointSchema,ApplicationReportSchema,ApplicationIdentitySchema} from './harness-application-contract.js';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { readFileSync, realpathSync } from 'node:fs';
@@ -26,7 +27,7 @@ export interface LocalWebDomain {
   importSetup?(): Promise<LocalWebSetupImportResult | SharedSetupImportResult>;
   bindSetup?(input:{token:string;project_id:string;template_id:string}):Promise<unknown>;
   reviewSetup?(input:unknown):Promise<SetupReviewResult>;
-  saveReviewedSetup?(token:string):Promise<SharedSetupImportResult>;
+  saveReviewedSetup?(token:string):Promise<SetupSaveResult>;
   applicationWorkspace?(taskId:string,directory:string):unknown;
   applicationContext?(taskId:string,attemptId:string):unknown;
   applicationLaunchContext?(taskId:string,origin:string):unknown;
@@ -54,6 +55,7 @@ const actionSchemas = {
   'application-execute':z.strictObject({proposalDigest:z.string().regex(/^[a-f0-9]{64}$/)}),
   'application-permission-decide':z.strictObject({requestToken:z.uuid(),decision:z.enum(['approve_once','reject_and_stop'])}),
   'application-recover':empty,'application-cancel':empty,'application-publish':z.strictObject({approvalDigest:z.string().regex(/^[a-f0-9]{64}$/)}),
+  'application-mode': z.strictObject({ mode: z.literal('agent_applied') }),
   prepare: empty, apply: empty, ticket: empty, connect: z.strictObject({ source_handle: id }),
   'session-connect': z.strictObject({ product: z.enum(['codex','claude_code']), receipt: z.uuid() }),
   observe: empty, pause: empty, 'stop-observation': empty, 'revoke-collection': empty, 'resume-binding': empty, 'emergency-stop': empty, rework: empty, recover: empty,
@@ -89,7 +91,7 @@ const safeCodes = new Set(['application_cleanup_pending','application_managed_re
   'claude_scope_mismatch', 'claude_source_missing', 'claude_source_stale', 'claude_source_untrusted',
   'claude_source_version_unobserved', 'claude_source_version_unsupported']);
 export function localWebError(error: unknown): string {
-  return error instanceof Error && (safeCodes.has(error.message) || ['configuration_conflict', 'protocol_conflict', 'price_table_conflict', 'unknown_protocol', 'unknown_variant', 'unknown_price_table', 'incomplete_protocol', 'registration_too_late', 'ineligible_variant', 'configuration_mismatch', 'invalid_strata', 'overlapping_strata', 'synthetic_only'].includes(error.message)) ? error.message : 'local_operation_failed';
+  return error instanceof Error && (isLocalWebTaskErrorCode(error.message) || safeCodes.has(error.message) || ['configuration_conflict', 'protocol_conflict', 'price_table_conflict', 'unknown_protocol', 'unknown_variant', 'unknown_price_table', 'incomplete_protocol', 'registration_too_late', 'ineligible_variant', 'configuration_mismatch', 'invalid_strata', 'overlapping_strata', 'synthetic_only'].includes(error.message)) ? error.message : 'local_operation_failed';
 }
 function sameSecret(input: string | undefined, expected: string): boolean {
   if (!input) return false;

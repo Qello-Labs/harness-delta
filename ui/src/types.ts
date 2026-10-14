@@ -1,4 +1,6 @@
 import type { AgentDisplayMetadata } from './session-labels.js';
+import type { RecruitmentWindow } from '../../src/local-web-recruitment.js';
+import type { ApplicationMode } from './application-mode.js';
 import type { localWebSupport } from '../../src/local-web-domain.js';
 export type SupportDetails = ReturnType<typeof localWebSupport>;
 export type Locale = 'ko' | 'en';
@@ -9,13 +11,15 @@ export interface OrdinarySetup {
  changes?: { path: string; action: string; beforeHash: string | null; afterHash: string | null }[];
 }
 export interface Project { id: string; name: string; directory: string; baseline: string | null; setup_ids: string[]; ordinary?: { configured: boolean; product_version: string; installation_state: OrdinarySetup['installation']['state']; qualified: boolean } }
-export interface Setup { id: string; name: string; project_id: string; arm_a: string; arm_b: string; types: string[]; sizes: string[]; support: string; support_details?: SupportDetails; shared?: {revision_id:string;template_id:string;template_name:string;runtime:{model:string|null;effort:string|null}} }
+export interface Setup { id: string; name: string; project_id: string; arm_a: string; arm_b: string; types: string[]; sizes: string[]; support: string; support_details?: SupportDetails; recruitment?: RecruitmentWindow; application_mode?: ApplicationMode; shared?: {revision_id:string;template_id:string;template_name:string;runtime:{model:string|null;effort:string|null}} }
 export interface TaskAction { code: string; enabled: boolean; reason: string | null }
 export interface BindingReading {status: 'observed'|'partial'|'missing';value:number|null;statuses:string[];reasons:string[]}
 export interface CostAmounts { partial_amount:string|null;currency:string|null;compatibility_unverified_partial_amount?:string|null;legacy_unverified_partial_amount?:string|null;compatibility?:{invalidated_events:number}|null }
 export interface BindingSummary extends CostAmounts {requests:number|null;input_total:BindingReading;output_total:BindingReading;unpriced_events:number;price_table_id:string|null;complete_cost:null}
 export interface Task {
  mode?: 'ordinary' | 'comparison';
+ recruitment?: RecruitmentWindow;
+ harness?: { arm: 'A' | 'B' | null; variant_id: string | null; version: string | null; application_mode: ApplicationMode };
  connection_readiness?: {
   skill: { state: 'installed' | 'missing' | 'conflict' | 'unavailable'; reason: string | null; install_command: string | null };
   configured_version: string; installed_version: string | null; collection_revoked: boolean;

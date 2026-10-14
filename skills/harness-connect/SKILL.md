@@ -108,5 +108,5 @@ are in the repository's paired runbook.
 For agent-applied tasks, use a separate fresh working session after verified files.
 The server rejects registered application roots and evidenced parent relations
 before source access. File application does not establish native loading/source
-qualification. Missing application identity, drift, abandonment and stale epochs
-remain blockers. Never connect the applying session or bypass those blockers.
+qualification. Missing application identity after a same-agent application, drift,
+abandonment and stale epochs remain blockers. Never connect the applying session or bypass those blockers.

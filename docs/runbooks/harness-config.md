@@ -4,7 +4,7 @@
 
 ## 1. Prepare selected files
 
-Use Node 24 and a built Harness Delta checkout:
+Use Node 24 or 26 and a built Harness Delta checkout:
 
 ```sh
 npm ci
@@ -42,6 +42,20 @@ before publishing them. Private local bindings belong in ignored
 multiple reviewed local settings without replacing historical task pins.
 
 ## 2. Register baseline and modified versions
+
+A is the currently applied project configuration; B is a prepared improvement.
+Prepare the candidate instruction/application procedure and any supporting
+scripts before registration. Preserve common project rules in both configurations.
+The agent inspects these files, proposes the selected baseline/candidate files
+and identifiers, and asks for confirmation before registration. A candidate file
+existing in the checkout does not establish that it is already applied.
+
+After human adoption and actual application, that configuration can become A in
+the next comparison against a new candidate. A/B are comparison roles, not version
+names. Reuse a baseline bundle only when its selected artifacts match the confirmed
+current configuration; otherwise register a new version. Keep old versions,
+comparisons and task assignments unchanged. Registration and comparison creation
+do not apply or adopt a winner; partial estimates do not establish superiority.
 
 Create a selected input file outside the generated version directory:
 
@@ -216,7 +230,7 @@ adapts project rules and scripts. Register both versions normally, then generate
    unverified. See [the bounded pilot](harness-connect.md#codex-01620-ordinary-root-local-pilot).
 
 Application helper operations are `context`, `checkpoint`, `identity`, `report`
-and `status`. Use the installed skill path and Node 24. Checkpoints retain actual
+and `status`. Use the installed skill path and Node 24 or 26. Checkpoints retain actual
 dirty bytes and absent states; a missing baseline is rejected, never replaced with
 Git HEAD. Reports contain hashes and bounded check IDs/outcomes, not source bytes,
 secrets or command output. Hidden paths, symlinks/hardlinks, private DB paths and

@@ -83,6 +83,12 @@ export function prepareExternalWorkflow(store: Store, input: unknown, runtime: u
     store.execute('INSERT OR IGNORE INTO external_surface_leases(surface_key,task_id) VALUES (?,?)', [key, taskId]);
   });
   try {
+    // A task converted to agent application keeps that authority when re-prepared from its original setup.
+    if(!config.application&&applicationRequired(store,taskId)){
+      if(apply)throw new Error('application_required');
+      store.execute("UPDATE external_preparations SET state='preparation_needed',reason_code=NULL WHERE task_id=?",[taskId]);
+      return externalWorkflowState(store,taskId);
+    }
     if(config.application){
       if(apply)throw new Error('application_required');
       const selected=config.application.bundles.find(b=>b.variant_id===prepared.receipt.assigned_variant_id);

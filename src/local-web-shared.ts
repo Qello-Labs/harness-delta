@@ -22,8 +22,10 @@ export function writePrivateFile(root:string,path:string,bytes:Buffer):boolean {
   const directory=ensureRepositoryDirectory(root,dirname(path));const target=join(realpathSync(root),path);
   if(existsSync(target)){if(!readRepositoryFile(root,path).equals(bytes))fail('shared_binding_changed');return false;}
   const temp=join(directory,`.stage-${randomUUID()}`);const fd=openSync(temp,constants.O_WRONLY|constants.O_CREAT|constants.O_EXCL|constants.O_NOFOLLOW,0o600);
-  try{writeFileSync(fd,bytes);fsyncSync(fd);}finally{closeSync(fd);}
-  try{linkSync(temp,target);}catch(error){if(!(error instanceof Error)||!('code' in error)||error.code!=='EEXIST'||!readRepositoryFile(root,path).equals(bytes))throw error;return false;}finally{unlinkSync(temp);}
+  try{
+    try{writeFileSync(fd,bytes);fsyncSync(fd);}finally{closeSync(fd);}
+    try{linkSync(temp,target);}catch(error){if(!(error instanceof Error)||!('code' in error)||error.code!=='EEXIST'||!readRepositoryFile(root,path).equals(bytes))throw error;return false;}
+  }finally{unlinkSync(temp);}
   return true;
 }
 export function readSharedLocalSetup(root:string,path:string,verifySnapshots=true):LocalWebProfile {
@@ -78,7 +80,7 @@ export function createSharedSetupManager(store:Store,privateDb:Database.Database
       })}];}catch{return [];}});
       if(!possible.length)fail('shared_project_required');for(const [key,value] of tokens)if(value.expires<Date.now())tokens.delete(key);if(tokens.size>=64)fail('shared_import_limit');const token=randomUUID();tokens.set(token,{path,expires:Date.now()+300000,projects:Object.fromEntries(possible.map(project=>[project.project_id,{settingsHash:project.pair.settings_hash,templates:Object.fromEntries(project.templates.map(template=>[template.id,hashBytes(JSON.stringify(profiles().find(profile=>profile.id===template.id)))]))}]))});return {shared:true,token,projects:possible};
     },
-    bind(input:{token:string;project_id:string;template_id:string}){
+    bind(input:{token:string;project_id:string;template_id:string},onFileCreated?:(remove:()=>void)=>void){
       const selected=tokens.get(input.token);if(!selected||selected.expires<Date.now())fail('shared_import_expired');const {project,template,protocol,pair}=eligible(input.project_id,input.template_id,selected.path);
       const preview=selected.projects[input.project_id];if(!preview||preview.settingsHash!==pair.descriptor.settings_hash||preview.templates[input.template_id]!==hashBytes(JSON.stringify(template)))fail('shared_preview_changed');
       const descriptorPath=comparisonRelativePath(project.local_root,selected.path);
@@ -88,8 +90,12 @@ export function createSharedSetupManager(store:Store,privateDb:Database.Database
       const revision=hashBytes(privateJson(base));const localPath=`.harness-delta/setup/${pair.descriptor.id}-${revision}.json`;
       const profile=LocalWebProfileSchema.parse({...base,id:`shared-${revision}`,shared_binding:{...bindingFields,local_setup_path:localPath,revision_hash:revision}});
       const bytes=Buffer.from(JSON.stringify({kind:'harness-delta.local-setup',schema_version:1,profile})+'\n');
-      const already=profiles().some(row=>row.id===profile.id);writePrivateFile(project.local_root,localPath,bytes);
-      privateDb.transaction(()=>{for(const [i,variantId] of protocol.variant_ids.entries())privateDb.prepare('INSERT OR IGNORE INTO web_shared_versions(project_id,variant_id,bundle_hash) VALUES(?,?,?)').run(project.id,variantId,pair.bundles[i]!.bundle_hash);saveProfiles([profile]);})();tokens.delete(input.token);
+      const already=profiles().some(row=>row.id===profile.id);const created=writePrivateFile(project.local_root,localPath,bytes);
+      const removeCreatedFile=()=>{if(created&&existsSync(join(project.local_root,localPath))){if(!readRepositoryFile(project.local_root,localPath).equals(bytes))fail('shared_binding_changed');unlinkSync(join(project.local_root,localPath));}};
+      if(created)onFileCreated?.(removeCreatedFile);
+      try{privateDb.transaction(()=>{for(const [i,variantId] of protocol.variant_ids.entries())privateDb.prepare('INSERT OR IGNORE INTO web_shared_versions(project_id,variant_id,bundle_hash) VALUES(?,?,?)').run(project.id,variantId,pair.bundles[i]!.bundle_hash);saveProfiles([profile]);})();}
+      catch(error){removeCreatedFile();throw error;}
+      tokens.delete(input.token);
       return {imported:true,already_connected:already,profile_id:profile.id,local_setup_path:localPath};
     },
     assertProfile(profile:LocalWebProfile){if(!profile.shared_binding)return;const loaded=readSharedLocalSetup(profile.shared_binding.project_root,profile.shared_binding.local_setup_path);if(JSON.stringify(loaded)!==JSON.stringify(profile))fail('shared_binding_changed');},
