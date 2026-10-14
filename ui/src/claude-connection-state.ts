@@ -3,13 +3,14 @@ import type { Task } from './types.js';
 export type ClaudeConnectionStage = 'install' | 'conflict' | 'unknown' | 'blocked' | 'ready' | 'starting' | 'measuring' | 'paused' | 'revoked' | 'ended';
 
 export function claudeConnectionStage(task: Task): ClaudeConnectionStage | null {
-  if (!task.connection_readiness || task.support_details?.context !== 'real'
-    || task.support_details.connection_route !== 'family' || task.binding?.product !== 'claude_code') return null;
+  if (!task.connection_readiness || task.binding?.product !== 'claude_code') return null;
+  if (task.mode !== 'ordinary' && (task.support_details?.context !== 'real'
+    || task.support_details.connection_route !== 'family')) return null;
   if (task.outcome || task.measurement.state === 'measurement_ended') return 'ended';
   if (task.connection_readiness.collection_revoked) return 'revoked';
   if (task.measurement.state === 'active') return 'measuring';
   if (task.measurement.state === 'starting') return 'starting';
-  if (task.measurement.state === 'paused') return 'paused';
+  if (task.measurement.state === 'paused' && (task.mode !== 'ordinary' || task.binding.selected_root_id)) return 'paused';
   switch (task.connection_readiness.skill.state) {
     case 'missing': return 'install';
     case 'conflict': return 'conflict';

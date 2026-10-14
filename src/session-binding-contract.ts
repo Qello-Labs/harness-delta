@@ -7,6 +7,17 @@ export const BindingProductSchema = z.enum(['codex', 'claude_code']);
 export type BindingProduct = z.infer<typeof BindingProductSchema>;
 export const CurrentIdentityRequestSchema = z.strictObject({ receipt: z.uuid() });
 export type CurrentIdentityRequest = z.infer<typeof CurrentIdentityRequestSchema>;
+export interface NativeConnectionProof {
+  readonly receipt: string;
+  readonly recordedAt: string;
+  readonly nativeSessionId: string;
+  readonly agentId: string | null;
+  readonly sourceRef: string;
+  readonly sourceIdentity: string;
+  readonly cwd: string;
+  readonly processId: string;
+  readonly productVersion: string;
+}
 export const VerifiedSessionIdentitySchema = z.strictObject({
   product: BindingProductSchema, productVersion: ProductVersionSchema, sessionId: IdSchema,
   sourceRef: z.string().min(1).max(4096), sourceIdentity: IdSchema,
@@ -45,12 +56,24 @@ export const BindingUsageRecordSchema = z.strictObject({
 });
 export type BindingUsageRecord = z.infer<typeof BindingUsageRecordSchema>;
 export interface UsageBatch { records: BindingUsageRecord[]; excludedRecords?: BindingUsageRecord[]; cursor: string; gaps: string[] }
-export interface BindingReadBoundary { baseline: boolean }
+/** Exclusions scoped by the caller to one task, binding and source identity.
+ * Supply the same durable ledger on every read; it grants no source authority. */
+export interface BindingBaselineLedger {
+  readonly has: (requestId: string) => boolean;
+  readonly add: (requestId: string) => void;
+  readonly addMany?: (requestIds: readonly string[]) => void;
+}
+export interface BindingReadBoundary {
+  baseline: boolean;
+  readonly baselineLedger?: BindingBaselineLedger;
+}
 /** All source access is downstream of coordinator authorization. Implementations
  * consume native metadata receipts; user/model supplied identity is never proof. */
 export interface SessionBindingProvider {
   product: BindingProduct;
   capabilities(): BindingCapabilities;
+  /** Receipt, process and source-file metadata only; never opens a transcript body. */
+  inspectCurrent?(input: CurrentIdentityRequest): Promise<NativeConnectionProof>;
   /** Root application identity from metadata only; no transcript content access. */
   resolveApplicationIdentity?(input: CurrentIdentityRequest): Promise<VerifiedSessionIdentity>;
   resolveCurrent(input: CurrentIdentityRequest): Promise<VerifiedSessionIdentity>;

@@ -226,3 +226,12 @@ and fresh Claude root without replacing the old stored identity. Explicit-stop
 collection never imposes a native deadline or process termination. Baselines
 exclude unobserved usage after pause/restart. Synthetic evidence is not actual
 native qualification; see the paired [pilot procedure](../runbooks/harness-connect.md#claude-human-operated-ui-pilot).
+
+## Ordinary Claude observation
+
+A later, separate path observes ordinary Claude work that has no A/B assignment.
+It doesn't change anything above: the comparison binding, the Codex profile, the
+human pilot and the 1,024-ID Claude baseline cap all keep their behavior and
+trust. That path has its own code-owned admission, which is currently closed,
+and its own durable baseline store. Its native qualification is pending. See
+[ADR 016](016-ordinary-observation.md).

@@ -1,4 +1,4 @@
-import type { Snapshot, Task } from './types';
+import type { Snapshot, Task } from './types.js';
 let csrf = '';
 export class LocalApiError extends Error { constructor(readonly code: string) { super(code); } }
 async function response<T>(reply: Response): Promise<T> {

@@ -1,6 +1,12 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { expect, test } from 'vitest';
+import { join } from 'node:path';
+import { z } from 'zod';
+import { createLocalWebDomain } from '../src/local-web-domain.js';
+import { createLocalWebServer } from '../src/local-web-server.js';
+import { installClaudeConnectInstallation } from '../src/claude-connect-installation.js';
+import { ordinaryBindingFixture } from './helpers/ordinary-session-binding-fixture.js';
 import { ClaudeConnection } from '../ui/src/ClaudeConnection.js';
 import { claudeConnectionStage, claudeConnectPrompt } from '../ui/src/claude-connection-state.js';
 import { MeasurementControls } from '../ui/src/MeasurementControls.js';
@@ -103,4 +109,110 @@ test('unprepared, synthetic and other-product tasks retain their existing routes
     expect(claudeConnectionStage(value)).toBeNull();
     expect(render(value)).toBe('');
   }
+});
+
+function ordinaryTask(): Task {
+  const value = task();
+  value.mode = 'ordinary';
+  delete value.support_details;
+  if (value.binding) {
+    value.binding.product_version = '2.1.296';
+    value.binding.max_family_members = 8;
+    value.binding.support = 'ordinary_qualification_pending';
+    value.binding.selected_root_id = null;
+  }
+  value.actions = [{ code: 'session-connect', enabled: false, reason: 'binding_source_unqualified' }];
+  return value;
+}
+
+test('ordinary Claude uses guided readiness without requiring comparison support or assignment', () => {
+  const value = ordinaryTask();
+  delete value.preparation.assigned_variant_id;
+  expect(claudeConnectionStage(value)).toBe('blocked');
+  expect(render(value)).toContain('data-connection-stage="blocked"');
+  expect(render(value)).toContain('data-connection-blocker="binding_source_unqualified"');
+  expect(render(value)).not.toContain('data-connection-action="copy"');
+});
+
+test('stopped ordinary history is not a live connection or a resumable selected root', () => {
+  const value = ordinaryTask();
+  value.measurement.state = 'paused';
+  if (value.binding) value.binding.roots = 2;
+  expect(claudeConnectionStage(value)).toBe('blocked');
+  value.actions = [{ code: 'session-connect', enabled: true, reason: null }];
+  expect(claudeConnectionStage(value)).toBe('ready');
+  expect(render(value)).toContain('data-connection-action="copy"');
+  expect(render(value)).not.toContain('data-connection-action="resume-binding"');
+});
+
+test('domain stop releases selected ownership while historical roots remain reportable in the guided card', async () => {
+  const f = ordinaryBindingFixture();
+  const domain = createLocalWebDomain({
+    store: f.store, metadataFile: join(f.current().cwd, 'web.sqlite'), bindingProviders: [f.provider],
+  });
+  const origin = 'http://127.0.0.1:4327';
+  const app = createLocalWebServer({
+    origin, domain, metadataFile: join(f.current().cwd, 'transport.sqlite'),
+  });
+  try {
+    expect(installClaudeConnectInstallation(f.current().cwd).state).toBe('installed');
+    const { id } = z.object({ id: z.string() }).parse(await domain.createTask({
+      mode: 'ordinary', name: 'Synthetic ownership', project_id: 'project', criterion_ids: ['accepted'],
+    }));
+    const registered = f.life.task(id);
+    f.setTime(registered.registered_at);
+    f.use(f.binding, id);
+    await f.binding.connect(id, 'claude_code', f.receipt());
+    const readTask = async () => {
+      const reply = await app.inject({ url: `/api/tasks/${id}`, headers: { host: '127.0.0.1:4327' } });
+      expect(reply.statusCode).toBe(200);
+      return reply.json<Task>();
+    };
+    for (const state of ['active', 'paused'] as const) {
+      if (state === 'paused') f.binding.pause(id);
+      const selected = await readTask();
+      expect(selected.measurement.state).toBe(state);
+      expect(selected.binding?.selected_root_id).toBeTruthy();
+      expect(selected.actions).toContainEqual({ code: 'stop-observation', enabled: true, reason: null });
+      expect(render(selected)).toContain('data-connection-action="stop-observation"');
+    }
+    await domain.taskAction(id, 'stop-observation', {});
+    const stopped = await readTask();
+    expect(stopped.binding).toMatchObject({ roots: 1, selected_root_id: null, segment_state: null });
+    expect(stopped.actions).toContainEqual({
+      code: 'stop-observation', enabled: false, reason: 'inactive_observation',
+    });
+    expect(stopped.actions.find(action => action.code === 'resume-binding')?.enabled).toBe(false);
+    expect(render(stopped)).not.toContain('data-connection-action="stop-observation"');
+    expect(render(stopped)).not.toContain('data-connection-action="resume-binding"');
+    expect(stopped.outcome).toBeNull();
+  } finally {
+    await app.close();
+    await f.cleanup();
+  }
+});
+
+test('ordinary pause and stop keep distinct server actions in the guided card', () => {
+  const value = ordinaryTask();
+  value.measurement.state = 'active';
+  if (value.binding) value.binding.selected_root_id = 'synthetic-root';
+  value.actions = [{ code: 'pause', enabled: true, reason: null }, { code: 'stop-observation', enabled: true, reason: null }];
+  const markup = render(value);
+  expect(markup).toContain('data-connection-action="pause"');
+  expect(markup).toContain('data-connection-action="stop-observation"');
+  expect(markup).not.toContain('data-connection-action="observe"');
+  expect(renderToStaticMarkup(createElement(MeasurementControls, { task: value, locale: 'en', busy: false, online: true, onAction: () => {}, reason: code => code }))).toBe('');
+});
+
+test('ordinary installer content replaces the legacy shell-copy route when missing', () => {
+  const value = ordinaryTask();
+  if (value.connection_readiness) value.connection_readiness.skill = { state: 'missing', reason: 'project_skill_missing', install_command: null };
+  const markup = renderToStaticMarkup(createElement(ClaudeConnection, {
+    task: value, projectName: 'Synthetic project', origin: 'http://127.0.0.1:4318',
+    locale: 'en', busy: false, online: true, onAction: () => {}, reason: code => code,
+    installation: createElement('div', { 'data-reviewed-installation': true }),
+  }));
+  expect(claudeConnectionStage(value)).toBe('install');
+  expect(markup).toContain('data-reviewed-installation="true"');
+  expect(markup).not.toContain('data-connection-action="copy"');
 });

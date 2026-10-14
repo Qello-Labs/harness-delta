@@ -37,7 +37,7 @@ test.each(['2.1.293', '2.1.294', '2.1.296'])('Claude %s human UI pilot connects 
     writeFileSync(receiptPath, JSON.stringify(proof), { mode: 0o600 });
     await domain.taskAction(id, 'session-connect', { product: 'claude_code', receipt });
     const usage = (path = source, agent?: string) => {
-      appendFileSync(path, JSON.stringify({ type: 'assistant', sessionId: sid, version: productVersion, timestamp: now(), requestId: randomUUID(), ...(agent ? { agentId: agent, isSidechain: true } : {}), message: { model: 'claude-sonnet-5-5', usage: { input_tokens: 10, cache_read_input_tokens: 3, cache_creation_input_tokens: 2, output_tokens: 4 } } }) + '\n');
+      appendFileSync(path, JSON.stringify({ type: 'assistant', sessionId: sid, version: productVersion, timestamp: now(), requestId: randomUUID(), ...(agent ? { agentId: agent, isSidechain: true } : {}), message: { id: `msg_${randomUUID()}`, model: 'claude-sonnet-5-5', stop_reason: 'end_turn', usage: { input_tokens: 10, cache_read_input_tokens: 3, cache_creation_input_tokens: 2, output_tokens: 4 } } }) + '\n');
       appendFileSync(path, JSON.stringify({ type: 'user', sessionId: sid, version: productVersion, timestamp: now(), ...(agent ? { agentId: agent, isSidechain: true } : {}) }) + '\n');
     };
     const children = ['one', 'two'].map(agent => {

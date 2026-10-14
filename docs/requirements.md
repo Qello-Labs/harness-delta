@@ -187,6 +187,14 @@ A frozen purpose is immutable; a later effectiveness study needs its own accepte
 protocol and validated analysis. Functional protocols are not admitted to the
 current synthetic-only exchange lane.
 
+Ordinary descriptive observation is separate from both comparison modes. It
+prepares a task from a registered project's defaults and explicit criterion IDs
+before work starts, with no protocol, allocation or arm. Such a task holds no
+assignment and yields no arm means, savings or adoption decision. R01 scope, R02
+capability evidence, R03 human outcomes, R05 partial usage and the delivery
+gates apply unchanged. Preparing an ordinary task doesn't establish source
+support. See [ADR 016](decisions/016-ordinary-observation.md).
+
 The initial allocation proposal is balanced 1:1 blocks with fixed size/strata and
 one authoritative allocator per stratum. Persist before revealing the assignment;
 keep future allocations hidden. Detect conflicting allocators and reassignment

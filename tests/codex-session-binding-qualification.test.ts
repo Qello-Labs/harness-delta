@@ -26,7 +26,7 @@ import { prepareBindingQualificationFixture } from './helpers/codex-binding-qual
 const digest=(s:Buffer|string)=>createHash('sha256').update(s).digest('hex');
 function fixture(mode='normal'){
  const root=realpathSync(mkdtempSync(join(tmpdir(),'ordinary-binding-qualification-')));const home=join(root,'home');mkdirSync(home);mkdirSync(join(home,'sessions'));
- const deterministic=mode.startsWith('six-requests');
+ const deterministic=mode.startsWith('six-requests')||mode.startsWith('late-');
 
  const uiAction=`const b=await(await fetch(origin+'/api/bootstrap')).json();const action=async code=>{const current=await(await fetch(origin+'/api/tasks/'+i.task_id)).json();const response=await fetch(origin+'/api/tasks/'+i.task_id+'/'+code,{method:'POST',headers:{origin,'content-type':'application/json','x-harness-csrf':b.csrf,'idempotency-key':randomUUID(),'if-match':current.version},body:'{}'});if(!response.ok)throw Error(code+response.status);return await response.json();};`;
  const followUp:Record<string,string>={
@@ -57,13 +57,14 @@ function fixture(mode='normal'){
  const usage=(id,turn,model='gpt-6.1-sol',input=${mode==='six-requests-tokens'||mode.startsWith('six-requests-late-tokens')?20000:10})=>row('turn_context',{cwd:i.project,turn_id:turn,root_turn_id:id===root?turn:'root-turn',model,effort:'high'})+row('token_usage_record',{thread_id:id,session_id:root,turn_id:turn,root_turn_id:id===root?turn:'root-turn',response_id:randomUUID(),usage:{input_tokens:input,cached_input_tokens:2,output_tokens:3,reasoning_output_tokens:1,total_tokens:input+3}});
  ${mode==='baseline'||mode==='root-stop'?"appendFileSync(file(root),usage(root,'baseline-turn'));":''}
  ${mode.startsWith('six-requests-staged')?"for(let n=0;n<2;n++)appendFileSync(file(root),usage(root,'connection-turn'));":''}
- const receipt=record(root,null);const helper=join(i.project,'.agents/skills/harness-connect/scripts/connect.mjs');execFileSync(i.node,${deterministic?"[i.connector,'--receipt',receipt]":"[helper,'connect','--origin',origin,'--product','codex','--project',i.project_id,'--task',i.task_id,'--receipt',receipt]"},{stdio:'ignore'});
+ const receipt=record(root,null);const helper=join(i.project,'.agents/skills/harness-connect/scripts/connect.mjs');execFileSync(i.node,${mode.startsWith('six-requests')?"[i.connector,'--receipt',receipt]":"[helper,'connect','--origin',origin,'--product','codex','--project',i.project_id,'--task',i.task_id,'--receipt',receipt]"},{stdio:'ignore'});
  ${mode.startsWith('six-requests-staged')?"appendFileSync(file(root),usage(root,'connection-turn').split('\\n')[1]+'\\n');":''}
  ${deterministic?`
  const completion=(async()=>{for await(const event of watch(i.directory,{signal:AbortSignal.timeout(4000)})){if(event.filename==='collector-complete')return;}throw Error('synthetic_completion_missing');})();
  for(const child of children){writeFileSync(file(child),meta(child,root));record(child,root);}
- for(let n=0;n<4;n++)appendFileSync(file(root),usage(root,'root-'+n));
+ for(let n=0;n<${mode.startsWith('late-')?1:4};n++)appendFileSync(file(root),usage(root,'root-'+n));
  for(const child of children)appendFileSync(file(child),usage(child,'child-turn'));
+ ${mode.startsWith('late-')?followUp[mode]:''}
     ${mode==='six-requests-ordinary-child-overflow'?"appendFileSync(file(children[0]),usage(children[0],'extra-child'));":''}
  ${mode==='six-requests-late-one'||mode==='six-requests-late-over-limit'?`writeFileSync(join(i.directory,'late-record.json'),JSON.stringify({file:file(root),bytes:${mode==='six-requests-late-over-limit'?"Array.from({length:5},(_,n)=>usage(root,'late-root-'+n)).join('')":"usage(root,'late-root-5')"}}));`:''}
  ${mode.startsWith('six-requests-late-tokens')?`writeFileSync(join(i.directory,'late-record.json'),JSON.stringify({file:file(root),bytes:usage(root,'late-root-5','gpt-6.1-sol',${mode==='six-requests-late-tokens-at-limit'?79979:79980})}));`:''}
@@ -87,7 +88,7 @@ function fixture(mode='normal'){
    const task=domain.task.bind(domain);
    domain.task=id=>{
     const snapshot=task(id);const binding=snapshot.binding;
-    if(!completionObserved&&binding&&typeof binding==='object'&&'roots' in binding&&binding.roots===1&&'children' in binding&&binding.children===2&&'requests' in binding&&binding.requests===6){
+    if(!completionObserved&&binding&&typeof binding==='object'&&'roots' in binding&&binding.roots===1&&'children' in binding&&binding.children===2&&'requests' in binding&&binding.requests===(mode.startsWith('late-')?3:6)){
      completionObserved=true;
      if(mode==='six-requests-staged-window-expiry'){
       const contract=z.object({ends_at:z.string()}).parse(options.store.get('SELECT ends_at FROM external_task_contracts WHERE task_id=?',[id]));
@@ -447,7 +448,7 @@ for(const [mode,reason] of [['late-request','binding_qualification_final_unobser
  const f=fixture(mode);try{
   const p=await prepareCodexSessionBindingQualification(f.dir,{binary:realpathSync(process.execPath),codexHome:f.home},f.dependency);
   const result=await executeCodexSessionBindingQualification(p.intentPath,consent(p.sha256),f.dependency);
-  expect(f.finalInjectionObserved()).toBe(true);
+  expect(f.finalInjectionObserved(),JSON.stringify(result)).toBe(true);
   expect(result,JSON.stringify(result)).toMatchObject({status:'failed',reason,phase:'source_check',native:{terminationVerified:true}});
  }finally{f.cleanup();}
 },10000);

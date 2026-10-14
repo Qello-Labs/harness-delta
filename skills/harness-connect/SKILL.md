@@ -35,7 +35,9 @@ ordinary production sources still require qualification. Preserve server blocker
 2. Select an explicit registered project ID and logical task ID from that result.
    Ask which task if the user did not specify it. A shared cwd, filename, or the
    agent's own statement does not select a task or prove linkage. Preserve the
-   task's existing A/B assignment.
+   task's existing A/B assignment when it is a comparison task. An ordinary
+   observation task has no assignment: preserve its prepared configuration,
+   completion criteria and price pin without creating a comparison protocol.
 3. For Claude's project-local installation, this explicitly invoked skill registers
    session hooks. They record only allowlisted metadata for the connect Bash call
    and future subagent start/stop events, with no tool-permission allowlist. The
@@ -83,7 +85,7 @@ ordinary production sources still require qualification. Preserve server blocker
    silently restart it or claim past harness application. Existing CLI alternatives
    need explicitly reviewed inputs; see [support.md](references/support.md).
 6. Report status (`connected`, `already_connected`, or the fixed blocker code),
-   project/task/session IDs, selected arm, evidence, identity basis and whether
+   project/task/session IDs, selected arm only when present, evidence, identity basis and whether
    collection is active. The UI uses the same server state and will see this
    connection on refresh. Ask the user to use its observation control when needed.
    Connection is separate from collection, tool compliance and complete cost.

@@ -14,6 +14,8 @@ sources remain qualification-blocked. Claude candidate integration includes sess
 skill hooks, same-command receipt lookup and flattened root-family membership.
 A configured provider or installed skill alone does not enable that production path.
 See [design and qualification](../decisions/012-session-family-bindings.md).
+Ordinary Claude observation, for a task with no A/B assignment, is implemented
+and [qualification-pending](#ordinary-claude-observation-qualification-pending).
 
 The UI first prepares the registered logical task and A/B assignment. With approved
 native instrumentation, a normally opened parent supplies a trusted receipt; the
@@ -55,6 +57,112 @@ Only eligible observed requests and priced components contribute partial cost.
 Complete task cost remains unavailable: response records and normal exit do not
 establish every attempted request or durable terminal usage. A price match under
 the reference policy is not actual billing evidence.
+
+## Ordinary Claude observation (qualification pending)
+
+This flow is implemented, and its native admission is closed. The code-owned
+profile `claude-binding-02196-family-v1` names Claude Code 2.1.296 with
+`qualified: false`. Until that changes, connecting an ordinary task returns
+`binding_source_unqualified` and reads no native source. Project setup, package
+installation and task creation work today. They don't start collection.
+Evidence includes synthetic unit, fake-provider, HTTP and UI tests, bounded
+target-binary localhost conformance, and narrowly scoped interactive connection
+observations under a development-only qualification factory. One connection-only
+trial matched a measured row to independent API counters and exercised two
+approve-once Bash permissions. This does not admit the production source or
+qualify the full family, pause/resume or task-handover profile. See
+[ADR 016](../decisions/016-ordinary-observation.md).
+
+Use the normal [local browser UI](local-browser-ui.md#start-the-local-service).
+No pilot flag, qualification lease or browser input opens this path.
+
+1. **Configure the project.** In Local setup, open the registered project's
+   Ordinary Claude observation card and choose Configure Claude 2.1.296. This
+   saves the exact version, the receipt directory
+   `.harness-delta/claude-connect/receipts` inside the project and the Claude
+   projects directory. Another version returns `claude_source_version_unsupported`.
+2. **Preview, then install.** Choose Preview install / update. Status and
+   preview write nothing. The preview lists each relative path under
+   `.claude/skills/harness-connect` with its action and hashes. Review it, then
+   choose the install button. Only files this installer owns are changed; an
+   edited, unowned or unsafe path blocks with a fixed code such as
+   `package_unowned` or `package_drift`. Removal uses the same preview-then-apply
+   steps. It is refused with `ordinary_installation_in_use` while an ordinary
+   task in the project is active, and it keeps receipts and native transcripts.
+3. **Create the task.** In New task, pick the Ordinary Claude observation mode,
+   a name, the project and a completion criterion. The UI offers
+   `user_confirmed_completion`. There is no comparison setup, protocol or arm.
+   The task pins the project settings and a price table at creation.
+4. **Connect from the native parent.** Open Claude yourself and run the command
+   the task page shows, once, in the parent session.
+5. **Control observation.** Use Pause, Resume, Stop observation and the result
+   buttons on the task page. Finish only with your own outcome confirmation.
+
+```text
+/harness-connect Connect this session to project PROJECT_ID, task TASK_ID, using http://127.0.0.1:PORT and its native receipt.
+```
+
+Installing the package doesn't register hooks. They register when you invoke
+the skill in the native parent, and the setup card reports hook registration as
+`unverified`. Copied package, registered hook, native receipt and active
+observation are four separate facts. Model, effort, permissions, startup and
+exit stay under your control in Claude.
+
+Behind the closed admission, the implementation behaves as follows.
+
+- **One measurement root per task.** Each connection gets a new measurement
+  root ID. The native session identity is stored separately and never rewritten.
+- **Exclusive native root.** One task reserves a live native root, including
+  while its segment is acquiring, paused or stopping. Another task that presents
+  the same root gets `binding_session_conflict`.
+- **Handover.** Choose Stop observation in the first task. Claude keeps running.
+  Then invoke the skill again for the second task. A receipt recorded before the
+  stop returns `binding_receipt_stale`. The second task starts from a new
+  baseline with its own measurement IDs and price pin. No history is reassigned.
+- **Pause and resume.** Pause keeps the segment. Resume revalidates only the
+  selected live identity, then takes a new baseline.
+- **Restart and relaunch.** A server restart leaves the task paused and reads
+  nothing by itself. A relaunched Claude has a new process identity even when it
+  resumes the same native session ID. Invoke the skill again to register its
+  hooks and explicitly open a new measurement segment.
+- **No backfill.** Paused, offline and pre-connection usage stays unobserved.
+- **Baseline store.** Exclusions are kept in SQLite, so the 1,024-ID cap of the
+  pilot path doesn't apply here. That cap is unchanged for the pilot path.
+- **Family limit.** At most eight members, root included. A ninth returns
+  `binding_family_limit`. Members are flattened under the root; the immediate
+  parent of a nested member is not verified.
+- **Model.** The profile names `claude-opus-5-5`. A usage record for another
+  model stops collection with `binding_runtime_unsupported`. Its source batch is
+  rejected atomically, including supported records in that batch. Explicit
+  resume excludes that batch through a new baseline instead of backfilling it.
+- **Deletion.** Deleting an observed task forgets its native root. Other tasks
+  still attached to that root are paused and later connections from it are
+  refused. Continue with a new native root. Native transcripts are not removed.
+- **Cost.** Usage is partial. Complete cost, billing and inferential results
+  stay unavailable.
+
+New observations would carry separate `claude_binding` provenance, prospective
+only. Comparison, Codex, file and workflow trust states are unchanged.
+
+If setup reports `installation_recovery_required`, stop the installer and confirm
+that the PID in `.harness-delta/claude-connect/installation-lock/owner.json` is
+absent. The UI recovery action only releases a clean, dead installer lock.
+It refuses retained `transaction-*` directories and never deletes unknown files.
+For an interrupted transaction, first compare the installed package against every
+`installed_sha256` in `installation.json`. If they match, installation committed;
+retain the transaction for review rather than rolling back. If the live package
+differs but `transaction-*/previous` matches that manifest, preserve the live
+package by moving it aside and restore only that verified previous directory.
+If neither matches, preserve all files and reconcile the ownership manifest
+before retrying. Do not remove the lock or transaction to bypass a mismatch.
+
+Still unverified against the actual backend for this path: the full family,
+pause/resume and task-handover profile, families up to the declared eight members,
+compaction, background agents, resumed history and immediate nested parents.
+Bounded connection observations do not replace those criteria. Formal qualification
+targets the exact 2.1.296 binary on macOS arm64 under Node 24. The runtime check
+also accepts Node 26 and otherwise returns `binding_runtime_unsupported`; Node 26
+needs its own evidence.
 
 ## Project-only installation boundary
 
@@ -190,7 +298,8 @@ review separately from remote CI. The exact adapter contract is
 Claude baselines preserve up to 1,024 distinct excluded own request IDs independently
 of live replay history. Over-capacity (`claude_baseline_limit`) or partial/unreadable
 (`claude_baseline_incomplete`) baselines stop connection instead of silently losing
-exclusions. Already observed counter conflicts stop collection.
+exclusions. Already observed counter conflicts stop collection. The ordinary
+observation path keeps its exclusions in SQLite and has no such cap.
 
 For the isolated ordinary Codex CLI qualification runner and its explicit native approval boundary, see [qualification procedure](../validation/codex-ordinary-binding-qualification.md). Preparation and Node-only fixtures do not open production admission.
 That runner now has a separate exact 0.162.1 candidate selected with
@@ -347,4 +456,6 @@ approved native trial. All ordinary Claude profiles, including qualified 2.1.296
 require `allowCandidateProfiles: true`; default provider refusal and ordinary service
 admission remain closed. Current labels remain `native_unverified_pilot`,
 `legacy_unverified` and `candidate_pilot`. Ordinary production admission, full task cost and
-inferential decisions remain unavailable.
+inferential decisions remain unavailable. This pilot authority is separate from
+the [ordinary observation admission](#ordinary-claude-observation-qualification-pending),
+which is also closed.

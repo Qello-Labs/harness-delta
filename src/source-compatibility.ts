@@ -3,6 +3,7 @@ import { EventSchema, SourceCompatibilitySchema, type SourceCompatibility } from
 import { productionSourceEvidence } from './readiness.js';
 import type { Store } from './store.js';
 import { codexBindingAdmission } from './codex-binding-admission.js';
+import { claudeBindingAdmission } from './claude-binding-admission.js';
 
 export type CompatibilitySource = SourceCompatibility['source'];
 export type CompatibilityBlockReason = 'contract_failed' | 'semantic_incompatibility';
@@ -27,6 +28,15 @@ export const sourceCompatibilityWindows = Object.freeze([
 export function resolveSourceCompatibility(product: string, version: string, source: CompatibilitySource, profileId?: string): SourceCompatibility | null {
   const numbers = stableVersion(version);
   if (!numbers || !['codex', 'claude_code'].includes(product)) return null;
+  if (source === 'claude_binding') return product === 'claude_code' &&
+    version === claudeBindingAdmission.productVersion &&
+    (profileId === undefined || profileId === claudeBindingAdmission.profileId)
+    ? SourceCompatibilitySchema.parse({
+      state: claudeBindingAdmission.qualified ? 'verified' : 'compatibility_unverified',
+      product, product_version: version, source, parser_version: version,
+      parser_revision: claudeBindingAdmission.profileId, profile_id: claudeBindingAdmission.profileId,
+      rule_revision: compatibilityRuleRevision,
+    }) : null;
   if (source === 'codex_binding') return product === 'codex' &&
     version === codexBindingAdmission.productVersion &&
     (profileId === undefined || profileId === codexBindingAdmission.profileId)
@@ -99,7 +109,7 @@ export function overlayEventCompatibility(store: Store, input: import('zod').inf
   if (event.payload.kind !== 'usage' || event.payload.product === 'synthetic') return event;
   if (!event.payload.source_compatibility) {
     // Binding observations always carry a pin; unpinned history predates that source.
-    return store.get("SELECT 1 FROM source_compatibility_blocks WHERE product=? AND product_version=? AND source!='codex_binding'",
+    return store.get("SELECT 1 FROM source_compatibility_blocks WHERE product=? AND product_version=? AND source NOT IN ('codex_binding','claude_binding')",
       [event.payload.product, event.payload.product_version]) ? { ...event, payload: { ...event.payload, source_invalidated: true } } : event;
   }
   return { ...event, payload: { ...event.payload, source_compatibility: effectiveSourceCompatibility(store, event.payload.source_compatibility) } };

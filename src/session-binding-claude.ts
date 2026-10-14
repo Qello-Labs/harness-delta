@@ -3,6 +3,8 @@ import { familyDiscovery, familyProviderError } from './binding-family-diagnosti
 import { bindingIdentityKey } from './session-binding-contract.js';
 import { readCacheWriteTtl } from './cache-write-ttl.js';
 import { claudeAgentMetadata } from './agent-metadata.js';
+import { claudeBindingAdmission } from './claude-binding-admission.js';
+import { readClaudeProcessBinary, type ClaudeProcessBinary } from './claude-process-binary.js';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { closeSync, constants, fstatSync, lstatSync, mkdirSync, openSync, readdirSync, readSync, realpathSync, rmSync, writeFileSync, type Stats } from 'node:fs';
@@ -12,7 +14,7 @@ import { IdSchema, ModelSchema, TimestampSchema, TokenSchema, addTokens, type Re
 import type { CandidateScope } from './nested-candidate.js';
 // Type-only: the shared module is owned by the integration work item.
 import type { BindingCapabilities, BindingReadBoundary, BindingUsageRecord, ChildDiscovery, CurrentIdentityRequest, SessionBindingProvider,
-  UsageBatch, VerifiedSessionIdentity } from './session-binding-contract.js';
+  NativeConnectionProof, UsageBatch, VerifiedSessionIdentity } from './session-binding-contract.js';
 
 /** Claude Code ordinary-session binding provider.
  *
@@ -60,11 +62,20 @@ export interface ClaudeBindingOptions {
   projectRoot: string;
   /** Synthetic tests and separately approved qualification only. Never a browser or UI flag. */
   allowCandidateProfiles?: boolean;
+  /** The ordinary coordinator still supplies per-task, per-source read authority. */
+  ordinaryAdmission?: boolean;
   profiles?: readonly ClaudeTranscriptProfile[];
   /** Task-owned metadata authorization, invoked before every content-bearing source read. */
   authorizeSource?: (metadata: { nativeSessionId: string; agentId: string | null; sourceRef: string; sourceIdentity: string; birthtimeMs: number }) => void;
   /** Metadata-only process-start proof. Injection is for synthetic tests. */
   readProcessIdentity?: (pid: number) => string;
+  /** Metadata-only native image verification. Injection is for synthetic fixtures. */
+  readProcessBinary?: (pid: number) => ClaudeProcessBinary;
+  /** A new ordinary member is selected from Start/file metadata before its body is read. */
+  memberEligible?: (metadata: {
+    nativeSessionId: string; agentId: string; sourceRef: string; sourceIdentity: string;
+    birthtimeMs: number; recordedAt?: string; processId: string;
+  }) => boolean;
   /** Root plus distinct receipt or native-file members; checked before child reads. */
   maxFamilyMembers?: number;
   receiptMaxAgeMs?: number;
@@ -132,6 +143,7 @@ const sharedGap: Record<string, string> = {
   cache_write_1h_observed: 'binding_partial_usage', server_tool_use_unpriced: 'binding_partial_usage',
   child_relation_unverified: 'binding_ancestry_unverified', child_receipt_mismatch: 'binding_ancestry_unverified', child_receipt_invalid: 'binding_ancestry_unverified',
   child_receipt_untrusted: 'binding_ancestry_unverified', child_source_mismatch: 'binding_ancestry_unverified', child_source_missing: 'source_unavailable',
+  binding_unobserved_context: 'binding_unobserved_context',
 };
 const shared = (codes: Iterable<string>) => [...new Set([...codes].map(code => sharedGap[code] ?? 'binding_usage_incomplete'))].sort();
 
@@ -164,7 +176,8 @@ function checkedSourceFile(path: string): Stats {
 }
 
 interface RowMeta { type: unknown; sessionId: unknown; agentId: unknown; isSidechain: unknown; version: unknown; timestamp: unknown; subtype: unknown; requestId: unknown;
-  message: { model: unknown; usage: Record<string, unknown> | null } | null }
+  message: { readonly id: unknown; model: unknown; readonly stopReason: unknown; usage: Record<string, unknown> | null } | null }
+const NativeStopReasonSchema = z.enum(['end_turn', 'tool_use', 'max_tokens', 'stop_sequence', 'refusal', 'pause_turn']).nullable();
 const object = (value: unknown): Record<string, unknown> | null => value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
 /** Retains metadata leaves only; the parsed line is dropped immediately. */
 function rowMeta(line: string): RowMeta | null {
@@ -174,7 +187,7 @@ function rowMeta(line: string): RowMeta | null {
   const message = object(row.message);
   return { type: row.type, sessionId: row.sessionId, agentId: row.agentId, isSidechain: row.isSidechain, version: row.version,
     timestamp: row.timestamp, subtype: row.subtype, requestId: row.requestId,
-    message: message ? { model: message.model, usage: object(message.usage) } : null };
+    message: message ? { id: message.id, model: message.model, stopReason: message.stop_reason, usage: object(message.usage) } : null };
 }
 /** Own rows: root rows carry no agent marker; member rows carry exactly their agent ID. */
 const ownRow = (row: RowMeta, native: string, agent: string | null) => row.sessionId === native
@@ -188,23 +201,26 @@ const isoTimestamp = (value: unknown): string | null => {
   return TimestampSchema.safeParse(normalized).success ? normalized : null;
 };
 interface Line { start: number; end: number; text: string }
-interface ReadChunk { lines: Line[]; end: number; size: number; stat: Stats; oversized: boolean }
-interface Pending { requestId: string; first: Line; record: BindingUsageRecord; fingerprint: string; conflict: boolean }
+interface ReadChunk { lines: Line[]; end: number; size: number; stat: Stats; oversized: boolean; readonly scanLimited: boolean }
+interface Pending { requestId: string; first: Pick<Line, 'start'>; record: BindingUsageRecord; fingerprint: string; conflict: boolean;
+  readonly messageId: string | null; readonly finalized: boolean }
 
 export class ClaudeSessionBindingProvider implements SessionBindingProvider {
   readonly product = 'claude_code' as const;
-  readonly #options: Required<Omit<ClaudeBindingOptions, 'profiles' | 'authorizeSource'>> & Pick<ClaudeBindingOptions, 'authorizeSource'> & { profiles: readonly ClaudeTranscriptProfile[] };
+  readonly #options: Required<Omit<ClaudeBindingOptions, 'profiles' | 'authorizeSource' | 'memberEligible'>> & Pick<ClaudeBindingOptions, 'authorizeSource' | 'memberEligible'> & { profiles: readonly ClaudeTranscriptProfile[] };
   constructor(options: ClaudeBindingOptions) {
     if (!isAbsolute(options.receiptDir) || !isAbsolute(options.claudeProjectsDir) || !isAbsolute(options.projectRoot)) fail('claude_binding_config_invalid');
-    this.#options = { allowCandidateProfiles: false, profiles: claudeBindingProfiles, receiptMaxAgeMs: 600000, quiescenceMs: 30000,
-      maxReadBytes: 8 * 1048576, maxFamilyMembers: 32, readProcessIdentity: processIdentity, now: Date.now, ...options };
+    this.#options = { allowCandidateProfiles: false, ordinaryAdmission: false, profiles: claudeBindingProfiles, receiptMaxAgeMs: 600000, quiescenceMs: 30000,
+      maxReadBytes: 8 * 1048576, maxFamilyMembers: 32, readProcessIdentity: processIdentity,
+      readProcessBinary: readClaudeProcessBinary, now: Date.now, ...options };
     if (!Number.isSafeInteger(this.#options.maxFamilyMembers) || this.#options.maxFamilyMembers < 1 || this.#options.maxFamilyMembers > 32) fail('claude_binding_config_invalid');
   }
 
   capabilities(): BindingCapabilities {
     const qualified = this.#options.profiles.some(profile => profile.status === 'qualified');
     // A qualified transcript profile is not an ordinary production admission; the service decides that.
-    return { currentIdentity: 'native_hook', ancestry: 'verified_relations', usage: 'own_requests', productionSupported: false,
+    return { currentIdentity: 'native_hook', ancestry: 'verified_relations', usage: 'own_requests',
+      productionSupported: this.#options.ordinaryAdmission && claudeBindingAdmission.qualified,
       // Members are verified relations of the root; nested direct parents are not claimed.
       maxDepth: 1,
       reasons: ['claude_skill_hooks_required_per_session', 'claude_family_flattened_direct_parent_unverified', 'claude_receipts_local_trust',
@@ -213,6 +229,7 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
 
   /** Version support is decided from native transcript rows against exact profiles. */
   supportedVersion(version: unknown): boolean {
+    if (this.#options.ordinaryAdmission) return version === claudeBindingAdmission.productVersion;
     const profile = this.#options.profiles.find(p => p.version === version);
     // Transcript qualification cannot bypass the separately approved pilot authority.
     return profile !== undefined && this.#options.allowCandidateProfiles;
@@ -226,19 +243,42 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
     return settle(() => this.#resolve(input, expected));
   }
   resolveCurrent(input: CurrentIdentityRequest): Promise<VerifiedSessionIdentity> { return settle(() => this.#resolve(input)); }
+  inspectCurrent(input: CurrentIdentityRequest): Promise<NativeConnectionProof> {
+    return settle(() => {
+      if (!uuidPattern.test(input.receipt)) return fail('claude_receipt_invalid');
+      assertPrivateDir(this.#options.receiptDir); assertPrivateDir(join(this.#options.receiptDir, 'connect'));
+      const receipt = this.#receipt(join(this.#options.receiptDir, 'connect', `${input.receipt}.json`));
+      const age = this.#options.now() - Date.parse(receipt.recorded_at);
+      if (receipt.kind !== 'connect' || receipt.receipt_id !== input.receipt ||
+        age < -5000 || age > this.#options.receiptMaxAgeMs) return fail('claude_receipt_expired');
+      if (receipt.agent_id !== null) return fail('binding_child_requires_root');
+      if (this.#forgotten(receipt.session_id)) return fail('deleted_identifier');
+      const processId = this.#currentProcessProof(receipt.claude_pid);
+      this.#assertProjectScope(receipt.transcript_path, receipt.cwd);
+      const stat = this.#rootStat(receipt.transcript_path, receipt.session_id);
+      const binary = this.#options.readProcessBinary(receipt.claude_pid);
+      if (binary.productVersion !== claudeBindingAdmission.productVersion ||
+        binary.sha256 !== claudeBindingAdmission.binarySha256) return fail('claude_binary_unqualified');
+      return { receipt: receipt.receipt_id, recordedAt: receipt.recorded_at,
+        nativeSessionId: receipt.session_id, agentId: null, sourceRef: receipt.transcript_path,
+        sourceIdentity: this.#sourceIdentity(stat, receipt.session_id), cwd: this.#options.projectRoot,
+        processId, productVersion: binary.productVersion };
+    });
+  }
   discoverChildren(parent: VerifiedSessionIdentity): Promise<ChildDiscovery> { return settle(() => this.#discover(parent)); }
   /** A null cursor reads the complete owned snapshot to the current end.
    * - `baseline: true` (root connect/restart, or a member that existed before observation):
    *   prior usage is excluded. No records are returned; every request seen so far, including
    *   one with missing counters, is remembered separately from observed replay IDs.
-   *   More than 1,024 distinct baseline IDs or an unreadable/partial baseline fail closed.
+   *   Without a durable baseline ledger, more than 1,024 distinct baseline IDs fail closed.
+   *   An unreadable/partial baseline always fails closed.
    *   Excluded IDs never evict as live requests advance, so later rows never count as
    *   new. Row-level defects in excluded history are not reported as gaps.
    * - otherwise (a member created during observation, or any later read): every own request
    *   is returned from the first one, independent of discovery time; only a request still
    *   being written is held back until complete. */
   readUsage(session: VerifiedSessionIdentity, cursor: string | null, scope: CandidateScope, boundary?: BindingReadBoundary): Promise<UsageBatch> {
-    return settle(() => this.#usage(session, cursor, scope, boundary?.baseline === true));
+    return settle(() => this.#usage(session, cursor, scope, boundary?.baseline === true, boundary?.baselineLedger));
   }
 
   /** Task/session deletion: removes this session's receipts and tombstones it so later
@@ -292,7 +332,13 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
     try { process.kill(pid, 0); } catch (error) {
       fail((error as NodeJS.ErrnoException).code === 'EPERM' ? 'claude_receipt_untrusted' : 'claude_process_absent');
     }
-    return `claude-process:${pid}:${sha([pid, this.#options.readProcessIdentity(pid)])}`;
+    const identity = this.#options.readProcessIdentity(pid);
+    if (this.#options.ordinaryAdmission) {
+      const binary = this.#options.readProcessBinary(pid);
+      if (binary.productVersion !== claudeBindingAdmission.productVersion ||
+        binary.sha256 !== claudeBindingAdmission.binarySha256) return fail('claude_binary_unqualified');
+    }
+    return `claude-process:${pid}:${sha([pid, identity])}`;
   }
   /** Durable root proof is sufficient after restart, without searching receipt directories. */
   #assertBoundProcess(proof: string | null | undefined): void {
@@ -303,7 +349,8 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
     this.#options.authorizeSource?.({ nativeSessionId: native, agentId: agent, sourceRef: path,
       sourceIdentity: this.#sourceIdentity(stat, agent === null ? native : `${native}:${agent}`), birthtimeMs: stat.birthtimeMs });
   }
-  #readLines(path: string, offset: number, limit: number, native: string, agent: string | null, expectedSourceIdentity: string, processProof: string | null | undefined): ReadChunk {
+  #readLines(path: string, offset: number, limit: number, native: string, agent: string | null, expectedSourceIdentity: string, processProof: string | null | undefined,
+    scanEnd = Number.POSITIVE_INFINITY): ReadChunk {
     const stat = checkedSourceFile(path);
     const sessionId = agent === null ? native : `${native}:${agent}`;
     if (this.#sourceIdentity(stat, sessionId) !== expectedSourceIdentity) fail('claude_source_replaced');
@@ -313,29 +360,31 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
     try {
       const opened = fstatSync(fd);
       if (this.#sourceIdentity(opened, sessionId) !== expectedSourceIdentity || opened.uid !== stat.uid || opened.mode !== stat.mode) fail('claude_source_untrusted');
-      const none: ReadChunk = { lines: [], end: offset, size: opened.size, stat: opened, oversized: false };
+      const none: ReadChunk = { lines: [], end: offset, size: opened.size, stat: opened, oversized: false, scanLimited: false };
       if (opened.size <= offset) return none;
-      const length = Math.min(limit, opened.size - offset);
+      const length = Math.min(limit, opened.size - offset, Math.max(0, scanEnd - offset));
+      if (!length) return { ...none, scanLimited: scanEnd < opened.size };
       const buffer = Buffer.alloc(length); let read = 0;
       while (read < length) { const n = readSync(fd, buffer, read, length - read, offset + read); if (!n) break; read += n; }
       const last = buffer.subarray(0, read).lastIndexOf(0x0a);
       if (last < 0) {
-        if (read < limit) return none;
+        if (read < limit) return { ...none, scanLimited: offset + read >= scanEnd && scanEnd < opened.size };
         // A single line larger than the read window is skipped without parsing.
         let probe = offset + read; const chunk = Buffer.alloc(65536);
-        while (probe < opened.size) {
+        const probeEnd = Math.min(opened.size, scanEnd);
+        while (probe < probeEnd) {
           const current = checkedSourceFile(path);
           if (this.#sourceIdentity(current, sessionId) !== expectedSourceIdentity) fail('claude_source_replaced');
           const descriptor = fstatSync(fd);
           if (this.#sourceIdentity(descriptor, sessionId) !== expectedSourceIdentity || descriptor.uid !== current.uid || descriptor.mode !== current.mode) fail('claude_source_untrusted');
           this.#assertBoundProcess(processProof);
           this.#authorize(path, current, native, agent);
-          const n = readSync(fd, chunk, 0, Math.min(chunk.length, opened.size - probe), probe); if (!n) return none;
+          const n = readSync(fd, chunk, 0, Math.min(chunk.length, probeEnd - probe), probe); if (!n) return none;
           const index = chunk.subarray(0, n).indexOf(0x0a);
           if (index >= 0) return { ...none, end: probe + index + 1, oversized: true };
           probe += n;
         }
-        return none;
+        return { ...none, scanLimited: probeEnd < opened.size };
       }
       const lines: Line[] = []; let start = 0;
       while (start <= last) {
@@ -343,14 +392,14 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
         if (newline > start) lines.push({ start: offset + start, end: offset + newline + 1, text: buffer.subarray(start, newline).toString('utf8') });
         start = newline + 1;
       }
-      return { lines, end: offset + last + 1, size: opened.size, stat: opened, oversized: false };
+      return { lines, end: offset + last + 1, size: opened.size, stat: opened, oversized: false, scanLimited: false };
     } finally { closeSync(fd); }
   }
   /** First own row's timestamp and version, scanning bounded windows from the start. */
   #firstOwnRow(path: string, native: string, agent: string | null, sourceIdentity: string, processProof: string | null | undefined): { createdAt: string | null; version: string | null; scanned: number } {
     let createdAt: string | null = null; let offset = 0; let scanned = 0;
     while (offset < metadataScanLimit) {
-      const chunk = this.#readLines(path, offset, metadataWindow, native, agent, sourceIdentity, processProof);
+      const chunk = this.#readLines(path, offset, metadataWindow, native, agent, sourceIdentity, processProof, metadataScanLimit);
       scanned += chunk.lines.length;
       for (const line of chunk.lines) {
         const row = rowMeta(line.text);
@@ -455,12 +504,33 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
       const matched = /^agent-([A-Za-z0-9_-]{1,91})\.jsonl$/.exec(file);
       if (matched) members.add(matched[1]!);
     }
-    if (members.size >= this.#options.maxFamilyMembers) fail('claude_family_scope_limit');
+    if (!this.#options.ordinaryAdmission && members.size >= this.#options.maxFamilyMembers) fail('claude_family_scope_limit');
     const children: ChildDiscovery['children'] = [];
+    const excludedMembers = new Set<string>();
+    if (this.#options.ordinaryAdmission) {
+      const processId = parent.nativeMapping?.processId;
+      const rootPid = Number(processId?.split(':')[1]);
+      let eligibleMembers = 0;
+      for (const [agentId, list] of receipts) {
+        const start = list.find(receipt => receipt.kind === 'subagent_start');
+        const expected = this.#childPath(parent.sourceRef, native, agentId);
+        let stat: Stats;
+        try { stat = checkedSourceFile(expected); } catch { continue; }
+        if (!start || !processId || start.claude_pid !== rootPid || !this.#options.memberEligible?.({
+          nativeSessionId: native, agentId, sourceRef: expected,
+          sourceIdentity: this.#sourceIdentity(stat, `${native}:${agentId}`),
+          birthtimeMs: stat.birthtimeMs, recordedAt: start.recorded_at, processId,
+        })) { excludedMembers.add(agentId); continue; }
+        eligibleMembers++;
+      }
+      if (eligibleMembers >= this.#options.maxFamilyMembers) fail('claude_family_scope_limit');
+    }
     const pending: number[] = [];
     const pendingStarts: Array<{ receiptId: string; agentId: string; recordedAt: string }> = [];
-    const waitForStart = (start: Receipt) => { pending.push(Date.parse(start.recorded_at) + 2000); pendingStarts.push({ receiptId: start.receipt_id, agentId: start.agent_id!, recordedAt: start.recorded_at }); };
+    const readinessWindowMs = this.#options.ordinaryAdmission ? 300000 : 2000;
+    const waitForStart = (start: Receipt) => { pending.push(Date.parse(start.recorded_at) + readinessWindowMs); pendingStarts.push({ receiptId: start.receipt_id, agentId: start.agent_id!, recordedAt: start.recorded_at }); };
     for (const [agentId, list] of [...receipts.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+      if (excludedMembers.has(agentId)) continue;
       const expected = this.#childPath(parent.sourceRef, native, agentId);
       const stop = list.find(r => r.kind === 'subagent_stop');
       if (stop && stop.agent_transcript_path !== expected) {
@@ -471,13 +541,24 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
       const startAt = start ? Date.parse(start.recorded_at) : NaN;
       const age = this.#options.now() - startAt;
       const rootPid = Number(parent.nativeMapping?.processId?.split(':')[1]);
-      const canWait = !stop && !!start && start.claude_pid === rootPid && startAt >= Date.parse(parent.createdAt) && age >= 0 && age < 2000;
+      const canWait = !stop && !!start && start.claude_pid === rootPid && startAt >= Date.parse(parent.createdAt) && age >= 0 && age < readinessWindowMs;
       let stat: Stats;
       try { lstatSync(expected); } catch (error) {
+        if (this.#options.ordinaryAdmission && start && !canWait &&
+          error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+          gaps.push('binding_unobserved_context'); continue;
+        }
         if (canWait && (error as NodeJS.ErrnoException).code === 'ENOENT') waitForStart(start);
         gaps.push('child_source_missing'); continue;
       }
       try { stat = checkedSourceFile(expected); } catch { gaps.push('child_source_missing'); continue; }
+      // A member file can appear after the first metadata pass.
+      const processId = parent.nativeMapping?.processId;
+      if (this.#options.ordinaryAdmission && (!start || !processId || start.claude_pid !== rootPid || !this.#options.memberEligible?.({
+        nativeSessionId: native, agentId, sourceRef: expected,
+        sourceIdentity: this.#sourceIdentity(stat, `${native}:${agentId}`),
+        birthtimeMs: stat.birthtimeMs, recordedAt: start.recorded_at, processId,
+      }))) { gaps.push('binding_unobserved_context'); continue; }
       // A fresh Start may hold family measurement until an attributable own row exists.
       // Complete lines without that identity remain terminal, never silently dropped.
       const first = this.#firstOwnRow(expected, native, agentId, this.#sourceIdentity(stat, `${native}:${agentId}`), parent.nativeMapping?.processId);
@@ -493,17 +574,33 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
     // while hooks were absent) are neither linked nor counted.
     for (const file of files) {
       const matched = /^agent-([A-Za-z0-9_-]{1,91})\.jsonl$/.exec(file);
-      if (matched && !receipts.has(matched[1]!)) gaps.push('child_relation_unverified');
+      if (matched && !receipts.has(matched[1]!)) {
+        if (!this.#options.ordinaryAdmission) { gaps.push('child_relation_unverified'); continue; }
+        const agentId = matched[1]!;
+        const sourceRef = this.#childPath(parent.sourceRef, native, agentId);
+        const stat = checkedSourceFile(sourceRef);
+        const processId = parent.nativeMapping?.processId;
+        if (!processId) return fail('claude_process_unobserved');
+        const eligible = this.#options.memberEligible?.({
+          nativeSessionId: native, agentId, sourceRef,
+          sourceIdentity: this.#sourceIdentity(stat, `${native}:${agentId}`),
+          birthtimeMs: stat.birthtimeMs, processId,
+        });
+        if (!eligible) gaps.push('binding_unobserved_context');
+      }
     }
+    if (excludedMembers.size) gaps.push('binding_unobserved_context');
     const result = familyDiscovery({ children, gaps: shared(gaps) }, gaps);
-    return pending.length && pending.length === gaps.length ? pendingChildReadiness(result, Math.min(...pending), pendingStarts) : result;
+    return pending.length && pending.length === gaps.filter(gap => gap !== 'binding_unobserved_context').length
+      ? pendingChildReadiness(result, Math.min(...pending), pendingStarts) : result;
   }
 
-  #usage(session: VerifiedSessionIdentity, cursorText: string | null, scope: CandidateScope, baseline: boolean): UsageBatch {
+  #usage(session: VerifiedSessionIdentity, cursorText: string | null, scope: CandidateScope, baseline: boolean, baselineLedger?: BindingReadBoundary['baselineLedger']): UsageBatch {
     const { native, agent } = nativeOf(session);
     if (this.#forgotten(native)) fail('deleted_identifier');
-    if (!scope.sessions.some(m => m.sessionId === session.sessionId && m.product === 'claude_code' && m.nativeSessionId === native && m.agentId === agent)) fail('claude_scope_mismatch');
-    const roots = scope.sessions.filter(member => member.sessionId === native && member.rootSessionId === native
+    const mapping = scope.sessions.find(m => m.sourceId === session.sessionId && m.product === 'claude_code' && m.nativeSessionId === native && m.agentId === agent);
+    if (!mapping) return fail('claude_scope_mismatch');
+    const roots = scope.sessions.filter(member => member.sessionId === mapping.rootSessionId && member.rootSessionId === mapping.rootSessionId
       && member.product === 'claude_code' && member.nativeSessionId === native && member.agentId === null && member.parentSessionId === null);
     if (roots.length !== 1 || (agent === null && roots[0]!.processId !== session.nativeMapping?.processId)) fail('claude_bound_identity_changed');
     const rootProcessProof = roots[0]!.processId;
@@ -521,18 +618,30 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
     const recent = new Map(start.recent); const baselineExcluded = new Set(start.baselineExcluded);
     const records: BindingUsageRecord[] = [];
     let offset = start.offset;
+    let readOffset = offset, scannedBytes = 0;
+    const byRequest = new Map<string, Pending>();
+    const nativeFinality = session.productVersion === '2.1.296';
     // A null cursor or a baseline reads to the current end; a later cursor reads one window per call.
     const toEnd = cursorText === null || baseline;
     for (;;) {
       let chunk: ReadChunk;
-      try { chunk = this.#readLines(session.sourceRef, offset, this.#options.maxReadBytes, native, agent, session.sourceIdentity, rootProcessProof); } catch (error) {
+      const readLimit = nativeFinality && byRequest.size ? Math.min(this.#options.maxReadBytes, metadataScanLimit - scannedBytes) : this.#options.maxReadBytes;
+      const scanEnd = nativeFinality ? readOffset + metadataScanLimit - (byRequest.size ? scannedBytes : 0) : Number.POSITIVE_INFINITY;
+      try { chunk = this.#readLines(session.sourceRef, readOffset, readLimit, native, agent, session.sourceIdentity, rootProcessProof, scanEnd); } catch (error) {
         if (!(error instanceof Error) || !['claude_source_missing', 'claude_source_untrusted', 'claude_source_replaced'].includes(error.message)) throw error;
         return unchanged(error.message === 'claude_source_missing' ? 'source_missing' : error.message === 'claude_source_replaced' ? 'source_replaced' : 'source_error');
       }
       if (this.#sourceIdentity(chunk.stat, session.sessionId) !== session.sourceIdentity) return unchanged('source_replaced');
-      if (chunk.size < offset) return unchanged('source_truncated');
-      if (baseline && chunk.oversized) fail('claude_baseline_incomplete');
+      if (chunk.size < readOffset) return unchanged('source_truncated');
+      if (baseline && (chunk.oversized || chunk.scanLimited)) fail('claude_baseline_incomplete');
+      // Migrate legacy exclusions only after the source's read authority is checked.
+      if (baselineLedger) {
+        if (baselineLedger.addMany) baselineLedger.addMany([...baselineExcluded]);
+        else for (const requestId of baselineExcluded) baselineLedger.add(requestId);
+        baselineExcluded.clear();
+      }
       if (chunk.oversized) gaps.add('oversized_line_skipped');
+      const baselineIds = new Set<string>();
       if (baseline) for (const line of chunk.lines) {
         const row = rowMeta(line.text);
         if (!row) return fail('claude_baseline_incomplete');
@@ -540,38 +649,64 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
         const request = IdSchema.safeParse(row.requestId);
         if (!request.success) return fail('claude_baseline_incomplete');
         // Preserve ownership IDs even when an in-flight row has missing counters.
-        baselineExcluded.add(request.data);
-        if (baselineExcluded.size > recentLimit) fail('claude_baseline_limit');
+        if (baselineLedger) baselineIds.add(request.data);
+        else {
+          baselineExcluded.add(request.data);
+          if (baselineExcluded.size > recentLimit) fail('claude_baseline_limit');
+        }
       }
-      const pending = this.#collect(chunk, native, agent, session.productVersion, gaps);
-      // While the file is still being written, a request whose rows end the window may be
-      // incomplete: hold it back and resume from its first row on the next read.
+      if (baselineLedger && baselineIds.size) {
+        if (baselineLedger.addMany) baselineLedger.addMany([...baselineIds]);
+        else for (const requestId of baselineIds) baselineLedger.add(requestId);
+      }
+      const pending = this.#collect(chunk, native, agent, session.productVersion, gaps, byRequest);
+      // Native thinking fragments remain provisional across user/tool rows and quiet intervals.
+      // Earlier candidate formats retain their existing trailing-row policy.
       const tail = pending.at(-1);
       const writing = this.#options.now() - chunk.stat.mtimeMs < this.#options.quiescenceMs;
       const trailing = tail !== undefined && chunk.lines.filter(line => line.start > tail.first.start).every(line => {
         const row = rowMeta(line.text); return row?.type === 'assistant' && row.requestId === tail.requestId; });
-      const held = !baseline && writing && trailing ? tail : undefined;
-      for (const item of pending) {
-        if (baseline || baselineExcluded.has(item.requestId)) continue;
-        if (item === held) continue;
+      let held = baseline ? undefined : nativeFinality ? pending.find(item => !item.finalized && !recent.has(item.requestId)
+        && !(baselineLedger ? baselineLedger.has(item.requestId) : baselineExcluded.has(item.requestId))) : writing && trailing ? tail : undefined;
+      const more = chunk.end > readOffset && chunk.end < chunk.size;
+      const scanLimited = chunk.scanLimited || (nativeFinality && byRequest.size > 0 && more && scannedBytes + chunk.end - readOffset >= metadataScanLimit);
+      if (scanLimited && !baseline) {
+        gaps.add('usage_incomplete');
+        held ??= pending.find(item => !recent.has(item.requestId)
+          && !(baselineLedger ? baselineLedger.has(item.requestId) : baselineExcluded.has(item.requestId)));
+      }
+      // Final candidates are still uncommitted while another snapshot window can contradict them.
+      const collectingSnapshot = nativeFinality && !baseline && more && !scanLimited && (held !== undefined || toEnd);
+      for (const item of collectingSnapshot ? [] : pending) {
+        if (baseline || (baselineLedger ? baselineLedger.has(item.requestId) : baselineExcluded.has(item.requestId))) {
+          byRequest.delete(item.requestId); continue;
+        }
+        if (item === held || (nativeFinality && held && item.first.start > held.first.start)) continue;
+        if (!item.finalized) { byRequest.delete(item.requestId); continue; }
         const seen = recent.get(item.requestId);
         // Rows of an already emitted request (later batch or replay) are never re-emitted.
         if (seen !== undefined && (item.conflict || seen !== item.fingerprint)) fail('binding_request_conflict');
-        if (item.conflict) { gaps.add('request_conflict'); recent.set(item.requestId, item.fingerprint); continue; }
+        if (item.conflict) { gaps.add('request_conflict'); recent.set(item.requestId, item.fingerprint); byRequest.delete(item.requestId); continue; }
         if (seen === undefined) { records.push(item.record); recent.set(item.requestId, item.fingerprint); }
+        byRequest.delete(item.requestId);
       }
-      const before = offset;
+      const before = readOffset;
+      readOffset = chunk.end;
+      scannedBytes += readOffset - before;
       offset = held ? held.first.start : chunk.end;
-      if (baseline && offset <= before && offset < chunk.size) fail('claude_baseline_incomplete');
-      if (!toEnd || held || offset <= before || offset >= chunk.size) break;
+      if (baseline && readOffset <= before && readOffset < chunk.size) fail('claude_baseline_incomplete');
+      if (nativeFinality && held && !scanLimited && readOffset > before && readOffset < chunk.size) {
+        if (scannedBytes < metadataScanLimit) continue;
+        gaps.add('usage_incomplete');
+      }
+      if (!toEnd || held || readOffset <= before || readOffset >= chunk.size) break;
     }
     return { records, cursor: encode({ v: 3, source: session.sourceIdentity, offset, recent: [...recent.entries()].slice(-recentLimit), baselineExcluded: [...baselineExcluded] }),
       gaps: baseline ? [] : shared(gaps) };
   }
 
-  /** Groups own assistant rows by request; every row of one request must agree. */
-  #collect(chunk: ReadChunk, native: string, agent: string | null, version: string, gaps: Set<string>): Pending[] {
-    const byRequest = new Map<string, Pending>();
+  /** Thinking snapshots share a message ID, but only terminal snapshots establish whole-request counters. */
+  #collect(chunk: ReadChunk, native: string, agent: string | null, version: string, gaps: Set<string>, byRequest: Map<string, Pending>): Pending[] {
     for (const line of chunk.lines) {
       const row = rowMeta(line.text);
       if (!row) { gaps.add('invalid_line'); continue; }
@@ -589,6 +724,13 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
       if (row.version !== version || !this.supportedVersion(row.version)) { gaps.add('unsupported_version'); continue; }
       const requestId = IdSchema.safeParse(row.requestId);
       if (!requestId.success) { gaps.add('request_id_missing'); continue; }
+      let messageId: string | null = null, finalized = true;
+      if (version === '2.1.296') {
+        const id = IdSchema.safeParse(row.message.id);
+        const stop = NativeStopReasonSchema.safeParse(row.message.stopReason);
+        if (!id.success || !stop.success) { gaps.add('usage_incomplete'); continue; }
+        messageId = id.data; finalized = stop.data !== null;
+      }
       const model = ModelSchema.safeParse(row.message.model);
       const occurredAt = isoTimestamp(row.timestamp);
       const ordinary = token(usage.input_tokens); const write = token(usage.cache_creation_input_tokens);
@@ -597,17 +739,21 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
       const creation = object(usage.cache_creation);
       const ttl = readCacheWriteTtl(usage.cache_creation, write);
       const oneHourWrite = creation !== null && (token(creation.ephemeral_1h_input_tokens) ?? 0) > 0;
-      if (oneHourWrite) gaps.add('cache_write_1h_observed');
-      const server = object(usage.server_tool_use); if (server && Object.values(server).some(v => (token(v) ?? 0) > 0)) gaps.add('server_tool_use_unpriced');
+      if (finalized && oneHourWrite) gaps.add('cache_write_1h_observed');
+      const server = object(usage.server_tool_use); if (finalized && server && Object.values(server).some(v => (token(v) ?? 0) > 0)) gaps.add('server_tool_use_unpriced');
       // Retain old fingerprints only when no new TTL evidence exists. This avoids
       // replaying old cursors while numeric splits and malformed evidence conflict.
       const fingerprint = sha([model.data, ordinary, write, read, output, version, ...(oneHourWrite ? ['cache_write_1h_observed'] : []),
         ...(usage.cache_creation === undefined ? [] : ['cache_write_ttl-v1', ttl])]);
       const old = byRequest.get(requestId.data);
-      if (old) { if (old.fingerprint !== fingerprint) old.conflict = true; continue; }
+      if (old) {
+        if (old.messageId !== messageId || (old.finalized && finalized && old.fingerprint !== fingerprint)) old.conflict = true;
+        if (old.finalized || !finalized) continue;
+      }
       // The first row's timestamp is the request's deterministic occurrence time.
-      byRequest.set(requestId.data, { requestId: requestId.data, first: line, fingerprint, conflict: false, record: {
-        requestId: requestId.data, sessionId: agent === null ? native : `${native}:${agent}`, occurredAt, turnId: null, effort: null,
+      byRequest.set(requestId.data, { requestId: requestId.data, first: old?.first ?? { start: line.start }, fingerprint, conflict: old?.conflict ?? false,
+        messageId, finalized, record: {
+        requestId: requestId.data, sessionId: agent === null ? native : `${native}:${agent}`, occurredAt: old?.record.occurredAt ?? occurredAt, turnId: null, effort: null,
         payload: { kind: 'usage', schema_version: 2, product: 'claude_code', product_version: version, model: model.data, epoch: 'sequential',
           ...(oneHourWrite ? { cache_write_1h_observed: true as const } : {}),
           cache_write_ttl: ttl,

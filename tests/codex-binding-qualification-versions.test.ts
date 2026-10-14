@@ -317,10 +317,26 @@ test('candidate metadata preparation does not admit ordinary external collection
 
 test('native preparation rejects an unpinned executable before creating an intent', async () => {
   const p = await prepared(); const destination = join(p.root, 'invalid-native');
-  await expect(prepareCodexSessionBindingQualification(destination, {
-    binary: realpathSync(process.execPath), codexHome: p.home, productVersion: '0.162.1',
-  // Native preparation stays Node 24 only, so the Node gate precedes the binary pin on Node 26.
-  })).rejects.toThrow(process.versions.node.startsWith('24.') ? 'binding_qualification_binary_mismatch' : 'node24_required');
+  const nodeVersion = process.versions.node;
+  try {
+    // Model the pinned native runtime independently of the fixture test runner.
+    Object.defineProperty(process.versions, 'node', { value: '24.21.0' });
+    await expect(prepareCodexSessionBindingQualification(destination, {
+      binary: realpathSync(process.execPath), codexHome: p.home, productVersion: '0.162.1',
+    })).rejects.toThrow('binding_qualification_binary_mismatch');
+  } finally { Object.defineProperty(process.versions, 'node', { value: nodeVersion }); }
+  expect(() => readFileSync(join(destination, 'execution-intent.json'))).toThrow();
+});
+
+test.each(['25.0.0', '26.10.0', '27.0.0'])('native preparation under Node %s remains blocked before creating an intent', async version => {
+  const p = await prepared(); const destination = join(p.root, 'invalid-runtime');
+  const nodeVersion = process.versions.node;
+  try {
+    Object.defineProperty(process.versions, 'node', { value: version });
+    await expect(prepareCodexSessionBindingQualification(destination, {
+      binary: realpathSync(process.execPath), codexHome: p.home, productVersion: '0.162.1',
+    })).rejects.toThrow('node24_required');
+  } finally { Object.defineProperty(process.versions, 'node', { value: nodeVersion }); }
   expect(() => readFileSync(join(destination, 'execution-intent.json'))).toThrow();
 });
 

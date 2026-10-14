@@ -1,10 +1,11 @@
 import { closeSync, constants, fstatSync, lstatSync, openSync, readSync } from 'node:fs';
 import { dirname, join, parse, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { statusClaudeConnectInstallation, type ClaudeConnectInstallationOptions } from './claude-connect-installation.js';
 
 export type ClaudeProjectSkillReadiness =
   | { readonly state: 'installed'; readonly reason: null; readonly install_command: null }
-  | { readonly state: 'missing'; readonly reason: string; readonly install_command: string }
+  | { readonly state: 'missing'; readonly reason: string; readonly install_command: string | null }
   | { readonly state: 'conflict' | 'unavailable'; readonly reason: string; readonly install_command: null };
 
 const expectedFiles = ['SKILL.md', 'scripts/connect.mjs', 'scripts/claude-session-hook.mjs', 'references/support.md'] as const;
@@ -138,5 +139,23 @@ export function inspectClaudeProjectSkill(projectRoot: string, packageSourceDire
   } catch (error) {
     if (error instanceof InspectionFailure) return { state: error.state, reason: error.reason, install_command: null };
     return { state: 'unavailable', reason: 'inspection_unavailable', install_command: null };
+  }
+}
+
+/** Owned package presence only; source admission remains a separate gate. */
+export function inspectOrdinaryClaudeProjectSkill(projectRoot: string, options: ClaudeConnectInstallationOptions = {}): ClaudeProjectSkillReadiness {
+  const status = statusClaudeConnectInstallation(projectRoot, options);
+  switch (status.state) {
+    case 'installed':
+      return { state: 'installed', reason: null, install_command: null };
+    case 'absent':
+      return { state: 'missing', reason: 'project_skill_missing', install_command: null };
+    case 'update_available':
+      return { state: 'conflict', reason: 'project_skill_update_required', install_command: null };
+    case 'blocked': {
+      const reason = status.blockers[0] ?? 'installation_unavailable';
+      return { state: reason === 'package_source_unavailable' || reason === 'installation_unavailable' ? 'unavailable' : 'conflict',
+        reason, install_command: null };
+    }
   }
 }

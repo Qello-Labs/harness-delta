@@ -4,7 +4,7 @@ import { readFile as readAsyncFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { Store } from '../src/store.js';
 import { runInstrumentedCodexConformance } from '../src/instrumented-codex-conformance.js';
 import {
@@ -18,6 +18,10 @@ import { instrumentedFixtureProfile } from './helpers/instrumented-codex-fixture
 import { main } from '../src/cli.js';
 
 const directories: string[] = [];
+const gitEnvironment = {
+  ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_'))),
+  GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1',
+} as const;
 vi.mock('node:child_process', { spy: true });
 vi.mock('node:fs/promises', { spy: true });
 vi.mock('node:http', { spy: true });
@@ -54,7 +58,7 @@ test('does not generalize the release repair to another workspace package set', 
 test('a checkout claiming a different HEAD cannot reach source qualification', async () => {
   const root = mkdtempSync(join(tmpdir(), 'hd-source-rejection-'));
   directories.push(root);
-  execFileSync('/usr/bin/git', ['init', '--quiet', root]);
+  execFileSync('/usr/bin/git', ['init', '--quiet', root], { env: gitEnvironment });
   writeFileSync(join(root, '.git/HEAD'), `${'a'.repeat(40)}\n`);
   const before = readFileSync(join(root, '.git/HEAD'));
   await expect(inspectInstrumentedCodexSource(root)).rejects.toThrow('source_mismatch');
@@ -64,7 +68,7 @@ test('a checkout claiming a different HEAD cannot reach source qualification', a
 test('canonical patch rendering reaches source rejection through real Git diff commands', async () => {
   const root = mkdtempSync(join(tmpdir(), 'hd-source-rendering-'));
   directories.push(root);
-  const env = { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1' };
+  const env = gitEnvironment;
   execFileSync('/usr/bin/git', ['init', '--quiet', root], { env });
   mkdirSync(join(root, 'codex-rs'));
   const metadata = join(root, 'codex-rs/source.txt');
@@ -102,12 +106,14 @@ test('version-reporting shell shims are not an inspected native Rust toolchain',
   await expect(inspectInstrumentedCodexToolchain(root)).rejects.toThrow('toolchain_mismatch');
 });
 
-test.runIf(process.platform === 'darwin' && process.arch === 'arm64')(
-  'native version-reporting compiler shims are rejected before execution', async () => {
-    const root = mkdtempSync(join(tmpdir(), 'hd-native-toolchain-rejection-'));
+describe.runIf(process.platform === 'darwin' && process.arch === 'arm64')('native compiler shims', () => {
+  let root: string;
+  let marker: string;
+  beforeEach(async ({ signal }) => {
+    root = mkdtempSync(join(tmpdir(), 'hd-native-toolchain-rejection-'));
     directories.push(root);
     mkdirSync(join(root, 'bin'));
-    const marker = join(root, 'executed');
+    marker = join(root, 'executed');
     const source = join(root, 'compiler.c');
     writeFileSync(source, `#include <stdio.h>
 #include <string.h>
@@ -119,12 +125,16 @@ int main(int argc, char **argv) {
   return 0;
 }
 `);
-    execFileSync('/usr/bin/clang', [source, '-o', join(root, 'bin/rustc')]);
+    await runQualificationCommand('/usr/bin/clang', [source, '-o', join(root, 'bin/rustc')],
+      root, process.env, undefined, [0], signal);
     writeFileSync(join(root, 'bin/cargo'), readFileSync(join(root, 'bin/rustc')), { mode: 0o755 });
+  });
+
+  test('native version-reporting compiler shims are rejected before execution', async () => {
     await expect(inspectInstrumentedCodexToolchain(root)).rejects.toThrow('toolchain_mismatch');
     expect(existsSync(marker)).toBe(false);
-  },
-);
+  });
+});
 
 test('ancestor Cargo configuration cannot execute an inherited compiler wrapper', async () => {
   const root = mkdtempSync(join(tmpdir(), 'hd-cargo-config-rejection-'));
@@ -281,7 +291,7 @@ test('caller profile, passed verdict, and hash flags never authorize identity in
 test('source rejection leaves the caller database without production qualification', async () => {
   const root = mkdtempSync(join(tmpdir(), 'hd-qualification-rejection-'));
   directories.push(root);
-  execFileSync('/usr/bin/git', ['init', '--quiet', root]);
+  execFileSync('/usr/bin/git', ['init', '--quiet', root], { env: gitEnvironment });
   writeFileSync(join(root, '.git/HEAD'), `${'b'.repeat(40)}\n`);
   const store = new Store(join(root, 'store.sqlite'));
   try {

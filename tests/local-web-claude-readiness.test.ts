@@ -33,7 +33,7 @@ test('Claude project installation inspection remains read-only and cannot author
     expect(actions.parse(domain.task(id)).actions).toContainEqual({ code: 'session-connect', enabled: false, reason: 'binding_source_unqualified' });
     expect(f.store.eventCount()).toBe(before);
     expect(f.store.all('SELECT * FROM active_intervals')).toHaveLength(0);
-    await expect(domain.taskAction(id, 'session-connect', { product: 'claude_code', receipt: '00000000-0000-4000-8000-000000000001' })).rejects.toThrow();
+    await expect(domain.taskAction(id, 'session-connect', { product: 'claude_code', receipt: '00000000-0000-4000-8000-000000000001' })).rejects.toThrow('binding_source_unqualified');
     expect(domain.task(id).reason).toBe('binding_source_unqualified');
     expect(f.store.eventCount()).toBe(before);
   } finally { await domain.close?.(); f.cleanup(); }
