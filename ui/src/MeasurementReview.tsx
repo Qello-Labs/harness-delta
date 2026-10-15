@@ -36,7 +36,7 @@ export function MeasurementReview({ review, projectName, locale }: {
       <div><dt>{t('Stopping rule', '모집 중단 규칙')}</dt><dd>{t('Fixed recruitment period', '합의한 모집 기간 고정')}</dd></div>
       <div><dt>{t('Allowed missing data', '허용 누락률')}</dt><dd>{t('Usage ', '사용량 ')}{percent.format(protocol.missingness_policy.max_usage_missing_rate)} · {t('Outcomes ', '결과 ')}{percent.format(protocol.missingness_policy.max_outcome_missing_rate)}</dd></div>
       <div><dt>{t('Price basis', '가격 기준')}</dt><dd>{prices.id} · {prices.currency}<br />{t('Reference rates as of ', '기준 요금 확인일 ')}{date(prices.as_of)}</dd></div>
-      <div className="sm:col-span-2"><dt>{t('Agent and observation scope', '에이전트와 관측 범위')}</dt><dd>{protocol.source_profiles.map(source => <p key={`${source.product}:${source.product_version}`} className="break-all">{source.product === 'codex' ? 'Codex' : source.product === 'claude_code' ? 'Claude Code' : source.product} {source.product_version} · {source.profile_id}</p>)}</dd></div>
+      <div className="sm:col-span-2"><dt>{t('Agent and observation scope', '에이전트와 관측 범위')}</dt><dd>{protocol.source_profiles.map(source => <p key={`${source.product}:${source.product_version}`} className="break-all">{source.product === 'claude_code' ? 'Claude Code' : `${source.product === 'codex' ? 'Codex' : source.product} ${source.product_version}`} · {source.profile_id}</p>)}</dd></div>
     </dl>
     <p className="text-sm text-muted-foreground">{review.registrations.freeze_at
       ? t('The explicit confirmation time is shown in technical details.', '직접 지정한 확정 시각은 기술 상세에서 확인할 수 있습니다.')

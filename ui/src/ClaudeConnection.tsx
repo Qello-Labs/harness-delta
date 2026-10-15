@@ -94,8 +94,8 @@ export function ClaudeConnection({ task, projectName, origin, locale, busy, onli
       </ol>
       <div className="space-y-3">
         <p className="text-xs text-muted-foreground">{ordinary
-          ? t(`Ordinary observation · Claude ${task.binding?.product_version ?? readiness.configured_version} · family limit ${task.binding?.max_family_members ?? '—'} · ${task.binding?.support === 'verified_claude_family' ? 'source qualified' : 'native qualification pending'}`,
-            `일반 관측 · Claude ${task.binding?.product_version ?? readiness.configured_version} · 가족 한도 ${task.binding?.max_family_members ?? '—'} · ${task.binding?.support === 'verified_claude_family' ? '원본 검증됨' : '네이티브 지원 검증 대기'}`)
+          ? t(`Ordinary observation · family limit ${task.binding?.max_family_members ?? '—'} · ${task.binding?.support === 'verified_claude_family' ? 'source qualified' : 'native qualification pending'}`,
+            `일반 관측 · 가족 한도 ${task.binding?.max_family_members ?? '—'} · ${task.binding?.support === 'verified_claude_family' ? '원본 검증됨' : '네이티브 지원 검증 대기'}`)
           : t('Restricted pilot · not ordinary production support', '제한된 pilot · 일반 환경 지원 아님')}</p>
         <h2 className="text-xl font-semibold tracking-tight">{titles[stage]}</h2>
         <p className="text-sm leading-relaxed text-muted-foreground">{descriptions[stage]}</p>
@@ -138,8 +138,6 @@ export function ClaudeConnection({ task, projectName, origin, locale, busy, onli
         <dl className="mt-4 grid gap-4 sm:grid-cols-2">
           {[
             [t('Project skill', '프로젝트 스킬'), readiness.skill.state],
-            [t('Installed version · advisory', '설치된 버전 · 참고 정보'), readiness.installed_version ?? t('Unknown · no binary executed', '미확인 · 바이너리를 실행하지 않음')],
-            [t('Configured version', '설정된 버전'), readiness.configured_version],
             [t('Current session', '현재 세션 확인'), linked ? t('Verified binding', '연결 신원 확인됨') : t('Pending native hook evidence', '호출 후 hook 기록 확인 대기')],
             [t('Task binding', '작업 연결'), linked ? t('Confirmed', '확인됨') : t('Not connected', '미연결')],
             [t('Collection', '수집 상태'), labels[stage]],
