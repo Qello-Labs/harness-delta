@@ -6,6 +6,39 @@ import {localWebFixture} from './helpers/local-web-fixture.js';
 import {prepareExternalTask} from '../src/external-session-service.js';
 import {registerHarness,hashBytes} from '../src/harness-config.js';
 import {ApplicationCoordinator,requireApplication,assertAppliedHarness,assertApplicationWorkingIdentity} from '../src/harness-application.js';
+test('an already matching harness completes only after its unchanged outputs and checks are reported',()=>{
+ const f=fixture();try{
+  const path=join(f.project,'AGENTS.md'),content='Synthetic already applied rules';
+  writeFileSync(path,content);
+  const context=f.coordinator.prepareHandoff(f.taskId,f.selection);
+  expect(f.coordinator.status(f.taskId).state).toBe('awaiting_session');
+  expect(()=>assertAppliedHarness(f.store,f.taskId)).toThrow('application_required');
+  const [checkpoint]=f.coordinator.checkpoint(f.taskId,{attempt_id:context.attempt_id,paths:['AGENTS.md']});
+  if(!checkpoint)throw new Error('Missing synthetic checkpoint');
+  report(f,context.attempt_id,checkpoint.checkpoint_id,'AGENTS.md',content);
+  expect(f.coordinator.status(f.taskId).state).toBe('applied');
+  assertAppliedHarness(f.store,f.taskId);
+  expect(f.coordinator.review(f.taskId).changes[0]).toMatchObject({path:'AGENTS.md',verified:true,
+   before_hash:hashBytes(content),actual_hash:hashBytes(content)});
+  expect(readFileSync(path,'utf8')).toBe(content);
+  expect(f.coordinator.prepareHandoff(f.taskId,f.selection)).toEqual(context);
+ }finally{f.cleanup();}
+});
+
+test('application review compares output hashes rather than decoded text to identify unchanged files',()=>{
+ const f=fixture();try{
+  const path=join(f.project,'AGENTS.md');writeFileSync(path,Buffer.from([0xff]));
+  const context=f.coordinator.prepareHandoff(f.taskId,f.selection);
+  const [checkpoint]=f.coordinator.checkpoint(f.taskId,{attempt_id:context.attempt_id,paths:['AGENTS.md']});
+  if(!checkpoint)throw new Error('Missing synthetic checkpoint');
+  const after=Buffer.from([0xfe]);writeFileSync(path,after);
+  f.coordinator.report(f.taskId,{attempt_id:context.attempt_id,bundle_hash:f.bundle.bundle_hash,
+   outputs:[{path:'AGENTS.md',checkpoint_id:checkpoint.checkpoint_id,sha256:hashBytes(after)}],
+   checks:[{check_id:'synthetic_script',outcome:'passed'}]});
+  expect(f.coordinator.review(f.taskId).changes[0]).toMatchObject({verified:true,
+   before_hash:hashBytes(Buffer.from([0xff])),actual_hash:hashBytes(after)});
+ }finally{f.cleanup();}
+});
 function fixture(...native:Parameters<typeof localWebFixture>){const f=localWebFixture(...native);prepareExternalTask(f.store,f.profile.setup);writeFileSync(join(f.project,'procedure.md'),'Synthetic adapt both domains');writeFileSync(join(f.project,'README.md'),'Synthetic readme');writeFileSync(join(f.project,'tool.mjs'),'// Synthetic tool');const bundle=registerHarness(f.project,{schema_version:1,harness_id:'synthetic',version:'v2',policy_version:'synthetic',readme_path:'README.md',artifacts:[{artifact_id:'rules',role:'instruction',source_path:'procedure.md',target_path:'harness.md'},{artifact_id:'tool',role:'tool',source_path:'tool.mjs',target_path:'tool.mjs'}]}).manifest;const taskId=f.input.assignment.task_id;requireApplication(f.store,taskId,{origin:f.project,bundlePath:'harness-config/v2/manifest.json',bundleHash:bundle.bundle_hash});const coordinator=new ApplicationCoordinator(f.store);const selection={workspace:f.project,workspaceDigest:coordinator.workspace(taskId,f.project).digest,product:'codex' as const};return {...f,coordinator,selection,taskId,bundle};}
 function report(f:ReturnType<typeof fixture>,attemptId:string,checkpointId:string,path:string,content:string|null){return f.coordinator.report(f.taskId,{attempt_id:attemptId,bundle_hash:f.bundle.bundle_hash,outputs:[{path,checkpoint_id:checkpointId,sha256:content===null?null:hashBytes(content)}],checks:[{check_id:'synthetic_script',outcome:'passed'}]});}
 test('external attempts preserve pins on repeat, reject stale selection and retire managed execution',()=>{const f=fixture();try{const before=f.store.get('SELECT * FROM comparison_assignments WHERE task_id=?',[f.taskId]);const context=f.coordinator.prepareHandoff(f.taskId,f.selection);expect(f.coordinator.prepareHandoff(f.taskId,f.selection)).toEqual(context);expect(()=>f.coordinator.prepareHandoff(f.taskId,{...f.selection,workspaceDigest:'0'.repeat(64)})).toThrow('application_preview_changed');expect(f.store.get('SELECT * FROM comparison_assignments WHERE task_id=?',[f.taskId])).toEqual(before);expect(f.coordinator.status(f.taskId).state).toBe('awaiting_session');}finally{f.cleanup();}});

@@ -5,7 +5,7 @@ export function SupportGuidance({ support, locale, compact = false }: { support:
   if (compact && support.context === 'synthetic_validation_only') return <section data-support-context={support.context} className="space-y-3 border-t pt-4 text-sm">
     <div className="flex flex-wrap items-center justify-between gap-2">
       <h4 className="font-medium">{t('Measurement support', '측정 지원 상태')}</h4>
-      <span className="text-muted-foreground">{support.product} {support.product_version} · {t('Configured version', '설정 버전')}</span>
+      <span className="text-muted-foreground">{support.product === 'claude_code' ? 'Claude Code' : `${support.product} ${support.product_version} · ${t('Configured version', '설정 버전')}`}</span>
     </div>
     <p className="font-medium">{t('Synthetic validation only · no real measurement', '합성 검증 전용 · 실측 불가')}</p>
     <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
@@ -30,7 +30,7 @@ export function SupportGuidance({ support, locale, compact = false }: { support:
   if (compact) return <section data-support-context={support.context} className="space-y-3 border-t pt-4 text-sm">
     <div className="flex flex-wrap items-center justify-between gap-2">
       <h4 className="font-medium">{t('Measurement support', '측정 지원 상태')}</h4>
-      <span className="text-muted-foreground">{support.product} {support.product_version} · {t('Configured version', '설정 버전')}</span>
+      <span className="text-muted-foreground">{support.product === 'claude_code' ? 'Claude Code' : `${support.product} ${support.product_version} · ${t('Configured version', '설정 버전')}`}</span>
     </div>
     <dl className="grid gap-3 sm:grid-cols-2">
       <div data-support-route="family">
@@ -74,7 +74,7 @@ export function SupportGuidance({ support, locale, compact = false }: { support:
     <p className="text-muted-foreground">{t('Cost remains partial, not complete task cost or an actual bill. Paused and setup intervals are not backfilled.', '비용은 부분 관측이며 전체 작업 비용이나 실제 청구액이 아닙니다. 중단·준비 구간은 소급 수집하지 않습니다.')}</p>
   </div>;
   return <div data-support-context={support.context} className="space-y-3 text-sm">
-    <p>{t('Configured product/version (not installed-version detection): ', '설정된 제품·버전(설치 버전 탐지가 아님): ')}{support.product} {support.product_version}</p>
+    <p>{support.product === 'claude_code' ? 'Claude Code' : <>{t('Configured product/version (not installed-version detection): ', '설정된 제품·버전(설치 버전 탐지가 아님): ')}{support.product} {support.product_version}</>}</p>
     <dl className="space-y-2">
       <div data-support-route="launch"><dt className="font-medium">{t('Native launch workflow', '네이티브 launch workflow')}</dt><dd>{support.launch.map(source => <p key={source.profile_id}>{source.profile_id}: {trust(source.state)}</p>)}{t('Use workflow status with reviewed inputs. File/parser compatibility does not authorize other routes.', '검토된 입력으로 workflow status를 확인하세요. 파일·parser 호환성은 다른 경로를 허용하지 않습니다.')}</dd></div>
       <div data-support-route="ticket"><dt className="font-medium">{t('Exact external ticket connection', '정확한 외부 ticket 연결')}</dt><dd>{support.ticket === 'exact_version_only' ? t('Codex 0.160.0 fresh CLI root only; reviewed canonical binary/hash and current one-use ticket required. Claude and IDE ticket connections are unsupported.', 'Codex 0.160.0의 새 CLI root 전용입니다. 검토된 정규 바이너리·해시와 현재 일회용 ticket이 필요합니다. Claude·IDE ticket 연결은 미지원입니다.') : t('Unsupported for this configured product/version.', '이 설정의 제품·버전에서는 미지원입니다.')}</dd></div>

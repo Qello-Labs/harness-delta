@@ -6,6 +6,9 @@ import { GuidedSetup } from './GuidedSetup';
 import { SavedSetups } from './SavedSetups';
 import { SetupSummary } from './SetupSummary';
 import { SharedSetupPreview, type SharedSetupImport } from './SharedSetupPreview';
+import { OrdinaryObservationSetup } from './OrdinaryObservationSetup';
+import { HarnessApplication } from './HarnessApplication';
+import { ClaudeConnection } from './ClaudeConnection';
 import type { Setup, Snapshot, SupportDetails, Task } from './types';
 import { connectionRoute } from './AssignedHarness';
 import * as api from './api';
@@ -159,6 +162,24 @@ test('setup shows title and project registration before a form with no automatic
   } finally { harness.restore(); }
 });
 
+test('ordinary setup is absent until a project is selected from multiple projects', () => {
+  const harness = appHarness();
+  try {
+    expect(appControls(harness.render()).filter(node => node.type === OrdinaryObservationSetup)).toHaveLength(0);
+  } finally { harness.restore(); }
+});
+
+test.each(['one', 'two'])('ordinary setup renders only the selected project: %s', projectId => {
+  const harness = appHarness();
+  try {
+    harness.choose(projectId);
+    const cards = appControls(harness.render()).filter(node => node.type === OrdinaryObservationSetup);
+    expect(cards).toHaveLength(1);
+    expect(cards[0]?.key).not.toBe(harness.guided().key);
+    expect(isValidElement<Parameters<typeof OrdinaryObservationSetup>[0]>(cards[0]) && cards[0].props.projectId).toBe(projectId);
+  } finally { harness.restore(); }
+});
+
 test('a sole registered project is selected for comparison review without another click', () => {
   const onlyProject = projects[0];
   if (!onlyProject) throw new Error('Missing project fixture');
@@ -194,8 +215,14 @@ test('project registration reload keeps the original comparison form selected', 
     vi.mocked(api.bootstrap).mockResolvedValue({ ...snapshot, projects });
     vi.mocked(api.mutate).mockResolvedValue(nextProject);
     const before = harness.guided();
+    const beforeCards = appControls(harness.render()).filter(node => node.type === OrdinaryObservationSetup);
+    expect(beforeCards).toHaveLength(1);
     await before.props.perform('/api/projects', { directory: nextProject.directory });
     const after = harness.guided();
+    const afterCards = appControls(harness.render()).filter(node => node.type === OrdinaryObservationSetup);
+    expect(afterCards).toHaveLength(1);
+    expect(afterCards[0]?.key).toBe(beforeCards[0]?.key);
+    expect(isValidElement<Parameters<typeof OrdinaryObservationSetup>[0]>(afterCards[0]) && afterCards[0].props.projectId).toBe(onlyProject.id);
     expect(after.key).toBe(before.key);
     expect(after.props.project).toEqual(onlyProject);
     expect(appControls(harness.render()).filter(node => node.props.name === 'setup-project').map(node => node.props.checked)).toEqual([true, false]);
@@ -264,6 +291,36 @@ const waitingTask: Task = {
   actions: [{ code: 'session-connect', enabled: false, reason: 'binding_provider_unavailable' }],
   startup: null, criteria: ['criterion-one'], source: null, reason: null,
 };
+
+test.each(['rejected', 'prepared'])('preparation retry keeps distinct application and connection identities when %s', async result => {
+  const blocked: Task = { ...waitingTask, status: 'blocked_configuration', reason: 'outside_recruitment',
+    application: { launchState: 'not_requested', identity: 'unverified', state: 'blocked_configuration', jobId: null,
+      epoch: 0, reason: 'outside_recruitment', workspace: null, baseline: 'synthetic', capabilities: [] },
+    actions: [{ code: 'prepare', enabled: true, reason: null }],
+  };
+  const harness = appHarness({ ...snapshot, tasks: [blocked] }, [[3, 'detail'], [4, blocked]]);
+  vi.stubGlobal('location', { hash: '', origin: 'http://127.0.0.1:4318' });
+  try {
+    const application = appControls(harness.render()).find(node => node.type === HarnessApplication);
+    if (!isValidElement<Parameters<typeof HarnessApplication>[0]>(application)) throw new Error('Missing application card');
+    if (result === 'rejected') vi.mocked(api.mutate).mockRejectedValue(new api.LocalApiError('outside_recruitment'));
+    else vi.mocked(api.mutate).mockResolvedValue({ ...blocked, version: '"v2"', reason: null,
+      application: { ...blocked.application, state: 'awaiting_application' } });
+
+    await application.props.onAction('prepare');
+
+    expect(api.mutate).toHaveBeenCalledWith(`/api/tasks/${blocked.id}/prepare`, {}, blocked.version);
+    const controls = appControls(harness.render());
+    const applications = controls.filter(node => node.type === HarnessApplication);
+    const connections = controls.filter(node => node.type === ClaudeConnection);
+    expect(applications).toHaveLength(1);
+    expect(connections).toHaveLength(1);
+    expect(applications[0]?.key).toBe(application.key);
+    expect(applications[0]?.key).not.toBe(connections[0]?.key);
+    expect(isValidElement<Parameters<typeof HarnessApplication>[0]>(applications[0]) && applications[0].props.task.application?.state)
+      .toBe(result === 'rejected' ? 'blocked_configuration' : 'awaiting_application');
+  } finally { vi.unstubAllGlobals(); harness.restore(); }
+});
 
 test.each([
   [waitingTask, 'family'],
