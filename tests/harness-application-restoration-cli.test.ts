@@ -5,6 +5,9 @@ import {afterEach,beforeEach,expect,test,vi} from 'vitest';
 import {main} from '../src/cli.js';
 import {apply,begin,bytes,fixture,git,restore} from './helpers/harness-application-restoration-fixture.js';
 
+// Keep subprocess deadlines observable while complete application fixtures run.
+vi.setConfig({testTimeout:30000});
+
 // Synthetic worktrees must not inherit the invoking checkout's hook index.
 beforeEach(()=>{vi.stubEnv('GIT_INDEX_FILE',undefined);});
 afterEach(()=>{vi.unstubAllEnvs();});
