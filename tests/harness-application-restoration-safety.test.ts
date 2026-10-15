@@ -172,7 +172,7 @@ test('historical cross-worktree inherited metadata is not mistaken for a local c
   expect(readFileSync(join(f.project,'inherited.md'),'utf8')).toBe('SYNTHETIC_ORIGIN');
   expect(existsSync(join(linked,'local.md'))).toBe(false);
  }finally{f.cleanup();}
-});
+},20000); // Two application cycles and linked-worktree setup share this budget.
 test('index checking ignores working-tree aliases and flags staged symlink entries',()=>{
  const f=fixture();try {
   bytes(f.project,'AGENTS.md','SYNTHETIC_BASELINE');
