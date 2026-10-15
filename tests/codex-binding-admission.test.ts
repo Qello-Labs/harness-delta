@@ -16,12 +16,12 @@ import { beginAssignedWorkflow, workflowStatus } from '../src/task-workflow.js';
 const cleanups: (() => void)[] = [];
 afterEach(() => { for (const cleanup of cleanups.splice(0)) cleanup(); });
 
-function fixture(version = '0.162.1', profileId: string = codexBindingAdmission.profileId, staleChild = false) {
+function fixture(version = '0.162.1', profileId: string = codexBindingAdmission.profileId, staleChild = false, initialModel: string | null = 'gpt-6.1-sol') {
   const f = localWebFixture(profileId, { product: 'codex', productVersion: version });
   cleanups.push(f.cleanup);
   const setup = ExternalTaskSetupSchema.parse({
     workflow: { ...f.input, assignment: { ...f.input.assignment,
-      metadata: { ...f.input.assignment.metadata, initial_model: 'gpt-6.1-sol' } } },
+      metadata: { ...f.input.assignment.metadata, initial_model: initialModel } } },
     runtime: { model: 'gpt-6.1-sol', effort: 'high' },
     preparation: { schema_version: 1, common_artifacts: [], common_manifest_hash: null, allowed_preimage_hashes: [] },
   });
@@ -57,7 +57,7 @@ function fixture(version = '0.162.1', profileId: string = codexBindingAdmission.
     writeFileSync(path, JSON.stringify({ ...metadata, createdAt: now }));
     return { ...source, receipt, parent };
   }
-  function usage(source: ReturnType<typeof member>, model = 'gpt-6.1-sol', effort = 'high', contextAt?: string) {
+  function usage(source: ReturnType<typeof member>, model = 'gpt-6.1-sol', effort: string | null = 'high', contextAt?: string) {
     now = new Date(Date.parse(now) + 1).toISOString();
     const response = randomUUID();
     const context = { type: 'turn_context', timestamp: contextAt ?? now, payload: {
@@ -96,7 +96,7 @@ test('ordinary native provider collects one root and two fresh direct children w
   }) }).safeParse(JSON.parse(event.payload)).success)).toBe(true);
 });
 
-test.each([['another-model', 'high'], ['gpt-6.1-sol', 'low']])(
+test.each([['another-model', 'high'], ['claude-opus-5-5', 'high'], ['not-gpt-6.1-sol', 'low']])(
   'ordinary profile refuses unsupported runtime %s/%s before storing its request', async (model, effort) => {
     const f = fixture(); const root = f.member(); f.refresh();
     await f.service.connect(f.id, 'codex', { receipt: root.receipt });
@@ -105,6 +105,43 @@ test.each([['another-model', 'high'], ['gpt-6.1-sol', 'low']])(
     await expect(f.service.tick(f.id)).rejects.toThrow('binding_runtime_unsupported');
     expect(f.store.eventCount()).toBe(0);
   });
+
+test.each([null, 'gpt-5.4', 'GPT-4o', 'gpt-oss-120b'] as const)(
+  'ordinary connection accepts declared model %s without replacing task metadata', async initialModel => {
+    const f = fixture('0.162.1', codexBindingAdmission.profileId, false, initialModel);
+    const root = f.member(); f.refresh();
+    const before = f.store.get('SELECT metadata FROM tasks WHERE id=?', [f.id]);
+
+    expect(f.service.sourceSupported(f.id, 'codex')).toBe(true);
+    await expect(f.service.connect(f.id, 'codex', { receipt: root.receipt })).resolves.toMatchObject({ status: 'connected', roots: 1 });
+
+    expect(f.store.get('SELECT metadata FROM tasks WHERE id=?', [f.id])).toEqual(before);
+  });
+
+test.each([
+  ['gpt-6.1-sol', 'low'],
+  ['gpt-5.4', 'medium'],
+  ['gpt-6-astra', 'xhigh'],
+  ['gpt-4o', null],
+  ['gpt-oss-120b', 'minimal'],
+  ['gpt-future-synthetic', 'high'],
+] as const)('ordinary usage stores GPT model %s and effort %s as observed', async (model, effort) => {
+  const f = fixture(); const root = f.member(); f.refresh();
+  await f.service.connect(f.id, 'codex', { receipt: root.receipt });
+  f.usage(root, model, effort); f.refresh();
+
+  await f.service.tick(f.id);
+
+  const events = f.store.all<{ payload: string }>('SELECT payload FROM events WHERE task_id=?', [f.id]);
+  expect(events).toHaveLength(1);
+  expect(JSON.parse(events[0]?.payload ?? 'null') as unknown).toMatchObject({
+    model, source_compatibility: { state: 'verified', source: 'codex_binding' },
+  });
+  const runtime = f.store.get<{ payload: string }>('SELECT payload FROM runtime_evidence WHERE task_id=?', [f.id]);
+  expect(JSON.parse(runtime?.payload ?? 'null') as unknown).toMatchObject({ model, effort });
+  expect(f.service.status(f.id)).toMatchObject({ requests: 1, cost_coverage: 'partial', complete_cost: null });
+  if (model === 'gpt-future-synthetic') expect(f.service.status(f.id).summary.unpriced_events).toBeGreaterThan(0);
+});
 
 test('ordinary profile rejects a third child before reading usage bodies', async () => {
   const f = fixture(); const root = f.member(); f.refresh();

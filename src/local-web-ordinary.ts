@@ -39,9 +39,10 @@ export function ordinaryProjectDto(store: Store, projectId: string) {
     product_version: settings?.product_version ?? claudeBindingAdmission.productVersion,
     installation: statusClaudeConnectInstallation(root),
     admission: {
-      profile_id: claudeBindingAdmission.profileId, qualified: claudeBindingAdmission.qualified,
+      profile_id: claudeBindingAdmission.profileId, admitted: claudeBindingAdmission.admitted,
+      qualified: claudeBindingAdmission.qualified,
       max_family_members: claudeBindingAdmission.maxFamilyMembers,
-      model: claudeBindingAdmission.model,
+      model_family: 'claude' as const,
     },
   };
 }

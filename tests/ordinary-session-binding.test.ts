@@ -249,15 +249,17 @@ test('native request conflicts roll back the entire batch and cursor', async () 
   expect(f.store.get<{ cursor: string }>('SELECT cursor FROM session_bindings')?.cursor).toBe(cursor);
 });
 
-test('an unsupported model rejects its source batch without persisting supported neighbors or advancing its cursor', async () => {
+test.each(['gpt-6.1-sol', 'claudex', 'not-claude-opus', null])('rejects foreign model %s atomically without advancing its cursor', async model => {
   const f = fixture(); await f.connect();
   const cursor = f.store.get<{ cursor: string }>('SELECT cursor FROM session_bindings')?.cursor;
   const supported = f.usage(); const unsupported = f.usage();
   f.records.set(f.current().sessionId, [
-    supported, { ...unsupported, payload: { ...unsupported.payload, model: 'synthetic-unsupported-model' } },
+    supported, { ...unsupported, payload: { ...unsupported.payload, model } },
   ]);
   f.advance();
-  await expect(f.binding.tick(f.taskId)).rejects.toThrow('binding_runtime_unsupported');
+  await expect(f.binding.tick(f.taskId)).rejects.toMatchObject(
+    model === null ? { name: 'ZodError' } : { message: 'binding_runtime_unsupported' },
+  );
   expect(f.store.eventCount()).toBe(0);
   expect(f.store.get<{ cursor: string }>('SELECT cursor FROM session_bindings')?.cursor).toBe(cursor);
   expect(f.store.all('SELECT * FROM binding_requests')).toEqual([]);
@@ -391,15 +393,34 @@ test('pause fences before a clock-regressed gap can fail and forbids subsequent 
   expect(f.bodyReads).toHaveLength(reads);
 });
 
-test('ordinary native production admission stays closed until code-owned qualification', async () => {
+test('ordinary native admission permits receipt inspection without promoting qualification evidence', async () => {
   const f = fixture();
   const provider = new ClaudeSessionBindingProvider({ receiptDir: '/synthetic/receipts',
     claudeProjectsDir: '/synthetic/projects', projectRoot: f.current().cwd, ordinaryAdmission: true });
   const service = createOrdinarySessionBindingService({ store: f.store, providersForTask: () => [provider], clock: f.clock });
-  expect(service.sourceSupported(f.taskId, 'claude_code')).toBe(false);
-  await expect(service.connect(f.taskId, 'claude_code', f.receipt())).rejects.toThrow('binding_source_unqualified');
+  expect(service.sourceSupported(f.taskId, 'claude_code')).toBe(true);
+  await expect(service.connect(f.taskId, 'claude_code', f.receipt())).rejects.toThrow('claude_receipt_missing');
   expect(f.life.state(f.taskId)).toBe('registered');
   await service.close();
+});
+
+test.each([
+  ['claude-sonnet-4-5', 'low'],
+  ['claude-haiku-4-5-20251001', null],
+  ['CLAUDE-OPUS-4-6', 'max'],
+  ['claude-future-synthetic', 'medium'],
+] as const)('records ordinary %s usage at its observed effort %s', async (model, effort) => {
+  const f = fixture(); await f.connect();
+  const record = f.usage();
+  f.records.set(f.current().sessionId, [{ ...record, effort, payload: { ...record.payload, model } }]);
+  f.advance();
+  await f.binding.tick(f.taskId);
+  expect(f.store.get<{ model: string; effort: string | null }>(
+    "SELECT json_extract(payload,'$.model') AS model,json_extract(payload,'$.effort') AS effort FROM runtime_evidence",
+  )).toEqual({ model, effort });
+  expect(f.binding.status(f.taskId)).toMatchObject({ requests: 1, complete_cost: null, cost_coverage: 'partial' });
+  expect(f.binding.status(f.taskId).sessions[0]?.models).toEqual([model]);
+  if (model === 'claude-future-synthetic') expect(f.binding.status(f.taskId).summary.unpriced_events).toBeGreaterThan(0);
 });
 
 test('completed reads fence retained ledger callbacks with their original cursor snapshot', async () => {

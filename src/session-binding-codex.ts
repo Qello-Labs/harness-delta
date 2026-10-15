@@ -7,7 +7,7 @@ import { IdSchema, TimestampSchema } from './contracts.js';
 import { parseCodexCandidateRollout, type CodexCandidateSnapshot } from './codex-candidate-rollout.js';
 import { checkedCandidateScope, type CandidateScope } from './nested-candidate.js';
 import { resolveSourceCompatibility } from './source-compatibility.js';
-import { codexBindingAdmission } from './codex-binding-admission.js';
+import { codexBindingAdmission, isCodexGptModel } from './codex-binding-admission.js';
 import { bindingIdentityKey, CurrentIdentityRequestSchema, VerifiedSessionIdentitySchema, type BindingCapabilities, type BindingReadBoundary, type ChildDiscovery,
   type SessionBindingProvider, type UsageBatch, type VerifiedSessionIdentity } from './session-binding-contract.js';
 
@@ -478,7 +478,7 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
       settled.add(projection.event.id);
       const { runtime_evidence_id: runtimeEvidenceId, ...payload } = projection.event.payload;
       void runtimeEvidenceId;
-      if(this.ordinaryFamilyAdmission&&(payload.model!==codexBindingAdmission.model||projection.runtime.effort!==codexBindingAdmission.effort))throw new Error('binding_runtime_unsupported');
+      if(this.ordinaryFamilyAdmission&&!isCodexGptModel(payload.model))throw new Error('binding_runtime_unsupported');
       const excluded = previous?.baselineAt != null && Date.parse(contextAt) <= Date.parse(previous.baselineAt);
       if (excluded) gaps.add('binding_unobserved_context');
       (excluded ? excludedRecords : records).push({ requestId: projection.runtime.request_id!, sessionId: session.sessionId, occurredAt: projection.event.occurred_at,

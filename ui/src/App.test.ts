@@ -6,7 +6,7 @@ import { GuidedSetup } from './GuidedSetup';
 import { SavedSetups } from './SavedSetups';
 import { SetupSummary } from './SetupSummary';
 import { SharedSetupPreview, type SharedSetupImport } from './SharedSetupPreview';
-import { OrdinaryObservationSetup } from './OrdinaryObservationSetup';
+import { AgentConnectionSetup } from './AgentConnectionSetup';
 import { HarnessApplication } from './HarnessApplication';
 import { ClaudeConnection } from './ClaudeConnection';
 import type { Setup, Snapshot, SupportDetails, Task } from './types';
@@ -165,7 +165,7 @@ test('setup shows title and project registration before a form with no automatic
 test('ordinary setup is absent until a project is selected from multiple projects', () => {
   const harness = appHarness();
   try {
-    expect(appControls(harness.render()).filter(node => node.type === OrdinaryObservationSetup)).toHaveLength(0);
+    expect(appControls(harness.render()).filter(node => node.type === AgentConnectionSetup)).toHaveLength(0);
   } finally { harness.restore(); }
 });
 
@@ -173,10 +173,10 @@ test.each(['one', 'two'])('ordinary setup renders only the selected project: %s'
   const harness = appHarness();
   try {
     harness.choose(projectId);
-    const cards = appControls(harness.render()).filter(node => node.type === OrdinaryObservationSetup);
+    const cards = appControls(harness.render()).filter(node => node.type === AgentConnectionSetup);
     expect(cards).toHaveLength(1);
     expect(cards[0]?.key).not.toBe(harness.guided().key);
-    expect(isValidElement<Parameters<typeof OrdinaryObservationSetup>[0]>(cards[0]) && cards[0].props.projectId).toBe(projectId);
+    expect(isValidElement<Parameters<typeof AgentConnectionSetup>[0]>(cards[0]) && cards[0].props.projectId).toBe(projectId);
   } finally { harness.restore(); }
 });
 
@@ -215,14 +215,14 @@ test('project registration reload keeps the original comparison form selected', 
     vi.mocked(api.bootstrap).mockResolvedValue({ ...snapshot, projects });
     vi.mocked(api.mutate).mockResolvedValue(nextProject);
     const before = harness.guided();
-    const beforeCards = appControls(harness.render()).filter(node => node.type === OrdinaryObservationSetup);
+    const beforeCards = appControls(harness.render()).filter(node => node.type === AgentConnectionSetup);
     expect(beforeCards).toHaveLength(1);
     await before.props.perform('/api/projects', { directory: nextProject.directory });
     const after = harness.guided();
-    const afterCards = appControls(harness.render()).filter(node => node.type === OrdinaryObservationSetup);
+    const afterCards = appControls(harness.render()).filter(node => node.type === AgentConnectionSetup);
     expect(afterCards).toHaveLength(1);
     expect(afterCards[0]?.key).toBe(beforeCards[0]?.key);
-    expect(isValidElement<Parameters<typeof OrdinaryObservationSetup>[0]>(afterCards[0]) && afterCards[0].props.projectId).toBe(onlyProject.id);
+    expect(isValidElement<Parameters<typeof AgentConnectionSetup>[0]>(afterCards[0]) && afterCards[0].props.projectId).toBe(onlyProject.id);
     expect(after.key).toBe(before.key);
     expect(after.props.project).toEqual(onlyProject);
     expect(appControls(harness.render()).filter(node => node.props.name === 'setup-project').map(node => node.props.checked)).toEqual([true, false]);

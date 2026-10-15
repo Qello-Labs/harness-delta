@@ -1,7 +1,7 @@
 # ADR 016: Ordinary Claude observation
 
-Status: Implemented behind a closed admission. Native qualification is pending,
-so this record claims no supported or verified native source.
+Status: Ordinary use admitted by the 2026-10-15 policy addendum below.
+Historical native qualification evidence is unchanged.
 
 ## Context
 
@@ -69,8 +69,9 @@ A ninth is refused with `binding_family_limit`. Members are flattened under the
 root. The documented hook fields prove family membership, not the immediate
 parent of a nested member.
 
-The profile also names one model. A usage record for a different model stops
-collection with `binding_runtime_unsupported`. The source batch is rejected
+The profile originally named one model (see the
+[2026-10-15 addendum](#policy-addendum-2026-10-15)). A usage record for a
+different model stopped collection with `binding_runtime_unsupported`. The source batch is rejected
 atomically, including supported records in that batch; no cursor advances.
 Explicit resume takes a new baseline rather than backfilling the rejected batch.
 
@@ -93,10 +94,10 @@ or adoption result is produced.
 
 The code-owned profile `claude-binding-02196-family-v1` names Claude Code
 2.1.296, one exact binary hash and the declared family limit. Its `qualified`
-flag is currently false. While it is false the provider reports no production
-support, and connecting an ordinary task returns `binding_source_unqualified`
-before any native source is read. No pilot flag, browser input or provider
-setting opens this path.
+flag is false. Before the 2026-10-15 addendum, that flag also closed production
+admission, and connecting an ordinary task returned `binding_source_unqualified`
+before any native source was read. No pilot flag, browser input or provider
+setting opened that admission.
 
 Current evidence includes local unit, fake-provider, HTTP and UI tests over
 synthetic fixtures, bounded target-binary localhost conformance, and narrowly
@@ -108,11 +109,31 @@ pause/resume and task-handover profile, families up to the declared eight member
 compaction, background agents, resumed history and immediate nested parents
 remain unverified.
 
-Promotion needs an accepted native trial tied to the exact 2.1.296 binary on
+Native qualification needs an accepted native trial tied to the exact 2.1.296 binary on
 macOS arm64 under Node 24, sanitized evidence, independent review and a
 code-owned admission change. The runtime check also accepts Node 26, which needs
-its own evidence before any Node 26 claim. Until then the public support state
-is "implemented, qualification pending".
+its own evidence before any native Node 26 qualification claim. The historical
+support state was "implemented, qualification pending"; normal-use admission is
+now independent of that evidence flag.
+
+### Policy addendum (2026-10-15)
+
+The user authorized normal use of this route. This addendum changes use policy,
+not the historical evidence above.
+
+- Ordinary provider and source admission is open for the profile's exact current
+  Claude Code source version and binary hash. Admission for use is recorded
+  separately from the `qualified` evidence flag, which stays false.
+- Any Claude model is accepted, meaning a model ID matching `claude` alone or
+  followed by `-`, case-insensitive. Model and observed effort are stored as
+  observed. There is no model pin. A usage record from another product's model
+  stops collection with `binding_runtime_unsupported`, and its source batch is
+  rejected atomically.
+- Scope, receipt, identity, source version and binary, the eight-member family
+  limit, lifecycle, privacy, partial cost and compatibility invalidation rules
+  are unchanged.
+- No new native trial was run, and no earlier observation is promoted. The
+  qualification criteria above remain the record of what was and wasn't shown.
 
 ## Consequences
 
@@ -120,5 +141,6 @@ Everyday work can be prepared for observation without a comparison protocol,
 and the user keeps control of model, effort, permissions, startup and exit.
 The cost is a second binding state machine beside ADR 012's, with its own
 tables for project settings, prepared tasks, baseline exclusions and root
-segments. The user-facing steps are in the
+segments. Since the 2026-10-15 addendum, ordinary use no longer waits on that
+qualification. The user-facing steps are in the
 [Harness Connect runbook](../runbooks/harness-connect.md#ordinary-claude-observation-qualification-pending).

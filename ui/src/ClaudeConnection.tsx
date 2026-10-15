@@ -94,8 +94,8 @@ export function ClaudeConnection({ task, projectName, origin, locale, busy, onli
       </ol>
       <div className="space-y-3">
         <p className="text-xs text-muted-foreground">{ordinary
-          ? t(`Ordinary observation · family limit ${task.binding?.max_family_members ?? '—'} · ${task.binding?.support === 'verified_claude_family' ? 'source qualified' : 'native qualification pending'}`,
-            `일반 관측 · 가족 한도 ${task.binding?.max_family_members ?? '—'} · ${task.binding?.support === 'verified_claude_family' ? '원본 검증됨' : '네이티브 지원 검증 대기'}`)
+          ? t(`Ordinary observation · all Claude-family models · family limit ${task.binding?.max_family_members ?? '—'}`,
+            `일반 관측 · 모든 Claude 계열 모델 허용 · 가족 한도 ${task.binding?.max_family_members ?? '—'}`)
           : t('Restricted pilot · not ordinary production support', '제한된 pilot · 일반 환경 지원 아님')}</p>
         <h2 className="text-xl font-semibold tracking-tight">{titles[stage]}</h2>
         <p className="text-sm leading-relaxed text-muted-foreground">{descriptions[stage]}</p>

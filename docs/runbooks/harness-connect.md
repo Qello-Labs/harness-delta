@@ -14,8 +14,9 @@ sources remain qualification-blocked. Claude candidate integration includes sess
 skill hooks, same-command receipt lookup and flattened root-family membership.
 A configured provider or installed skill alone does not enable that production path.
 See [design and qualification](../decisions/012-session-family-bindings.md).
-Ordinary Claude observation, for a task with no A/B assignment, is implemented
-and [qualification-pending](#ordinary-claude-observation-qualification-pending).
+Ordinary Claude observation, for a task with no A/B assignment, is open for
+[normal use](#ordinary-claude-observation-qualification-pending) under the exact
+current Claude source version and binary.
 
 The UI first prepares the registered logical task and A/B assignment. With approved
 native instrumentation, a normally opened parent supplies a trusted receipt; the
@@ -23,6 +24,39 @@ server resolves current identity/source, preserves arm/price pin, starts observa
 and follows supported native child relations. Children do not call the skill.
 Repeated calls confirm binding; multiple tasks require one explicit selection.
 A common cwd, model statement, environment hint or guessed UUID is never proof.
+
+## Project agent connection setup
+
+In Local setup, select the registered project and open **Agent connection setup**.
+Choose **Codex** or **Claude Code**. Saved settings, installed files, native hook
+trust and linked sessions are separate states.
+
+For Codex, review the exact version and permitted source roots, then save the
+configuration. Preview installation before applying it. The reviewed installation
+copies the owned skill and recorder, merges its entries into project-local
+`.codex/hooks.json`, and creates `.harness-delta/codex-connect/receipts` with private
+permissions. Unrelated hooks are preserved. Installation neither grants native
+trust nor launches Codex or creates a receipt. Review and trust the native hook,
+then start or resume the working session before invoking `harness-connect`.
+
+Project Codex connection settings supply the receipt/source locations for this
+project's Codex tasks; the frozen task version and source-admission gates still
+apply. A configuration change or removal is blocked while Codex bindings are
+observing. Removal preserves receipts and unrelated hooks. The Claude panel keeps
+its project-local package workflow and the source and family limits below.
+
+Refresh setup to check missing/unsafe receipt directories and provider
+initialization. A ready provider is an environment check, not proof that the
+current session loaded a trusted hook. Confirm the actual session connection in
+the task detail. Installation does not enable ordinary Codex tasks without an A/B
+assignment or extend the bounded source profile.
+
+If the receipt directory is later removed, preview and apply installation again
+to recreate it without replacing unchanged hooks or skill files. Refresh after a
+Node runtime upgrade and preview an update if its pinned executable path changed.
+Use **Recover stopped installer** only for a proved-dead owner with no remaining
+transaction. A missing owner record or saved `transaction-*` evidence requires
+manual review; recovery never discards that evidence or releases a live lock.
 
 ## Codex 0.162.1 bounded ordinary profile
 
@@ -32,16 +66,19 @@ The previous lease-gated observation and synthetic fixtures are separate evidenc
 they do not qualify other ordinary routes.
 
 Use the code-owned `codex-binding-01621-direct-family-v1` source profile in a
-frozen `functional_pilot` protocol, exact version `0.162.1`, and registered task
-initial model `gpt-6.1-sol`. The functional protocol does not enable an adoption
+frozen `functional_pilot` protocol, exact version `0.162.1`, and a registered task.
+The task initial model may be empty, in which case the observed native model is
+used, or any GPT-family model, which is kept as written. The functional protocol does not enable an adoption
 experiment. Configure the reviewed Codex receipt directory, permitted source
 roots and registered project in `session_binding`. No qualification lease,
 `native-pilot` command or browser support flag grants admission.
 
-The supported native evidence is a fresh CLI root with two fresh direct children,
-`gpt-6.1-sol/high`, under the reviewed read-only, no-daemon invocation. The
-ordinary coordinator admits at most one root and two direct children and checks
-native model/effort metadata. Unsupported runtime, source replacement, ancestry,
+The 2026-10-13 native evidence is a fresh CLI root with two fresh direct children,
+`gpt-6.1-sol/high`, under the reviewed read-only, no-daemon invocation. Under the
+user-approved 2026-10-15 policy, normal use accepts any GPT-family model and
+doesn't force reasoning effort. The ordinary coordinator admits at most one root
+and two direct children, requires a GPT-family observed native model and stores
+model and effort as observed. No new native trial was run for this policy. Non-GPT models, source replacement, ancestry,
 third/nested members and different exact versions fail closed. Application and
 working sessions stay separate. Restart/pause creates a fresh baseline; excluded
 setup and offline usage are not backfilled.
@@ -58,27 +95,26 @@ Complete task cost remains unavailable: response records and normal exit do not
 establish every attempted request or durable terminal usage. A price match under
 the reference policy is not actual billing evidence.
 
-## Ordinary Claude observation (qualification pending)
+<a id="ordinary-claude-observation-qualification-pending"></a>
 
-This flow is implemented, and its native admission is closed. The code-owned
-profile `claude-binding-02196-family-v1` names Claude Code 2.1.296 with
-`qualified: false`. Until that changes, connecting an ordinary task returns
-`binding_source_unqualified` and reads no native source. Project setup, package
-installation and task creation work today. They don't start collection.
-Evidence includes synthetic unit, fake-provider, HTTP and UI tests, bounded
-target-binary localhost conformance, and narrowly scoped interactive connection
-observations under a development-only qualification factory. One connection-only
-trial matched a measured row to independent API counters and exercised two
-approve-once Bash permissions. This does not admit the production source or
-qualify the full family, pause/resume or task-handover profile. See
-[ADR 016](../decisions/016-ordinary-observation.md).
+## Ordinary Claude observation
+
+Since the user-approved 2026-10-15 policy, this flow is admitted for normal use.
+The code-owned profile `claude-binding-02196-family-v1` admits ordinary
+connection only for its exact Claude Code source version and binary hash. Any
+Claude model (`claude` or an ID starting with `claude-`, case-insensitive) is accepted and stored as
+observed, with its observed effort. Admission for normal use is separate from
+the profile's historical `qualified: false` evidence flag. That flag isn't
+promoted, and no new native trial was run for this policy. Another source
+version or binary still returns a fixed refusal and reads no native source. See
+[ADR 016](../decisions/016-ordinary-observation.md#policy-addendum-2026-10-15).
 
 Use the normal [local browser UI](local-browser-ui.md#start-the-local-service).
 No pilot flag, qualification lease or browser input opens this path.
 
 1. **Configure the project.** In Local setup, open the registered project's
-   Ordinary Claude observation card and choose Configure Claude 2.1.296. This
-   saves the exact version, the receipt directory
+    Claude connection setup card and choose Configure Claude. This
+   saves the exact supported version, the receipt directory
    `.harness-delta/claude-connect/receipts` inside the project and the Claude
    projects directory. Another version returns `claude_source_version_unsupported`.
 2. **Preview, then install.** Choose Preview install / update. Status and
@@ -108,7 +144,7 @@ the skill in the native parent, and the setup card reports hook registration as
 observation are four separate facts. Model, effort, permissions, startup and
 exit stay under your control in Claude.
 
-Behind the closed admission, the implementation behaves as follows.
+The admitted route behaves as follows.
 
 - **One measurement root per task.** Each connection gets a new measurement
   root ID. The native session identity is stored separately and never rewritten.
@@ -131,17 +167,18 @@ Behind the closed admission, the implementation behaves as follows.
 - **Family limit.** At most eight members, root included. A ninth returns
   `binding_family_limit`. Members are flattened under the root; the immediate
   parent of a nested member is not verified.
-- **Model.** The profile names `claude-opus-5-5`. A usage record for another
-  model stops collection with `binding_runtime_unsupported`. Its source batch is
-  rejected atomically, including supported records in that batch. Explicit
-  resume excludes that batch through a new baseline instead of backfilling it.
+- **Model.** Every Claude model is accepted at its observed effort; there is no
+  model pin. A usage record from another product's model stops collection with
+  `binding_runtime_unsupported`. Its source batch is rejected atomically,
+  including supported records in that batch. Explicit resume excludes that batch
+  through a new baseline instead of backfilling it.
 - **Deletion.** Deleting an observed task forgets its native root. Other tasks
   still attached to that root are paused and later connections from it are
   refused. Continue with a new native root. Native transcripts are not removed.
 - **Cost.** Usage is partial. Complete cost, billing and inferential results
   stay unavailable.
 
-New observations would carry separate `claude_binding` provenance, prospective
+New observations carry separate `claude_binding` provenance, prospective
 only. Comparison, Codex, file and workflow trust states are unchanged.
 
 If setup reports `installation_recovery_required`, stop the installer and confirm
@@ -156,13 +193,14 @@ package by moving it aside and restore only that verified previous directory.
 If neither matches, preserve all files and reconcile the ownership manifest
 before retrying. Do not remove the lock or transaction to bypass a mismatch.
 
-Still unverified against the actual backend for this path: the full family,
-pause/resume and task-handover profile, families up to the declared eight members,
-compaction, background agents, resumed history and immediate nested parents.
-Bounded connection observations do not replace those criteria. Formal qualification
-targets the exact 2.1.296 binary on macOS arm64 under Node 24. The runtime check
-also accepts Node 26 and otherwise returns `binding_runtime_unsupported`; Node 26
-needs its own evidence.
+Historical evidence for this path includes synthetic unit, fake-provider, HTTP
+and UI tests, bounded target-binary localhost conformance, and narrowly scoped
+interactive connection observations under a development-only qualification
+factory. One connection-only trial matched a measured row to independent API
+counters and exercised two approve-once Bash permissions. That evidence is
+unchanged by the normal-use policy and isn't relabeled as full native
+qualification. The runtime check accepts macOS arm64 under Node 24 or 26 and
+otherwise returns `binding_runtime_unsupported`.
 
 ## Project-only installation boundary
 
@@ -452,10 +490,11 @@ counters; see [the qualification record](../validation/claude-ordinary-binding-0
 The skill-scoped `SubagentStop` hook wrote no receipt there, and discovery does not
 depend on it. The other listed versions have synthetic evidence only. Actual 2.1.291, 2.1.293 or 2.1.294 skill loading,
 family counters, pause/resume and human completion still need an explicitly
-approved native trial. All ordinary Claude profiles, including qualified 2.1.296,
-require `allowCandidateProfiles: true`; default provider refusal and ordinary service
-admission remain closed. Current labels remain `native_unverified_pilot`,
-`legacy_unverified` and `candidate_pilot`. Ordinary production admission, full task cost and
-inferential decisions remain unavailable. This pilot authority is separate from
+approved native trial. All comparison/pilot Claude profiles, including qualified 2.1.296,
+require `allowCandidateProfiles: true`; default provider refusal for pilot
+profiles remains closed. Current labels remain `native_unverified_pilot`,
+`legacy_unverified` and `candidate_pilot`. These pilot profiles do not grant
+ordinary production admission; full task cost and inferential decisions remain
+unavailable. This pilot authority is separate from
 the [ordinary observation admission](#ordinary-claude-observation-qualification-pending),
-which is also closed.
+which doesn't open pilot profiles.
