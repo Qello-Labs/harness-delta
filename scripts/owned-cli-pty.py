@@ -132,6 +132,15 @@ def discover():
             if not children:
                 continue
             current = metadata(record[0])
+            if current is None and record[0] in absent:
+                # An absent parent's stale list cannot grant ancestry or signal authority.
+                for child in children:
+                    missing = set()
+                    metadata(int(child), missing)
+                    if int(child) not in missing:
+                        break
+                else:
+                    continue
             if not identity_matches(record, current):
                 ownership_failed = True
                 return False

@@ -98,6 +98,64 @@ remain durably `application_cleanup_pending` and explicit deletion retries can
 complete cleanup. Opaque application identity exclusions survive independently
 of deleted tasks to keep still-running applying sessions excluded. Normal task-workflow process ownership is unchanged.
 
+## Explicit restoration and staged check
+
+Rollback stays non-automatic. A user-authorized explicit local CLI adds three
+operations, run from a built checkout:
+
+```sh
+node dist/cli.js --db /path/to/local.sqlite application preview <task-id>
+node dist/cli.js --db /path/to/local.sqlite application restore <task-id> --preview <digest>
+node dist/cli.js --db /path/to/local.sqlite application check-staged <task-id>
+```
+
+`preview` is read-only. It outputs a digest and a path/action list of `delete`,
+`restore`, `unchanged` and `conflict`, with no file contents. `restore` requires
+a digest that matches a fresh preview, an inactive task, no running or observing
+connections and the external released stop acknowledgement. Finalized tasks are
+allowed. The server still stops no agent; the acknowledgement records a stop the
+user performed in the native window.
+
+A conflict blocks all edits, so restoration is never partial by guesswork. Files
+whose current hash equals the applied hash are restored to the actual dirty
+checkpoint baseline, not Git HEAD. Files the application created are deleted.
+User-modified files are not overwritten. After restore the application is fenced
+and must be explicitly reapplied before measurement; restore neither reapplies
+nor starts collection.
+
+Restore never changes the Git index. The user restages and runs `check-staged`,
+which returns exit 2 while harness edits or private `.harness-delta` or
+`.harness-delta-managed` entries remain staged. A file at its current checked
+original baseline is allowed. Mixed divergence is flagged conservatively rather
+than guessing which edits belong to the user. All three operations cover checkpointed
+paths, including reported files. Changed checkpoints without verified result hashes
+remain conflicts. The staged check retains paths from earlier restored cycles
+in the same worktree and rejects private directories throughout the index.
+Changes outside checkpoint scope are not audited or restored.
+
+Restoration may be interrupted after earlier files have completed. Its fence and
+lease remain until an explicit retry completes. A fresh preview skips completed
+baseline files; partly written or concurrently changed files require manual
+recovery from the retained private checkpoint without overwriting user edits.
+Missing parent directories are recreated with the existing no-follow directory
+helper. Inactivity and stop acknowledgement are checked inside the transaction
+that reserves the lease and fences the application.
+
+Switching worktrees requires completing restoration first. Historical inherited
+metadata without a checkpoint in the selected root is not an edit in that root
+and is not restored there; any earlier-worktree edits need separate review.
+Index baselines use Git clean conversion. Checks never read current working
+file bytes. Alternate indexes are supplied by the caller, whose hook must select
+the task for its worktree. Divergent user-only staged edits are conservatively
+flagged as well. Mode-only changes remain outside the hash-based preview; legacy
+absent files without mode metadata are recreated with mode 0600.
+
+Hook integration is manual. The product installs and overwrites no hooks, and
+the check is not mandatory enforcement. Checkpoint records are retained until
+restoration and the commit check are complete. Task deletion still never
+restores files. No native support limit, identity gate or source admission
+changes. See [the restore flow](../runbooks/harness-config.md#7-restore-applied-edits-and-check-staged-files).
+
 ## Validation boundary
 
 Synthetic tests establish API, assignment, file integrity, privacy and lifecycle

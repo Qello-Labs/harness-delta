@@ -254,3 +254,83 @@ receipt 연동은 기존의 정확한 버전 제한을 유지합니다. Claude �
 [ADR 015](../decisions/015-agent-harness-application.md)를 참고하세요. 합성 테스트는
 연결과 무결성만 검증합니다. 창 열기·프로젝트 적응·스크립트·권한·작업 세션의
 지침 로딩은 별도로 승인된 네이티브 수용 검증이 필요합니다.
+
+## 7. 적용한 수정 복원과 staged 파일 검사
+
+적용한 하네스 수정을 checkout에서 걷어내야 할 때, 예를 들어 직접 작업한 내용을
+커밋하기 전에 다음 명시적 로컬 명령을 사용하세요. 이 절의 동작은 자동으로
+실행되지 않습니다. 빌드한 Harness Delta checkout에서 실행하세요.
+
+```sh
+node dist/cli.js --db /path/to/local.sqlite application preview <task-id>
+node dist/cli.js --db /path/to/local.sqlite application restore <task-id> --preview <digest>
+node dist/cli.js --db /path/to/local.sqlite application check-staged <task-id>
+```
+
+설치된 `hm` 명령도 같은 인자를 받습니다. 예:
+`hm --db <database> application preview <task-id>`.
+
+1. 네이티브 창에서 네이티브 에이전트를 중지하세요. 복원하려면 작업이 비활성
+   상태이고, 실행 중이거나 관측 중인 연결이 없으며, 외부 중지 확인이 released
+   상태여야 합니다. 확정된(finalized) 작업도 허용합니다.
+   관측과 에이전트를 중지한 뒤 확인을 기록하세요.
+
+   ```sh
+   node dist/cli.js --db /path/to/local.sqlite workflow external release <task-id> --external-session-stopped
+   ```
+
+2. `preview`를 실행하세요. digest와 checkpoint한 경로별 동작 `delete`, `restore`,
+   `unchanged`, `conflict` 중 하나를 출력합니다. 파일 내용은 출력하지 않으며
+   아무것도 수정하지 않습니다. `unchanged`는 내용이 이미 checkpoint 기준과 같은 파일입니다.
+3. 목록을 확인하세요. `conflict`는 적용 뒤에 바뀐 파일이거나, 적용 결과가
+   검증되지 않은 채 내용이 바뀐 checkpoint 파일입니다. 충돌이
+   하나라도 있으면 모든 수정을 차단하므로 직접 해결한 뒤 다시 미리보기하세요.
+4. 해당 digest로 `restore`를 실행하세요. 명령은 먼저 새 미리보기를 만들고
+   digest가 다르면 거부합니다. 적용 해시 그대로인 파일은 Git HEAD가 아니라 실제
+   dirty checkpoint 기준으로 되돌립니다. 적용으로 새로 생긴 파일은 삭제합니다.
+   직접 수정한 파일은 덮어쓰지 않습니다.
+5. 의도한 변경을 다시 stage한 뒤 `check-staged`를 실행하세요. 복원은 Git index를
+   바꾸지 않으므로 이전에 stage한 하네스 수정은 다시 stage할 때까지 남습니다.
+   종료 코드 2는 하네스 수정이나 비공개 `.harness-delta`, `.harness-delta-managed`
+   항목이 stage에 남아 있다는 뜻입니다. 해당 항목을 unstage하고 커밋 전에 검사를
+   다시 실행하세요.
+
+복원 뒤 적용은 차단(fenced) 상태가 됩니다. 6절 흐름으로 명시적으로 다시 적용할
+때까지 측정은 차단됩니다. 복원은 재적용, 수집 시작, 에이전트 중지나 세션 열기를
+하지 않습니다.
+
+복원이 중단되면 적용은 차단 상태를 유지하고 작업 공간 lease도 유지합니다.
+`preview`를 다시 실행하고 남은 동작을 검토한 뒤 새 digest로 `restore`를
+재시도하세요. 완료된 파일은 `unchanged`입니다. 일부만 기록됐거나 이후 수정된
+파일은 충돌로 남습니다. 현재 내용을 보존하고 비공개 checkpoint와 비교한 뒤
+직접 복구하세요. `application_restoration_required`는 복원이 끝날 때까지
+재적용이나 다른 worktree로의 이동을 막습니다. 이전 cross-worktree 시도의
+상속 메타데이터에 로컬 checkpoint가 없으면 복원하지 않으며, 이전 worktree에
+남은 수정은 별도로 검토하세요.
+미해결 checkpoint가 없는 실패한 시도는 빈 복원 절차 없이 다른 worktree를
+선택할 수 있습니다. 다시 생성한 부모 디렉터리는 mode 0700이며 원래 디렉터리의
+권한은 기록하지 않습니다.
+
+번들과 비공개 checkpoint·context 기록을 유지해야 합니다. 새 checkpoint에
+저장된 파일 권한은 내용을 복원할 때 함께 복원합니다. 권한 기록이 없는 이전
+checkpoint의 삭제 파일은 mode 0600으로 생성합니다. 내용 해시만 사용하는
+미리보기는 권한만 바뀐 경우를 다루지 않습니다.
+
+`check-staged`는 현재 내용이 확인된 원본 기준과 같은 staged 파일을 허용합니다.
+하네스 변경과 사용자 변경이 섞인 파일은 사용자 수정만 남았더라도 보수적으로
+표시하며, 어느 수정이 사용자 것인지 추측하지 않습니다. 기준 내용에도 stage할
+때와 같은 Git clean filter와 줄바꿈 변환을 적용합니다. 미리보기, 복원, staged 검사는 보고된 출력을
+포함한 checkpoint 경로를 다룹니다. 범위 밖의 수정은 감사하거나 복원하지 않습니다.
+staged 검사는 index 전체에서 비공개 기록 디렉터리를 거부하며, 같은 worktree에서
+이 작업으로 이전에 적용하고 복원한 출력 경로도 계속 검사합니다.
+
+hook 연동은 수동입니다. hook을 설치하거나 덮어쓰지 않으며 이 검사는 강제 적용이
+아닙니다. 자신의 pre-commit hook에서 쓰려면 `check-staged` 명령을 직접 추가하고
+기존 hook 내용을 유지하세요.
+hook 명령은 작업이 선택한 worktree에서 CLI·DB의 절대 경로로 실행하세요.
+공유 hook은 해당 worktree의 작업을 선택해야 합니다. 대체 `GIT_INDEX_FILE`은
+전달된 그대로 검사하며 다른 worktree로 재매핑하지 않습니다.
+
+복원과 커밋 검사를 마칠 때까지 작업과 checkpoint 기록을 유지하세요. 작업 삭제는
+여전히 파일을 복원하지 않습니다. 이 명령은 네이티브 지원 한계, 신원 gate나 측정
+자격을 바꾸지 않습니다.

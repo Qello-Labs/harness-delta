@@ -12,8 +12,9 @@ import {applicationPath,durablePrivateBytes,optionalApplicationBytes,outputDiges
 import {ApplicationContextSchema,ApplicationSelectionSchema,ApplicationCheckpointSchema,ApplicationReportSchema,applicationHash,type ApplicationSelection} from './harness-application-contract.js';
 import {getApplicationLaunchCapability,openApplicationSession,type LaunchEnvironment} from './harness-application-launch.js';
 import type {VerifiedSessionIdentity} from './session-binding-contract.js';
+import {checkApplicationIndex,restorationPreview,restoreApplicationFile,type RestorationFile} from './harness-application-restoration.js';
 const procedureSchema=z.strictObject({origin:z.string(),bundlePath:z.string(),bundleHash:applicationHash,common:z.array(z.strictObject({path:z.string(),hash:applicationHash})).optional()});
-const checkpointSchema=z.strictObject({path:z.string(),before_hash:applicationHash.nullable(),before_file:z.string().nullable()});
+const checkpointSchema=z.strictObject({path:z.string(),before_hash:applicationHash.nullable(),before_file:z.string().nullable(),before_mode:z.number().int().min(0).max(0o777).optional()});
 const resultSchema=z.strictObject({outputs:z.array(z.strictObject({path:z.string(),sha256:applicationHash.nullable(),checkpoint_id:z.string().nullable()})),checks:z.array(z.strictObject({check_id:z.string(),outcome:z.enum(['passed','failed','missing','refused']),evidence:z.literal('agent_reported')})),report_hash:applicationHash});
 type Marker={task_id:string;project_id:string;input_hash:string;current_job:string|null;epoch:number};
 type Attempt={id:string;task_id:string;state:string;context_hash:string;result_hash:string|null;epoch:number;completed_at:string|null;reason_code:string|null;launch_state:string;identity_hash:string|null};
@@ -72,15 +73,17 @@ export function bindApplicationEpoch(store:Store,taskId:string,sessionId:string)
 export function prepareApplicationWorkingContext(store:Store,taskId:string){assertAppliedHarness(store,taskId);const data=current(store,taskId),result=resultFor(data);const rules=result.outputs.filter(file=>basename(file.path)==='AGENTS.md'&&file.sha256!==null).map(file=>({path:file.path,sha256:file.sha256!,content:readRepositoryFile(data.context.workspace.root,file.path).toString('utf8')}));const content=canonicalJson({schema_version:2,mode:'agent_applied',scope:'Apply each rule in its directory and descendants.',rules});return {workspace:data.context.workspace.root,epoch:data.row.epoch,procedureBundleHash:data.procedure.bundleHash,outputManifestHash:data.attempt.result_hash!,deliveryDigest:hashBytes(content),rules,content,nativeLoading:'unverified' as const};}
 function canonicalPath(path:string):string{const absolute=resolve(path);try{return realpathSync(absolute);}catch(error){if((error as NodeJS.ErrnoException).code!=='ENOENT'||dirname(absolute)===absolute)throw new Error('application_path_forbidden',{cause:error});return join(canonicalPath(dirname(absolute)),basename(absolute));}}
 export class ApplicationCoordinator{
- constructor(private readonly store:Store,private readonly protectedPaths:readonly string[]|(()=>readonly string[])=[]){store.execute("UPDATE harness_application_attempts SET state='failed',reason_code='application_restart_interrupted' WHERE state IN ('awaiting_session','applying','verifying')",[]);}
+ constructor(private readonly store:Store,private readonly protectedPaths:readonly string[]|(()=>readonly string[])=[],recoverInterrupted=true){if(recoverInterrupted)store.execute("UPDATE harness_application_attempts SET state='failed',reason_code='application_restart_interrupted' WHERE state IN ('awaiting_session','applying','verifying')",[]);}
  workspace(taskId:string,directory:string){const row=marker(this.store,taskId),workspace=inspectApplicationWorkspace(projectRoot(this.store,row.project_id),directory);return {...workspace,digest:hashBytes(JSON.stringify(workspace))};}
  status(taskId:string){if(!this.store.get('SELECT 1 FROM harness_application_tasks WHERE task_id=?',[taskId])&&applicationRequired(this.store,taskId))return {state:'failed',jobId:null,epoch:0,reason:'application_integrity_unverified',workspace:null,launchState:'not_requested',identity:'unavailable'};const row=marker(this.store,taskId);const attempt=row.current_job?this.store.get<Attempt>('SELECT * FROM harness_application_attempts WHERE id=?',[row.current_job]):undefined;let selectedProduct:string|null=null;let workspace:string|null=null,reason=attempt?.reason_code??null,state=attempt?.state??'awaiting_application';try{if(row.current_job&&!attempt)throw new Error('application_managed_retired');if(attempt){const data=current(this.store,taskId);workspace=data.context.workspace.root;selectedProduct=data.context.product;if(attempt.state==='applied')verifyFiles(data);}else workspace=loadProcedure(this.store,row).origin;}catch(error){state='failed';reason=error instanceof Error&&/^application_[a-z_]+$/.test(error.message)?error.message:'application_integrity_unverified';}return {state,jobId:attempt?.id??null,epoch:row.epoch,reason,workspace,launchState:attempt?.launch_state??'not_requested',identity:attempt?.identity_hash?'verified_metadata':'unavailable',product:selectedProduct};}
- private inactive(taskId:string){const task=this.store.get<{state:string}>('SELECT state FROM tasks WHERE id=?',[taskId]);if(!task||['active','finalized'].includes(task.state)||this.store.get("SELECT 1 FROM session_bindings WHERE task_id=? AND state='observing' UNION ALL SELECT 1 FROM codex_workflow_runs WHERE task_id=? AND state='running' UNION ALL SELECT 1 FROM claude_workflow_runs WHERE task_id=? AND state='running'",[taskId,taskId,taskId]))throw new Error('workflow_run_active');const prior=this.store.get<{first_connected_at:string|null;state:string}>('SELECT first_connected_at,state FROM external_preparations WHERE task_id=?',[taskId]);if(prior?.first_connected_at&&prior.state!=='released')throw new Error('external_stop_acknowledgement_required');}
+ private inactive(taskId:string,allowFinalized=false){const task=this.store.get<{state:string}>('SELECT state FROM tasks WHERE id=?',[taskId]);if(!task||task.state==='active'||!allowFinalized&&task.state==='finalized'||this.store.get("SELECT 1 FROM session_bindings WHERE task_id=? AND state='observing' UNION ALL SELECT 1 FROM codex_workflow_runs WHERE task_id=? AND state='running' UNION ALL SELECT 1 FROM claude_workflow_runs WHERE task_id=? AND state='running'",[taskId,taskId,taskId]))throw new Error('workflow_run_active');const prior=this.store.get<{first_connected_at:string|null;state:string}>('SELECT first_connected_at,state FROM external_preparations WHERE task_id=?',[taskId]);if(prior?.first_connected_at&&prior.state!=='released')throw new Error('external_stop_acknowledgement_required');}
  prepareHandoff(taskId:string,input:ApplicationSelection){const selection=ApplicationSelectionSchema.parse(input),row=marker(this.store,taskId);this.inactive(taskId);const procedure=loadProcedure(this.store,row),workspace=inspectApplicationWorkspace(procedure.origin,selection.workspace);if(hashBytes(JSON.stringify(workspace))!==selection.workspaceDigest)throw new Error('application_preview_changed');
  const old=row.current_job?this.store.get<Attempt>('SELECT * FROM harness_application_attempts WHERE id=?',[row.current_job]):undefined;
+ if(old?.reason_code==='application_restoration_started')throw new Error('application_restoration_required');
+ if(old&&old.reason_code!=='application_restored'&&this.store.get('SELECT 1 FROM harness_application_checkpoints c JOIN harness_application_attempts a ON a.id=c.attempt_id WHERE a.task_id=? AND a.rowid>COALESCE((SELECT max(rowid) FROM harness_application_attempts WHERE task_id=? AND reason_code=?),0) LIMIT 1',[taskId,taskId,'application_restored'])&&current(this.store,taskId).context.workspace.root!==workspace.root)throw new Error('application_restoration_required');
  if(old&&['awaiting_session','applying','applied'].includes(old.state)){const data=current(this.store,taskId);if(canonicalJson(data.context.workspace)!==canonicalJson(workspace)||data.context.product!==selection.product)throw new Error('application_job_active');if(old.state==='applied')verifyFiles(data);return data.context;}
  const assignment=this.store.get<{variant_id:string}>('SELECT variant_id FROM comparison_assignments WHERE task_id=?',[taskId]);if(!assignment)throw new Error('task_not_assigned');
- let priorOutputs:{path:string;sha256:string|null}[]=[];if(old?.result_hash){const data=current(this.store,taskId);priorOutputs=resultFor(data).outputs.map(({path,sha256})=>({path,sha256}));}
+ let priorOutputs:{path:string;sha256:string|null}[]=[];if(old?.result_hash&&old.reason_code!=='application_restored'){const data=current(this.store,taskId);priorOutputs=resultFor(data).outputs.map(({path,sha256})=>({path,sha256}));}
  const context=ApplicationContextSchema.parse({attempt_id:randomUUID(),task_id:taskId,project_id:row.project_id,product:selection.product,variant_id:assignment.variant_id,bundle_path:procedure.bundlePath,bundle_hash:procedure.bundleHash,workspace,epoch:row.epoch+1,prior_outputs:priorOutputs});const bytes=Buffer.from(canonicalJson(context));durablePrivateBytes(procedure.origin,`${privatePath(taskId)}/${context.attempt_id}/context.json`,bytes);
  this.store.immediateTransaction(()=>{marker(this.store,taskId);const owner=this.store.get<{task_id:string}>('SELECT task_id FROM external_surface_leases WHERE surface_key=?',[hashBytes(workspace.root)]);if(owner&&owner.task_id!==taskId)throw new Error('external_surface_busy');this.store.execute('DELETE FROM external_surface_leases WHERE task_id=?',[taskId]);this.store.execute('INSERT INTO external_surface_leases(surface_key,task_id) VALUES(?,?)',[hashBytes(workspace.root),taskId]);this.store.execute("INSERT INTO harness_application_attempts(id,task_id,state,context_hash,epoch) VALUES(?,?,'awaiting_session',?,?)",[context.attempt_id,taskId,hashBytes(bytes),context.epoch]);this.store.execute('UPDATE harness_application_tasks SET current_job=? WHERE task_id=?',[context.attempt_id,taskId]);});return context;
  }
@@ -89,7 +92,7 @@ export class ApplicationCoordinator{
  private safeFile(data:ReturnType<typeof current>,path:string){applicationPath(path);const absolute=resolve(data.context.workspace.root,path);const protectedPaths=[this.store.filename,...(typeof this.protectedPaths==='function'?this.protectedPaths():this.protectedPaths)].filter(p=>p!==':memory:').map(canonicalPath).flatMap(p=>[p,p+'-wal',p+'-shm',p+'-journal']);if(protectedPaths.some(p=>absolute.toLowerCase()===p.toLowerCase()||absolute.toLowerCase().startsWith(p.toLowerCase()+'/')))throw new Error('application_path_forbidden');try{if(lstatSync(absolute).nlink!==1)throw new Error('application_path_forbidden');}catch(error){if((error as NodeJS.ErrnoException).code!=='ENOENT')throw error;}return optionalApplicationBytes(data.context.workspace.root,path);}
  checkpoint(taskId:string,input:z.infer<typeof ApplicationCheckpointSchema>){const request=ApplicationCheckpointSchema.parse(input),data=this.live(taskId,request.attempt_id);if(new Set(request.paths.map(path=>path.toLowerCase())).size!==request.paths.length)throw new Error('application_scope_invalid');
  return request.paths.map(path=>{const pathHash=hashBytes(path.toLowerCase()),existing=this.store.get<Checkpoint>('SELECT * FROM harness_application_checkpoints WHERE attempt_id=? AND path_hash=?',[data.attempt.id,pathHash]);if(existing){const record=this.checkpointRecord(data,existing);if(record.path!==path)throw new Error('application_checkpoint_invalid');const actual=this.safeFile(data,path);if((actual===null?null:hashBytes(actual))!==record.before_hash)throw new Error('application_preimage_changed');return {path,checkpoint_id:existing.id,before_hash:existing.before_hash};}
- if(this.store.get<{count:number}>('SELECT count(*) AS count FROM harness_application_checkpoints WHERE attempt_id=?',[data.attempt.id])!.count>=256)throw new Error('application_scope_invalid');const before=this.safeFile(data,path),id=randomUUID(),beforeHash=before===null?null:hashBytes(before);const beforeFile=before===null?null:`checkpoints/${id}.bytes`;if(beforeFile)durablePrivateBytes(data.procedure.origin,`${data.directory}/${beforeFile}`,before!);const bytes=Buffer.from(canonicalJson({path,before_hash:beforeHash,before_file:beforeFile}));durablePrivateBytes(data.procedure.origin,`${data.directory}/checkpoints/${id}.json`,bytes);this.store.execute('INSERT INTO harness_application_checkpoints(id,attempt_id,path_hash,before_hash,record_hash) VALUES(?,?,?,?,?)',[id,data.attempt.id,pathHash,beforeHash,hashBytes(bytes)]);this.store.execute("UPDATE harness_application_attempts SET state='applying' WHERE id=?",[data.attempt.id]);return {path,checkpoint_id:id,before_hash:beforeHash};});
+ if(this.store.get<{count:number}>('SELECT count(*) AS count FROM harness_application_checkpoints WHERE attempt_id=?',[data.attempt.id])!.count>=256)throw new Error('application_scope_invalid');const before=this.safeFile(data,path),id=randomUUID(),beforeHash=before===null?null:hashBytes(before);const beforeFile=before===null?null:`checkpoints/${id}.bytes`;if(beforeFile)durablePrivateBytes(data.procedure.origin,`${data.directory}/${beforeFile}`,before!);const bytes=Buffer.from(canonicalJson({path,before_hash:beforeHash,before_file:beforeFile,...(before===null?{}:{before_mode:lstatSync(join(data.context.workspace.root,path)).mode&0o777})}));durablePrivateBytes(data.procedure.origin,`${data.directory}/checkpoints/${id}.json`,bytes);this.store.execute('INSERT INTO harness_application_checkpoints(id,attempt_id,path_hash,before_hash,record_hash) VALUES(?,?,?,?,?)',[id,data.attempt.id,pathHash,beforeHash,hashBytes(bytes)]);this.store.execute("UPDATE harness_application_attempts SET state='applying' WHERE id=?",[data.attempt.id]);return {path,checkpoint_id:id,before_hash:beforeHash};});
  }
  private checkpointRecord(data:ReturnType<typeof current>,checkpoint:Checkpoint){const bytes=readRepositoryFile(data.procedure.origin,`${data.directory}/checkpoints/${checkpoint.id}.json`);if(hashBytes(bytes)!==checkpoint.record_hash)throw new Error('application_checkpoint_invalid');const record=checkpointSchema.parse(readStrictJson(bytes));if(record.before_hash!==checkpoint.before_hash)throw new Error('application_checkpoint_invalid');return record;}
  report(taskId:string,input:z.infer<typeof ApplicationReportSchema>){const report=ApplicationReportSchema.parse(input);let data=current(this.store,taskId);const reportHash=hashBytes(canonicalJson(report));if(data.attempt.id!==report.attempt_id)throw new Error('application_attempt_stale');if(data.attempt.state==='applied'){if(resultFor(data).report_hash!==reportHash)throw new Error('application_report_conflict');verifyFiles(data);return this.status(taskId);}data=this.live(taskId,report.attempt_id);if(report.bundle_hash!==data.procedure.bundleHash)throw new Error('application_input_changed');if(new Set(report.outputs.map(output=>output.path.toLowerCase())).size!==report.outputs.length||new Set(report.checks.map(check=>check.check_id)).size!==report.checks.length)throw new Error('application_scope_invalid');
@@ -105,7 +108,83 @@ export class ApplicationCoordinator{
  handoff(taskId:string,origin:string){const data=current(this.store,taskId);
   // Any agent may apply; the measured working session keeps the task's own product.
   const assigned=(JSON.parse(this.store.get<{metadata:string}>('SELECT metadata FROM tasks WHERE id=?',[taskId])!.metadata) as {product:string}).product,workingProduct=assigned==='synthetic'?data.context.product:assigned;let readiness='application_required';try{assertAppliedHarness(this.store,taskId);readiness=data.attempt.identity_hash||data.context.product!==workingProduct?'native_loading_and_source_qualification_required':'application_identity_unavailable';}catch(error){if(error instanceof Error)readiness=error.message;}const prerequisite=readiness==='application_identity_unavailable'?'The application session has no trusted identity receipt. Review metadata instrumentation and native trust, then prepare a new application attempt and register its trusted identity before completion. Do not retrofit identity to this completed attempt.':'Review the application readiness blocker before connecting.';return {task_id:taskId,workspace:data.context.workspace.root,variant_id:data.context.variant_id,bundle_hash:data.context.bundle_hash,readiness,native_loading:'unverified',guidance:`Connection readiness: ${readiness}. ${prerequisite} File verification does not establish instruction loading or source admission. Ordinary production connection remains qualification-pending; a separately authorized local pilot must enable its exact observer scope before opening the working root. Only after those prerequisites are established, start a separate fresh ${workingProduct} session in ${JSON.stringify(data.context.workspace.root)}, read the generated instructions, and use harness-connect with origin ${origin} and task ${taskId}. Do not use the applying session. Do not invent a receipt or claim active collection while blocked.`,connect_context:{origin,task_id:taskId,product:workingProduct}};}
- cancel(taskId:string){const data=current(this.store,taskId);this.inactive(taskId);this.store.execute("UPDATE harness_application_attempts SET state='abandoned',reason_code='application_abandoned' WHERE id=?",[data.attempt.id]);return this.status(taskId);}
+ cancel(taskId:string){const data=current(this.store,taskId);this.inactive(taskId);if(['application_restored','application_restoration_started'].includes(data.attempt.reason_code??''))return this.status(taskId);this.store.execute("UPDATE harness_application_attempts SET state='abandoned',reason_code='application_abandoned' WHERE id=?",[data.attempt.id]);return this.status(taskId);}
+ private restorationContext(taskId:string,retainRestored=false) {
+  const data=current(this.store,taskId);
+  const files=new Map<string,RestorationFile>();
+  const restoredFiles=new Map<string,RestorationFile>();
+  const attempts=this.store.all<Attempt>('SELECT * FROM harness_application_attempts WHERE task_id=? AND epoch<=? ORDER BY epoch,rowid',[taskId,data.attempt.epoch]);
+  for(const attempt of attempts) {
+   // Completed restoration starts a new baseline for a later explicit application.
+   const directory=`${privatePath(taskId)}/${attempt.id}`;
+   const bytes=readRepositoryFile(data.procedure.origin,`${directory}/context.json`);
+   if(hashBytes(bytes)!==attempt.context_hash)throw new Error('application_input_changed');
+   const context=ApplicationContextSchema.parse(readStrictJson(bytes));
+   if(context.attempt_id!==attempt.id||context.task_id!==taskId||context.epoch!==attempt.epoch)throw new Error('application_input_changed');
+   if(context.workspace.root!==data.context.workspace.root)continue;
+   if(canonicalJson(context.workspace.root_identity)!==canonicalJson(data.context.workspace.root_identity))throw new Error('application_workspace_changed');
+   for(const checkpoint of this.store.all<Checkpoint>('SELECT * FROM harness_application_checkpoints WHERE attempt_id=? ORDER BY rowid',[attempt.id])) {
+    const record=this.checkpointRecord({...data,directory},checkpoint);
+    const prior=files.get(record.path);
+    if([...files.keys()].some(path=>path.toLowerCase()===record.path.toLowerCase()&&path!==record.path))throw new Error('application_scope_invalid');
+    let before:Buffer|null=null;
+    if(record.before_file) {
+     if(record.before_file!==`checkpoints/${checkpoint.id}.bytes`)throw new Error('application_checkpoint_invalid');
+     before=readRepositoryFile(data.procedure.origin,`${directory}/${record.before_file}`);
+    }
+    if((before===null?null:hashBytes(before))!==record.before_hash)throw new Error('application_checkpoint_invalid');
+    applicationPath(record.path);
+    files.set(record.path,{path:record.path,before:prior?prior.before:before,beforeMode:prior?prior.beforeMode:record.before_mode,appliedHash:undefined,current:retainRestored?null:this.safeFile(data,record.path)});
+   }
+   if(attempt.result_hash) {
+    const result=resultFor({...data,attempt,directory});
+    for(const output of result.outputs) {
+     const file=files.get(output.path);
+     if(!file) {
+      // Historical cross-worktree inheritance is metadata, not an edit in this root.
+      if(output.checkpoint_id===null&&context.prior_outputs.some(prior=>prior.path===output.path&&prior.sha256===output.sha256))continue;
+      throw new Error('application_checkpoint_invalid');
+     }
+     files.set(output.path,{...file,appliedHash:output.sha256});
+    }
+   }
+   if(attempt.reason_code==='application_restored'&&attempt.id!==data.attempt.id) {
+    if(retainRestored)for(const [path,file] of files)restoredFiles.set(path,file);
+    files.clear();
+   }
+  }
+  return {data,taskId,attemptId:data.attempt.id,workspace:data.context.workspace.root,files:[...new Map([...restoredFiles,...files]).values()].sort((a,b)=>a.path.localeCompare(b.path))};
+ }
+ restorationPreview(taskId:string){return restorationPreview(this.restorationContext(taskId));}
+ restore(taskId:string,previewDigest:string) {
+  applicationHash.parse(previewDigest);
+  const context=this.restorationContext(taskId),preview=restorationPreview(context);
+  if(preview.digest!==previewDigest)throw new Error('application_preview_changed');
+  if(preview.files.some(file=>file.action==='conflict'))throw new Error('application_restore_conflict');
+  // External release removes the lease. Reserve it again only for restoration.
+  const surface=hashBytes(context.workspace);
+  this.store.immediateTransaction(()=>{
+   this.inactive(taskId,true);
+   if(marker(this.store,taskId).current_job!==context.attemptId)throw new Error('application_attempt_stale');
+   const owner=this.store.get<{task_id:string}>('SELECT task_id FROM external_surface_leases WHERE surface_key=?',[surface]);
+   if(owner&&owner.task_id!==taskId)throw new Error('external_surface_busy');
+   this.store.execute('INSERT OR IGNORE INTO external_surface_leases(surface_key,task_id) VALUES(?,?)',[surface,taskId]);
+   // Fence measurement before filesystem edits; interrupted restoration remains retryable.
+   this.store.execute("UPDATE harness_application_attempts SET state='abandoned',reason_code='application_restoration_started' WHERE id=?",[context.attemptId]);
+  });
+  for(const file of context.files) {
+   assertApplicationWorkspace(context.data.context.workspace);
+   const actual=this.safeFile(context.data,file.path);
+   if((actual===null?null:hashBytes(actual))!==(file.current===null?null:hashBytes(file.current)))throw new Error('application_preview_changed');
+   if((actual===null?null:hashBytes(actual))!==(file.before===null?null:hashBytes(file.before)))restoreApplicationFile(context.workspace,file);
+  }
+  this.store.immediateTransaction(()=>{
+   this.store.execute("UPDATE harness_application_attempts SET reason_code='application_restored' WHERE id=?",[context.attemptId]);
+   this.store.execute('DELETE FROM external_surface_leases WHERE surface_key=? AND task_id=?',[surface,taskId]);
+  });
+  return this.restorationPreview(taskId);
+ }
+ checkStaged(taskId:string){const context=this.restorationContext(taskId,true);return checkApplicationIndex(context.workspace,context.files);}
  close(){/* External native sessions are never controlled or stopped here. */}
 }
 export function applicationEvidence(store:Store,taskId:string){let state='failed',procedureHash:string|null=null,outputHash:string|null=null,epoch=0;try{const row=marker(store,taskId);epoch=row.epoch;procedureHash=loadProcedure(store,row).bundleHash;const attempt=row.current_job?store.get<Attempt>('SELECT * FROM harness_application_attempts WHERE id=?',[row.current_job]):undefined;state=attempt?.state??(row.current_job?'failed':'awaiting_application');outputHash=attempt?.result_hash??null;}catch{/* Preserve a fail-closed opaque application fence. */}return {schema_version:2,mode:'agent_applied' as const,procedure_bundle_hash:procedureHash,approved_output_manifest_hash:outputHash,native_delivery_digest:null,epoch,state};}

@@ -204,6 +204,42 @@ print(json.dumps(out))`;
  ]);
 });
 
+test('cleanup discovery disposes stale child lists only after every exact PID is absent',()=>{
+ const code=`import ast,json,sys,types,subprocess
+tree=ast.parse(open(sys.argv[1]).read())
+functions=[n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name in ['metadata','identity_matches','discover']]
+out=[]
+for outcome in ['absent','live','timeout','malformed','query_error','reused_parent','parent_query_error','budget']:
+ root=(42,1,42,501,'synthetic root');parent=(43,42,42,501,'synthetic helper');child=(45,43,42,501,'synthetic child')
+ parent_value=(43,42,42,501,'foreign start') if outcome=='reused_parent' else 'query_error' if outcome=='parent_query_error' else 'absent'
+ child_value=outcome if outcome in ['live','timeout','malformed','query_error'] else 'absent'
+ observations=iter([(42,root),(43,parent_value),(44,'absent'),(45,child_value)]);calls=[]
+ clock=iter([100,100,100,100,100,102])
+ def check_output(args,**kwargs):
+  target=int(args[-1]);expected,value=next(observations);assert target==expected;calls.append(target)
+  if value=='absent':raise subprocess.CalledProcessError(1,args)
+  if value=='query_error':raise subprocess.CalledProcessError(2,args)
+  if value=='timeout':raise subprocess.TimeoutExpired(args,kwargs['timeout'])
+  if value=='malformed':return b'invalid'
+  return ('%d %d %d %d %s'%(child if value=='live' else value)).encode()
+ def run(args,**kwargs):
+  return types.SimpleNamespace(returncode=0,stdout={42:b'43',43:b'44 45'}[int(args[-1])])
+ ns={'known':{42:root,43:parent},'proofs':{42:None,43:root},'absent':set(),'pid':42,'uid':501,'escape_seen':False,'ownership_failed':False,'cleanup_exhausted':False,'cleanup_until':101,'ps_env':{},'note_group_change':lambda *args:None,'time':types.SimpleNamespace(monotonic=lambda:next(clock) if outcome=='budget' else 100),'subprocess':types.SimpleNamespace(check_output=check_output,run=run,PIPE=-1,DEVNULL=-3,CalledProcessError=subprocess.CalledProcessError,SubprocessError=subprocess.SubprocessError)}
+ exec(compile(ast.Module(body=functions,type_ignores=[]),'<synthetic cleanup discovery>','exec'),ns)
+ covered=ns['discover']()
+ out.append({'outcome':outcome,'coverage':covered,'failed':ns['ownership_failed'],'exhausted':ns['cleanup_exhausted'],'members':sorted(ns['known']),'proofs':sorted(ns['proofs']),'identities_unchanged':ns['known']=={42:root,43:parent},'proofs_unchanged':ns['proofs']=={42:None,43:root},'absent':sorted(ns['absent']),'calls':calls})
+print(json.dumps(out))`;
+ const result:unknown=JSON.parse(execFileSync(OwnedCliInvocation.pythonExecutable(),['-c',code,fileURLToPath(new URL('../scripts/owned-cli-pty.py',import.meta.url))],{encoding:'utf8'}));
+ const unchanged={members:[42,43],proofs:[42,43],identities_unchanged:true,proofs_unchanged:true} as const;
+ expect(result).toEqual([
+  {outcome:'absent',coverage:true,failed:false,exhausted:false,...unchanged,absent:[43],calls:[42,43,44,45]},
+  ...['live','timeout','malformed','query_error'].map(outcome=>({outcome,coverage:false,failed:true,exhausted:outcome!=='live',...unchanged,absent:[43],calls:[42,43,44,45]})),
+  {outcome:'reused_parent',coverage:false,failed:true,exhausted:false,...unchanged,absent:[],calls:[42,43]},
+  {outcome:'parent_query_error',coverage:false,failed:true,exhausted:true,...unchanged,absent:[],calls:[42,43]},
+  {outcome:'budget',coverage:false,failed:true,exhausted:true,...unchanged,absent:[43],calls:[42,43,44]},
+ ]);
+});
+
 test('cleanup discovery refreshes a parent without resampling known children or childless leaves',()=>{
  // A deterministic query-count regression guard complements the real teardown:
  // host scheduling cannot turn redundant metadata scans into a passing result.
