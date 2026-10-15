@@ -9,6 +9,7 @@ import Fastify, {type FastifyRequest,type FastifyReply} from 'fastify';
 import Database from 'better-sqlite3';
 import { z } from 'zod';
 import { OrdinaryProjectActionSchema, type OrdinaryProjectAction } from './local-web-ordinary.js';
+import { CodexProjectActionSchema, type CodexProjectAction } from './local-web-codex.js';
 
 /** Accepted imports retain imported:true; counts describe actual transactional saves. */
 export type LocalWebSetupImportResult = { cancelled: true } | { imported: true; added_count: number; existing_count: number };
@@ -21,6 +22,8 @@ export interface LocalWebDomain {
   createTask(input: LocalWebCreateTaskInput): Promise<unknown>;
   ordinaryProject?(this: void, projectId: string): unknown;
   ordinaryProjectAction?(this: void, projectId: string, input: OrdinaryProjectAction): Promise<unknown>;
+  codexProject?(this: void, projectId: string): unknown;
+  codexProjectAction?(this: void, projectId: string, input: CodexProjectAction): Promise<unknown>;
   taskAction(id: string, action: string, input: Record<string, unknown>): Promise<unknown>;
   refreshPrices(): Promise<unknown>;
   chooseDirectory(): Promise<unknown>;
@@ -77,6 +80,7 @@ const safeCodes = new Set(['application_cleanup_pending','application_managed_re
   'ordinary_project_setup_required', 'ordinary_preparation_required', 'ordinary_configuration_changed',
   'ordinary_installation_in_use', 'binding_native_root_owned', 'binding_observer_owned',
   'installation_preview_changed', 'installation_busy', 'installation_recovery_required',
+  'receipt_directory_missing', 'receipt_directory_unsafe',
   'changed_path', 'package_drift', 'installation_rollback_failed', 'installation_cleanup_failed',
   'binding_handover_receipt_stale', 'claude_binary_unqualified',
   'binding_receipt_stale', 'binding_member_ineligible',
@@ -91,7 +95,7 @@ const safeCodes = new Set(['application_cleanup_pending','application_managed_re
   'claude_scope_mismatch', 'claude_source_missing', 'claude_source_stale', 'claude_source_untrusted',
   'claude_source_version_unobserved', 'claude_source_version_unsupported']);
 export function localWebError(error: unknown): string {
-  return error instanceof Error && (isLocalWebTaskErrorCode(error.message) || safeCodes.has(error.message) || ['configuration_conflict', 'protocol_conflict', 'price_table_conflict', 'unknown_protocol', 'unknown_variant', 'unknown_price_table', 'incomplete_protocol', 'registration_too_late', 'ineligible_variant', 'configuration_mismatch', 'invalid_strata', 'overlapping_strata', 'synthetic_only'].includes(error.message)) ? error.message : 'local_operation_failed';
+  return error instanceof Error && (isLocalWebTaskErrorCode(error.message) || /^codex_connect_[a-z_]+$/.test(error.message) || safeCodes.has(error.message) || ['configuration_conflict', 'protocol_conflict', 'price_table_conflict', 'unknown_protocol', 'unknown_variant', 'unknown_price_table', 'incomplete_protocol', 'registration_too_late', 'ineligible_variant', 'configuration_mismatch', 'invalid_strata', 'overlapping_strata', 'synthetic_only'].includes(error.message)) ? error.message : 'local_operation_failed';
 }
 function sameSecret(input: string | undefined, expected: string): boolean {
   if (!input) return false;
@@ -193,6 +197,21 @@ export function createLocalWebServer(options: LocalWebOptions) {
       if (!action || !inspect) throw new Error('invalid_ui_request');
       inspect(projectId);
       const value = await mutation(request, input => OrdinaryProjectActionSchema.parse(input),
+        input => action(projectId, input));
+      await reply.code(value.status).send(value.result);
+    } catch (error) { await reply.code(400).send({ error: localWebError(error) }); }
+  });
+  app.get<{ Params: { id: string } }>('/api/projects/:id/codex-setup', request => {
+    if (!options.domain.codexProject) throw new Error('invalid_ui_request');
+    return options.domain.codexProject(id.parse(request.params.id));
+  });
+  app.post<{ Params: { id: string } }>('/api/projects/:id/codex-setup', async (request, reply) => {
+    try {
+      const projectId = id.parse(request.params.id);
+      const action = options.domain.codexProjectAction;
+      if (!action || !options.domain.codexProject) throw new Error('invalid_ui_request');
+      options.domain.codexProject(projectId);
+      const value = await mutation(request, input => CodexProjectActionSchema.parse(input),
         input => action(projectId, input));
       await reply.code(value.status).send(value.result);
     } catch (error) { await reply.code(400).send({ error: localWebError(error) }); }

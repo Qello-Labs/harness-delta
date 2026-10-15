@@ -24,6 +24,39 @@ and follows supported native child relations. Children do not call the skill.
 Repeated calls confirm binding; multiple tasks require one explicit selection.
 A common cwd, model statement, environment hint or guessed UUID is never proof.
 
+## Project agent connection setup
+
+In Local setup, select the registered project and open **Agent connection setup**.
+Choose **Codex** or **Claude Code**. Saved settings, installed files, native hook
+trust and linked sessions are separate states.
+
+For Codex, review the exact version and permitted source roots, then save the
+configuration. Preview installation before applying it. The reviewed installation
+copies the owned skill and recorder, merges its entries into project-local
+`.codex/hooks.json`, and creates `.harness-delta/codex-connect/receipts` with private
+permissions. Unrelated hooks are preserved. Installation neither grants native
+trust nor launches Codex or creates a receipt. Review and trust the native hook,
+then start or resume the working session before invoking `harness-connect`.
+
+Project Codex connection settings supply the receipt/source locations for this
+project's Codex tasks; the frozen task version and source-admission gates still
+apply. A configuration change or removal is blocked while Codex bindings are
+observing. Removal preserves receipts and unrelated hooks. The Claude panel keeps
+its project-local package workflow and the source and family limits below.
+
+Refresh setup to check missing/unsafe receipt directories and provider
+initialization. A ready provider is an environment check, not proof that the
+current session loaded a trusted hook. Confirm the actual session connection in
+the task detail. Installation does not enable ordinary Codex tasks without an A/B
+assignment or extend the bounded source profile.
+
+If the receipt directory is later removed, preview and apply installation again
+to recreate it without replacing unchanged hooks or skill files. Refresh after a
+Node runtime upgrade and preview an update if its pinned executable path changed.
+Use **Recover stopped installer** only for a proved-dead owner with no remaining
+transaction. A missing owner record or saved `transaction-*` evidence requires
+manual review; recovery never discards that evidence or releases a live lock.
+
 ## Codex 0.162.1 bounded ordinary profile
 
 The fresh `ordinary_admission` trial and independent review qualify this exact

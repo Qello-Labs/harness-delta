@@ -62,7 +62,7 @@ export function OrdinaryObservationSetup({ projectId, locale, busy, perform }: {
  }
  const disabled = busy || reading || !status;
  const blocked = !!status && (status.installation.state === 'blocked' || status.installation.blockers.length > 0);
- return <Card data-ordinary-setup={projectId}><CardHeader><CardTitle>{t('Ordinary Claude observation', '일반 Claude 관측')}</CardTitle><CardDescription>{t('Project-only package setup. No comparison assignment or native configuration changes.', '프로젝트 전용 패키지 설정입니다. 비교 배정이나 네이티브 설정 변경은 없습니다.')}</CardDescription></CardHeader><CardContent className="space-y-4">
+ return <Card data-ordinary-setup={projectId}><CardHeader><CardTitle>{t('Claude connection setup', 'Claude 연결 설정')}</CardTitle><CardDescription>{t('Project-only package setup. No comparison assignment or native configuration changes.', '프로젝트 전용 패키지 설정입니다. 비교 배정이나 네이티브 설정 변경은 없습니다.')}</CardDescription></CardHeader><CardContent className="space-y-4">
   {error && <p role="alert" className="text-sm text-destructive">{t('Could not read or update setup. Refresh and review the saved state.', '설정을 읽거나 처리하지 못했습니다. 새로고침 후 저장 상태를 확인하세요.')} <code>{error}</code></p>}
   {!status && !error && <p role="status">{t('Reading setup…', '설정 확인 중…')}</p>}
   {status && <>
