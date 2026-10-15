@@ -30,6 +30,8 @@ function task(): Task {
 type Control = {
  children?: ReactNode; id?: string; value?: string; disabled?: boolean; open?: boolean;
  'data-workspace-state'?: string; 'data-workspace-action'?: string; 'data-application-action'?: string;
+ 'data-application-verification'?: string;
+ 'data-application-prompt'?: string;
  onClick?: () => void; onChange?: (event: { target: { value: string } }) => void;
 };
 function controls(node: ReactNode): { type: unknown; props: Control }[] {
@@ -48,6 +50,7 @@ function harness(initial = task()) {
  const requests: { url: string; signal: AbortSignal | null | undefined; response: ReturnType<typeof deferred<Response>> }[] = [];
  vi.stubGlobal('fetch', vi.fn((input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
   const response = deferred<Response>(); requests.push({ url: String(input), signal: init?.signal, response });
+  for (const notify of subscribers) notify();
   return response.promise;
  }));
  vi.mocked(useState).mockImplementation((initial?: unknown) => {
@@ -84,10 +87,10 @@ function harness(initial = task()) {
   if (!input?.props.onChange) throw new Error('Missing workspace input');
   input.props.onChange({ target: { value: directory } });
  }
- function waitFor(state: string) {
+ function waitFor(state: string | (() => boolean)) {
   return new Promise<void>((resolve, reject) => {
    const check = () => {
-    if (nodes().some(node => node.props['data-workspace-state'] === state)) {
+    if (typeof state === 'function' ? state() : nodes().some(node => node.props['data-workspace-state'] === state)) {
      clearTimeout(timer); subscribers.delete(check); resolve();
     }
    };
@@ -103,6 +106,14 @@ function harness(initial = task()) {
  function applyDisabled() { return nodes().find(node => node.props['data-application-action'] === 'apply')?.props.disabled; }
  function dispose() { for (const effect of effects) if (typeof effect.cleanup === 'function') effect.cleanup(); subscribers.clear(); }
  return { nodes, flush, requests, click, change, respond, applyDisabled, onApply, onAction, dispose,
+  waitForVerification: (state: string) => waitFor(() => nodes().some(node => node.props['data-application-verification'] === state)),
+  waitForPrompt: () => waitFor(() => nodes().some(node => node.props['data-application-prompt'] !== undefined)),
+  waitForRequest: async (endpoint: string) => {
+   await waitFor(() => requests.some(request => request.url.endsWith(`/${endpoint}`)));
+   const request = requests.find(request => request.url.endsWith(`/${endpoint}`));
+   if (!request) throw new Error('Missing application details request');
+   return request;
+  },
   update: (value: Task) => { current = value; }, setBusy: (value: boolean) => { busy = value; } };
 }
 
@@ -195,5 +206,88 @@ test('waits for preparation authority and uses a registered workspace supplied a
   expect(h.requests).toHaveLength(1);
   await h.respond(0);
   expect(h.applyDisabled()).toBe(false);
+ } finally { h.dispose(); }
+});
+
+function appliedTask() {
+ const value = task();
+ if (!value.application) throw new Error('Missing application fixture');
+ value.actions = [];
+ value.application = { ...value.application, state: 'applied', jobId: 'attempt-1', launchState: 'open_requested' };
+ return value;
+}
+function applicationReview() {
+ return { jobId: 'attempt-1', workspace: { root: registered.root, branch: registered.branch, head: registered.head }, scope: 'reported_file_set_only',
+  changes: [{ path: 'AGENTS.md', baseline: 'checkpoint', before: 'Synthetic existing rules', after: 'Synthetic existing rules',
+   before_hash: registered.digest, actual_hash: registered.digest, verified: true }],
+  checks: [{ check_id: 'synthetic_check', outcome: 'passed', evidence: 'agent_reported' }] };
+}
+async function deliverReview(h: ReturnType<typeof harness>, review: ReturnType<typeof applicationReview>, verification: string) {
+ h.flush();
+ const [result, handoff] = await Promise.all([h.waitForRequest('application-review'), h.waitForRequest('application-handoff')]);
+ const settled = h.waitForVerification(verification);
+ handoff.response.resolve(Response.json({ error: 'application_identity_unavailable' }, { status: 400 }));
+ result.response.resolve(Response.json(review));
+ await settled;
+}
+
+test('marks an existing application only after matching checkpoint hashes and passed checks are reported', async () => {
+ const h = harness(appliedTask());
+ try {
+  await deliverReview(h, applicationReview(), 'unchanged');
+  expect(h.onApply).not.toHaveBeenCalled();
+  expect(h.onAction).not.toHaveBeenCalled();
+ } finally { h.dispose(); }
+});
+
+test.each(['changed', 'missing_hash', 'missing_both_hashes', 'failed_check', 'unverified', 'wrong_attempt', 'missing_checks', 'missing_outputs'])('does not claim unchanged application with %s evidence', async mode => {
+ const h = harness(appliedTask()); const review = applicationReview();
+ const change = review.changes[0]; const check = review.checks[0];
+ if (!change || !check) throw new Error('Missing application review fixture');
+ if (mode === 'changed') change.actual_hash = 'c'.repeat(64);
+ if (mode === 'missing_hash') Reflect.deleteProperty(change, 'before_hash');
+ if (mode === 'missing_both_hashes') { Reflect.deleteProperty(change, 'before_hash'); Reflect.deleteProperty(change, 'actual_hash'); }
+ if (mode === 'failed_check') check.outcome = 'failed';
+ if (mode === 'unverified') change.verified = false;
+ if (mode === 'wrong_attempt') review.jobId = 'other-attempt';
+ if (mode === 'missing_checks') review.checks = [];
+ if (mode === 'missing_outputs') review.changes = [];
+ try { await deliverReview(h, review, 'reported'); } finally { h.dispose(); }
+});
+
+test('an opening acknowledgement without an application report remains pending rather than completed', () => {
+ const value = task();
+ if (!value.application) throw new Error('Missing application fixture');
+ value.application = { ...value.application, state: 'awaiting_session', launchState: 'open_requested', jobId: 'attempt-1' };
+ const h = harness(value);
+ try {
+  expect(h.nodes().find(node => node.props['data-application-verification'])?.props['data-application-verification']).toBe('result_pending');
+  expect(h.onApply).not.toHaveBeenCalled();
+ } finally { h.dispose(); }
+});
+
+test('copies the displayed verification request with the existing application context intact', async () => {
+ const value = task();
+ if (!value.application) throw new Error('Missing application fixture');
+ value.application = { ...value.application, state: 'awaiting_session', launchState: 'open_requested', jobId: 'attempt-1' };
+ value.actions = [];
+ const writeText = vi.fn().mockResolvedValue(undefined);
+ vi.stubGlobal('navigator', { clipboard: { writeText } });
+ const h = harness(value);
+ try {
+  h.flush();
+  const [context, review, handoff] = await Promise.all([
+   h.waitForRequest('application-launch-context'), h.waitForRequest('application-review'), h.waitForRequest('application-handoff'),
+  ]);
+  const displayed = h.waitForPrompt();
+  review.response.resolve(Response.json({ error: 'application_required' }, { status: 400 }));
+  handoff.response.resolve(Response.json({ error: 'application_required' }, { status: 400 }));
+  context.response.resolve(Response.json({ prompt: 'SYNTHETIC_ATTEMPT_CONTEXT', workspace: registered.root, product: 'codex' }));
+  await displayed;
+  const prompt = h.nodes().find(node => node.props['data-application-prompt'] !== undefined)?.props.value;
+  expect(prompt).toContain('SYNTHETIC_ATTEMPT_CONTEXT');
+  h.click('data-application-action', 'copy-context');
+  expect(writeText).toHaveBeenCalledExactlyOnceWith(prompt);
+  expect(h.onApply).not.toHaveBeenCalled();
  } finally { h.dispose(); }
 });

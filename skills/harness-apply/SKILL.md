@@ -27,6 +27,10 @@ must remain separate from the later working session using harness-connect.
    discover domain-specific paths, preserve unrelated dirty/untracked files, and
    use the bundled scripts where the procedure requires them. Keep common
    artifacts in their stated relative scope. There is no advance full file list.
+   If the assigned harness is already present, verify it instead of rewriting,
+   reinstalling or regenerating matching files. Existing files alone are not a
+   completion report: checkpoint the verified outputs, run the required checks,
+   and complete step 6 even when no edits are needed.
 4. Before each output edit, request a checkpoint. Write a small JSON input with
    `{"attempt_id":"<attempt-id>","paths":["domain/AGENTS.md"]}` and run
    `node <skill-dir>/scripts/apply.mjs checkpoint --origin <origin> --task <task-id> --attempt <attempt-id> --input <json-file>`.
@@ -35,6 +39,8 @@ must remain separate from the later working session using harness-connect.
    requests retain the original baseline. If a file changed concurrently, inspect
    and preserve it in the native conversation before editing. Recheck context
    before later helper operations; abandoned or restarted attempts are stale.
+   For an unchanged existing output, obtain its checkpoint as read-only evidence
+   and leave its bytes and mode unchanged.
 5. Edit the workspace directly through native tools, run assigned scripts and
    verification commands with native permissions, and report failures/refusals
    honestly. Do not bypass native refusals. Do not place source bytes, prompts,
@@ -47,6 +53,10 @@ must remain separate from the later working session using harness-connect.
    Checks are agent_reported. The server verifies current file bytes independently;
    it verifies only the reported set, not every tool action. A prose success claim
    does not establish completion. Missing checkpoints are rejected explicitly.
+   Include verified unchanged outputs with their current hashes and checkpoint
+   IDs. Never return only "already applied", and never manufacture an edit to
+   produce a report. Confirm the returned application state; if reporting fails
+   or checks are missing, refused or failed, keep that blocker explicit.
 7. Return to the UI for actual before/after review. No second publication approval
    is needed because the native tools already edited the target. On failure or
    abandonment, edits remain; stop execution in the native window. After verified
