@@ -1,6 +1,7 @@
 # ADR 015: Native-session harness application
 
 Status: Accepted responsibility split; native acceptance and measurement qualification pending.
+UI-guided restoration amendment (2026-10-16) implemented.
 
 ## Context
 
@@ -155,6 +156,108 @@ the check is not mandatory enforcement. Checkpoint records are retained until
 restoration and the commit check are complete. Task deletion still never
 restores files. No native support limit, identity gate or source admission
 changes. See [the restore flow](../runbooks/harness-config.md#7-restore-applied-edits-and-check-staged-files).
+
+## Amendment 2026-10-16: UI-guided restoration
+
+### Context
+
+Restoration needs four separate CLI steps: external release, preview, restore
+and check-staged. Each step needs the database path and task ID. Users finish
+measurement in the UI and then must change to a terminal to remove the harness
+before they open a pull request. The CLI steps are easy to forget, and a missed
+restore puts harness edits into the pull request.
+
+### Decision
+
+Restoration becomes the second of two UI steps. The first step is unchanged.
+
+1. **End the measurement.** The existing task outcome actions (complete, end as
+   failed, abandon) end the measurement. They do not restore files. The harness
+   stays in the project, so the user can continue review fixes with it.
+2. **Remove the harness.** After the outcome is recorded, the task page shows a
+   restoration card while checkpointed application edits remain in the selected
+   worktree. The card stays until restoration completes. It is a request to the
+   user, not an automatic action.
+
+The restoration dialog is the warning. It does not show a generic warning:
+
+- When the dialog opens, the server computes a fresh preview. The dialog groups
+  the paths by action: restored, deleted and unchanged. It shows no file
+  contents.
+- If the preview has a conflict, the dialog lists the conflicting paths and
+  disables the confirm button. No file changes. This is the same all-or-nothing
+  rule as the CLI.
+- The user must select a checkbox that confirms that they stopped the native
+  agent. The checkbox records the external release acknowledgement when it is
+  not already recorded. The server still stops no agent.
+- The confirm request sends the preview digest. The server refuses the request
+  when a fresh preview has a different digest or a conflict, before it records
+  the stop acknowledgement. The UI then loads the new preview and asks again.
+- After a successful restore, the server runs the read-only staged check and
+  the UI shows its result. A clean result says only that no checkpointed harness
+  edits or private records are staged. It does not say that the pull request is
+  safe. Restore and the UI never change the Git index. If entries remain staged,
+  the UI lists them and tells the user to unstage them.
+
+Interrupted restoration uses the same dialog. A fresh preview shows completed
+files as unchanged. The application stays fenced until a retry completes.
+
+The CLI operations stay available with the same contracts for hooks and
+scripts. The UI and the CLI call the same preview, restore and staged-check
+operations. The release acknowledgement and restore remain separate
+transactions. If restore fails after release, the release stays recorded.
+
+### Unchanged
+
+- Ending a measurement never restores files. Task deletion never restores files.
+- Restore needs an inactive task and no running or observing connections.
+- No hook is installed. The staged check is not mandatory enforcement.
+- Mutation responses and journals contain paths, hashes and actions only. File
+  contents, prompts and command output never enter them.
+- No native support limit, identity gate or source admission changes.
+
+### User-facing copy
+
+The UI shows plain-language text. The Korean text is primary for the current
+users. `N` is a count; `<path>` is a repository-relative path.
+
+| Location | Korean | English |
+| --- | --- | --- |
+| Outcome card, after step 1 | 측정이 끝났습니다. 측정에 쓴 하네스 파일은 아직 프로젝트에 남아 있습니다. PR을 올리기 전에 하네스를 되돌리세요. | Measurement has ended. The harness files used for measurement are still in your project. Remove the harness before you open a pull request. |
+| Restoration card title | 프로젝트에서 하네스 되돌리기 | Remove the harness from your project |
+| Restoration card body | 측정 결과는 그대로 남습니다. 하네스가 고친 파일은 적용 전 내용으로 돌아가고, 하네스가 새로 만든 파일은 삭제됩니다. | Your measurement results stay. Files that the harness changed return to their earlier content. Files that the harness created are deleted. |
+| Restoration card button | 하네스 되돌리기… | Remove harness… |
+| Dialog title | 하네스를 되돌릴까요? | Remove the harness? |
+| Dialog description | 아래 파일을 하네스 적용 전 상태로 되돌립니다. 되돌린 뒤에는 하네스를 다시 적용해야 이 작업을 다시 측정할 수 있습니다. | These files return to their state before the harness was applied. After this, you must apply the harness again to measure this task again. |
+| Group: restore | 원래 내용으로 되돌림 (N) — 하네스가 고친 파일입니다. | Restore earlier content (N): files that the harness changed. |
+| Group: delete | 삭제 (N) — 하네스가 새로 만든 파일입니다. | Delete (N): files that the harness created. |
+| Group: unchanged | 변경 없음 (N) — 이미 원래 상태입니다. | No change (N): already in their earlier state. |
+| Conflict | 직접 고친 파일이 있어 되돌릴 수 없습니다 (N). 하네스 적용 뒤에 이 파일들이 수정됐습니다. 수정 내용을 잃지 않도록 아무 파일도 바꾸지 않았습니다. 수정 내용을 정리한 뒤 다시 시도하세요. | Some files changed after the harness was applied (N). No file was changed, so your edits are safe. Resolve these files, then try again. |
+| Checkbox | 터미널이나 IDE에서 AI 세션을 직접 종료했습니다. | I stopped the AI session in my terminal or IDE. |
+| Checkbox help | 실행 중인 AI는 되돌린 파일을 다시 고칠 수 있습니다. Harness Delta는 AI를 대신 종료하지 않습니다. | A running AI can change the restored files again. Harness Delta does not stop the AI for you. |
+| Index note | 이미 git add 한 파일은 커밋 대기(staged) 목록에 그대로 남습니다. | Files that you already added with git add stay staged. |
+| Buttons | 취소 / 되돌리기 | Cancel / Remove |
+| Retry button (conflict or load failure) | 다시 확인 | Check again |
+| Loading | 파일을 확인하는 중… | Checking the files… |
+| Load failure | 파일 목록을 불러오지 못했습니다. 다시 시도하세요. | The file list could not be loaded. Try again. |
+| Preview changed | 목록을 확인하는 동안 파일이 바뀌었습니다. 새 목록을 불러왔으니 다시 확인하세요. | Files changed while you reviewed the list. Review the new list. |
+| Result: clean | 하네스를 되돌렸습니다. 커밋 대기 목록에 하네스 변경분이 없습니다. | The harness is removed. No harness edits are staged. |
+| Result: staged | 하네스를 되돌렸습니다. 아직 커밋 대기 목록에 하네스 파일이 있습니다. 터미널에서 아래 파일마다 git restore --staged를 실행하세요. (경로 목록과 복사할 명령 표시) | The harness is removed, but harness files are still staged. Run git restore --staged with these paths in a terminal. (Paths and a copyable command follow.) |
+| Result: check failed | 하네스를 되돌렸지만 커밋 대기 목록은 확인하지 못했습니다. 터미널에서 git status로 확인하세요. | The harness is removed, but the staged files could not be checked. Run git status in a terminal. |
+
+### Consequences
+
+- Users can remove the harness without the CLI, the database path or the task
+  ID.
+- Measurement and restoration stay separate, so review fixes with the harness
+  remain possible after measurement.
+- The UI gains a file-changing action. The digest binding, conflict block and
+  stop acknowledgement keep it as explicit as the CLI.
+- Section 7 of the runbook and the Korean runbook describe the UI flow first and
+  the CLI second.
+- The card state is read from the database only, so task polling never hashes
+  workspace files. If the user already reverted the files by hand, the card still
+  appears and restoration completes with only unchanged files.
 
 ## Validation boundary
 
