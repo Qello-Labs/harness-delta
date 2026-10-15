@@ -1,7 +1,7 @@
 import type { SharedSetupImportResult } from './local-web-shared.js';
 import { isLocalWebTaskErrorCode } from './local-web-task-errors.js';
 import type { SetupReviewResult, SetupSaveResult } from './local-web-setup-review.js';
-import {ApplicationSelectionSchema,ApplicationCheckpointSchema,ApplicationReportSchema,ApplicationIdentitySchema} from './harness-application-contract.js';
+import {ApplicationSelectionSchema,ApplicationCheckpointSchema,ApplicationReportSchema,ApplicationIdentitySchema,ApplicationRestoreSchema} from './harness-application-contract.js';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { readFileSync, realpathSync } from 'node:fs';
 import { join, sep } from 'node:path';
@@ -36,6 +36,7 @@ export interface LocalWebDomain {
   applicationLaunchContext?(taskId:string,origin:string):unknown;
   applicationHandoff?(taskId:string,origin:string):unknown;
   applicationReview?(taskId:string):unknown;
+  applicationRestoration?(taskId:string):unknown;
   chooseSession(taskId: string): Promise<unknown>;
   close?(): Promise<void>;
 }
@@ -53,7 +54,7 @@ const ordinaryCreateInput = z.strictObject({
 const createInput = z.union([comparisonCreateInput, ordinaryCreateInput]);
 export type LocalWebCreateTaskInput = z.infer<typeof createInput>;
 const actionSchemas = {
- 'application-prepare':ApplicationSelectionSchema,'application-open':empty,'application-checkpoint':ApplicationCheckpointSchema,'application-report':ApplicationReportSchema,'application-identity':ApplicationIdentitySchema,
+ 'application-prepare':ApplicationSelectionSchema,'application-open':empty,'application-checkpoint':ApplicationCheckpointSchema,'application-report':ApplicationReportSchema,'application-identity':ApplicationIdentitySchema,'application-restore':ApplicationRestoreSchema,
   'application-start':z.strictObject({workspace:z.string().min(1).max(4096),inputPaths:z.array(z.string().min(1).max(2048)).max(256),outputPaths:z.array(z.string().min(1).max(2048)).min(1).max(256),runner:z.enum(['codex','claude_code','synthetic']),workspaceDigest:z.string().regex(/^[a-f0-9]{64}$/)}),
   'application-execute':z.strictObject({proposalDigest:z.string().regex(/^[a-f0-9]{64}$/)}),
   'application-permission-decide':z.strictObject({requestToken:z.uuid(),decision:z.enum(['approve_once','reject_and_stop'])}),
@@ -66,7 +67,7 @@ const actionSchemas = {
   'finish-failed': empty, 'finish-abandoned': empty,
   release: z.strictObject({ external_session_stopped: z.literal(true) }),
 };
-const safeCodes = new Set(['application_cleanup_pending','application_managed_retired','application_attempt_stale','application_product_mismatch','application_checkpoint_invalid','application_report_conflict','application_checks_incomplete','application_identity_unavailable','application_setup_session_excluded','application_fresh_session_required','application_epoch_changed','application_launch_unavailable','application_restart_interrupted','application_abandoned','application_execution_approval_required','application_execution_changed','application_preparation_failed','application_permission_stale','application_permission_decision_invalid','application_permission_outside_ceiling','application_permission_accept_unqualified','application_permission_transport_failed','application_termination_unverified','application_integrity_unverified','application_recovery_required','application_surface_unowned','application_publication_unqualified','application_required','application_confinement_unverified','application_source_unqualified','application_native_loading_unqualified','application_output_changed','application_input_changed','application_review_changed','application_preimage_changed','application_planning_failed','application_workspace_changed','application_workspace_mismatch','application_path_forbidden','application_preview_changed','application_scope_invalid','application_job_active','application_review_required','shared_preview_changed','shared_reference_invalid','invalid_shared_config','shared_path_invalid','shared_content_mismatch','shared_file_unavailable','shared_settings_conflict','shared_registration_required','shared_registration_mismatch','shared_project_required','shared_binding_required','shared_binding_selection_required','shared_binding_changed','shared_tool_mismatch','shared_import_expired','shared_import_limit','unknown_task', 'unknown_project', 'unknown_setup', 'invalid_transition', 'task_not_assigned',
+const safeCodes = new Set(['application_cleanup_pending','application_managed_retired','application_attempt_stale','application_product_mismatch','application_checkpoint_invalid','application_report_conflict','application_checks_incomplete','application_identity_unavailable','application_setup_session_excluded','application_fresh_session_required','application_epoch_changed','application_launch_unavailable','application_restart_interrupted','application_abandoned','application_execution_approval_required','application_execution_changed','application_preparation_failed','application_permission_stale','application_permission_decision_invalid','application_permission_outside_ceiling','application_permission_accept_unqualified','application_permission_transport_failed','application_termination_unverified','application_integrity_unverified','application_recovery_required','application_surface_unowned','application_publication_unqualified','application_required','application_confinement_unverified','application_source_unqualified','application_native_loading_unqualified','application_output_changed','application_input_changed','application_review_changed','application_preimage_changed','application_planning_failed','application_workspace_changed','application_workspace_mismatch','application_path_forbidden','application_preview_changed','application_restore_conflict','application_outcome_required','application_scope_invalid','application_job_active','application_review_required','shared_preview_changed','shared_reference_invalid','invalid_shared_config','shared_path_invalid','shared_content_mismatch','shared_file_unavailable','shared_settings_conflict','shared_registration_required','shared_registration_mismatch','shared_project_required','shared_binding_required','shared_binding_selection_required','shared_binding_changed','shared_tool_mismatch','shared_import_expired','shared_import_limit','unknown_task', 'unknown_project', 'unknown_setup', 'invalid_transition', 'task_not_assigned',
   'application_restoration_required',
   'external_preparation_required', 'external_source_unsupported', 'external_operation_unsupported', 'external_surface_busy',
   'external_configuration_drift', 'external_stop_acknowledgement_required', 'external_preimage_unapproved', 'external_common_drift',
@@ -136,6 +137,7 @@ export function createLocalWebServer(options: LocalWebOptions) {
   app.get<{Params:{id:string}}>('/api/tasks/:id/application-handoff',request=>{const taskId=id.parse(request.params.id);options.domain.task(taskId);if(!options.domain.applicationHandoff)throw new Error('application_required');return options.domain.applicationHandoff(taskId,options.origin);});
   for(const retired of ['application-execution-proposal','application-permission'])app.get(`/api/tasks/:id/${retired}`,()=>{throw new Error('application_managed_retired');});
   app.get<{Params:{id:string}}>('/api/tasks/:id/application-review',(request)=>{const taskId=id.parse(request.params.id);options.domain.task(taskId);if(!options.domain.applicationReview)throw new Error('application_required');return options.domain.applicationReview(taskId);});
+  app.get<{Params:{id:string}}>('/api/tasks/:id/application-restoration',(request)=>{const taskId=id.parse(request.params.id);options.domain.task(taskId);if(!options.domain.applicationRestoration)throw new Error('application_required');return options.domain.applicationRestoration(taskId);});
   app.get('/api/bootstrap', async () => ({ csrf, data: await options.domain.bootstrap() }));
   app.get<{ Params: { id: string } }>('/api/tasks/:id', (request, reply) => {
     const task = options.domain.task(id.parse(request.params.id)); reply.header('ETag', task.version); return task;

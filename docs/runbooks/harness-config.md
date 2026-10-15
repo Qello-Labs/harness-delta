@@ -262,9 +262,34 @@ for opening, adaptation, scripts, permissions and working-session loading.
 
 ## 7. Restore applied edits and check staged files
 
-Use these explicit local commands when applied harness edits must leave the
-checkout, for example before you commit your own work. Nothing in this section
-runs automatically. Run from the built Harness Delta checkout:
+Remove the harness before you open a pull request. Ending a measurement does not
+remove it. Nothing in this section runs automatically.
+
+### Remove the harness in the UI
+
+1. Record the task outcome in **Task outcome**. The harness stays in the project,
+   so you can continue review fixes with it.
+2. Stop the native agent in its terminal or IDE.
+3. In **Remove the harness from your project**, select **Remove harness…**.
+4. Read the list. It groups paths into restored, deleted and unchanged files. It
+   shows no file contents.
+5. Select **I stopped the AI session in my terminal or IDE**, then select
+   **Remove**.
+
+Expected result: changed files return to their earlier content and created files
+are deleted. The card then shows the staged check result.
+
+- If the dialog lists files that changed after application, no file changes and
+  **Remove** is not available. Resolve those files, then select **Check again**.
+- If files changed after the list was loaded, **Remove** is refused and the
+  dialog loads a new list. Review it again.
+- If harness files are still staged, the card shows a `git restore --staged`
+  command. Run it in a terminal. The UI never changes the Git index.
+
+### Use the CLI
+
+Use these explicit local commands for hooks and scripts. They use the same
+checks as the UI. Run from the built Harness Delta checkout:
 
 ```sh
 node dist/cli.js --db /path/to/local.sqlite application preview <task-id>

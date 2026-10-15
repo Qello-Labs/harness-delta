@@ -1,6 +1,6 @@
 import type { ChildReadinessObservation } from './binding-child-readiness.js';
 import { appendFamilyDiagnostic, takeFamilyDiagnostic } from './binding-family-diagnostics.js';
-import {ApplicationSelectionSchema,ApplicationCheckpointSchema,ApplicationReportSchema,ApplicationIdentitySchema} from './harness-application-contract.js';
+import {ApplicationSelectionSchema,ApplicationCheckpointSchema,ApplicationReportSchema,ApplicationIdentitySchema,ApplicationRestoreSchema} from './harness-application-contract.js';
 import {getApplicationLaunchCapability} from './harness-application-launch.js';
 import { ApplicationCoordinator, applicationRequired, effectiveTaskWorkspace } from './harness-application.js';
 
@@ -337,7 +337,7 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
         price:{partial_amount:null,currency:'USD',unpriced_events:0,basis:null},criteria:setup.workflow.assignment.metadata.criterion_ids,startup:null,source:null,reason,
         actions:[{code:'prepare',enabled:task.state!=='finalized',reason:null},...(!nativeApplication?[{code:'apply',enabled:task.state!=='finalized',reason:null}]:[])]};
     }
-    const application=applicationRequired(store,id)?{...applications.status(id),capabilities:[getApplicationLaunchCapability('codex'),getApplicationLaunchCapability('claude_code')],baseline:setup.workflow.assignment.code_base_commit}:undefined;
+    const application=applicationRequired(store,id)?{...applications.status(id),restoration:applications.restorationState(id),capabilities:[getApplicationLaunchCapability('codex'),getApplicationLaunchCapability('claude_code')],baseline:setup.workflow.assignment.code_base_commit}:undefined;
     const state = externalTaskState(store, id);
     const result = externalTaskResult(store, id); const runs = running(id); const active = runs.length > 0 || jobs.has(id);
     const finalized = task.state === 'finalized'; const connected = state.window.started_at !== null;
@@ -367,7 +367,9 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
     const canFinish = !finalized && (!active || explicitStop && binding.roots > 0) && !ownedNativeLive && connected;
     const qualificationActions=new Set(['session-connect','pause','resume-binding','emergency-stop']);
     const actions = [
-      ...(application?[action('application-prepare',!finalized&&!active&&['awaiting_application','failed','abandoned'].includes(application.state),'application_required'),action('application-open',!finalized&&!active&&application.state==='awaiting_session','application_required'),action('application-cancel',!finalized&&!active&&!!application.jobId&&['awaiting_session','applying','applied','failed'].includes(application.state),'application_required')]:[]),
+      ...(application?[action('application-prepare',!finalized&&!active&&['awaiting_application','failed','abandoned'].includes(application.state),'application_required'),action('application-open',!finalized&&!active&&application.state==='awaiting_session','application_required'),action('application-cancel',!finalized&&!active&&!!application.jobId&&['awaiting_session','applying','applied','failed'].includes(application.state),'application_required'),
+        // Restoration is the second step: ending the measurement never removes the harness.
+        action('application-restore',finalized&&!active&&['available','interrupted'].includes(application.restoration),application.restoration==='restored'?'application_restored':application.restoration==='none'?'application_restoration_unavailable':active?'workflow_run_active':'application_outcome_required')]:[]),
       action('apply', !finalized && !active && !ready, finalized ? 'finalized' : active ? 'workflow_run_active' : 'configuration_ready'),
       action('ticket', !finalized && !active && ready && state.window_status !== 'closed' && supported, !supported ? 'external_collection_unsupported' : finalized ? 'finalized' : active ? 'workflow_run_active' : 'external_preparation_required'),
       action('connect', !finalized && !active && startup !== null && ready && state.window_status !== 'closed' && supported, !supported ? 'external_collection_unsupported' : active ? 'workflow_run_active' : 'external_ticket_required'),
@@ -569,6 +571,7 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
     applicationLaunchContext(taskId,origin){row(taskId);return applications.launchContext(taskId,origin);},
     applicationHandoff(taskId,origin){row(taskId);return applications.handoff(taskId,origin);},
     applicationReview(taskId){row(taskId);return applications.review(taskId);},
+    applicationRestoration(taskId){row(taskId);const preview=applications.restorationPreview(taskId);return {digest:preview.digest,files:preview.files.map(({path,action})=>({path,action}))};},
     async chooseSession(taskId) {
       if(options.nativePilot)throw new Error('binding_pilot_control_only');
       if(options.qualificationLease)throw new Error('binding_qualification_control_only');
@@ -639,6 +642,22 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
       if(action==='application-report'){applications.report(id,ApplicationReportSchema.parse(input));return taskDto(id);}
       if(action==='application-identity'){const request=ApplicationIdentitySchema.parse(input);applications.context(id,request.attempt_id);const provider=providersForTask(id).find(p=>p.product===request.product);if(!provider?.resolveApplicationIdentity||provider.capabilities().currentIdentity==='unavailable')throw new Error('application_identity_unavailable');const identity=await provider.resolveApplicationIdentity({receipt:request.receipt});return applications.registerIdentity(id,request.attempt_id,identity);}
       if(action==='application-cancel'){applications.cancel(id);return taskDto(id);}
+      if(action==='application-restore'){
+        const request=ApplicationRestoreSchema.parse(input);
+        if(life.state(id)!=='finalized')throw new Error('application_outcome_required');
+        if(jobs.has(id)||running(id).length)throw new Error('workflow_run_active');
+        // A stale or conflicting request must not record a stop acknowledgement.
+        const preview=applications.restorationPreview(id);
+        if(preview.digest!==request.preview_digest)throw new Error('application_preview_changed');
+        if(preview.files.some(file=>file.action==='conflict'))throw new Error('application_restore_conflict');
+        const preparation=store.get<{state:string}>('SELECT state FROM external_preparations WHERE task_id=?',[id]);
+        if(preparation&&preparation.state!=='released')releaseExternalWorkflow(store,id,request.external_session_stopped);
+        applications.restore(id,request.preview_digest);
+        // Files are already restored; a failed index read must not hide that result.
+        let staged:{clean:boolean;files:{path:string;reason:string}[]}|{clean:null;error:string};
+        try{staged=applications.checkStaged(id);}catch(error){staged={clean:null,error:localWebError(error)};}
+        return {...taskDto(id),restoration:{staged}};
+      }
       if(action==='application-mode'){
         z.strictObject({mode:z.literal('agent_applied')}).parse(input);
         if(jobs.has(id)||running(id).length)throw new Error('workflow_run_active');
