@@ -11,6 +11,10 @@ const fallback = 'input_or_state_error';
 
 /** One-line next actions for codes a first-time workflow user commonly meets. */
 const hints: Record<string, string> = {
+  application_preview_changed: 'run application preview again and review the current files before restoring',
+  application_restore_conflict: 'preserve and review changed or unreported checkpoint files; no files were restored',
+  application_restoration_required: 'finish restoration in the current workspace before reapplying or selecting another worktree',
+  application_changes_staged: 'remove application edits and private records from the index, restage intended work, and rerun application check-staged',
   binary_mismatch: 'binary SHA-256 differs from execution.binary.sha256 or the pinned product hash; nothing was assigned or started',
   binary_unreadable: 'execution.binary.path must be an absolute canonical regular file; nothing was assigned or started',
   invalid_hook_recorder: 'execution.hook_recorder must be the unmodified start recorder from this checkout; see the workflow quickstart',

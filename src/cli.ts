@@ -8,6 +8,7 @@ import { readFileSync, realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { registerComparisonCommands } from './comparison-cli.js';
 import { registerLocalWebCommand } from './local-web-main.js';
+import { registerApplicationCommands } from './harness-application-cli.js';
 import { registerTaskWorkflowCommands, type WorkflowCommandDependencies } from './task-workflow-cli.js';
 import { registerInstrumentedCodexCommands } from './instrumented-codex-cli.js';
 import { Store } from './store.js';
@@ -87,6 +88,7 @@ export async function main(argv: string[], workflowDependencies:WorkflowCommandD
   report.command('period <id>').requiredOption('--cutoff <UTC>').option('--format <json|markdown>','output format','json')
     .action((id:string,options:{cutoff:string;format:string})=>{process.stdout.write(renderReport(periodReport(db(),id,options.cutoff),options.format));});
   registerCompatibilityCommands(program, db, print);
+  registerApplicationCommands(program, db, print);
   registerComparisonCommands(program, db, print);
   registerTaskWorkflowCommands(program, db, print, workflowDependencies);
   registerInstrumentedCodexCommands(program, db, print);

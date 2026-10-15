@@ -259,3 +259,86 @@ cwd or an agent claim. Do not run harness-connect in the applying session.
 See [ADR 015](../decisions/015-agent-harness-application.md). Synthetic tests validate
 wiring and integrity only; separately authorized native acceptance remains required
 for opening, adaptation, scripts, permissions and working-session loading.
+
+## 7. Restore applied edits and check staged files
+
+Use these explicit local commands when applied harness edits must leave the
+checkout, for example before you commit your own work. Nothing in this section
+runs automatically. Run from the built Harness Delta checkout:
+
+```sh
+node dist/cli.js --db /path/to/local.sqlite application preview <task-id>
+node dist/cli.js --db /path/to/local.sqlite application restore <task-id> --preview <digest>
+node dist/cli.js --db /path/to/local.sqlite application check-staged <task-id>
+```
+
+An installed `hm` command takes the same arguments, for example
+`hm --db <database> application preview <task-id>`.
+
+1. Stop the native agent in its native window. Restore needs an inactive task,
+   no running or observing connections, and the external stop acknowledgement in
+   its released state. A finalized task is allowed.
+   After stopping observation and the agent, record the acknowledgement:
+
+   ```sh
+   node dist/cli.js --db /path/to/local.sqlite workflow external release <task-id> --external-session-stopped
+   ```
+
+2. Run `preview`. It prints a digest and one action for each checkpointed path:
+   `delete`, `restore`, `unchanged` or `conflict`. It prints no file contents and
+   edits nothing. `unchanged` means its bytes already match the checkpoint baseline.
+3. Read the list. `conflict` marks a file changed after application or a changed
+   checkpointed file without a verified application result. A single
+   conflict blocks every edit, so resolve it yourself and preview again.
+4. Run `restore` with that digest. The command takes a fresh preview first and
+   refuses when the digest differs. Files still at their applied hash return to
+   the actual dirty checkpoint baseline, never Git HEAD. Files the application
+   created are deleted. Files you modified are not overwritten.
+5. Restage your intended changes, then run `check-staged`. Restore never changes
+   the Git index, so harness edits staged earlier stay staged until you restage.
+   Exit code 2 means harness edits or private `.harness-delta` or
+   `.harness-delta-managed` entries remain staged. Unstage them and run the check
+   again before committing.
+
+After restore the application is fenced. Measurement stays blocked until you
+explicitly reapply through the section 6 flow. Restore does not reapply, start
+collection, stop an agent or open a session.
+
+If restoration is interrupted, the application stays fenced and its workspace
+lease stays held. Run `preview` again, review the remaining actions, and retry
+`restore` with the new digest. Completed files appear as `unchanged`. A partly
+written or subsequently edited file remains a conflict; preserve its current
+bytes and review its private checkpoint before recovering it manually.
+`application_restoration_required` prevents reapplication or moving the task to
+another worktree until restoration completes. Legacy cross-worktree inherited
+metadata without a local checkpoint is not restored; review any edits left in
+the earlier worktree separately.
+Failed attempts without any unresolved checkpoints can select another worktree
+without an empty restoration. Recreated parent directories use mode 0700; their
+original permissions are not recorded.
+
+The bundle and private checkpoint/context records must remain intact. Newly
+captured file permissions are restored when bytes are restored; legacy deleted
+files without mode metadata are recreated with mode 0600. Mode-only changes
+are outside the hash-based preview.
+
+`check-staged` allows a staged file whose current content equals its checked
+original baseline. A file that mixes harness and user changes is flagged
+conservatively, even if the divergence contains only user edits; the check does
+not guess which edits are yours. Git clean filters and line-ending conversion
+are applied to baseline bytes as they are during staging. Preview, restore
+and the staged check cover checkpointed paths, including reported outputs.
+Changes outside that set are not audited or restored. The staged check also
+rejects private record directories anywhere in the index and retains reported
+paths from earlier restored applications of this task in the same worktree.
+
+Hook integration is manual. No hook is installed or overwritten, and the check is
+not mandatory enforcement. To use it from your own pre-commit hook, add the
+`check-staged` command yourself and keep the existing hook content.
+Run the hook command in the task's selected worktree using absolute CLI/database
+paths. A shared hook must select the task for that worktree; an alternate
+`GIT_INDEX_FILE` is checked as supplied, not mapped to another worktree.
+
+Keep the task and its checkpoint records until restoration and the commit check
+are complete. Deleting a task still never restores files. These commands change
+no native support limit, identity gate or measurement eligibility.

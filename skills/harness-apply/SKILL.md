@@ -63,6 +63,35 @@ must remain separate from the later working session using harness-connect.
    files, copy the populated working-session guidance and open a separate fresh
    session. Invoke harness-connect there; do not measure this applying session.
 
+Restoration is a separate explicit local CLI operation that the user runs after
+stopping this session. Never run it yourself and never undo edits by guessing.
+From a built Harness Delta checkout:
+
+```sh
+node dist/cli.js --db /path/to/local.sqlite application preview <task-id>
+node dist/cli.js --db /path/to/local.sqlite application restore <task-id> --preview <digest>
+node dist/cli.js --db /path/to/local.sqlite application check-staged <task-id>
+```
+
+Preview prints a digest and a path/action list (delete, restore, unchanged,
+conflict) without file contents. Restore needs a digest matching a fresh preview,
+an inactive task, no running or observing connections and the external released
+stop acknowledgement; a finalized task is allowed. Any conflict blocks all edits.
+Files still at their applied hash return to your actual dirty checkpoint baseline,
+new files are deleted, and user-modified files are not overwritten. Your
+checkpoints and report are that baseline and scope, so checkpoint before every
+edit and report every output. Checkpointed files missing from the report are not
+restored and block restoration if changed. Files outside the checkpoints are
+neither restored nor checked.
+After restore the application is fenced and must be explicitly reapplied before
+measurement. Restore never changes the Git index. The user restages and runs
+check-staged, which exits 2 while harness edits or private `.harness-delta` or
+`.harness-delta-managed` entries remain staged. Files at their checked original
+baseline are allowed; mixed divergence is flagged conservatively. Hook integration
+is manual: install or overwrite no hooks, and do not present the check as
+mandatory enforcement. Checkpoint records must stay until restoration and the
+commit check are complete. Task deletion still never restores.
+
 Application helper transport never reads a session transcript or executes a tool.
 Native opening and identity/source qualification have separate product/version
 limits. Synthetic helper tests do not prove that a native agent followed this
