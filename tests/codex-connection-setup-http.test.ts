@@ -234,6 +234,9 @@ it('uses reviewed project connection settings for existing Codex tasks without c
       expected_installed_hash: preview.installation.installedHash,
     });
     expect(domain.task(created.id)).toMatchObject({ binding: { state: 'unconnected' } });
+    expect(domain.task(created.id).actions).toContainEqual({
+      code: 'session-connect', enabled: true, reason: null,
+    });
     expect(domain.task(created.id).actions).not.toContainEqual({
       code: 'session-connect', enabled: false, reason: 'receipt_directory_missing',
     });

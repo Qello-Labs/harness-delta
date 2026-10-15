@@ -56,7 +56,9 @@ describe('ordinary Claude provider boundary', () => {
   afterEach(() => { rmSync(root, { recursive: true, force: true }); });
 
   it('inspects current receipt and pinned image metadata without a transcript body read', async () => {
-    const proof = await makeProvider().inspectCurrent({ receipt });
+    const provider = makeProvider();
+    expect(provider.capabilities().productionSupported).toBe(true);
+    const proof = await provider.inspectCurrent({ receipt });
     expect(proof).toMatchObject({
       receipt, nativeSessionId: native, agentId: null, cwd: project,
       sourceRef: source, productVersion: '2.1.296',
@@ -124,6 +126,35 @@ describe('ordinary Claude provider boundary', () => {
     const provider = makeProvider({ ordinaryAdmission: false });
     await expect(provider.resolveCurrent({ receipt })).rejects.toThrow('claude_source_version_unsupported');
     expect(provider.capabilities().productionSupported).toBe(false);
+  });
+
+  it('connects the real ordinary provider and records a different Claude model without synthetic admission authority', async () => {
+    const store = new Store(':memory:');
+    const clock = () => new Date(now).toISOString();
+    new Lifecycle(store, clock).registerProject('ordinary-project', project);
+    saveOrdinaryProjectSettings(store, 'ordinary-project', {
+      schema_version: 1, product: 'claude_code', product_version: '2.1.296',
+      receipt_directory: receipts, claude_projects_directory: projects,
+    }, clock);
+    const taskId = createOrdinaryTask(store, {
+      project_id: 'ordinary-project', criterion_ids: ['accepted'],
+    }, clock);
+    const provider = makeProvider({
+      authorizeSource: metadata => service.assertSource(taskId, metadata),
+      memberEligible: metadata => service.memberEligible(taskId, metadata),
+    });
+    const service = createOrdinarySessionBindingService({ store, clock, providersForTask: () => [provider] });
+    try {
+      await service.connect(taskId, 'claude_code', { receipt });
+      now += 1000;
+      const row = assistant('sonnet');
+      appendFileSync(source, jsonLine({ ...row, message: { ...row.message, model: 'claude-sonnet-4-5' } }));
+      await service.tick(taskId);
+      expect(service.status(taskId)).toMatchObject({ state: 'observing', roots: 1, requests: 1, complete_cost: null });
+      expect(service.status(taskId).sessions[0]?.models).toEqual(['claude-sonnet-4-5']);
+      expect(store.all('SELECT * FROM binding_baseline_exclusions')).toHaveLength(1);
+      expect(store.all('SELECT * FROM comparison_assignments')).toEqual([]);
+    } finally { await service.close(); store.close(); }
   });
 
   it('authorizes a member file that appears between the metadata pass and its first own-row read', async () => {

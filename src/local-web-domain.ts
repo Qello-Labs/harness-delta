@@ -465,8 +465,8 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
       criteria: metadata.criterion_ids, actions, startup: null, source: null,
       binding: { ...binding, product: 'claude_code' as const,
         product_version: claudeBindingAdmission.productVersion, max_family_members: claudeBindingAdmission.maxFamilyMembers,
-        supported_model: claudeBindingAdmission.model,
-        support: claudeBindingAdmission.qualified ? 'verified_claude_family' : 'ordinary_qualification_pending' },
+        supported_model_family: 'claude' as const,
+        support: claudeBindingAdmission.admitted ? 'claude_family' : 'ordinary_qualification_pending' },
       reason: record.reason === 'measurement_paused' ? null : record.reason,
     };
   };

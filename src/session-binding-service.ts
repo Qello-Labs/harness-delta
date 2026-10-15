@@ -27,7 +27,7 @@ import type { ExternalTaskSetup } from './external-session-service.js';
 import { assertHumanPilotScope, checkHumanPilotIdentity, humanPilotCompatibility, type HumanPilotScope } from './session-binding-human-pilot.js';
 import { isClaudeHumanPilotScope } from './session-binding-claude-human-pilot.js';
 import { assertCompatibilityAllowed, pinSessionCompatibility, invalidateCompatibility, resolveSourceCompatibility } from './source-compatibility.js';
-import { codexBindingAdmission, isAdmittedCodexBindingProtocol } from './codex-binding-admission.js';
+import { codexBindingAdmission, isAdmittedCodexBindingProtocol, isCodexGptModel } from './codex-binding-admission.js';
 import { lstatSync } from 'node:fs';
 
 interface BindingRow { session_id: string; task_id: string; root_id: string; identity: string;
@@ -67,9 +67,10 @@ export function bindingSourceSupported(store: Store, taskId: string): boolean {
   const assignment = store.get<{ protocol_id: string }>('SELECT protocol_id FROM comparison_assignments WHERE task_id=?', [taskId]);
   if (!assignment) return false;
   const protocol = comparisonProtocol(store, protocolRow(store, assignment.protocol_id));
+  const initialModel = 'initial_model' in metadata ? metadata.initial_model : metadata.model;
   return metadata.product === 'synthetic' && protocol.purpose === 'synthetic_validation' ||
     metadata.product === 'codex' && protocol.schema_version === 2 && isAdmittedCodexBindingProtocol(protocol) &&
-    ('initial_model' in metadata ? metadata.initial_model : metadata.model) === codexBindingAdmission.model;
+    (initialModel === null || isCodexGptModel(initialModel));
 }
 
 export function createSessionBindingService(options: SessionBindingServiceOptions) {

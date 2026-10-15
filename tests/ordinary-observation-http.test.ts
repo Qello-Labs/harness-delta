@@ -95,7 +95,7 @@ describe('ordinary observation HTTP preparation', () => {
     expect(store.eventCount()).toBe(0);
   });
 
-  it('composes owned installation readiness with closed admission and revocation', async () => {
+  it('composes owned installation readiness with ordinary admission and revocation', async () => {
     await app.inject({ method: 'POST', url: setup, headers: headers(), payload: { operation: 'configure' } });
     const created = await app.inject({ method: 'POST', url: '/api/tasks', headers: headers(), payload: {
       mode: 'ordinary', name: 'Synthetic readiness', project_id: 'project', criterion_ids: ['accepted'],
@@ -116,20 +116,23 @@ describe('ordinary observation HTTP preparation', () => {
       expected_installed_hash: snapshot.installation.installedHash,
     } });
     expect(installed.statusCode).toBe(200);
-    expect(installed.json()).toMatchObject({ installation: { state: 'installed' }, admission: { qualified: false } });
+    expect(installed.json()).toMatchObject({ installation: { state: 'installed' }, admission: {
+      admitted: true, qualified: false, model_family: 'claude',
+    } });
     const ready = await readTask();
     expect(ready.json()).toMatchObject({ connection_readiness: {
       skill: { state: 'installed', reason: null, install_command: null },
       configured_version: '2.1.296', installed_version: null, collection_revoked: false,
     }, measurement: { state: 'waiting_connection', active_ms: null } });
     expect(ready.json<{ actions: unknown[] }>().actions).toContainEqual({
-      code: 'session-connect', enabled: false, reason: 'binding_source_unqualified',
+      code: 'session-connect', enabled: true, reason: null,
     });
+    expect(ready.json()).toMatchObject({ binding: { support: 'claude_family', supported_model_family: 'claude' } });
     const rejected = await app.inject({ method: 'POST', url: `${taskUrl}/session-connect`,
       headers: { ...headers(), 'if-match': ready.json<{ version: string }>().version },
       payload: { product: 'claude_code', receipt: '00000000-0000-4000-8000-000000000001' } });
     expect(rejected.statusCode).toBe(400);
-    expect(rejected.json()).toMatchObject({ error: 'binding_source_unqualified' });
+    expect(rejected.json()).toMatchObject({ error: 'claude_receipt_missing' });
     expect(claudeBindingAdmission.qualified).toBe(false);
     expect(store.get('SELECT generation FROM tasks WHERE id=?', [task.id])).toEqual(generation);
     expect(store.all('SELECT * FROM sessions')).toEqual([]);

@@ -68,9 +68,9 @@ export function SupportGuidance({ support, locale, compact = false }: { support:
     </details>
   </section>;
   if (support.family === 'verified_bounded_family') return <div data-support-context={support.context} className="space-y-3 text-sm">
-    <p>{t('Codex 0.162.1 ordinary family: one fresh root and up to two fresh direct children, gpt-6.1-sol/high.', 'Codex 0.162.1 일반 가족: 새 root 1개와 새 직접 자식 최대 2개, gpt-6.1-sol/high.')}</p>
+    <p>{t('Codex 0.162.1 ordinary family: one fresh root and up to two fresh direct children. All GPT-family models are allowed; model and effort are recorded as observed.', 'Codex 0.162.1 일반 가족: 새 root 1개와 새 직접 자식 최대 2개입니다. 모든 GPT 계열 모델을 허용하며 모델과 effort는 관측값 그대로 기록합니다.')}</p>
     <p>{t('Usage parser', '사용량 파서')}: {trust(support.family_parser_compatibility?.state ?? 'unsupported')}</p>
-    <p>{t('Reviewed hooks, explicit project/task/source scope and a fresh working session are required. Other versions, nested children and model changes are unsupported.', '검토된 hook, 명시적 프로젝트·작업·원본 범위와 새 작업 세션이 필요합니다. 다른 버전·중첩 자식·모델 변경은 미지원입니다.')}</p>
+    <p>{t('Reviewed hooks, explicit project/task/source scope and a fresh working session are required. Other versions, nested children and non-GPT models are unsupported.', '검토된 hook, 명시적 프로젝트·작업·원본 범위와 새 작업 세션이 필요합니다. 다른 버전·중첩 자식·GPT 계열이 아닌 모델은 미지원입니다.')}</p>
     <p className="text-muted-foreground">{t('Cost remains partial, not complete task cost or an actual bill. Paused and setup intervals are not backfilled.', '비용은 부분 관측이며 전체 작업 비용이나 실제 청구액이 아닙니다. 중단·준비 구간은 소급 수집하지 않습니다.')}</p>
   </div>;
   return <div data-support-context={support.context} className="space-y-3 text-sm">

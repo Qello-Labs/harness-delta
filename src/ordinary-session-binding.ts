@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { addTokens, TimestampSchema } from './contracts.js';
-import { claudeBindingAdmission } from './claude-binding-admission.js';
+import { claudeBindingAdmission, isClaudeModel } from './claude-binding-admission.js';
 import { childReadinessDeadline } from './binding-child-readiness.js';
 import { assertApplicationWorkingIdentity, bindApplicationEpoch, effectiveTaskWorkspace } from './harness-application.js';
 import { Lifecycle, utcNow, type Clock } from './lifecycle.js';
@@ -234,7 +234,7 @@ export function createOrdinarySessionBindingService(options: {
         if (record.sessionId !== value.sessionId || record.payload.product !== value.product ||
           record.payload.product_version !== value.productVersion || Date.parse(record.occurredAt) > Date.parse(now()))
           throw new Error('binding_usage_invalid');
-        if (record.payload.model !== claudeBindingAdmission.model) throw new Error('binding_runtime_unsupported');
+        if (!isClaudeModel(record.payload.model)) throw new Error('binding_runtime_unsupported');
       }
       for (const record of excluded) ledger.add(record.requestId);
       for (const record of records) {
@@ -390,7 +390,7 @@ export function createOrdinarySessionBindingService(options: {
     const provider = providerFor(taskId, product);
     return !!provider.inspectCurrent && provider.capabilities().usage === 'own_requests' &&
       (options.syntheticProviderForTask?.(taskId) === true ||
-        (claudeBindingAdmission.qualified && provider.capabilities().productionSupported));
+        (claudeBindingAdmission.admitted && provider.capabilities().productionSupported));
   };
   const status = (taskId: string) => {
     const task = life.task(taskId); const all = rows(taskId); const segment = selected(taskId);

@@ -7,7 +7,7 @@ export type Locale = 'ko' | 'en';
 export interface OrdinarySetup {
  project_id: string; configured: boolean; product: 'claude_code'; product_version: string;
  installation: { state: 'absent' | 'installed' | 'update_available' | 'blocked'; source: 'available' | 'unavailable'; packageHash: string | null; installedHash: string | null; destination: string; receiptDirectory: string; hookRegistration: 'unverified'; blockers: string[] };
- admission: { profile_id: string; qualified: boolean; max_family_members: number; model?: string };
+ admission: { profile_id: string; admitted: boolean; qualified: boolean; max_family_members: number; model_family: 'claude' };
  changes?: { path: string; action: string; beforeHash: string | null; afterHash: string | null }[];
 }
 export interface Project { id: string; name: string; directory: string; baseline: string | null; setup_ids: string[]; ordinary?: { configured: boolean; product_version: string; installation_state: OrdinarySetup['installation']['state']; qualified: boolean } }
@@ -33,7 +33,7 @@ export interface Task {
  price: CostAmounts & { currency: string; unpriced_events: number; basis: string | null };
  actions: TaskAction[]; startup: { start_command: string; ticket_id: string } | null;
  criteria: string[]; source: { handle: string; label: string } | null; reason: string | null;
- binding?: { product?: 'codex'|'claude_code'; product_version?:string; max_family_members?:number; supported_model?:string; selected_root_id?:string|null; segment_state?:string|null; state: string; roots: number; children: number; requests: number | null; gaps: string[]; cost_coverage: 'partial'; support: string; sessions: (BindingSummary & {session_id:string;parent_session_id:string|null;agent_metadata?:AgentDisplayMetadata|null;models?:string[]})[];summary:BindingSummary };
+ binding?: { product?: 'codex'|'claude_code'; product_version?:string; max_family_members?:number; supported_model_family?:'claude'; selected_root_id?:string|null; segment_state?:string|null; state: string; roots: number; children: number; requests: number | null; gaps: string[]; cost_coverage: 'partial'; support: string; sessions: (BindingSummary & {session_id:string;parent_session_id:string|null;agent_metadata?:AgentDisplayMetadata|null;models?:string[]})[];summary:BindingSummary };
 }
 export interface CodexSetup {
  project_id: string; configured: boolean; product: 'codex'; product_version: string;

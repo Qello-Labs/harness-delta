@@ -45,8 +45,8 @@ import type { BindingCapabilities, BindingReadBoundary, BindingUsageRecord, Chil
 export interface ClaudeTranscriptProfile { readonly version: string; readonly status: 'qualified' | 'candidate'; readonly evidence: string }
 /** Exact versions only. A candidate profile is synthetic-fixture evidence. A qualified profile also has
  * native transcript, skill-hook, family-membership and own-counter evidence for that exact version.
- * Neither status opens ordinary production collection: the binding service admits a source only
- * through a qualification lease, the human-pilot scope or a synthetic task. */
+ * Ordinary admission is a separate code-owned use policy; transcript qualification
+ * does not open comparison, pilot or other-version collection. */
 export const claudeBindingProfiles: readonly ClaudeTranscriptProfile[] = Object.freeze([
   Object.freeze({ version: '2.1.296', status: 'qualified' as const, evidence: 'offline-actual-binary;native-pilot-2026-10-13;validation/claude-ordinary-binding-02196-qualification.md' }),
   Object.freeze({ version: '2.1.294', status: 'candidate' as const, evidence: 'official-changelog-2.1.294;synthetic-fixtures;native-qualification-pending' }),
@@ -220,7 +220,7 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
     const qualified = this.#options.profiles.some(profile => profile.status === 'qualified');
     // A qualified transcript profile is not an ordinary production admission; the service decides that.
     return { currentIdentity: 'native_hook', ancestry: 'verified_relations', usage: 'own_requests',
-      productionSupported: this.#options.ordinaryAdmission && claudeBindingAdmission.qualified,
+      productionSupported: this.#options.ordinaryAdmission && claudeBindingAdmission.admitted,
       // Members are verified relations of the root; nested direct parents are not claimed.
       maxDepth: 1,
       reasons: ['claude_skill_hooks_required_per_session', 'claude_family_flattened_direct_parent_unverified', 'claude_receipts_local_trust',

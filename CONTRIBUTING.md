@@ -19,7 +19,9 @@ ordinary file, binding or workflow observations into complete totals or vendor b
 Codex 0.162.1 bounded ordinary collection passed fresh ordinary-route native
 acceptance and independent review on 2026-10-13: one fresh CLI root and up to two
 fresh direct children, gpt-6.1-sol/high, under the reviewed read-only/no-daemon
-invocation. Prior lease-gated observations do not replace that evidence. See the
+invocation. Prior lease-gated observations do not replace that evidence. Since the
+user-approved 2026-10-15 policy, normal use of this route accepts any GPT-family
+model at the observed reasoning effort; that trial model is history, not a requirement. See the
 [ordinary profile and limits](docs/runbooks/harness-connect.md#codex-01621-bounded-ordinary-profile),
 [current native workflow and limits](docs/runbooks/task-native-workflow.md),
 [capability evidence](docs/decisions/001-adapter-capabilities.md), and
@@ -138,22 +140,26 @@ root-only and Claude 2.1.291/2.1.293/2.1.294/2.1.296 profiles under explicit
 local human-pilot authority; see [Harness Connect](docs/runbooks/harness-connect.md).
 The Claude 2.1.296 transcript profile is qualified only for bounded native print-mode
 evidence, not interactive qualification or production admission; the others are
-candidates. All ordinary Claude profiles, even qualified ones, require
-`allowCandidateProfiles: true`. Default provider refusal and ordinary service admission
-remain closed. Current labels stay `native_unverified_pilot`, `legacy_unverified`
+candidates. The comparison/pilot provider, even for qualified profiles, requires
+`allowCandidateProfiles: true`; it does not grant ordinary observation authority.
+Its default refusal remains closed. Current pilot labels stay `native_unverified_pilot`, `legacy_unverified`
 and `candidate_pilot`.
 
 The separate exact `codex-binding-01621-direct-family-v1` ordinary source admits
-one fresh Codex 0.162.1 CLI root and up to two fresh direct children with
-gpt-6.1-sol/high, without qualification authority. Its route-specific verified
+one fresh Codex 0.162.1 CLI root and up to two fresh direct children running any
+GPT-family model, stored as observed with its observed effort, without
+qualification authority. Its route-specific verified
 provenance never promotes file/launch or historical observations. Costs remain
 partial; complete request-universe and terminal accounting are not qualified.
 
 Ordinary Claude observation (a task with no A/B assignment, prepared in the
-normal UI) is implemented and qualification-pending. Its code-owned
-`claude-binding-02196-family-v1` admission for Claude Code 2.1.296 is closed, so
-connection returns `binding_source_unqualified`. Don't describe it as supported
-or verified until an accepted native trial changes that admission. See
+normal UI) is admitted for normal use since the user-approved 2026-10-15 policy,
+under the exact source version and binary of its code-owned
+`claude-binding-02196-family-v1` profile. It accepts any Claude model, stored as
+observed with its observed effort; another product's model is rejected atomically.
+That admission is separate from the profile's historical `qualified: false`
+evidence. No new native trial was run, so don't describe the route as natively
+qualified or promote earlier observations. See
 [ADR 016](docs/decisions/016-ordinary-observation.md) and the
 [user flow and limits](docs/runbooks/harness-connect.md#ordinary-claude-observation-qualification-pending).
 

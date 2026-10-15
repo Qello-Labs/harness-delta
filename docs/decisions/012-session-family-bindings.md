@@ -76,7 +76,19 @@ as the collector; provider/browser `productionSupported` assertions cannot open 
 
 The code-owned `codex-binding-01621-direct-family-v1` profile implements ordinary
 Codex 0.162.1 CLI collection without a qualification lease or human-pilot
-capability: one fresh root and up to two fresh direct children, gpt-6.1-sol/high.
+capability: one fresh root and up to two fresh direct children.
+
+Model policy (user-approved 2026-10-15): this ordinary route accepts every
+GPT-family model and doesn't force a reasoning effort. A task `initial_model` may be
+null, in which case the observed native runtime model is used; a present
+GPT-family `initial_model` and frozen task settings are kept as written. The
+observed native model must be GPT-family, and model and effort are stored as
+observed. Source format/version, registered project/task/receipt ownership,
+ancestry, one root with two direct children, lifecycle, partial cost and
+inference gates are unchanged. The 2026-10-13 trial ran gpt-6.1-sol/high and
+remains the historical qualification evidence; no new native trial was run for
+this policy and not every GPT-family model was tested. The qualification runner
+still pins its own exact test runtime, separate from normal user acceptance.
 Prior hook/source/counter observations came from the bounded lease-gated native
 family qualification; they remain separate from the fresh ordinary authority
 acceptance. The [2026-10-13 ordinary-route trial](../validation/codex-ordinary-binding-qualification.md#2026-10-13-ordinary-route-acceptance)
@@ -84,8 +96,8 @@ and independent review establish this exact bounded path.
 New observations use separate `codex_binding` provenance rather than
 promoting the existing file/launch fallback.
 The implementation requires reviewed instrumentation, a frozen functional
-protocol, registered task/model and exact permitted sources. Third/nested
-members, different runtime and non-CLI roots are rejected. A new root cannot
+protocol, registered task, a GPT-family observed model and exact permitted sources. Third/nested
+members, non-GPT models and non-CLI roots are rejected. A new root cannot
 reuse that task's family. Its normal coordinator never owns or stops the user's
 process; paid validation safety instrumentation is separate from admission.
 
