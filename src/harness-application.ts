@@ -155,6 +155,8 @@ export class ApplicationCoordinator{
   }
   return {data,taskId,attemptId:data.attempt.id,workspace:data.context.workspace.root,files:[...new Map([...restoredFiles,...files]).values()].sort((a,b)=>a.path.localeCompare(b.path))};
  }
+ /** Database-only state, so task polling never hashes workspace files. */
+ restorationState(taskId:string):'none'|'available'|'interrupted'|'restored'{const row=this.store.get<{current_job:string|null}>('SELECT current_job FROM harness_application_tasks WHERE task_id=?',[taskId]);const reason=row?.current_job?this.store.get<{reason_code:string|null}>('SELECT reason_code FROM harness_application_attempts WHERE id=?',[row.current_job])?.reason_code:undefined;if(reason==='application_restored')return 'restored';if(reason==='application_restoration_started')return 'interrupted';return this.store.get('SELECT 1 FROM harness_application_checkpoints c JOIN harness_application_attempts a ON a.id=c.attempt_id WHERE a.task_id=?',[taskId])?'available':'none';}
  restorationPreview(taskId:string){return restorationPreview(this.restorationContext(taskId));}
  restore(taskId:string,previewDigest:string) {
   applicationHash.parse(previewDigest);

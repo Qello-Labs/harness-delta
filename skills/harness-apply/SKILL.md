@@ -63,9 +63,9 @@ must remain separate from the later working session using harness-connect.
    files, copy the populated working-session guidance and open a separate fresh
    session. Invoke harness-connect there; do not measure this applying session.
 
-Restoration is a separate explicit local CLI operation that the user runs after
-stopping this session. Never run it yourself and never undo edits by guessing.
-From a built Harness Delta checkout:
+Restoration is a separate explicit operation that the user runs after stopping
+this session, in the UI after the task outcome or with the local CLI. Never run
+it yourself and never undo edits by guessing. From a built Harness Delta checkout:
 
 ```sh
 node dist/cli.js --db /path/to/local.sqlite application preview <task-id>

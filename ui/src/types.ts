@@ -25,7 +25,7 @@ export interface Task {
   configured_version: string; installed_version: string | null; collection_revoked: boolean;
  };
  support_details?: SupportDetails;
- application?:{product?:string|null;launchState:string;identity:string;state:string;jobId:string|null;epoch:number;reason:string|null;workspace:string|null;baseline:string;capabilities:{id:string;product:string;available:boolean;reason:string|null}[]};
+ application?:{product?:string|null;restoration?:'none'|'available'|'interrupted'|'restored';launchState:string;identity:string;state:string;jobId:string|null;epoch:number;reason:string|null;workspace:string|null;baseline:string;capabilities:{id:string;product:string;available:boolean;reason:string|null}[]};
  id: string; name: string; project_id: string; setup_id: string; version: string; state: string; status: string;
  measurement: { end_condition?: 'explicit_stop' | 'followup_deadline'; state: string; active_ms: number | null; requests: number | null; window: { started_at: string | null; ends_at: string | null } };
  outcome: { status: string; assessed_at: string } | null; attempt: number;
