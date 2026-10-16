@@ -145,6 +145,12 @@ Claude Code 2.1.283 이후 2.2.0 미만 버전에 2.1.283 파서를 사용합니
 정확한 binding provenance로 이 파일·workflow 추정값이나 과거 관측을 승격하지 않으며,
 수집과 비용은 여전히 부분 범위입니다.
 
+Claude 2.1.301의 별도 exact 일반 binding record는 root 하나와 flattened 멤버
+둘까지 허용하며 `qualified: false`입니다. 제한된 print-mode localhost 정상·SIGINT
+transcript 적합성 검증과 실제 service localhost 리허설은 통과했으며 인증된 일반 경로 검증은 대기 중입니다.
+명시적 설정은 과거 기본값과 고정 작업을 유지하며 파일·workflow 수집이나 완전한
+사용량·비용을 검증하지 않습니다.
+
 Codex 0.163.0의 누적 합계에는 완료되지 않은 응답의 사용량도 포함될 수 있습니다.
 대상 적합성 검증으로 변경된 집계 경계를 확인하기 전에는 이 미검증 추정값을
 0.162.x 집단과 직접 비교하지 마세요.

@@ -42,6 +42,26 @@ test.each([
 import { Collector } from '../src/collection.js';
 import { effectiveSourceCompatibility, invalidateCompatibility, overlayEventCompatibility, resolveSourceCompatibility, sessionCompatibility } from '../src/source-compatibility.js';
 
+test('Claude binding admission remains exact and independent of file and workflow evidence', () => {
+  expect(resolveSourceCompatibility('claude_code', '2.1.301', 'claude_binding')).toMatchObject({
+    state: 'compatibility_unverified', product_version: '2.1.301', parser_version: '2.1.301',
+    profile_id: 'claude-binding-2-1-301-family-v1',
+  });
+  expect(resolveSourceCompatibility('claude_code', '2.1.296', 'claude_binding')).toMatchObject({
+    state: 'compatibility_unverified', profile_id: 'claude-binding-02196-family-v1',
+  });
+  for (const version of ['2.1.300', '2.1.302', '2.1.301-rc.1', '2.1.301+build'])
+    expect(resolveSourceCompatibility('claude_code', version, 'claude_binding')).toBeNull();
+  expect(resolveSourceCompatibility('codex', '2.1.301', 'claude_binding')).toBeNull();
+  expect(resolveSourceCompatibility('claude_code', '2.1.301', 'claude_binding', 'claude-binding-02196-family-v1')).toBeNull();
+  expect(resolveSourceCompatibility('claude_code', '2.1.301', 'file')).toMatchObject({
+    state: 'compatibility_unverified', parser_version: '2.1.283',
+  });
+  expect(resolveSourceCompatibility('claude_code', '2.1.301', 'claude_workflow')).toMatchObject({
+    state: 'compatibility_unverified', parser_version: '2.1.296',
+  });
+});
+
 test('finite source windows prefer exact verified profiles and reject suffixes and boundary transitions', () => {
   expect(resolveSourceCompatibility('codex', '0.158.0', 'file')?.state).toBe('verified');
   expect(resolveSourceCompatibility('codex', '0.160.0', 'codex_workflow')?.state).toBe('verified');

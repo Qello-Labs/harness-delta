@@ -10,6 +10,24 @@ export const claudeBindingAdmission = Object.freeze({
   qualified: false,
 } as const);
 
+export const claudeBindingAdmissions = Object.freeze([
+  claudeBindingAdmission,
+  Object.freeze({
+    profileId: 'claude-binding-2-1-301-family-v1',
+    productVersion: '2.1.301',
+    binarySha256: '1f04c69e1c24e4d0a716a863af0aad8fc64d49a499334c29701f073700276b99',
+    model: 'claude-sonnet-5-5',
+    admitted: true,
+    maxFamilyMembers: 3,
+    evidenceId: 'claude-binding-2-1-301-ordinary-native-v1',
+    qualified: false,
+  } as const),
+]);
+
+export function getClaudeBindingAdmission(version: string) {
+  return claudeBindingAdmissions.find(admission => admission.productVersion === version);
+}
+
 export function isClaudeModel(model: string | null): boolean {
   return model !== null && /^claude(?:-|$)/i.test(model);
 }

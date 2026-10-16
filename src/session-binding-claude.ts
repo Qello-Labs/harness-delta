@@ -3,7 +3,7 @@ import { familyDiscovery, familyProviderError } from './binding-family-diagnosti
 import { bindingIdentityKey } from './session-binding-contract.js';
 import { readCacheWriteTtl } from './cache-write-ttl.js';
 import { claudeAgentMetadata } from './agent-metadata.js';
-import { claudeBindingAdmission } from './claude-binding-admission.js';
+import { claudeBindingAdmission, getClaudeBindingAdmission } from './claude-binding-admission.js';
 import { readClaudeProcessBinary, type ClaudeProcessBinary } from './claude-process-binary.js';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -48,6 +48,7 @@ export interface ClaudeTranscriptProfile { readonly version: string; readonly st
  * Ordinary admission is a separate code-owned use policy; transcript qualification
  * does not open comparison, pilot or other-version collection. */
 export const claudeBindingProfiles: readonly ClaudeTranscriptProfile[] = Object.freeze([
+  Object.freeze({ version: '2.1.301', status: 'qualified' as const, evidence: 'offline-actual-binary-print-normal-sigint-2026-10-16;validation/claude-ordinary-binding-02196-qualification.md' }),
   Object.freeze({ version: '2.1.296', status: 'qualified' as const, evidence: 'offline-actual-binary;native-pilot-2026-10-13;validation/claude-ordinary-binding-02196-qualification.md' }),
   Object.freeze({ version: '2.1.294', status: 'candidate' as const, evidence: 'official-changelog-2.1.294;synthetic-fixtures;native-qualification-pending' }),
   Object.freeze({ version: '2.1.293', status: 'candidate' as const, evidence: 'synthetic-fixtures;native-qualification-pending' }),
@@ -64,6 +65,7 @@ export interface ClaudeBindingOptions {
   allowCandidateProfiles?: boolean;
   /** The ordinary coordinator still supplies per-task, per-source read authority. */
   ordinaryAdmission?: boolean;
+  productVersion?: string;
   profiles?: readonly ClaudeTranscriptProfile[];
   /** Task-owned metadata authorization, invoked before every content-bearing source read. */
   authorizeSource?: (metadata: { nativeSessionId: string; agentId: string | null; sourceRef: string; sourceIdentity: string; birthtimeMs: number }) => void;
@@ -210,9 +212,11 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
   readonly #options: Required<Omit<ClaudeBindingOptions, 'profiles' | 'authorizeSource' | 'memberEligible'>> & Pick<ClaudeBindingOptions, 'authorizeSource' | 'memberEligible'> & { profiles: readonly ClaudeTranscriptProfile[] };
   constructor(options: ClaudeBindingOptions) {
     if (!isAbsolute(options.receiptDir) || !isAbsolute(options.claudeProjectsDir) || !isAbsolute(options.projectRoot)) fail('claude_binding_config_invalid');
-    this.#options = { allowCandidateProfiles: false, ordinaryAdmission: false, profiles: claudeBindingProfiles, receiptMaxAgeMs: 600000, quiescenceMs: 30000,
+    this.#options = { allowCandidateProfiles: false, ordinaryAdmission: false, productVersion: claudeBindingAdmission.productVersion, profiles: claudeBindingProfiles, receiptMaxAgeMs: 600000, quiescenceMs: 30000,
       maxReadBytes: 8 * 1048576, maxFamilyMembers: 32, readProcessIdentity: processIdentity,
       readProcessBinary: readClaudeProcessBinary, now: Date.now, ...options };
+    if (this.#options.ordinaryAdmission && !getClaudeBindingAdmission(this.#options.productVersion)?.admitted)
+      fail('claude_source_version_unsupported');
     if (!Number.isSafeInteger(this.#options.maxFamilyMembers) || this.#options.maxFamilyMembers < 1 || this.#options.maxFamilyMembers > 32) fail('claude_binding_config_invalid');
   }
 
@@ -220,7 +224,7 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
     const qualified = this.#options.profiles.some(profile => profile.status === 'qualified');
     // A qualified transcript profile is not an ordinary production admission; the service decides that.
     return { currentIdentity: 'native_hook', ancestry: 'verified_relations', usage: 'own_requests',
-      productionSupported: this.#options.ordinaryAdmission && claudeBindingAdmission.admitted,
+      productionSupported: this.#options.ordinaryAdmission && getClaudeBindingAdmission(this.#options.productVersion)?.admitted === true,
       // Members are verified relations of the root; nested direct parents are not claimed.
       maxDepth: 1,
       reasons: ['claude_skill_hooks_required_per_session', 'claude_family_flattened_direct_parent_unverified', 'claude_receipts_local_trust',
@@ -229,7 +233,7 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
 
   /** Version support is decided from native transcript rows against exact profiles. */
   supportedVersion(version: unknown): boolean {
-    if (this.#options.ordinaryAdmission) return version === claudeBindingAdmission.productVersion;
+    if (this.#options.ordinaryAdmission) return version === this.#options.productVersion;
     const profile = this.#options.profiles.find(p => p.version === version);
     // Transcript qualification cannot bypass the separately approved pilot authority.
     return profile !== undefined && this.#options.allowCandidateProfiles;
@@ -257,8 +261,9 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
       this.#assertProjectScope(receipt.transcript_path, receipt.cwd);
       const stat = this.#rootStat(receipt.transcript_path, receipt.session_id);
       const binary = this.#options.readProcessBinary(receipt.claude_pid);
-      if (binary.productVersion !== claudeBindingAdmission.productVersion ||
-        binary.sha256 !== claudeBindingAdmission.binarySha256) return fail('claude_binary_unqualified');
+      const admission = getClaudeBindingAdmission(this.#options.productVersion);
+      if (!admission || binary.productVersion !== admission.productVersion ||
+        binary.sha256 !== admission.binarySha256) return fail('claude_binary_unqualified');
       return { receipt: receipt.receipt_id, recordedAt: receipt.recorded_at,
         nativeSessionId: receipt.session_id, agentId: null, sourceRef: receipt.transcript_path,
         sourceIdentity: this.#sourceIdentity(stat, receipt.session_id), cwd: this.#options.projectRoot,
@@ -335,8 +340,9 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
     const identity = this.#options.readProcessIdentity(pid);
     if (this.#options.ordinaryAdmission) {
       const binary = this.#options.readProcessBinary(pid);
-      if (binary.productVersion !== claudeBindingAdmission.productVersion ||
-        binary.sha256 !== claudeBindingAdmission.binarySha256) return fail('claude_binary_unqualified');
+      const admission = getClaudeBindingAdmission(this.#options.productVersion);
+      if (!admission || binary.productVersion !== admission.productVersion ||
+        binary.sha256 !== admission.binarySha256) return fail('claude_binary_unqualified');
     }
     return `claude-process:${pid}:${sha([pid, identity])}`;
   }
@@ -620,7 +626,7 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
     let offset = start.offset;
     let readOffset = offset, scannedBytes = 0;
     const byRequest = new Map<string, Pending>();
-    const nativeFinality = session.productVersion === '2.1.296';
+    const nativeFinality = session.productVersion === '2.1.296' || session.productVersion === '2.1.301';
     // A null cursor or a baseline reads to the current end; a later cursor reads one window per call.
     const toEnd = cursorText === null || baseline;
     for (;;) {
@@ -725,7 +731,7 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
       const requestId = IdSchema.safeParse(row.requestId);
       if (!requestId.success) { gaps.add('request_id_missing'); continue; }
       let messageId: string | null = null, finalized = true;
-      if (version === '2.1.296') {
+      if (version === '2.1.296' || version === '2.1.301') {
         const id = IdSchema.safeParse(row.message.id);
         const stop = NativeStopReasonSchema.safeParse(row.message.stopReason);
         if (!id.success || !stop.success) { gaps.add('usage_incomplete'); continue; }

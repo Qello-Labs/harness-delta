@@ -1,5 +1,75 @@
 # Claude Code 2.1.296 ordinary transcript profile qualification
 
+## 2026-10-16 exact 2.1.301 transcript qualification
+
+The separate `claude-binding-2-1-301-family-v1` ordinary record preserves the
+2.1.296 record, defaults and historical pins. It admits the exact 2.1.301 binary
+SHA-256 `1f04c69e1c24e4d0a716a863af0aad8fc64d49a499334c29701f073700276b99`
+on the existing macOS arm64 / Node 24 or 26 runtime boundary, with one root and
+at most two flattened members. Any Claude model and its observed effort are
+stored as observed. Ordinary evidence remains `qualified: false`; transcript
+qualification is not interactive or complete-cost qualification.
+
+Actual-binary conformance on macOS arm64 / Node 24.21.0 used a private HOME,
+synthetic credentials and an explicitly configured localhost Messages API.
+No external OS sandbox was used; this is not kernel-enforced network denial.
+Each scenario had a 100-second deadline and six synthetic requests. Only
+registered active tasks and exact receipt-linked sources were read.
+
+Normal completion reconciled six served requests against six native terminal
+requests. Excluding the connecting root baseline retained root three plus one
+per member: input 675, output 555, with disjoint cache components.
+The interruption scenario sent SIGINT after an observed partial response:
+five terminal native requests matched six served requests, with the interrupted
+request explicitly missing rather than zero or backfilled. After excluding the
+baseline, root two plus one per member remained: input 540, output 444.
+Both scenarios verified owned process termination. SDK init advertised
+`Bash,Task`; the actual API used `Bash,Agent`. These are different surfaces.
+Null-stop fragments remain provisional under the exact-version finality policy.
+
+The immutable intent digest was
+`20647e4ef81f770d5ff8eb84cec0cbc31abb464d4e817a2677d54b7d3622876d`;
+sanitized evidence digest was
+`e0b24f9ea9d127cc0a9d78c7b6c973166112c644d183275f9cf2bb64c386c6d9`.
+Independent review approved bounded print-mode conformance and candidate
+staging, not ordinary production qualification. Two earlier authenticated
+qualification attempts failed private instrument guards and remain consumed
+failures; neither is acceptance evidence. Separate authenticated ordinary
+acceptance is pending. File/workflow windows and their unverified estimates remain unchanged.
+
+### Ordinary service localhost rehearsal
+
+The same exact binary subsequently passed a separate two-turn localhost
+rehearsal through the packaged helper, shipped HTTP transport and real ordinary
+service/provider, with no qualification, pilot, source, process or binary
+overrides. A private adapter supplied explicit awaited service ticks instead of
+the production domain scheduler. It does not qualify that scheduler or the TUI.
+The first turn connected; the second created two no-tool Sonnet children.
+Seven native requests reconciled against SDK and production observations;
+one connection-baseline request was excluded, leaving six requests across three
+sources, input 810 and output 666. SDK init occurred twice; result counters were
+per-turn own-root, not cumulative or family-inclusive. Finality uses correlated
+terminal deltas rather than provisional assistant snapshots.
+
+The private HOME/synthetic-key/localhost configuration used no external OS
+sandbox and a 100-second owner deadline. The finite 32-member owner verified
+normal root exit and disappearance of all seven tracked process identities and
+groups. Earlier failed rehearsal records remain failures, including one with
+unverified termination; a later success does not repair historical proof.
+Intent digest:
+`19068af947e8853107aefecae0f01ec791e2da2cb525f4825ca44eb35e1f67bf`;
+sanitized evidence digest:
+`274c36b5f4a076f8d0410f1703d6fad5a7c04e45cc845d74f00ab4e042f6cfda`.
+This is synthetic-response print-only evidence, not authenticated ordinary
+acceptance, interactive qualification, complete usage or billing. The code-owned
+ordinary record remains `qualified: false`.
+
+## Historical 2.1.296 qualification
+
+The following records describe their original qualification-time policy.
+Current ordinary admission is separate; see
+[ordinary observation](../runbooks/harness-connect.md#ordinary-claude-observation-qualification-pending).
+
 The ordinary Claude session-binding provider lists exact transcript profiles in
 `src/session-binding-claude.ts`. The 2.1.296 profile is `qualified` only for the
 bounded native print-mode evidence below: transcript layout, project-skill hook

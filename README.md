@@ -33,7 +33,10 @@ human outcome → partial cost and missingness → recovery.
 
 Codex 0.163.0 passed separate ordinary-route native acceptance on 2026-10-16;
 its exact binding profile does not promote file/workflow or historical observations.
-Claude Code 2.1.301 remains qualification-pending. Existing file and selected
+Claude Code 2.1.301 has a separately configured ordinary profile for one root and
+two flattened members, with `qualified: false`; bounded print-mode transcript
+conformance and real-service localhost rehearsal passed; authenticated ordinary acceptance remains pending.
+Existing file and selected
 workflow windows still label both versions `compatibility_unverified`.
 Conditional parser
 reuse does not extend the exact connection routes above. Ordinary connections

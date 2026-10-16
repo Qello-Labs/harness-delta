@@ -1,16 +1,17 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { afterEach, expect, test, vi } from 'vitest';
 import { ordinaryBindingFixture } from './helpers/ordinary-session-binding-fixture.js';
-import { ordinaryTask, revokeOrdinaryObservation } from '../src/ordinary-observation.js';
+import { ordinaryTask, ordinaryTaskSettings, revokeOrdinaryObservation, saveOrdinaryProjectSettings } from '../src/ordinary-observation.js';
 import { bundledPriceCatalog, digest } from '../src/price-catalog.js';
 import { refreshPriceCatalog } from '../src/price-catalog-store.js';
 import { BindingUsageRecordSchema, type BindingReadBoundary } from '../src/session-binding-contract.js';
 import { createOrdinarySessionBindingService } from '../src/ordinary-session-binding.js';
 import { ClaudeSessionBindingProvider } from '../src/session-binding-claude.js';
 import { Deletion } from '../src/deletion.js';
+import { sessionCompatibility } from '../src/source-compatibility.js';
 
 const fixtures: ReturnType<typeof ordinaryBindingFixture>[] = [];
-const fixture = () => { const value = ordinaryBindingFixture(); fixtures.push(value); return value; };
+const fixture = (productVersion = '2.1.296') => { const value = ordinaryBindingFixture(productVersion); fixtures.push(value); return value; };
 afterEach(async () => { for (const f of fixtures.splice(0)) await f.cleanup(); });
 const deferred = <T>() => {
   let resolve: ((value: T | PromiseLike<T>) => void) | undefined;
@@ -34,6 +35,37 @@ test('connect grants proof-scoped active measurement authority before reading an
   expect(f.store.all('SELECT * FROM comparison_confirmations')).toEqual([]);
   expect(JSON.stringify(result)).not.toContain('/synthetic/');
   expect(f.bodyReads).toHaveLength(2);
+});
+
+test.each([
+  ['2.1.296', '2.1.301'],
+  ['2.1.301', '2.1.296'],
+])('keeps the frozen %s admission when project defaults change to %s', async (version, projectVersion) => {
+  const f = fixture(version);
+  saveOrdinaryProjectSettings(f.store, 'project', {
+    ...ordinaryTaskSettings(f.store, f.taskId), product_version: projectVersion,
+  }, f.clock);
+  f.usage(); f.advance();
+  expect(f.binding.sourceSupported(f.taskId, 'claude_code')).toBe(true);
+  const connected = await f.connect();
+  expect(sessionCompatibility(f.store, connected.session_id)).toMatchObject({
+    product_version: version, parser_version: version, source: 'claude_binding', state: 'compatibility_unverified',
+  });
+  f.usage(); f.advance();
+  await f.binding.tick(f.taskId);
+  expect(f.binding.status(f.taskId)).toMatchObject({ requests: 1, complete_cost: null, inference: false });
+  expect(f.store.get<{ product_version: string }>('SELECT product_version FROM sessions')?.product_version).toBe(version);
+  expect(f.store.all('SELECT * FROM comparison_assignments')).toEqual([]);
+  expect(f.store.all('SELECT * FROM comparison_confirmations')).toEqual([]);
+});
+
+test('refuses an unadmitted frozen task version before receipt inspection or body reads', async () => {
+  const f = fixture('2.1.302');
+  expect(() => f.binding.sourceSupported(f.taskId, 'claude_code')).toThrow('binding_source_unqualified');
+  await expect(f.connect()).rejects.toThrow('binding_source_unqualified');
+  expect(f.inspections).toEqual([]);
+  expect(f.bodyReads).toEqual([]);
+  expect(f.store.all('SELECT * FROM sessions')).toEqual([]);
 });
 
 test('durable baseline excludes more than 1024 requests even when a cursor replays history', async () => {
@@ -309,14 +341,30 @@ test('native tombstones refuse new acquisition before resolve and retain queued 
   expect(f.store.all('SELECT * FROM session_binding_forgets')).toEqual([]);
 });
 
-test('unsupported proof version refuses before acquisition or comparison mutation', async () => {
-  const f = fixture(); const request = f.receipt(); const proof = f.proofs.get(request.receipt);
+test.each([
+  ['2.1.296', '2.2.0'],
+  ['2.1.296', '2.1.301'],
+  ['2.1.301', '2.1.296'],
+])('task version %s refuses proof version %s before acquisition or comparison mutation', async (version, proofVersion) => {
+  const f = fixture(version); const request = f.receipt(); const proof = f.proofs.get(request.receipt);
   if (!proof) throw new Error('fixture_proof_missing');
-  f.proofs.set(request.receipt, { ...proof, productVersion: '2.2.0' });
+  f.proofs.set(request.receipt, { ...proof, productVersion: proofVersion });
   await expect(f.binding.connect(f.taskId, 'claude_code', request)).rejects.toThrow('binding_identity_mismatch');
   expect(f.bodyReads).toEqual([]);
   expect(f.life.state(f.taskId)).toBe('registered');
   expect(f.store.all('SELECT * FROM comparison_assignments')).toEqual([]);
+});
+
+test.each([
+  ['2.1.296', '2.1.301'],
+  ['2.1.301', '2.1.296'],
+])('task version %s refuses resolved identity version %s despite a matching proof', async (version, identityVersion) => {
+  const f = fixture(version); const request = f.receipt();
+  f.setCurrent({ ...f.current(), productVersion: identityVersion });
+  await expect(f.binding.connect(f.taskId, 'claude_code', request)).rejects.toThrow('binding_identity_mismatch');
+  expect(f.bodyReads).toEqual([f.current().sessionId]);
+  expect(f.store.all('SELECT * FROM session_bindings')).toEqual([]);
+  expect(f.store.all('SELECT * FROM session_source_compatibility')).toEqual([]);
 });
 
 test('a failed provisional reservation rolls back activation and all measurement rows', async () => {
@@ -358,14 +406,22 @@ test('member permits authorize only exact metadata and disappear outside the dis
   expect(f.binding.memberEligible(f.taskId, metadata)).toBe(false);
 });
 
-test('family ceiling counts eligible members once despite duplicate metadata admission callbacks', async () => {
-  const f = fixture();
+test.each([
+  ['2.1.296', 7],
+  ['2.1.301', 2],
+] as const)('version %s admits %s children once despite duplicate metadata admission callbacks', async (version, maxChildren) => {
+  const f = fixture(version);
+  saveOrdinaryProjectSettings(f.store, 'project', {
+    ...ordinaryTaskSettings(f.store, f.taskId), product_version: version === '2.1.296' ? '2.1.301' : '2.1.296',
+  }, f.clock);
   for (let index = 0; index < 10; index++) f.identity(f.current());
   f.advance(); await f.connect(); f.advance();
-  const fresh = Array.from({ length: 7 }, () => f.identity(f.current()));
+  const fresh = Array.from({ length: maxChildren }, () => f.identity(f.current()));
   await f.binding.tick(f.taskId);
-  expect(f.binding.status(f.taskId).children).toBe(7);
-  expect(f.bodyReads.filter(id => fresh.some(member => member.sessionId === id))).toHaveLength(14);
+  expect(f.binding.status(f.taskId).children).toBe(maxChildren);
+  expect(f.bodyReads.filter(id => fresh.some(member => member.sessionId === id))).toHaveLength(maxChildren * 2);
+  expect(f.store.all<{ session_id: string }>('SELECT session_id FROM session_bindings').map(row =>
+    sessionCompatibility(f.store, row.session_id)?.product_version)).toEqual(Array.from({ length: maxChildren + 1 }, () => version));
   f.advance(); const overflow = f.identity(f.current()); const reads = f.bodyReads.length;
   await expect(f.binding.tick(f.taskId)).rejects.toThrow('binding_family_limit');
   expect(f.bodyReads.slice(reads)).not.toContain(overflow.sessionId);

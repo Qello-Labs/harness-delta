@@ -6,7 +6,7 @@
 
 The 2026-10-16 UTC release check found Codex 0.163.0 and Claude Code 2.1.301.
 Codex 0.163.0 passed separate bounded ordinary-route native acceptance on that date.
-Claude 2.1.301 remains unqualified. Existing file and root-workflow windows still
+Claude 2.1.301 passed bounded print-mode transcript conformance; ordinary qualification remains pending. Existing file and root-workflow windows still
 resolve both as `compatibility_unverified`; ordinary binding evidence does not
 promote those sources. Use the exact admitted versions below for ordinary connections.
 
@@ -134,6 +134,20 @@ the reference policy is not actual billing evidence.
 <a id="ordinary-claude-observation-qualification-pending"></a>
 
 ## Ordinary Claude observation
+
+The separate exact `claude-binding-2-1-301-family-v1` profile admits explicitly
+configured 2.1.301 with one root plus two flattened members. The existing 2.1.296
+default and saved/frozen task settings remain unchanged. The project setup API
+accepts `{"operation":"configure","product_version":"2.1.301"}`; omitting the
+version preserves saved settings, otherwise the historical default. The UI does
+not display a Claude version selector. Binary, receipt and transcript must match
+the same frozen task version. Both records remain `qualified: false`; the new
+profile's [print-mode conformance](../validation/claude-ordinary-binding-02196-qualification.md#2026-10-16-exact-21301-transcript-qualification)
+does not qualify interactive use, complete usage or cost. Separate ordinary
+authenticated acceptance is pending. A separate localhost rehearsal passed through
+the real ordinary service/provider (seven native requests minus one baseline,
+six observed requests); it does not qualify the production scheduler or TUI.
+File/workflow and historical pins are not promoted.
 
 Since the user-approved 2026-10-15 policy, this flow is admitted for normal use.
 The code-owned profile `claude-binding-02196-family-v1` admits ordinary

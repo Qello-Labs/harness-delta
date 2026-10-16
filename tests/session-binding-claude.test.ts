@@ -144,7 +144,7 @@ describe('Claude current-session identity', () => {
 
   it('fails closed for unqualified, unknown, expired, loose, dead-process and other-project evidence', async () => {
     const sid = randomUUID(); writeRoot(sid); connect(sid); const receipt = locate(sid).receipt!;
-    expect(claudeBindingProfiles.map(profile => [profile.version, profile.status])).toEqual([['2.1.296', 'qualified'], ['2.1.294', 'candidate'], ['2.1.293', 'candidate'], ['2.1.291', 'candidate']]);
+    expect(claudeBindingProfiles.map(profile => [profile.version, profile.status])).toEqual([['2.1.301', 'qualified'], ['2.1.296', 'qualified'], ['2.1.294', 'candidate'], ['2.1.293', 'candidate'], ['2.1.291', 'candidate']]);
     const production = provider({ allowCandidateProfiles: false });
     expect(production.capabilities().productionSupported).toBe(false);
     await expect(production.resolveCurrent({ receipt })).rejects.toThrow('claude_source_version_unsupported');

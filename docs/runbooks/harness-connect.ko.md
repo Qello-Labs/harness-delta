@@ -6,7 +6,7 @@
 
 2026-10-16 UTC 릴리스 확인 대상은 Codex 0.163.0과 Claude Code 2.1.301입니다.
 Codex 0.163.0은 같은 날 별도의 제한된 ordinary 경로 native 검증을 통과했습니다.
-Claude 2.1.301은 여전히 미검증입니다. 기존 파일 및 root-workflow는 두 버전 모두
+Claude 2.1.301은 제한된 print-mode transcript 적합성 검증을 통과했으며 일반 경로 qualification은 대기 중입니다. 기존 파일 및 root-workflow는 두 버전 모두
 `compatibility_unverified`로 선택하며 일반 연결 근거로 다른 소스를 승격하지 않습니다.
 일반 연결에는 아래의 정확한 admission 버전을 사용하세요.
 
@@ -129,6 +129,20 @@ source 교체, ancestry, 세 번째·중첩 멤버, 다른 정확 버전은 차�
 <a id="일반-claude-관측-지원-검증-대기"></a>
 
 ## 일반 Claude 관측
+
+별도 exact profile `claude-binding-2-1-301-family-v1`은 명시적으로 설정한
+2.1.301에서 root 하나와 flattened 멤버 둘까지 허용합니다. 기존 2.1.296 기본값과
+저장·고정된 작업 설정은 유지됩니다. 프로젝트 설정 API는
+`{"operation":"configure","product_version":"2.1.301"}`을 받으며, 버전을 생략하면
+기존 저장값 또는 과거 기본값을 유지합니다. UI에 Claude 버전 선택기는 표시하지 않습니다.
+binary, receipt, transcript는 같은 작업의 고정 버전과 일치해야 합니다.
+두 record 모두 `qualified: false`이며 새 profile의
+[print-mode 검증](../validation/claude-ordinary-binding-02196-qualification.md#2026-10-16-exact-21301-transcript-qualification)은
+interactive 사용이나 완전한 사용량·비용을 검증하지 않습니다. 별도 일반 경로 검증은
+인증 경로에서 대기 중입니다. 별도 localhost 리허설은 실제 일반 service/provider를
+통해 native 요청 7개에서 baseline 1개를 뺀 6개 관측이 일치했습니다.
+production scheduler나 TUI를 검증하지 않으며 파일·workflow 및 과거 pin의 신뢰 상태는
+승격하지 않습니다.
 
 사용자가 승인한 2026-10-15 정책에 따라 이 흐름은 일반 사용이 허용됩니다. 코드 소유
 profile `claude-binding-02196-family-v1`은 정확한 Claude Code 원본 버전과 binary

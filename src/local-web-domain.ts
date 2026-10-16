@@ -49,7 +49,7 @@ import {
 } from './ordinary-observation.js';
 import { ordinaryProjectAction, ordinaryProjectDto } from './local-web-ordinary.js';
 import { createOrdinarySessionBindingService } from './ordinary-session-binding.js';
-import { claudeBindingAdmission } from './claude-binding-admission.js';
+import { getClaudeBindingAdmission } from './claude-binding-admission.js';
 import { inspectClaudeProjectSkill, inspectOrdinaryClaudeProjectSkill } from './claude-connect-readiness.js';
 import { codexReceiptDirectoryState, createCodexProjectSetupManager } from './local-web-codex.js';
 
@@ -217,9 +217,12 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
       if (record.profile_id === 'ordinary-claude') {
         const config = ordinaryTask(store, id) ? ordinaryTaskSettings(store, id) :
           OrdinaryProjectSettingsSchema.parse(JSON.parse(record.setup));
+        const admission = getClaudeBindingAdmission(config.product_version);
+        if (!admission?.admitted) throw new Error('binding_source_unqualified');
         const result = [new ClaudeSessionBindingProvider({
           receiptDir: config.receipt_directory, claudeProjectsDir: config.claude_projects_directory,
-          projectRoot, ordinaryAdmission: true, maxFamilyMembers: claudeBindingAdmission.maxFamilyMembers,
+          projectRoot, ordinaryAdmission: true, productVersion: config.product_version,
+          maxFamilyMembers: admission.maxFamilyMembers,
           authorizeSource: source => ordinaryBindings.assertSource(id, source),
           memberEligible: member => ordinaryBindings.memberEligible(id, member),
         })];
@@ -411,6 +414,9 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
     const task = life.task(id);
     const preparation = ordinaryTask(store, id);
     if (!preparation) throw new Error('ordinary_preparation_required');
+    const settings = ordinaryTaskSettings(store, id);
+    const admission = getClaudeBindingAdmission(settings.product_version);
+    if (!admission) throw new Error('binding_source_unqualified');
     const metadata = parseTaskMetadata(JSON.parse(task.metadata));
     const binding = ordinaryBindings.status(id);
     const summary = life.summary(id);
@@ -450,7 +456,7 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
       state: task.state, status: finalized ? summary.outcome : active ? 'active' : connected ? 'paused' : 'waiting_for_session',
       connection_readiness: {
         skill: inspectOrdinaryClaudeProjectSkill(effectiveTaskWorkspace(store, id)),
-        configured_version: ordinaryTaskSettings(store, id).product_version,
+        configured_version: settings.product_version,
         installed_version: null, collection_revoked: revoked,
       },
       measurement: { state: finalized ? 'measurement_ended' : active ? 'active' : connected ? 'paused' : 'waiting_connection',
@@ -469,9 +475,9 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
         basis: binding.price_table_hash },
       criteria: metadata.criterion_ids, actions, startup: null, source: null,
       binding: { ...binding, product: 'claude_code' as const,
-        product_version: claudeBindingAdmission.productVersion, max_family_members: claudeBindingAdmission.maxFamilyMembers,
+        product_version: settings.product_version, max_family_members: admission.maxFamilyMembers,
         supported_model_family: 'claude' as const,
-        support: claudeBindingAdmission.admitted ? 'claude_family' : 'ordinary_qualification_pending' },
+        support: admission.admitted ? 'claude_family' : 'ordinary_qualification_pending' },
       reason: record.reason === 'measurement_paused' ? null : record.reason,
     };
   };

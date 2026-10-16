@@ -3,7 +3,7 @@ import { EventSchema, SourceCompatibilitySchema, type SourceCompatibility } from
 import { productionSourceEvidence } from './readiness.js';
 import type { Store } from './store.js';
 import { codexBindingAdmissions, getCodexBindingAdmission, isQualifiedCodexBindingAdmission } from './codex-binding-admission.js';
-import { claudeBindingAdmission } from './claude-binding-admission.js';
+import { getClaudeBindingAdmission } from './claude-binding-admission.js';
 
 export type CompatibilitySource = SourceCompatibility['source'];
 export type CompatibilityBlockReason = 'contract_failed' | 'semantic_incompatibility';
@@ -28,8 +28,9 @@ export const sourceCompatibilityWindows = Object.freeze([
 export function resolveSourceCompatibility(product: string, version: string, source: CompatibilitySource, profileId?: string): SourceCompatibility | null {
   const numbers = stableVersion(version);
   if (!numbers || !['codex', 'claude_code'].includes(product)) return null;
+  const claudeBindingAdmission = getClaudeBindingAdmission(version);
   if (source === 'claude_binding') return product === 'claude_code' &&
-    version === claudeBindingAdmission.productVersion &&
+    claudeBindingAdmission &&
     (profileId === undefined || profileId === claudeBindingAdmission.profileId)
     ? SourceCompatibilitySchema.parse({
       state: claudeBindingAdmission.qualified ? 'verified' : 'compatibility_unverified',

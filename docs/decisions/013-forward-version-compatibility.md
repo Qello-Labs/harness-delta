@@ -190,6 +190,14 @@ qualify file/workflow sources, incomplete-response completeness, resume or deepe
 topology, and does not rewrite earlier unverified observations. See the
 [route-specific acceptance](../validation/codex-ordinary-binding-qualification.md#2026-10-16-ordinary-route-acceptance).
 
+Subsequent Claude 2.1.301 actual-binary localhost normal/SIGINT print-mode
+conformance establishes its separate transcript profile and a separately configured
+ordinary binding record, `claude-binding-2-1-301-family-v1`, with one root and two
+flattened members. A real-service localhost rehearsal also passed; ordinary
+qualification remains false pending separate authenticated acceptance.
+The 2.1.296 default, old pins, file/workflow windows and historical trust remain
+unchanged. See the [bounded evidence](../validation/claude-ordinary-binding-02196-qualification.md#2026-10-16-exact-21301-transcript-qualification).
+
 On 2026-10-13 the Claude workflow base moved from 2.1.291 to 2.1.296 with its own
 [exact admission](../validation/claude-workflow-02196-source-readiness.md); 2.1.289
 through 2.1.295 are unsupported for that source. Keeping or resuming a session and the
