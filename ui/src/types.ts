@@ -37,6 +37,7 @@ export interface Task {
 }
 export interface CodexSetup {
  project_id: string; configured: boolean; product: 'codex'; product_version: string;
+ available_versions: string[];
  source_roots: string[];
  installation: { state: 'absent' | 'installed' | 'update_available' | 'blocked'; source: 'available' | 'unavailable'; packageHash: string | null; installedHash: string | null; destination: string; receiptDirectory: string; hookRegistration: 'unverified'; blockers: readonly string[] };
  readiness: { receipt_directory: 'ready' | 'missing' | 'unsafe'; provider: 'ready' | 'blocked'; reason: string | null; hook_trust: 'manual_confirmation_required'; requires_new_session: true };

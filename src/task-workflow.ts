@@ -80,7 +80,7 @@ function workflowProtocol(store: Store, protocolId: string) {
 function checkReadiness(store: Store, protocolId: string, at: string, preparationOnly = false) {
   const protocol = workflowProtocol(store, protocolId);
   if (!preparationOnly && isAdmittedCodexBindingProtocol(protocol)) throw new Error('native_source_unqualified');
-  if (protocol.purpose !== 'synthetic_validation' && !comparisonReadiness(store, protocolId, at).real_allocation && !functionalWorkflowEligible(store,protocol) && !(preparationOnly&&isHumanPilotProtocol(protocol))) throw new Error('real_experiment_disabled');
+  if (protocol.purpose !== 'synthetic_validation' && !comparisonReadiness(store, protocolId, at).real_allocation && !functionalWorkflowEligible(store,protocol) && !(preparationOnly&&(isHumanPilotProtocol(protocol)||isAdmittedCodexBindingProtocol(protocol)))) throw new Error('real_experiment_disabled');
   return protocol;
 }
 
@@ -106,7 +106,7 @@ function prepareWorkflow(store: Store, input: unknown, runtimeInput: unknown, cl
   const now = clock(); const requested = checkReadiness(store, config.assignment.protocol_id, now, !activate);
   if (config.artifacts.some(row => !requested.variant_ids.includes(row.variant_id)) ||
       !requested.source_profiles.some(row => row.product === config.assignment.metadata.product && row.product_version === config.product_version)) throw new Error('workflow_configuration_mismatch');
-  const assignment = assignTask(store, config.assignment, { clock: () => now, pilotPreparation: !activate&&isHumanPilotProtocol(requested) });
+  const assignment = assignTask(store, config.assignment, { clock: () => now, pilotPreparation: !activate&&(isHumanPilotProtocol(requested)||isAdmittedCodexBindingProtocol(requested)) });
   const protocol = checkReadiness(store, assignment.protocol_id, now, !activate);
   if (protocol.id !== requested.id) throw new Error('workflow_protocol_mismatch');
   const life = new Lifecycle(store, () => now); const task = life.task(assignment.task_id);

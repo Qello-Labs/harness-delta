@@ -27,7 +27,7 @@ import type { ExternalTaskSetup } from './external-session-service.js';
 import { assertHumanPilotScope, checkHumanPilotIdentity, humanPilotCompatibility, type HumanPilotScope } from './session-binding-human-pilot.js';
 import { isClaudeHumanPilotScope } from './session-binding-claude-human-pilot.js';
 import { assertCompatibilityAllowed, pinSessionCompatibility, invalidateCompatibility, resolveSourceCompatibility } from './source-compatibility.js';
-import { codexBindingAdmission, isAdmittedCodexBindingProtocol, isCodexGptModel } from './codex-binding-admission.js';
+import { getCodexBindingAdmission, isAdmittedCodexBindingProtocol, isCodexGptModel } from './codex-binding-admission.js';
 import { lstatSync } from 'node:fs';
 
 interface BindingRow { session_id: string; task_id: string; root_id: string; identity: string;
@@ -80,7 +80,7 @@ export function createSessionBindingService(options: SessionBindingServiceOption
   const compatibilityFor = (taskId: string) => options.humanPilot ? humanPilotCompatibility(options.humanPilot,store,taskId)
     : options.qualificationLease ? bindingQualificationCompatibility(options.qualificationLease)
       : ordinaryAdmitted(taskId)
-        ? resolveSourceCompatibility('codex',codexBindingAdmission.productVersion,'codex_binding',codexBindingAdmission.profileId) : null;
+        ? resolveSourceCompatibility('codex',options.setupFor(taskId).workflow.product_version,'codex_binding') : null;
   const queues = new Map<string, Promise<void>>();
   const readiness = new Map<string, { waited: boolean; deadline: number; monotonicDeadline: bigint | null;
     observation: { attemptId: string; enteredAt: bigint; root: BindingRow; starts: Map<string, Readonly<PendingChildStart>> } | null }>();
@@ -110,7 +110,7 @@ export function createSessionBindingService(options: SessionBindingServiceOption
     return bindingSourceSupported(store, taskId) &&
       (metadata.product === 'synthetic'
         ? options.providers.includes(provider) || options.syntheticProviderForTask?.(provider, taskId) === true
-        : metadata.product === product && provider instanceof CodexSessionBindingProvider && provider.admissionProfile() === codexBindingAdmission.profileId);
+        : metadata.product === product && provider instanceof CodexSessionBindingProvider && provider.admissionProfile() === getCodexBindingAdmission(options.setupFor(taskId).workflow.product_version)?.profileId);
   };
   const ordinaryAdmitted = (taskId: string) =>
     parseTaskMetadata(JSON.parse(life.task(taskId).metadata) as unknown).product === 'codex' &&
@@ -174,10 +174,11 @@ export function createSessionBindingService(options: SessionBindingServiceOption
     if(!options.qualificationLease&&!options.humanPilot&&ordinaryAdmitted(taskId)) {
       const family = rows(taskId).map(identityFor);
       const root = family.find(member => member.parentSessionId === null);
-      if(value.productVersion!==codexBindingAdmission.productVersion ||
+      const admission=getCodexBindingAdmission(value.productVersion);
+      if(!admission ||
         value.parentSessionId===null&&(root&&root.sessionId!==value.sessionId||!old&&Date.parse(value.createdAt)<Date.parse(task.registered_at)) ||
         value.parentSessionId!==null&&(!root||value.parentSessionId!==root.sessionId||Date.parse(value.createdAt)<Date.parse(root.createdAt)) ||
-        !old&&family.length>=codexBindingAdmission.maxFamilyMembers)throw new Error('binding_admission_family_scope');
+        !old&&family.length>=admission.maxFamilyMembers)throw new Error('binding_admission_family_scope');
       if(value.parentSessionId===null&&!old) {
         let bornAt: number;
         try { const stat=lstatSync(value.sourceRef);if(!stat.isFile()||stat.isSymbolicLink())throw new Error();bornAt=stat.birthtimeMs; }

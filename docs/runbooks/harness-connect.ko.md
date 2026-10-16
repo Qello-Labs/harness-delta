@@ -4,11 +4,26 @@
 
 ## 현재 구현
 
+2026-10-16 UTC 릴리스 확인 대상은 Codex 0.163.0과 Claude Code 2.1.301입니다.
+Codex 0.163.0은 같은 날 별도의 제한된 ordinary 경로 native 검증을 통과했습니다.
+Claude 2.1.301은 여전히 미검증입니다. 기존 파일 및 root-workflow는 두 버전 모두
+`compatibility_unverified`로 선택하며 일반 연결 근거로 다른 소스를 승격하지 않습니다.
+일반 연결에는 아래의 정확한 admission 버전을 사용하세요.
+
+Codex 0.163.0은 [제한된 qualification 절차](../validation/codex-ordinary-binding-qualification.md)에서
+`--product-version 0.163.0 --route qualification`으로 별도 준비할 수 있습니다.
+Codex 실행 파일 옆에 같은 릴리스의 고정된 `codex-code-mode-host`가 필요하며,
+Codex 단독 아카이브만으로는 부족합니다. 준비와 실행 시 두 파일의 pin을 검사합니다.
+이후 별도의 `--route ordinary_admission` 시험도 qualification 수집 권한 없이 통과했습니다.
+프로젝트 연결 설정과 버전 선택기에서 0.162.1과 함께 0.163.0을 명시적으로 고를 수 있으며,
+저장된 버전과 기본 버전은 자동으로 올리지 않습니다. 새 정확한 binding profile만
+검증 provenance를 얻으며, 과거 미검증 관측은 그대로 유지합니다.
+
 [공유 스킬](../../skills/harness-connect/SKILL.md), receipt API, 연결 저장/수집 계층,
 Codex/Claude 메타데이터 hook/provider, UI 가족 표시가 구현되어 있습니다. 격리 synthetic
 종단 테스트로 부모 한 번 연결, 자식 자동 수집과 부분 사용량 갱신을 검증합니다.
 아래의 Codex 0.162.1 제한 일반 profile은 2026-10-13에 실제 ordinary 경로의
-native 검증과 독립 검토를 통과했으며, 다른 일반 native
+native 검증과 독립 검토를 통과했고 0.163.0은 아래의 별도 검증 근거를 갖습니다. 다른 일반 native
 production source는 qualification 차단 상태입니다. Claude 호출 시
 세션 hook 등록·receipt 조회·평탄화된 family 멤버의 합성 통합도 구현했습니다. provider 설정이나 스킬 설치만으로 production 경로가 열리지
 않습니다. [설계와 실측 계획](../decisions/012-session-family-bindings.md)을 참고하세요.
@@ -54,6 +69,25 @@ hook이나 skill 파일을 교체하지 않고 복구합니다. Node runtime을 
 **종료된 설치 잠금 복구**는 소유 프로세스의 종료가 확인되고 남은 트랜잭션이
 없을 때만 사용합니다. 소유 기록이 없거나 `transaction-*` 증거가 남아 있으면
 수동 검토가 필요합니다. 복구는 해당 증거를 버리거나 살아 있는 잠금을 해제하지 않습니다.
+
+## Codex 0.163.0 제한 일반 profile
+
+정확한 `codex-binding-01630-direct-family-v1` 소스는 등록된 동결 `functional_pilot`에서
+새 CLI 부모 한 개와 새 직접 자식 최대 두 개를 허용합니다.
+[기존 profile](#codex-01621-제한-일반-profile)의 GPT 계열·관측 effort 정책,
+접근 전 receipt 검증, 과거 구간 제외, replay 및 토폴로지 제한을 유지합니다.
+프로젝트 연결 설정에서 버전을 명시적으로 선택하세요.
+
+2026-10-16 macOS arm64 / Node 24 native 시험은 gpt-6.1-sol/high,
+read-only/on-request/no-daemon과 명시적으로 1회 승인된 network 전용 연결 명령을 사용했습니다.
+새로 연결한 소스 세 개, 관측 여섯 요청(부모 네 개·자식 각 한 개),
+연결 기준선에서 제외한 세 요청과 소유 프로세스 종료를 확인했습니다.
+새 소스만 자체 정확한 provenance를 사용하며 파일·workflow 호환성과 기존 profile·pin은 유지합니다.
+
+비용은 부분 기준 추정값이며 완전 합계나 공급자 청구액이 아닙니다.
+resume, 더 깊거나 추가된 자식, 도구 소유 launch와 추론 채택은 이 profile로 허용하지 않습니다.
+종료·미완료 응답의 완전성도 검증하지 않았습니다.
+[native 검증 기록](../validation/codex-ordinary-binding-qualification.md#2026-10-16-ordinary-route-acceptance)을 확인하세요.
 
 ## Codex 0.162.1 제한 일반 profile
 

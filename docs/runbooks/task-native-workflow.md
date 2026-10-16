@@ -43,7 +43,7 @@ blockers; a writable configuration flag cannot admit a source.
 
 ## Conditional forward versions
 
-Stable Codex releases newer than 0.160.0 and below 0.164.0, including 0.162.1,
+Stable Codex releases newer than 0.160.0 and below 0.164.0, including 0.163.0,
 can reuse `codex-workflow-own-response-v1` or the separate
 `codex-workflow-direct-child-v1` profile in a `functional_pilot`.
 Set execution JSON `product_version` to the actual Codex version; the workflow
@@ -64,6 +64,21 @@ the conditional protocol holds only own-trace. Direct adapter preflight may inst
 give `claude_workflow_child_unadmitted`. In the window,
 `resumable` or `resume` fails with `claude_workflow_resume_unadmitted`.
 `claude-workflow-direct-child-v1` has no conditional window.
+
+The 2026-10-16 UTC stable targets are Codex 0.163.0 and Claude Code 2.1.301.
+Their existing conditional selection is not actual target-binary conformance or
+ordinary binding admission. The Codex minor transition and Claude consumed-contract
+uncertainties require a separate bounded runtime comparison before support extension.
+No exact registry, compatibility bound or frozen version is changed.
+
+Separate Codex 0.163.0 bounded ordinary binding acceptance subsequently passed on
+2026-10-16. That exact binding profile is not tool-owned launch evidence and does
+not promote these workflow estimates or alter their parser/window pins; see
+[Harness Connect](harness-connect.md#codex-01630-bounded-ordinary-profile).
+
+Codex 0.163.0 cumulative totals can include usage from incomplete responses;
+its unverified estimates are not directly comparable with 0.162.x cohorts until
+target conformance establishes that accounting boundary.
 
 New versions have `compatibility_unverified` source trust. Reports separate their
 reference tokens/costs from verified amounts. Functional eligibility does not make

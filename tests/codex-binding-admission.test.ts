@@ -76,8 +76,11 @@ function fixture(version = '0.162.1', profileId: string = codexBindingAdmission.
     id: setup.workflow.assignment.task_id };
 }
 
-test('ordinary native provider collects one root and two fresh direct children without pilot or lease', async () => {
-  const f = fixture();
+test.each([
+  ['0.162.1', 'codex-binding-01621-direct-family-v1', 'verified'],
+  ['0.163.0', 'codex-binding-01630-direct-family-v1', 'verified'],
+] as const)('ordinary %s provider collects a bounded family without pilot or lease', async (version, profileId, state) => {
+  const f = fixture(version, profileId);
   const root = f.member();
   f.refresh();
   expect(await f.service.connect(f.id, 'codex', { receipt: root.receipt })).toMatchObject({ status: 'connected', roots: 1 });
@@ -92,8 +95,16 @@ test('ordinary native provider collects one root and two fresh direct children w
   const events = f.store.all<{ payload: string }>('SELECT payload FROM events WHERE task_id=?', [f.id]);
   expect(events).toHaveLength(3);
   expect(events.every(event => z.object({ source_compatibility: z.object({
-    state: z.literal('verified'), source: z.literal('codex_binding'), product_version: z.literal('0.162.1'),
+    state: z.literal(state), source: z.literal('codex_binding'), product_version: z.literal(version),
   }) }).safeParse(JSON.parse(event.payload)).success)).toBe(true);
+});
+
+test.each([
+  ['0.162.1', 'codex-binding-01630-direct-family-v1'],
+  ['0.163.0', 'codex-binding-01621-direct-family-v1'],
+])('ordinary %s cannot reuse another version profile %s', (version, profileId) => {
+  expect(resolveSourceCompatibility('codex', version, 'codex_binding', profileId)).toBeNull();
+  expect(() => fixture(version, profileId)).toThrow('external_source_unsupported');
 });
 
 test.each([['another-model', 'high'], ['claude-opus-5-5', 'high'], ['not-gpt-6.1-sol', 'low']])(
@@ -143,8 +154,11 @@ test.each([
   if (model === 'gpt-future-synthetic') expect(f.service.status(f.id).summary.unpriced_events).toBeGreaterThan(0);
 });
 
-test('ordinary profile rejects a third child before reading usage bodies', async () => {
-  const f = fixture(); const root = f.member(); f.refresh();
+test.each([
+  ['0.162.1', 'codex-binding-01621-direct-family-v1'],
+  ['0.163.0', 'codex-binding-01630-direct-family-v1'],
+])('ordinary %s profile rejects a third child before reading usage bodies', async (version, profileId) => {
+  const f = fixture(version, profileId); const root = f.member(); f.refresh();
   await f.service.connect(f.id, 'codex', { receipt: root.receipt });
   f.member(root.id); f.member(root.id); f.member(root.id); f.refresh();
   const read = vi.spyOn(f.provider, 'readUsage');
@@ -246,8 +260,11 @@ test('ordinary child source born before its root is refused despite a fresh chil
   expect(f.service.status(f.id).children).toBe(0);
 });
 
-test('ordinary binding evidence cannot start or qualify a tool-owned launch', () => {
-  const f = localWebFixture(codexBindingAdmission.profileId,{product:'codex',productVersion:'0.162.1'});
+test.each([
+  ['0.162.1', 'codex-binding-01621-direct-family-v1'],
+  ['0.163.0', 'codex-binding-01630-direct-family-v1'],
+])('ordinary %s binding evidence cannot start or qualify a tool-owned launch', (productVersion, profileId) => {
+  const f = localWebFixture(profileId,{product:'codex',productVersion});
   cleanups.push(f.cleanup);
 
   expect(()=>beginAssignedWorkflow(f.store,f.input,{model:'gpt-6.1-sol',effort:'high'})).toThrow('native_source_unqualified');

@@ -2,7 +2,7 @@ import { lookupFileProfile, type RegisteredFileProfile } from './adapter-profile
 import { EventSchema, SourceCompatibilitySchema, type SourceCompatibility } from './contracts.js';
 import { productionSourceEvidence } from './readiness.js';
 import type { Store } from './store.js';
-import { codexBindingAdmission } from './codex-binding-admission.js';
+import { codexBindingAdmissions, getCodexBindingAdmission, isQualifiedCodexBindingAdmission } from './codex-binding-admission.js';
 import { claudeBindingAdmission } from './claude-binding-admission.js';
 
 export type CompatibilitySource = SourceCompatibility['source'];
@@ -37,17 +37,17 @@ export function resolveSourceCompatibility(product: string, version: string, sou
       parser_revision: claudeBindingAdmission.profileId, profile_id: claudeBindingAdmission.profileId,
       rule_revision: compatibilityRuleRevision,
     }) : null;
-  if (source === 'codex_binding') return product === 'codex' &&
-    version === codexBindingAdmission.productVersion &&
-    (profileId === undefined || profileId === codexBindingAdmission.profileId)
+  const bindingAdmission = getCodexBindingAdmission(version);
+  if (source === 'codex_binding') return product === 'codex' && bindingAdmission &&
+    (profileId === undefined || profileId === bindingAdmission.profileId)
     ? SourceCompatibilitySchema.parse({
-      state: 'verified', product, product_version: version, source,
-      parser_version: version, parser_revision: codexBindingAdmission.profileId,
-      profile_id: codexBindingAdmission.profileId, rule_revision: compatibilityRuleRevision,
+      state: isQualifiedCodexBindingAdmission(version) ? 'verified' : 'compatibility_unverified', product, product_version: version, source,
+      parser_version: version, parser_revision: bindingAdmission.profileId,
+      profile_id: bindingAdmission.profileId, rule_revision: compatibilityRuleRevision,
     }) : null;
   const file = source === 'file' ? lookupFileProfile(product, version) : 'unsupported';
   const native = source === 'file' ? undefined : productionSourceEvidence.find(row => row.product === product && row.product_version === version &&
-    row.profile_id !== codexBindingAdmission.profileId &&
+    !codexBindingAdmissions.some(admission => row.profile_id === admission.profileId) &&
     (profileId === undefined || row.profile_id === profileId) && (product === 'codex' ? source === 'codex_workflow' : source === 'claude_workflow'));
   const exactId = file !== 'unsupported' ? file.product === 'claude_code' ? 'claude-file-message-components-v1' : file.boundaryMode === 'legacy' ? 'codex-file-legacy-v1' : 'codex-file-checkpoint-v1' : native?.profile_id;
   if (exactId && (profileId === undefined || profileId === exactId)) return SourceCompatibilitySchema.parse({

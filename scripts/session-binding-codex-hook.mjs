@@ -16,7 +16,7 @@ try {
     else if (args[i] === '--product-version') productVersion = args[i + 1];
     else throw new Error('invalid');
   }
-  if (!['0.160.0', '0.162.0', '0.162.1'].includes(productVersion) || !path(directory) || roots.length === 0 || roots.some(root => !path(root))) throw new Error('invalid');
+  if (!['0.160.0', '0.162.0', '0.162.1', '0.163.0'].includes(productVersion) || !path(directory) || roots.length === 0 || roots.some(root => !path(root))) throw new Error('invalid');
   let bytes = 0; const chunks = [];
   for await (const chunk of process.stdin) { bytes += chunk.length; if (bytes > 65536) throw new Error('invalid'); chunks.push(chunk); }
   const input = JSON.parse(Buffer.concat(chunks).toString('utf8'));

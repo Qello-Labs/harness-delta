@@ -46,6 +46,7 @@ export function AgentConnectionSetup({ projectId, locale, busy, perform }: {
  const [error, setError] = useState<string | null>(null);
  const [reading, setReading] = useState(false);
  const [preview, setPreview] = useState<'install' | 'remove' | null>(null);
+ const [selectedVersion, setSelectedVersion] = useState<string | null>(null);
  const [prevProjectId, setPrevProjectId] = useState(projectId);
  const generation = useRef(0);
 
@@ -55,6 +56,7 @@ export function AgentConnectionSetup({ projectId, locale, busy, perform }: {
   setStatus(null);
   setError(null);
   setPreview(null);
+  setSelectedVersion(null);
   setReading(false);
  }
 
@@ -77,7 +79,7 @@ export function AgentConnectionSetup({ projectId, locale, busy, perform }: {
   setReading(true); setPreview(null); setError(null);
   try {
    const value = await perform<CodexSetup>(route, { operation,
-    ...(operation === 'configure' ? { product_version: status?.product_version, source_roots: status?.source_roots } : {}),
+    ...(operation === 'configure' ? { product_version: selectedVersion ?? status?.product_version, source_roots: status?.source_roots } : {}),
     ...((operation === 'install' || operation === 'remove') ? {
      expected_package_hash: status?.installation.packageHash ?? null,
      expected_installed_hash: status?.installation.installedHash ?? null,
@@ -86,6 +88,7 @@ export function AgentConnectionSetup({ projectId, locale, busy, perform }: {
    if (started !== generation.current) return;
    if (value) {
     setStatus(value);
+    if (operation === 'configure') setSelectedVersion(null);
     if (operation === 'preview-install') setPreview('install');
     if (operation === 'preview-remove') setPreview('remove');
    } else setError('local_operation_failed');
@@ -127,7 +130,13 @@ export function AgentConnectionSetup({ projectId, locale, busy, perform }: {
      'Codex startup hook requires user review and trust, and a new or resumed session, before the first connect request. Configured files alone do not prove native connection or support.',
      'Codex 시작 hook은 첫 연결 요청 전에 사용자의 검토·신뢰 확인과 새 세션 또는 재개된 세션이 필요합니다. 설정 파일만으로는 네이티브 연결이나 지원을 증명하지 않습니다.'
     )}</p>
-    <p className="text-sm">{t('Configured Codex version', '설정할 Codex 버전')}: <code>{status.product_version}</code></p>
+    <label className="block space-y-2 text-sm">
+     <span>{t('Codex version', 'Codex 버전')}</span>
+     <select className="native-select min-h-11" disabled={disabled} value={selectedVersion ?? status.product_version} onChange={event => { setSelectedVersion(event.target.value); setPreview(null); }}>
+      {!status.available_versions.includes(status.product_version) && <option value={status.product_version} disabled>{status.product_version}</option>}
+      {status.available_versions.map(version => <option key={version} value={version}>{version}</option>)}
+     </select>
+    </label>
 
     {status.readiness.reason && <p className="text-sm" role="status" data-readiness-reason={status.readiness.reason}>{readinessReason(status.readiness.reason, t)}</p>}
 
@@ -145,7 +154,7 @@ export function AgentConnectionSetup({ projectId, locale, busy, perform }: {
    </>}
 
    <div className="flex flex-wrap gap-2">
-    <Button variant="outline" data-codex-action="configure" disabled={disabled || status?.configured} onClick={() => { void operate('configure'); }}>{t('Configure Codex', 'Codex 설정')}</Button>
+    <Button variant="outline" data-codex-action="configure" disabled={disabled || (status?.configured && (selectedVersion ?? status.product_version) === status.product_version)} onClick={() => { void operate('configure'); }}>{t('Configure Codex', 'Codex 설정')}</Button>
     <Button variant="outline" data-codex-action="preview-install" disabled={disabled || !status?.configured || status.installation.source !== 'available'} onClick={() => { void operate('preview-install'); }}>{t('Preview install', '설치 미리보기')}</Button>
     <Button variant="outline" data-codex-action="preview-remove" disabled={disabled || !status?.installation.installedHash} onClick={() => { void operate('preview-remove'); }}>{t('Preview removal', '제거 미리보기')}</Button>
     <Button variant="outline" data-codex-action="refresh" disabled={busy || reading} onClick={refresh}><RefreshCw className="size-4" />{t('Refresh status', '상태 새로고침')}</Button>

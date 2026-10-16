@@ -131,10 +131,23 @@ DB 데이터·설정·보고 기준시각이 같으면 같은 기간 보고서�
 명시된 유한 범위의 안정 릴리스에 기존 파서를 자동으로 조건부 재사용합니다.
 파일 수집은 Codex 0.158.0 이후 0.164.0 미만 버전에 0.158.0 파서를 사용하고,
 Claude Code 2.1.283 이후 2.2.0 미만 버전에 2.1.283 파서를 사용합니다.
-따라서 현재 안정 버전 Codex CLI 0.162.1과 Claude Code 2.1.296은 기본적으로
+2026-10-16 UTC에 확인한 안정 버전 Codex CLI 0.163.0과 Claude Code 2.1.301은 기본적으로
 `compatibility_unverified` 신뢰 상태로 등록됩니다. 등록된 정확한 버전은 검증 상태를
 유지합니다. 사전 릴리스, 접미사, 등록되지 않은 이전 버전, 범위 밖 릴리스는
 원본 접근 전에 거부됩니다.
+
+이는 기존 파서 선택이며 새로운 정확 버전 admission이나 실제 바이너리 qualification이
+아닙니다. Codex minor 전환과 Claude 수집 계약의 미확인 부분은 지원 확장 전에
+대상 바이너리 적합성 검증이 필요합니다. 일반 세션 연결은 별도의 정확 버전 조건을
+유지합니다. [Harness Connect](harness-connect.ko.md)를 확인하세요.
+
+별도 Codex 0.163.0 제한 일반 binding profile은 2026-10-16 native 검증을 통과했습니다.
+정확한 binding provenance로 이 파일·workflow 추정값이나 과거 관측을 승격하지 않으며,
+수집과 비용은 여전히 부분 범위입니다.
+
+Codex 0.163.0의 누적 합계에는 완료되지 않은 응답의 사용량도 포함될 수 있습니다.
+대상 적합성 검증으로 변경된 집계 경계를 확인하기 전에는 이 미검증 추정값을
+0.162.x 집단과 직접 비교하지 마세요.
 
 사용량 기록은 실제 제품 버전, 파서/프로필, 규칙 리비전을 보존합니다.
 작업 보고서는 미검증 토큰을 `usage.compatibility_unverified`에 표시합니다.
@@ -146,9 +159,9 @@ native 사용량은 `usage.legacy_unverified`에 표시됩니다. 비용 보고�
 
 ```sh
 node dist/cli.js --db ./local.db compatibility status
-node dist/cli.js --db ./local.db compatibility inspect --product codex --version 0.162.1 --source file
-node dist/cli.js --db ./local.db compatibility inspect --product claude_code --version 2.1.296 --source file
-node dist/cli.js --db ./local.db compatibility invalidate --product codex --version 0.162.1 --source file --reason semantic_incompatibility
+node dist/cli.js --db ./local.db compatibility inspect --product codex --version 0.163.0 --source file
+node dist/cli.js --db ./local.db compatibility inspect --product claude_code --version 2.1.301 --source file
+node dist/cli.js --db ./local.db compatibility invalidate --product codex --version 0.163.0 --source file --reason semantic_incompatibility
 ```
 
 예상 결과: inspect는 실제 버전, 선택된 파서, 신뢰 상태를 반환합니다. invalidate는

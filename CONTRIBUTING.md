@@ -27,6 +27,13 @@ model at the observed reasoning effort; that trial model is history, not a requi
 [capability evidence](docs/decisions/001-adapter-capabilities.md), and
 [local measurement runbook](docs/runbooks/local-measurement.md).
 
+Codex 0.163.0 has a separate bounded ordinary profile with native no-lease acceptance
+on 2026-10-16: one fresh root and up to two fresh direct children. Its exact profile,
+required same-release execution host, partial-cost limits and verification record
+are documented in [Harness Connect](docs/runbooks/harness-connect.md#codex-01630-bounded-ordinary-profile).
+The 0.162.1 profile/default and all historical pins remain unchanged; select 0.163.0
+explicitly rather than upgrading saved settings automatically.
+
 ## Development environment
 
 Use Node.js 24 or 26 and npm. With nvm, the `.nvmrc` default remains Node 24:
@@ -132,9 +139,13 @@ The accepted [forward-version compatibility policy](docs/decisions/013-forward-v
 allows conditional reuse of a verified parser for newer releases within declared
 source-specific windows, with unverified estimates kept separate and incompatible
 data invalidated. Runtime rules live in `src/source-compatibility.ts`; exact profiles
-remain the evidence boundary for verified support. The current stable Codex CLI
-0.162.1 and Claude Code 2.1.296 use conditional parser reuse for file collection, not new exact
-admissions. Codex 0.162.1 workflow collection also remains conditional; the Claude
+remain the evidence boundary for verified support. The stable releases checked on
+2026-10-16 UTC, Codex CLI 0.163.0 and Claude Code 2.1.301, use conditional parser
+reuse for file collection, not new exact admissions. Their root-workflow selection
+also remains conditional. File/workflow target-binary conformance is pending for
+the Codex minor transition and Claude consumed-contract uncertainties; conditional
+selection does not grant ordinary binding admission. Codex 0.163.0 has separate
+ordinary-route evidence, not a file/workflow admission. The Claude
 workflow source is exactly admitted for 2.1.296. Ordinary binding separately permits the exact Codex 0.162.0/0.162.1
 root-only and Claude 2.1.291/2.1.293/2.1.294/2.1.296 profiles under explicit
 local human-pilot authority; see [Harness Connect](docs/runbooks/harness-connect.md).

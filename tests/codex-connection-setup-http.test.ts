@@ -68,7 +68,11 @@ describe('project Codex connection setup HTTP', () => {
     expect(inspected.statusCode).toBe(200);
     expect(preview.statusCode, preview.body).toBe(200);
     expect(inspected.json()).toMatchObject({
-      configured: false, product: 'codex',
+      configured: false, product: 'codex', product_version: '0.162.1',
+      admission: {
+        profile_id: codexBindingAdmission.profileId, qualified: true,
+        max_family_members: codexBindingAdmission.maxFamilyMembers,
+      },
       readiness: { provider: 'blocked', reason: 'codex_connect_not_configured' },
       connection: { roots: 0, observing: 0 },
     });
@@ -81,13 +85,47 @@ describe('project Codex connection setup HTTP', () => {
     const saved = await configure();
     expect(saved.statusCode, saved.body).toBe(200);
     expect(saved.json()).toMatchObject({
-      configured: true, source_roots: [sources], installation: { state: 'absent', hookRegistration: 'unverified' },
+      configured: true, product_version: '0.162.1', source_roots: [sources],
+      installation: { state: 'absent', hookRegistration: 'unverified' },
       readiness: { receipt_directory: 'missing', provider: 'blocked', reason: 'receipt_directory_missing' },
       connection: { roots: 0, observing: 0 },
     });
     expect(existsSync(join(project, '.codex'))).toBe(false);
     expect(store.all('SELECT * FROM tasks')).toEqual([]);
   });
+
+  it('keeps the historical version when configuring without an explicit version', async () => {
+    const saved = await post({ operation: 'configure', source_roots: [sources] });
+    expect(saved.statusCode, saved.body).toBe(200);
+    expect(saved.json()).toMatchObject({
+      configured: true, product_version: '0.162.1', source_roots: [sources],
+      admission: { profile_id: codexBindingAdmission.profileId, qualified: true },
+    });
+    expect((await inspect()).json()).toMatchObject({
+      configured: true, product_version: '0.162.1', source_roots: [sources],
+    });
+  });
+
+  it.each(['0.162.1', '0.163.0'])('preserves saved version %s when later configuration omits it', async productVersion => {
+    const initial = await post({ operation: 'configure', product_version: productVersion, source_roots: [sources] });
+    expect(initial.statusCode, initial.body).toBe(200);
+    const saved = await post({ operation: 'configure', source_roots: [project] });
+    expect(saved.statusCode, saved.body).toBe(200);
+    expect((await inspect()).json()).toMatchObject({
+      configured: true, product_version: productVersion, source_roots: [project],
+    });
+    expect(existsSync(join(project, '.codex'))).toBe(false);
+  });
+
+  it.each(['0.162.0', '0.162.2', '0.163.1', '0.163.0-beta.1', ''])(
+    'refuses unknown setup version %s without changing saved settings', async productVersion => {
+      await configure();
+      const before = (await inspect()).json<Setup>();
+      expect((await post({ operation: 'configure', product_version: productVersion, source_roots: [project] })).statusCode).toBe(400);
+      expect((await inspect()).json<Setup>()).toEqual(before);
+      expect(existsSync(join(project, '.codex'))).toBe(false);
+    },
+  );
 
   it('requires protected explicit installation with reviewed hashes', async () => {
     expect((await app.inject({ method: 'POST', url: route, payload: { operation: 'configure' } })).statusCode).toBe(403);
@@ -98,12 +136,22 @@ describe('project Codex connection setup HTTP', () => {
     expect((await post({ operation: 'configure', allowCandidateProfiles: true })).statusCode).toBe(400);
   });
 
-  it('installs prepared files without granting native trust or creating receipts and sessions', async () => {
-    await configure();
+  it.each([
+    { productVersion: '0.162.1', profileId: 'codex-binding-01621-direct-family-v1', qualified: true },
+    { productVersion: '0.163.0', profileId: 'codex-binding-01630-direct-family-v1', qualified: true },
+  ])('installs $productVersion prepared files without granting native trust or creating receipts and sessions', async ({ productVersion, profileId, qualified }) => {
+    const configured = await post({ operation: 'configure', product_version: productVersion, source_roots: [sources] });
+    expect(configured.statusCode, configured.body).toBe(200);
+    expect(configured.json()).toMatchObject({
+      product_version: productVersion,
+      admission: { profile_id: profileId, qualified, max_family_members: 3 },
+    });
     const installed = await install();
     expect(installed.statusCode, installed.body).toBe(200);
     expect(installed.json()).toMatchObject({
       configured: true, installation: { state: 'installed', hookRegistration: 'unverified' },
+      product_version: productVersion,
+      admission: { profile_id: profileId, qualified, max_family_members: 3 },
       readiness: { receipt_directory: 'ready', provider: 'ready', reason: null, hook_trust: 'manual_confirmation_required', requires_new_session: true },
       connection: { roots: 0, observing: 0 },
     });
@@ -113,10 +161,32 @@ describe('project Codex connection setup HTTP', () => {
     }) }).parse(JSON.parse(readFileSync(join(project, '.codex/hooks.json'), 'utf8')) as unknown);
     expect(hooks.SessionStart).toHaveLength(1);
     expect(hooks.SubagentStart).toHaveLength(1);
+    const entries = z.array(z.object({ hooks: z.array(z.object({ command: z.string() })) }))
+      .parse([...hooks.SessionStart, ...hooks.SubagentStart]);
+    for (const entry of entries) expect(entry.hooks[0]?.command).toContain(`'--product-version' '${productVersion}'`);
     expect(existsSync(join(project, '.codex/config.toml'))).toBe(false);
     expect(store.all('SELECT * FROM sessions')).toEqual([]);
     expect(store.all('SELECT * FROM active_intervals')).toEqual([]);
     expect(store.eventCount()).toBe(0);
+  });
+
+  it.each([
+    ['0.162.1', '0.163.0'],
+    ['0.163.0', '0.162.1'],
+  ])('refuses a %s installation preview after selecting %s', async (beforeVersion, afterVersion) => {
+    expect((await post({ operation: 'configure', product_version: beforeVersion, source_roots: [sources] })).statusCode).toBe(200);
+    const preview = await post({ operation: 'preview-install' });
+    expect(preview.statusCode, preview.body).toBe(200);
+    const snapshot = preview.json<Setup>();
+    expect((await post({ operation: 'configure', product_version: afterVersion })).statusCode).toBe(200);
+    const result = await post({
+      operation: 'install', expected_package_hash: snapshot.installation.packageHash,
+      expected_installed_hash: snapshot.installation.installedHash,
+    });
+    expect(result.statusCode).toBe(400);
+    expect(result.json()).toEqual({ error: 'installation_preview_changed' });
+    expect(existsSync(join(project, '.codex'))).toBe(false);
+    expect((await inspect()).json()).toMatchObject({ product_version: afterVersion });
   });
 
   it('reports unsafe receipt permissions instead of treating configured files as ready', async () => {

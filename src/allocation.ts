@@ -12,6 +12,7 @@ import { Lifecycle } from './lifecycle.js';
 import type { TaskRow } from './lifecycle.js';
 import type { Store } from './store.js';
 import { isHumanPilotProtocol } from './session-binding-human-pilot.js';
+import { isAdmittedCodexBindingProtocol } from './codex-binding-admission.js';
 
 export interface AllocationDependencies { clock?: () => string; shuffle?: (values: readonly string[]) => readonly string[]; discloseReports?: (ids: readonly string[]) => void; pilotPreparation?: boolean; }
 export interface AssignmentRow {
@@ -116,7 +117,7 @@ export function assignTask(store: Store, input: unknown, dependencies: Allocatio
     const protocol = comparisonProtocol(store, requestedProtocol);
     if(protocol.purpose!=='synthetic_validation' && (protocol.schema_version!==2 || !comparisonReadiness(store,protocol.id,now).real_allocation) &&
       !(protocol.schema_version===2&&functionalWorkflowEligible(store,protocol))&&
-      !(dependencies.pilotPreparation && protocol.schema_version===2 && isHumanPilotProtocol(protocol)))throw new Error('real_experiment_disabled');
+      !(dependencies.pilotPreparation && protocol.schema_version===2 && (isHumanPilotProtocol(protocol)||isAdmittedCodexBindingProtocol(protocol))))throw new Error('real_experiment_disabled');
     if (Date.parse(now) < Date.parse(protocol.recruitment_start) || Date.parse(now) >= Date.parse(protocol.recruitment_end)) throw new Error('outside_recruitment');
     const variant = comparisonVariant(store, protocol.variant_ids[0]);
     if (protocol.schema_version !== config.schema_version || variant.schema_version !== config.schema_version) throw new Error('configuration_mismatch');

@@ -13,6 +13,31 @@ export const codexBindingAdmission = Object.freeze({
   evidenceIntentSha256: 'bc6a3cdca7f0750c901e3f95087f63b34e5ecd6c1584fdae78f2729145f9fc2e',
 } as const);
 
+export const codexBindingAdmissions = Object.freeze([
+  codexBindingAdmission,
+  Object.freeze({
+    profileId: 'codex-binding-01630-direct-family-v1',
+    productVersion: '0.163.0',
+    model: 'gpt-6.1-sol',
+    effort: 'high',
+    maxDepth: 1,
+    maxFamilyMembers: 3,
+    evidenceId: 'codex-binding-01630-native-family-v1',
+    sourceRef: '83086188ae0614bd882818ff1aa23f3194962012',
+    evidenceIntentSha256: 'a8add9d20b6c7c7845090c70b4896d0b6922acfdb916495b81ec71dc4281683e',
+    qualified: true,
+  } as const),
+]);
+
+export function getCodexBindingAdmission(version: string) {
+  return codexBindingAdmissions.find(admission => admission.productVersion === version);
+}
+
+export function isQualifiedCodexBindingAdmission(version: string): boolean {
+  const admission = getCodexBindingAdmission(version);
+  return admission !== undefined && (!('qualified' in admission) || admission.qualified);
+}
+
 export function isCodexGptModel(model: string | null): boolean {
   return model !== null && /^gpt(?:-|$)/i.test(model);
 }
@@ -20,6 +45,5 @@ export function isCodexGptModel(model: string | null): boolean {
 export function isAdmittedCodexBindingProtocol(protocol: FlexibleProtocol): boolean {
   return protocol.purpose === 'functional_pilot' && protocol.source_profiles.length === 1 &&
     protocol.source_profiles.every(profile => profile.product === 'codex' &&
-      profile.product_version === codexBindingAdmission.productVersion &&
-      profile.profile_id === codexBindingAdmission.profileId);
+      profile.profile_id === getCodexBindingAdmission(profile.product_version)?.profileId);
 }

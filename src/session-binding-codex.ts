@@ -7,13 +7,13 @@ import { IdSchema, TimestampSchema } from './contracts.js';
 import { parseCodexCandidateRollout, type CodexCandidateSnapshot } from './codex-candidate-rollout.js';
 import { checkedCandidateScope, type CandidateScope } from './nested-candidate.js';
 import { resolveSourceCompatibility } from './source-compatibility.js';
-import { codexBindingAdmission, isCodexGptModel } from './codex-binding-admission.js';
+import { getCodexBindingAdmission, isQualifiedCodexBindingAdmission, isCodexGptModel } from './codex-binding-admission.js';
 import { bindingIdentityKey, CurrentIdentityRequestSchema, VerifiedSessionIdentitySchema, type BindingCapabilities, type BindingReadBoundary, type ChildDiscovery,
   type SessionBindingProvider, type UsageBatch, type VerifiedSessionIdentity } from './session-binding-contract.js';
 
 const hash = (bytes: string | Buffer) => createHash('sha256').update(bytes).digest('hex');
 export const codexRootPilotVersions = Object.freeze(['0.162.0', '0.162.1'] as const);
-const receiptVersionSchema = z.enum(['0.160.0', ...codexRootPilotVersions]);
+const receiptVersionSchema = z.enum(['0.160.0', ...codexRootPilotVersions, '0.163.0']);
 const receiptSchema = z.strictObject({ schemaVersion: z.literal(1), receipt: z.uuid(), productVersion: receiptVersionSchema,
   event: z.enum(['SessionStart', 'SubagentStart']), sessionId: IdSchema, parentSessionId: IdSchema.nullable(), turnId: IdSchema.nullable(),
   nativeRootSessionId: IdSchema.optional(),
@@ -106,21 +106,22 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
     this.maxDepth = options.maxDepth ?? 8; this.maxReceipts = options.maxReceipts ?? 1024; this.maxSourceBytes = options.maxSourceBytes ?? 8 * 1024 * 1024;
     this.maxFamilyMembers = options.maxFamilyMembers ?? 32;
     if(this.ordinaryRootPilot&&(!codexRootPilotVersions.some(version=>version===this.productVersion)||this.maxDepth!==1||this.maxFamilyMembers!==1))throw new Error('binding_configuration_invalid');
-    if(this.ordinaryFamilyQualification&&(this.productVersion!=='0.162.1'||this.ordinaryRootPilot||this.maxDepth!==1||this.maxFamilyMembers!==3))throw new Error('binding_configuration_invalid');
-    if(this.ordinaryFamilyAdmission&&(this.productVersion!==codexBindingAdmission.productVersion||this.ordinaryRootPilot||this.ordinaryFamilyQualification||this.maxDepth!==codexBindingAdmission.maxDepth||this.maxFamilyMembers!==codexBindingAdmission.maxFamilyMembers))throw new Error('binding_configuration_invalid');
+    if(this.ordinaryFamilyQualification&&(!['0.162.1','0.163.0'].includes(this.productVersion)||this.ordinaryRootPilot||this.maxDepth!==1||this.maxFamilyMembers!==3))throw new Error('binding_configuration_invalid');
+    const admission=getCodexBindingAdmission(this.productVersion);
+    if(this.ordinaryFamilyAdmission&&(!admission||this.ordinaryRootPilot||this.ordinaryFamilyQualification||this.maxDepth!==admission.maxDepth||this.maxFamilyMembers!==admission.maxFamilyMembers))throw new Error('binding_configuration_invalid');
     for (const [value, limit] of [[this.maxFamilyMembers, 32], [this.maxDepth, 31], [this.maxReceipts, 65536], [this.maxSourceBytes, 8 * 1024 * 1024]] as const) {
       if (!Number.isSafeInteger(value) || value < 1 || value > limit) throw new Error('binding_configuration_invalid');
     }
     this.checkDirectory();
   }
   capabilities(): BindingCapabilities {
-    return { currentIdentity: 'native_hook', ancestry: 'verified_relations', usage: 'own_requests', productionSupported: this.ordinaryFamilyAdmission,
-      maxDepth: this.maxDepth, reasons: [...(this.ordinaryFamilyAdmission?[]:['codex_ordinary_source_unqualified', 'codex_native_hook_path_and_header_conformance_pending']), 'codex_paginated_descendant_history_unsupported',
+    return { currentIdentity: 'native_hook', ancestry: 'verified_relations', usage: 'own_requests', productionSupported: this.ordinaryFamilyAdmission && isQualifiedCodexBindingAdmission(this.productVersion),
+      maxDepth: this.maxDepth, reasons: [...(this.ordinaryFamilyAdmission&&isQualifiedCodexBindingAdmission(this.productVersion)?[]:['codex_ordinary_source_unqualified', 'codex_native_hook_path_and_header_conformance_pending']), 'codex_paginated_descendant_history_unsupported',
         `binding_receipt_limit_${this.maxReceipts}`, `binding_source_byte_limit_${this.maxSourceBytes}`, `binding_family_scope_limit_${this.maxFamilyMembers}`,
         'binding_turn_limit_64', 'binding_metadata_header_byte_limit_65536'] };
   }
   admissionProfile(): string | null {
-    return this.ordinaryFamilyAdmission ? codexBindingAdmission.profileId : null;
+    return this.ordinaryFamilyAdmission ? getCodexBindingAdmission(this.productVersion)?.profileId ?? null : null;
   }
   /** Metadata-only pilot scope check before any receipt/source access. */
   assertProjectRoot(projectRoot: string): void {
@@ -409,7 +410,7 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
     let scope: CandidateScope;
     try { scope = checkedCandidateScope(inputScope); } catch { throw new Error('binding_scope_mismatch'); }
     const compatibility = this.ordinaryFamilyAdmission
-      ? resolveSourceCompatibility('codex',this.productVersion,'codex_binding',codexBindingAdmission.profileId)
+      ? resolveSourceCompatibility('codex',this.productVersion,'codex_binding',getCodexBindingAdmission(this.productVersion)?.profileId)
       : this.ordinaryRootPilot || this.ordinaryFamilyQualification ? resolveSourceCompatibility('codex',this.productVersion,'codex_workflow','codex-workflow-own-response-v1') : null;
     if(this.ordinaryRootPilot&&(scope.sessions.length!==1||session.parentSessionId!==null||!compatibility))throw new Error('binding_pilot_family_scope');
     const record = this.verified(session);

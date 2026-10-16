@@ -3,7 +3,9 @@ import { homedir } from 'node:os';
 import { isAbsolute, join, resolve } from 'node:path';
 import type Database from 'better-sqlite3';
 import { z } from 'zod';
-import { codexBindingAdmission } from './codex-binding-admission.js';
+import {
+  codexBindingAdmission, codexBindingAdmissions, getCodexBindingAdmission, isQualifiedCodexBindingAdmission,
+} from './codex-binding-admission.js';
 import {
   installCodexConnectInstallation, previewCodexConnectInstallation,
   recoverCodexConnectInstallationLock, removeCodexConnectInstallation, statusCodexConnectInstallation,
@@ -15,7 +17,7 @@ import { withLiveWebMetadataScope } from './local-web-metadata.js';
 
 const sourceRoot = z.string().min(1).max(4096).refine(path => isAbsolute(path) && resolve(path) === path && !/[\0\r\n]/.test(path));
 const settingsSchema = z.strictObject({
-  product_version: z.literal(codexBindingAdmission.productVersion),
+  product_version: z.enum(codexBindingAdmissions.map(admission => admission.productVersion)),
   source_roots: z.array(sourceRoot).min(1).max(16).refine(paths => new Set(paths).size === paths.length),
 });
 export const CodexProjectActionSchema = z.strictObject({
@@ -83,6 +85,8 @@ export function createCodexProjectSetupManager(store: Store, metadata: Database.
     const root = project(projectId);
     const saved = settings(projectId);
     const effective = saved ?? defaults();
+    const admission = getCodexBindingAdmission(effective.product_version);
+    if (!admission) throw new Error('codex_connect_product_version_unsupported');
     const options = { productVersion: effective.product_version, sourceRoots: effective.source_roots };
     const installation = statusCodexConnectInstallation(root, options);
     const receiptPath = join(root, installation.receiptDirectory);
@@ -108,14 +112,15 @@ export function createCodexProjectSetupManager(store: Store, metadata: Database.
     return {
       project_id: projectId, configured: saved !== undefined, product: 'codex' as const,
       product_version: effective.product_version, source_roots: effective.source_roots, installation,
+      available_versions: codexBindingAdmissions.map(version => version.productVersion),
       readiness: {
         receipt_directory: receiptDirectory, provider: reason === null ? 'ready' as const : 'blocked' as const,
         reason, hook_trust: 'manual_confirmation_required' as const, requires_new_session: true as const,
       },
       connection: connection ?? { roots: 0, observing: 0 },
       admission: {
-        profile_id: codexBindingAdmission.profileId, qualified: true,
-        max_family_members: codexBindingAdmission.maxFamilyMembers,
+        profile_id: admission.profileId, qualified: isQualifiedCodexBindingAdmission(effective.product_version),
+        max_family_members: admission.maxFamilyMembers,
       },
     };
   }

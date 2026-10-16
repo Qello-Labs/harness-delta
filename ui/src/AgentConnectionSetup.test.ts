@@ -21,6 +21,7 @@ function deferred<T>() {
 function codexSetup(overrides: Partial<CodexSetup> = {}): CodexSetup {
  return {
   project_id: 'project', configured: false, product: 'codex', product_version: '1.0.0',
+  available_versions: ['1.0.0', '1.1.0'],
   source_roots: ['/synthetic/root'],
   installation: { state: 'absent', source: 'available', packageHash: null, installedHash: null, destination: '/dest', receiptDirectory: '/receipt', hookRegistration: 'unverified', blockers: [] },
   readiness: { receipt_directory: 'missing', provider: 'blocked', reason: 'receipt_directory_missing', hook_trust: 'manual_confirmation_required', requires_new_session: true },
@@ -30,7 +31,7 @@ function codexSetup(overrides: Partial<CodexSetup> = {}): CodexSetup {
  };
 }
 
-type Control = { children?: ReactNode; id?: string; value?: string; disabled?: boolean; 'aria-pressed'?: boolean | 'true' | 'false'; 'data-product'?: string; 'data-codex-action'?: string; 'data-codex-choice'?: string; 'data-codex-configured'?: string; 'data-codex-preview'?: string; 'data-installation-state'?: string; 'data-agent-setup'?: string; 'data-readiness-reason'?: string; onClick?: () => void; role?: string; type?: unknown };
+type Control = { children?: ReactNode; id?: string; value?: string; disabled?: boolean; 'aria-pressed'?: boolean | 'true' | 'false'; 'data-product'?: string; 'data-codex-action'?: string; 'data-codex-choice'?: string; 'data-codex-configured'?: string; 'data-codex-preview'?: string; 'data-installation-state'?: string; 'data-agent-setup'?: string; 'data-readiness-reason'?: string; onClick?: () => void; onChange?: (event: { target: { value: string } }) => void; role?: string; type?: unknown };
 function controls(node: ReactNode): { type: unknown; props: Control }[] {
  if (Array.isArray(node)) return node.flatMap(controls);
  if (!isValidElement<Control>(node)) return [];
@@ -38,6 +39,7 @@ function controls(node: ReactNode): { type: unknown; props: Control }[] {
 }
 
 function harness(projectId = 'project') {
+ let busy = false;
  let stateIndex = 0; let effectIndex = 0; let refIndex = 0;
  const refs: { current: unknown }[] = [];
  const states: unknown[] = [];
@@ -66,7 +68,7 @@ function harness(projectId = 'project') {
    effects[index] = { callback, deps, cleanup: previous?.cleanup, pending: true };
  });
  vi.mocked(useRef).mockImplementation((initial: unknown) => refs[refIndex++] ??= { current: initial });
- function render() { stateIndex = 0; effectIndex = 0; refIndex = 0; return AgentConnectionSetup({ projectId, locale: 'en', busy: false, perform: api.mutate }); }
+ function render() { stateIndex = 0; effectIndex = 0; refIndex = 0; return AgentConnectionSetup({ projectId, locale: 'en', busy, perform: api.mutate }); }
  function nodes() { return controls(render()); }
  function flush() {
   render();
@@ -99,7 +101,12 @@ function harness(projectId = 'project') {
   if (!request) throw new Error('Missing fetch request');
   request.response.resolve(new Response('{"error":"unknown_project"}', { status: 500, headers: { 'content-type': 'application/json' } }));
  }
- return { render, nodes, flush, click, waitFor, respondFetch, failFetch, perform, requests, selectProject: (id: string) => { projectId = id; flush(); } };
+ function selectVersion(value: string) {
+  const control = nodes().find(node => node.type === 'select');
+  if (!control?.props.onChange || control.props.disabled) throw new Error('Unavailable version selector');
+  control.props.onChange({ target: { value } });
+ }
+ return { render, nodes, flush, click, selectVersion, waitFor, respondFetch, failFetch, perform, requests, setBusy: (value: boolean) => { busy = value; }, selectProject: (id: string) => { projectId = id; flush(); } };
 }
 
 test('defaults to Codex product selector with aria-pressed', () => {
@@ -149,6 +156,85 @@ test('configure sends correct payload using GET defaults', async () => {
   expect.stringContaining('/codex-setup'),
   expect.objectContaining({ operation: 'configure', product_version: '1.0.0', source_roots: ['/synthetic/root'] })
  );
+});
+
+test.each([false, true])('version selector retains the returned version when configured=%s', async configured => {
+ const h = harness();
+ const data = codexSetup({ configured, available_versions: ['1.1.0', '1.0.0'] });
+ h.flush();
+ h.respondFetch(0, data);
+ await h.waitFor(() => h.nodes().some(n => n.type === 'select'));
+
+ const selector = h.nodes().find(n => n.type === 'select');
+ expect(selector?.props.value).toBe(data.product_version);
+ expect(h.nodes().filter(n => n.type === 'option').map(n => n.props.value)).toEqual(data.available_versions);
+ expect(h.nodes().find(n => n.type === 'label')?.props.children).toContainEqual(expect.objectContaining({ type: 'select' }));
+ expect(h.nodes().find(n => n.props['data-codex-action'] === 'configure')?.props.disabled).toBe(configured);
+ expect(h.perform).not.toHaveBeenCalled();
+});
+
+test('version changes require explicit configure and keep busy and reading guards', async () => {
+ const h = harness();
+ const data = codexSetup({ configured: true });
+ h.flush();
+ h.respondFetch(0, data);
+ await h.waitFor(() => h.nodes().some(n => n.type === 'select'));
+
+ h.selectVersion('1.1.0');
+ expect(h.perform).not.toHaveBeenCalled();
+ expect(h.nodes().find(n => n.props['data-codex-action'] === 'configure')?.props.disabled).toBe(false);
+ h.selectVersion('1.0.0');
+ expect(h.nodes().find(n => n.props['data-codex-action'] === 'configure')?.props.disabled).toBe(true);
+ h.selectVersion('1.1.0');
+ h.setBusy(true);
+ expect(h.nodes().find(n => n.type === 'select')?.props.disabled).toBe(true);
+ expect(h.nodes().find(n => n.props['data-codex-action'] === 'configure')?.props.disabled).toBe(true);
+ h.setBusy(false);
+ const pending = deferred<CodexSetup | null>();
+ h.perform.mockReturnValueOnce(pending.promise);
+ h.click('data-codex-action', 'configure');
+ expect(h.perform).toHaveBeenLastCalledWith('/api/projects/project/codex-setup', {
+  operation: 'configure', product_version: '1.1.0', source_roots: data.source_roots,
+ });
+ expect(h.nodes().find(n => n.type === 'select')?.props.disabled).toBe(true);
+ pending.resolve({ ...data, product_version: '1.1.0' });
+ await h.waitFor(() => h.nodes().find(n => n.type === 'select')?.props.disabled === false);
+ expect(h.nodes().find(n => n.type === 'select')?.props.value).toBe('1.1.0');
+ expect(h.nodes().find(n => n.props['data-codex-action'] === 'configure')?.props.disabled).toBe(true);
+});
+
+test.each(['install', 'remove'] as const)('changing version clears %s preview without submitting the draft version', async operation => {
+ const h = harness();
+ const data = codexSetup({ configured: true });
+ data.installation.installedHash = 'installed';
+ h.flush();
+ h.respondFetch(0, data);
+ await h.waitFor(() => h.nodes().some(n => n.type === 'select'));
+ const preview = { ...data, changes: [{ path: 'hook.sh', action: 'update' as const, beforeHash: 'installed', afterHash: 'updated' }] };
+ h.perform.mockResolvedValueOnce(preview);
+ h.click('data-codex-action', `preview-${operation}`);
+ await h.waitFor(() => h.nodes().some(n => n.props['data-codex-preview'] === operation));
+
+ h.selectVersion('1.1.0');
+ expect(h.nodes().some(n => n.props['data-codex-preview'])).toBe(false);
+ expect(h.nodes().some(n => n.props['data-codex-choice'])).toBe(false);
+ expect(h.perform).toHaveBeenCalledTimes(1);
+ h.perform.mockResolvedValueOnce(preview);
+ h.click('data-codex-action', `preview-${operation}`);
+ await h.waitFor(() => h.nodes().some(n => n.props['data-codex-preview'] === operation));
+ expect(h.perform).toHaveBeenLastCalledWith('/api/projects/project/codex-setup', { operation: `preview-${operation}` });
+ expect(h.nodes().find(n => n.type === 'select')?.props.value).toBe('1.1.0');
+});
+
+test('a saved version absent from admission choices stays selected without automatic replacement', async () => {
+ const h = harness();
+ h.flush();
+ h.respondFetch(0, codexSetup({ configured: true, available_versions: ['1.1.0'] }));
+ await h.waitFor(() => h.nodes().some(n => n.type === 'select'));
+
+ expect(h.nodes().find(n => n.type === 'select')?.props.value).toBe('1.0.0');
+ expect(h.nodes().find(n => n.type === 'option' && n.props.value === '1.0.0')?.props.disabled).toBe(true);
+ expect(h.perform).not.toHaveBeenCalled();
 });
 
 test('preview-install then explicit apply pins hashes', async () => {
@@ -207,10 +293,14 @@ test('stale project resets Codex state', async () => {
  const data = codexSetup({ project_id: 'project-a', configured: true });
  h.respondFetch(0, data);
  await h.waitFor(() => h.nodes().some(n => n.props['data-codex-configured'] === 'true'));
+ h.selectVersion('1.1.0');
  h.selectProject('project-b');
  const loadingNodes = h.nodes();
  expect(loadingNodes.some(n => n.props.role === 'status')).toBe(true);
  expect(loadingNodes.some(n => n.props['data-codex-configured'])).toBe(false);
+ h.respondFetch(1, codexSetup({ project_id: 'project-b' }));
+ await h.waitFor(() => h.nodes().some(n => n.type === 'select'));
+ expect(h.nodes().find(n => n.type === 'select')?.props.value).toBe('1.0.0');
 });
 
 test('a previous project operation cannot replace the newly selected project status', async () => {

@@ -4,12 +4,28 @@
 
 ## Current implementation
 
+The 2026-10-16 UTC release check found Codex 0.163.0 and Claude Code 2.1.301.
+Codex 0.163.0 passed separate bounded ordinary-route native acceptance on that date.
+Claude 2.1.301 remains unqualified. Existing file and root-workflow windows still
+resolve both as `compatibility_unverified`; ordinary binding evidence does not
+promote those sources. Use the exact admitted versions below for ordinary connections.
+
+Codex 0.163.0 can be prepared separately with `--product-version 0.163.0 --route qualification`
+in the [bounded qualification procedure](../validation/codex-ordinary-binding-qualification.md).
+It requires the pinned same-release `codex-code-mode-host` beside the Codex executable;
+the standalone Codex archive alone is insufficient. Preparation and execution check both pins.
+The separate `--route ordinary_admission` trial then passed without qualification
+collection authority. Explicit setup and the version selector support 0.163.0 alongside
+0.162.1; existing saved/default versions are not upgraded automatically. Only the new
+exact binding profile gains verified provenance; past unverified observations stay unchanged.
+
 The [shared skill](../../skills/harness-connect/SKILL.md), receipt API, binding
 store/coordinator, Codex and Claude metadata hooks/providers and UI family display are implemented.
 Isolated synthetic end-to-end tests exercise one parent connection, automatic
 child collection and partial usage refresh. The Codex 0.162.1 bounded
 ordinary profile described below passed actual ordinary-route native
-acceptance and independent review on 2026-10-13; other ordinary native production
+acceptance and independent review on 2026-10-13; 0.163.0 has the separate acceptance
+below. Other ordinary native production
 sources remain qualification-blocked. Claude candidate integration includes session-scoped
 skill hooks, same-command receipt lookup and flattened root-family membership.
 A configured provider or installed skill alone does not enable that production path.
@@ -57,6 +73,26 @@ Node runtime upgrade and preview an update if its pinned executable path changed
 Use **Recover stopped installer** only for a proved-dead owner with no remaining
 transaction. A missing owner record or saved `transaction-*` evidence requires
 manual review; recovery never discards that evidence or releases a live lock.
+
+## Codex 0.163.0 bounded ordinary profile
+
+The exact `codex-binding-01630-direct-family-v1` source admits one fresh CLI root
+and up to two fresh direct children in a registered frozen `functional_pilot`.
+It preserves the [historical profile's](#codex-01621-bounded-ordinary-profile)
+GPT-family/observed-effort policy, receipt-before-access, no-backfill, replay and
+topology fences. Select the version explicitly in project connection setup.
+
+The 2026-10-16 macOS arm64 / Node 24 native trial used gpt-6.1-sol/high,
+read-only/on-request/no-daemon and one explicitly approved network-only connector.
+It verified three fresh linked sources, six observed requests (parent four, each
+child one), three excluded connection-baseline requests and owned process teardown.
+The source now has its own exact provenance; file/workflow compatibility and
+historical profiles/pins remain unchanged.
+
+Costs remain partial reference estimates, never complete totals or vendor bills.
+Resume, deeper/additional descendants, tool-owned launch and inferential adoption
+are not admitted by this profile. Terminal/incomplete-response completeness is not
+qualified. See the [native acceptance record](../validation/codex-ordinary-binding-qualification.md#2026-10-16-ordinary-route-acceptance).
 
 ## Codex 0.162.1 bounded ordinary profile
 
