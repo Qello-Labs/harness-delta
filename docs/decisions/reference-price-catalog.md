@@ -217,6 +217,99 @@ policy bound to validated artifact bytes. No native rerun or exact counter/TTL
 qualification was performed: Claude binding versions remain candidates, inherited
 source observations remain unverified, complete cost and inference remain closed.
 
+## October 16 refresh candidate (catalog v4, schema 3)
+
+The unpublished [candidate](../../config/prices/catalogs/reference-catalog-2026-10-16-v4.json)
+has ID `reference-catalog-2026-10-16` and catalog version **4**, but retains
+**schema 3**, policy `reference-standard-observed-cache-ttl-v3`, matching version
+`exact-catalog-observed-cache-ttl-v3` and arithmetic `decimal160-disjoint-v1`.
+Catalog version counts immutable data releases; it does not select a new schema.
+It does not change the bootstrap, online source, defaults, existing pins or results.
+Its proposed tag is `reference-prices-2026-10-16-v4`; preparation is not publication.
+See the [candidate release notes](../release-notes/reference-prices-2026-10-16-v4.md)
+for capability, artifact identity and remaining release gates.
+
+All eleven canonical models and both aliases were checked on **2026-10-16 UTC**:
+[OpenAI pricing](https://developers.openai.com/api/docs/pricing),
+[OpenAI models](https://developers.openai.com/api/docs/models),
+[Anthropic pricing](https://platform.claude.com/docs/en/about-claude/pricing),
+[Anthropic model IDs](https://platform.claude.com/docs/en/models/overview) and
+[cache rates and usage](https://platform.claude.com/docs/en/build-with-claude/prompt-caching).
+The eight existing rows retain their rates. GPT-5.6 Sol and GPT-5.6 Cyber add
+literal short-context Standard rate sets; Claude Mythos 5.1 adds its global
+Standard/observed-TTL rates without new matching predicates.
+The [Sol model page](https://developers.openai.com/api/docs/models/gpt-5.6-sol)
+verifies `gpt-5.6` as its explicit alias; no suffix removal is introduced.
+The [Haiku 4.5 page](https://platform.claude.com/docs/en/models/haiku-4-5/overview)
+reconfirms its dated ID and `claude-haiku-4-5` alias. The
+[Mythos model page](https://platform.claude.com/docs/en/models/mythos-5-1/overview)
+confirms `claude-mythos-5-1` and its cache rates. The five current Claude
+models use their literal dateless IDs, not fabricated dated snapshots.
+
+Full candidate rates follow, in USD per **1,000,000 tokens**. OpenAI cache writes
+are its separately listed write component, not Anthropic TTL writes; `n/a` means
+no one-hour rate is asserted, not zero.
+
+| Canonical model / whole-request prompt tier | Ordinary input | Cache read | Cache write / Claude 5m | Claude 1h write | Output |
+| --- | --- | --- | --- | --- | --- |
+| `gpt-6-astra` | 10 | 1 | 12.5 | n/a | 50 |
+| `gpt-6.1-sol` | 2 | 0.1 | 2.5 | n/a | 10 |
+| `gpt-6-luna` | 0.1 | 0.01 | 0.125 | n/a | 0.5 |
+| `gpt-5.6-sol` (alias `gpt-5.6`), current promotion | 4 | 0.4 | 5 | n/a | 20 |
+| `gpt-5.6-cyber` | 12.5 | 1.25 | 15.625 | n/a | 75 |
+| `claude-fable-5-1` | 10 | 0.25 | 12.5 | 20 | 50 |
+| `claude-mythos-5-1` | 10 | 0.25 | 12.5 | 20 | 50 |
+| `claude-opus-5-5` | 4 | 0.2 | 5 | 8 | 20 |
+| `claude-sonnet-5-5` | 2 | 0.1 | 2.5 | 4 | 10 |
+| `claude-haiku-4-5-20251001` (alias `claude-haiku-4-5`) | 1 | 0.1 | 1.25 | 2 | 5 |
+| `claude-haiku-5-5`, prompt <=100,000 | 0.1 | 0.01 | 0.125 | 0.2 | 0.5 |
+| `claude-haiku-5-5`, prompt >100,000 | 0.5 | 0.05 | 0.625 | 1 | 2.5 |
+
+The official Sol pricing is promotional, available **at least through
+2026-11-21**. The vendor does not specify an exact ending instant, so
+`effective_until` remains null rather than inventing one. This snapshot does not
+represent post-promotion rates; changed prices require a fresh immutable catalog.
+Reconfirm the Sol promotion status before publication or use as a current-price
+reference after that date. An existing frozen pin remains a historical reference.
+
+Haiku retains the existing verified whole-request boundary requirement and TTL
+split semantics, including the 100,000/100,001 boundary. For all Claude writes,
+only explicit consistent numeric 5m/1h splits are priced; aggregate tokens remain
+observed when TTL is missing, partial, invalid or historical boolean-only.
+The write cost then remains `unverified_condition`; an absent rate for an observed
+condition remains `missing_rate`. No collection or metadata contract changes.
+
+This is bounded reference coverage, not an exhaustive vendor inventory:
+
+| Unsupported model or condition | Candidate behavior |
+| --- | --- |
+| Models absent from the candidate, including Rosalind research/science, GPT-6 Astra Pro and other unlisted legacy models | `unknown_model`; observed tokens remain; no family fallback |
+| Invented dated IDs or effort/Fast suffixes | `unknown_model`; no normalization |
+| OpenAI long-context billing, Fast/Ultrafast/Priority/Flex/Batch, Claude Fast/Batch, US-only/other regional rates, Fable boost over 500K, service/tool/media charges, subscriptions and discounts | No such rate or predicate is implemented; only the explicit Standard short-context/global reference is supplied |
+| Missing/conflicting Haiku request evidence or Claude TTL split | Existing `unverified_condition` behavior; other eligible components may remain partial |
+| Reseller or different verified provider | `unsupported_provider`; no first-party billing claim |
+
+The matcher does not observe or infer actual service tier, geography, boost state
+or OpenAI context tariff. It can still return the explicit reference-policy
+amount; that is not validation of those unsupported billing conditions.
+OpenAI's pricing table omits Cyber long-context rates while its
+[model page](https://developers.openai.com/api/docs/models/gpt-5.6-cyber) lists
+them. Only their consistent short-context rates enter this candidate. Resolving
+long-context selection would require a separately approved contract; none is added.
+All exact vendor effective timestamps remain null. Midnight `verified_at` and
+proposed `published_at` represent the checked day, not a vendor effective instant
+or evidence that the candidate has been published.
+
+Minimum client capability remains **`catalog-cache-ttl-v3`**: schema-3 parsing,
+observed-TTL policy/tables/arithmetic, Haiku request evidence and numeric TTL usage
+metadata. Its reviewed implementation is
+`c7ee96fc80d3e9046f476200c44b834aae45246e`, merged as
+`62f3841f79bb37c9b3b4e49dc78ce893109063e4`. No semantic-version floor exists.
+Catalog v4 is readable by that capability; it does not need a schema-4 client.
+V1/v2-only clients must reject its policy/schema and retain accepted prices.
+This data refresh grants no native admission, counter qualification, complete
+cost, trust promotion or inference. Existing frozen inputs are not backfilled.
+
 ## Distribution, update and pin
 
 The bootstrap ships in `dist/catalogs`; a local database retains the last accepted

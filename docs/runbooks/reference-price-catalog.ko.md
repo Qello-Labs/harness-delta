@@ -53,6 +53,25 @@ v2를 사용하기 전에 클라이언트를 업데이트하세요. 이전 클�
 `missing_rate`는 관측된 조건의 단가 부재를 뜻합니다.
 [v3 지원 한계](../decisions/reference-price-catalog.md#observed-cache-ttl-v3)를 확인하세요.
 
+미게시 [2026-10-16 후보(카탈로그 v4, 스키마 3)](../decisions/reference-price-catalog.md#october-16-refresh-candidate-catalog-v4-schema-3)는
+기존 단가를 모두 재확인하고 `gpt-5.6-sol`(명시적 별칭 `gpt-5.6`)과
+`gpt-5.6-cyber`의 Standard short-context 기준 단가와
+`claude-mythos-5-1`의 global Standard/관측된 TTL 기준 단가를 추가합니다.
+새 스키마 4 클라이언트가 아니라 기존 `catalog-cache-ttl-v3` 기능이 필요합니다.
+Sol은 **최소 2026-11-21까지** 제공되는 프로모션 단가를 사용합니다. 정확한 종료
+시각은 알 수 없어 `effective_until`은 null을 유지하며, 프로모션 이후 단가는 새
+카탈로그가 필요합니다. 게시 전이나 해당 날짜 이후 현재 단가로 취급하기 전에
+프로모션 상태를 다시 확인하세요.
+번들, 온라인 공급원, 기본값과 기존 고정 기준은 변경하지 않습니다.
+Haiku 요청 구간과 Claude의 관측된 5분·1시간 쓰기 조건도 그대로입니다.
+요청 근거나 TTL이 없으면 해당 가격은 `unverified_condition`으로 남으며,
+목록에 없는 모델은 `unknown_model`로 남지만 관측한 토큰은 보존합니다.
+Fast/Ultrafast/Priority/Flex/Batch, 장문 컨텍스트 청구, 지역/boost 조건,
+도구·미디어, 구독과 할인은 계산하지 않습니다. 매칭 결과는 명시적인 Standard
+short-context/global 기준 추정일 뿐 실제 청구 조건을 입증하지 않습니다.
+[후보 릴리스 안내](../release-notes/reference-prices-2026-10-16-v4.md)에 전체 범위와
+남은 검증이 있습니다. 이 후보를 게시된 온라인 업데이트로 취급하지 마세요.
+
 UI는 부분 비용과 원본/호환성 미검증 참고 비용을 따로 표시합니다.
 단가 없는 사용량 안내에는 토큰은 관측됐지만 비용에서 제외한 캐시 쓰기가 포함될 수
 있습니다. CLI 매칭 행에서 조건 상세를 확인하세요. 가격 지원은 네이티브 원본·카운터를

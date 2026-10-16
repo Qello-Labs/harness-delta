@@ -54,6 +54,26 @@ can remain partial. `matches[].cache_ttl` explains each matched duration;
 while `missing_rate` means no rate for an observed condition. See the
 [v3 support limits](../decisions/reference-price-catalog.md#observed-cache-ttl-v3).
 
+The unpublished [2026-10-16 candidate (catalog v4, schema 3)](../decisions/reference-price-catalog.md#october-16-refresh-candidate-catalog-v4-schema-3)
+rechecks all existing rates and adds the Standard short-context references for
+`gpt-5.6-sol` (explicit alias `gpt-5.6`) and `gpt-5.6-cyber`, plus the global
+Standard/observed-TTL rates for `claude-mythos-5-1`.
+It still requires `catalog-cache-ttl-v3`, not a new schema-4 client.
+Sol uses promotional rates available **at least through 2026-11-21**. The exact
+ending instant is unknown, so `effective_until` stays null; post-promotion prices
+need a new catalog. Recheck the promotion before publication or treating this
+snapshot as current after that date.
+It does not change the bundle, online source, defaults or existing pins.
+Haiku request tiers and Claude observed 5m/1h write conditions remain unchanged.
+Missing request evidence or TTL leaves affected prices `unverified_condition`;
+unlisted models remain `unknown_model` while observed tokens remain stored.
+Fast/Ultrafast/Priority/Flex/Batch, long-context billing, regional/boost modifiers,
+tools/media, subscriptions and discounts are not priced. The matcher supplies
+only the explicit Standard short-context/global reference, not proof of those
+actual billing conditions. The [candidate release notes](../release-notes/reference-prices-2026-10-16-v4.md)
+record full scope and pending validation. Do not treat this candidate as a published
+online update.
+
 The UI shows partial amounts and separate source/compatibility unverified references.
 An unpriced-usage notice can include excluded cache writes even when their tokens
 are observed. The CLI match rows provide condition details. Price support does not
