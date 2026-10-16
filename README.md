@@ -31,6 +31,16 @@ Codex 일반 세션 수집은 배정 없는 일반 Claude 작업 모드가 아�
 The procedure covers installation → A/B setup → launch → stop/pause/resume/new session →
 human outcome → partial cost and missingness → recovery.
 
+Newer-version support is in progress. The repository update targets on
+2026-10-16 are Claude Code 2.1.301 and Codex 0.163.0: existing file and selected
+workflow windows label them `compatibility_unverified`, but target-binary
+conformance and ordinary connection admission remain pending. Conditional parser
+reuse does not extend the exact connection routes above. Ordinary connections
+outside their admitted versions still return fixed codes such as
+`claude_source_version_unsupported`. Route-specific status is tracked in
+[Harness Connect](docs/runbooks/harness-connect.md#current-implementation) and
+[ADR 013](docs/decisions/013-forward-version-compatibility.md).
+
 ## Documentation
 
 | Need | English | 한국어 |
