@@ -7,6 +7,17 @@ import { z } from 'zod';
 import { main } from '../src/cli.js';
 import { describeCliError } from '../src/cli-errors.js';
 
+test.each([
+  Object.assign(new Error("The module '/private/PRIVATE_SENTINEL/better_sqlite3.node' was compiled against a different Node.js version using NODE_MODULE_VERSION 137. This version of Node.js requires NODE_MODULE_VERSION 141."), { code: 'ERR_DLOPEN_FAILED' }),
+  new Error("Could not locate the bindings file. Tried:\n /private/PRIVATE_SENTINEL/better_sqlite3.node"),
+  Object.assign(new Error("dlopen(/private/PRIVATE_SENTINEL/better_sqlite3.node): incompatible architecture"), { code: 'ERR_DLOPEN_FAILED' }),
+])('native loading errors receive sanitized recovery', error => {
+  const lines = describeCliError(error);
+  expect(lines[0]).toBe('native_dependency');
+  expect(lines).toHaveLength(2);
+  expect(lines.join('\n')).not.toContain('PRIVATE_SENTINEL');
+});
+
 test('fixed codes are shown with a hint; other messages fall back without echoing content', () => {
   expect(describeCliError(new Error('binary_mismatch'))).toEqual(['binary_mismatch', expect.stringMatching(/^hint: binary SHA-256/)]);
   expect(describeCliError(new Error('report_conflict'))).toEqual(['report_conflict']);

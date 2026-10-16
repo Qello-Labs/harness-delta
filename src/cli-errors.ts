@@ -11,6 +11,8 @@ const fallback = 'input_or_state_error';
 
 /** One-line next actions for codes a first-time workflow user commonly meets. */
 const hints: Record<string, string> = {
+  ui_metadata_cleanup_pending: 'Measurement deletion is committed, but private UI cleanup is pending. Restore access to the same registered metadata file and retry the deletion or retention command; do not replace that database.',
+  native_dependency: 'Select Node.js 24 or 26 and verify node --version, then run npm ci in the checkout with that selected runtime. Run npm run build and retry using the same Node runtime.',
   application_preview_changed: 'run application preview again and review the current files before restoring',
   application_restore_conflict: 'preserve and review changed or unreported checkpoint files; no files were restored',
   application_restoration_required: 'finish restoration in the current workspace before reapplying or selecting another worktree',
@@ -74,6 +76,11 @@ export function describeCliError(error: unknown): string[] {
     if (error instanceof z.ZodError) {
       return ['invalid_input', ...error.issues.slice(0, 5).map(issue => `  at ${safePath(issue.path)}: ${codePattern.test(issue.message) ? issue.message : issue.code}`)];
     }
+    if (error instanceof Error && (
+      ('code' in error && error.code === 'ERR_DLOPEN_FAILED') ||
+      /NODE_MODULE_VERSION/.test(error.message) ||
+      (/Could not locate the bindings file/.test(error.message) && /better_sqlite3/.test(error.message))
+    )) return ['native_dependency', `hint: ${hints.native_dependency}`];
     if (error instanceof Error && codePattern.test(error.message)) {
       const hint = hints[error.message];
       return hint ? [error.message, `hint: ${hint}`] : [error.message];

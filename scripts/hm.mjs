@@ -18,6 +18,13 @@ export async function launch(argv, root = new URL('../', import.meta.url), nodeV
   const require = createRequire(new URL('package.json', root));
   try { require.resolve('better-sqlite3'); require.resolve('commander'); }
   catch { return fail('dependencies_required', 'Run npm ci with Node.js 24 or 26 in the checkout, then npm run build and retry.', 4); }
+  try {
+    const Database = require('better-sqlite3');
+    const probe = new Database(':memory:');
+    probe.close();
+  } catch {
+    return fail('native_dependency', 'Select Node.js 24 or 26 and verify node --version, then run npm ci in the checkout with that selected runtime. Run npm run build and retry using the same Node runtime.', 4);
+  }
   const { main } = await import(entry.href);
   return main(argv);
 }
