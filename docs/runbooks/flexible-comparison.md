@@ -154,7 +154,10 @@ Further validation requires separate approval: additional exact source versions,
 model/effort combinations beyond the tested start/resume pair, request retries,
 child topologies or operations beyond the admitted fresh-root/single-direct-child
 profile, including family resume, compaction, terminal accounting and durable
-flush. Claude child execution remains unsupported. Later validation also needs a
+flush. Claude Code 2.1.296 separately admits a fresh read-only parent with at most
+one fresh read-only `workflow-child` under `claude-workflow-direct-child-v1`.
+Deeper, additional, background, isolated or editing children, child resume and
+conditional-version child execution remain unsupported. Later validation also needs a
 continuous-cost/repeated-person method and selected experiment
 inputs. Registration and reporting commands do not launch products, change
 authentication or invent an actual experiment. Native launch/resume require the

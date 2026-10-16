@@ -17,9 +17,10 @@ Claude Code 2.1.296(`claude-workflow-own-trace-v1`, 부모 전용; `claude-workf
 | 원하는 workflow | 절차와 지원 경계 |
 | --- | --- |
 | 브라우저에서 작업 준비와 결과 검토 | [로컬 브라우저 workflow](local-browser-ui.ko.md); guided setup은 저장 전에 입력을 검토하며 수집을 시작하지 않음 |
-| 일반 터미널 세션 연결 | [Harness Connect](harness-connect.ko.md); 운영자가 별도로 승인하는 `functional_pilot`만 허용; 일반 production source는 계속 차단 |
+| A/B 배정 없는 일반 Claude 관측 | [일반 UI 흐름](harness-connect.ko.md#일반-claude-관측-지원-검증-대기); 정확한 원본·binary 조건에서 일반 사용 허용; native 지원 검증 대기; pilot 플래그 불필요 |
+| Codex 0.162.1 일반 가족 | [제한된 일반 profile](harness-connect.ko.md#codex-01621-제한-일반-profile); 동결된 `functional_pilot` protocol과 배정, 새 root 하나와 새 직계 자식 최대 두 개; 배정 없는 일반 작업 모드가 아님 |
 | Codex 0.162.0 일반 root | [root 전용 파일럿](harness-connect.ko.md#codex-01620-일반-root-로컬-pilot); 운영자가 승인한 관측, 새 root 하나만 허용, 자식 미지원 |
-| Claude 일반 가족 | [사용자 조작 파일럿](harness-connect.ko.md#claude-사용자-조작-ui-pilot); 정확한 후보 버전, 새 부모와 새 구성원 최대 두 개 |
+| Claude 비교/pilot 가족 | [사용자 조작 파일럿](harness-connect.ko.md#claude-사용자-조작-ui-pilot); 별도 로컬 pilot 권한과 candidate-provider 플래그, 정확한 profile 버전, 새 부모와 새 구성원 최대 두 개; 일반 작업 흐름과 별개 |
 | Codex 0.160.0 시작 티켓 | [외부 세션 workflow](external-session-workflow.ko.md); 정확한 새 root와 티켓, 자동 가족 상속 없음 |
 
 이 경로들의 원본 및 권한 조건은 서로 다릅니다. launch workflow의 호환성
@@ -321,8 +322,22 @@ node dist/cli.js --db .harness-delta/pilot/local.sqlite workflow codex resume \
   --execution .harness-delta/pilot/resume.json --confirmation confirmation-2
 ```
 
-Claude Code에는 이 절차의 resume·link가 없습니다. 같은 작업에서 새 `run_id`와 확인 ID로
-`workflow claude launch`를 다시 실행해 이어가세요. 새 세션에는 이전 대화가 없습니다.
+Claude의 정확한 부모 전용 profile에서는 `"resumable": true`로 유지한 launch를
+`claude-resume.json`으로 재개하세요. `operation: "resume"`, 새 `run_id`,
+같은 작업의 이전 유지 실행을 가리키는 `resume_run_id`를 지정하고 workspace를 유지하세요.
+read-only로 유지한 launch와 read-only resume만 native 증거가 있으며,
+편집 모드 resume과 권한 변경은 입증되지 않았습니다.
+
+```sh
+node dist/cli.js --db .harness-delta/pilot/local.sqlite workflow claude resume \
+  --config .harness-delta/pilot/workflow.json --runtime .harness-delta/pilot/runtime.json \
+  --execution .harness-delta/pilot/claude-resume.json --confirmation confirmation-2
+```
+
+Claude 자식·조건부 버전의 resume과 외부 link는 미지원입니다.
+유지한 부모 세션이 없으면 같은 작업에서 새 `run_id`와 확인 ID로
+`workflow claude launch`를 실행하세요. 새 세션에는 이전 대화가 없습니다.
+[Claude resume 제한](task-native-workflow.md#claude-resume)을 확인하세요.
 
 다른 독립 루트는 같은 workflow 파일을 유지하고 `launch.json`의 `run_id`, prompt를 새 값으로 바꾸세요.
 새 확인 ID로 5단계의 launch 명령을 실행하세요.

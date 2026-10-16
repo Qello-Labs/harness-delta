@@ -15,13 +15,13 @@ From the checkout:
 ```sh
 npm ci
 npm run build
-npm start -- --db local.sqlite ui --setup reviewed-ui-setup.json
+npm start -- --db local.sqlite ui
 ```
 
 After main CLI registration, the equivalent command is:
 
 ```sh
-hm --db local.sqlite ui --setup reviewed-ui-setup.json
+hm --db local.sqlite ui
 ```
 
 Open the printed `http://127.0.0.1:4318` address. `--port` changes only the local
@@ -33,6 +33,31 @@ again after switching Node majors to rebuild SQLite for the selected runtime. Th
 reports `unsupported_node` (exit 2), `build_required` (exit 3), or
 `dependencies_required` (exit 4) before importing SQLite. Follow its instructions
 in the checkout; it never installs an AI product or switches your global runtime.
+
+No setup file is required to open an empty UI. For ordinary Claude observation,
+register a project in **Setup**, configure its Claude connection, preview and install
+the project package, then choose **Ordinary Claude observation** in **New task**.
+Choose a name, project and completion criterion; no comparison, protocol or A/B
+assignment is required. Follow the [ordinary connection steps](harness-connect.md#ordinary-claude-observation-qualification-pending).
+The comparison setup below is optional and applies to assigned A/B tasks.
+To load an already reviewed comparison at startup, add `--setup reviewed-ui-setup.json`.
+
+## Local deletion and private metadata
+
+The CLI's task/project deletion and retention commands also scrub registered private
+UI task/source records and cached responses. Consumed action keys stay blocked, so
+retrying an old request cannot recreate a deleted task. Cleanup uses a durable journal
+after measurement deletion commits; the two database files are not one atomic transaction.
+`ui_metadata_cleanup_pending` means deletion authority is committed but private
+cleanup is unfinished. Restore access to the same metadata file and retry the command.
+Store startup also retries pending cleanup; replaced or unsafe files are not modified.
+
+The UI registers its metadata files when opened, including a custom `--metadata`
+path. After upgrading, open each previously used custom UI metadata file once before
+relying on CLI deletion to erase it. An unopened, previously unregistered custom
+file cannot be discovered by the CLI. Opening it reconciles existing tombstones
+before exposing private records. Previously exported files and native transcripts
+remain outside local task deletion.
 
 ## Measurement criteria for tasks
 
@@ -193,16 +218,21 @@ gates remain separate checks when choosing and preparing a task.
 
 ## Choose a connection path
 
-The steps below describe the exact Codex 0.160.0 ticket path. For ordinary
+The numbered steps below describe the exact Codex 0.160.0 ticket path. For ordinary
 terminal sessions and family collection, use [Harness Connect](harness-connect.md).
-That path has separate profile evidence and local pilot authority, including
-Codex 0.162.0/0.162.1 roots and Claude 2.1.291/2.1.293/2.1.294/2.1.296 families;
-2.1.296 is qualified only for bounded native print-mode evidence, not interactive
-qualification or production admission. Every ordinary Claude profile requires
-`allowCandidateProfiles: true`; default provider refusal and ordinary service admission
-remain closed. The labels `native_unverified_pilot`, `legacy_unverified` and
-`candidate_pilot` remain; installing a skill alone does not enable collection.
-File or launch-workflow compatibility windows do not widen either UI source gate.
+Assignment-free ordinary Claude observation is admitted for normal use under the
+code-owned profile's exact source version and binary hash; native qualification
+remains pending (`qualified: false`). It requires no pilot flag or
+`allowCandidateProfiles: true`.
+Codex 0.162.1 bounded ordinary collection still uses a frozen `functional_pilot`
+protocol and assignment; it is not an assignment-free ordinary task mode.
+The separately authorized Codex root-only and Claude human-operated pilot routes
+retain their own gates. The Claude comparison/pilot provider still requires
+`allowCandidateProfiles: true`; its bounded print-mode qualification is not
+interactive qualification or ordinary admission. Historical labels
+`native_unverified_pilot`, `legacy_unverified` and `candidate_pilot` remain.
+Installing a skill alone does not enable collection, and file or launch-workflow
+compatibility windows do not widen these source gates.
 
 Setup, task details and Getting started show route-specific descriptions derived
 from the configured product/version and code-owned readiness metadata, not from
@@ -240,7 +270,8 @@ already starts authorized observation, so there is no second start button.
 
 **Installation and connection diagnostics** separates configured version, unknown
 installed version, project package, session, task binding, collection and source
-trust. Installation does not widen ordinary Claude admission, which remains closed.
+trust. Installation does not widen the admitted ordinary Claude source/binary scope
+or establish native qualification.
 Failed connection attempts retain a sanitized blocker code in the local task UI.
 No command or project path is included in measurement records or shared reports.
 

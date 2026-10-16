@@ -72,7 +72,11 @@ node dist/cli.js --db .harness-delta/pilot/local.sqlite price-table estimate-tas
 명시적 가격표 결과는 명시적 가격표 보고서 형식을 유지합니다.
 `compatibility_unverified_partial_amount`와 `legacy_unverified_partial_amount`는
 verified `partial_amount`와 구분해서 읽으세요. [source 신뢰와 관측 범위](observed-cost.ko.md#4-금액누락관측-범위를-따로-읽기)를 참고하세요.
-배정된 V2 작업은 고정된 비교 기준을, 독립 작업은 현재 카탈로그를 사용합니다.
+일반 관측 작업은 생성 시점의 불변 가격 고정값(`ordinary_task_pin`)을 사용하며,
+비교 기준보다 먼저 선택합니다. 배정된 V2 작업은 고정된 비교 기준
+(`frozen_comparison`)을 사용합니다. 기존 독립 작업 등 두 고정값이 모두 없는 작업만
+현재 카탈로그(`current_catalog`)를 사용합니다. 카탈로그 갱신은 일반 작업의 가격
+고정값이나 동결된 비교 기준을 바꾸지 않습니다.
 과거의 명시적 비교 가격표도 계속 사용할 수 있습니다. 새 V2 비교 CLI 설정은
 `price_table_id`를 생략할 수 있으며 등록 시 한 번 채웁니다. 갱신은 등록된 기준을
 바꾸지 않습니다. 고급 `--price-table`은 [기존 명시적 절차](observed-cost.ko.md#1-가격표-선택하기)를 유지합니다.

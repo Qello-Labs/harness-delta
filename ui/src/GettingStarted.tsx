@@ -8,7 +8,7 @@ import type { Locale, Setup } from './types';
 export function GettingStarted({ locale, setups, onNavigate }: {
   readonly locale: Locale;
   readonly setups: readonly Setup[];
-  readonly onNavigate: (screen: 'setup' | 'tasks') => void;
+  readonly onNavigate: (screen: 'setup' | 'tasks' | 'new') => void;
 }) {
   const t = (en: string, ko: string) => locale === 'ko' ? ko : en;
   const steps = [
@@ -46,7 +46,7 @@ export function GettingStarted({ locale, setups, onNavigate }: {
           '평소 Claude 작업을 관측하거나 두 하네스 버전을 비교하세요. 이곳에서 준비와 측정 상태를 확인하고, 에이전트 실행과 결과 판정은 직접 합니다.')}</p>
       </div>
       <div className="flex flex-wrap gap-3">
-        <Button data-guide-link="setup" onClick={() => onNavigate('setup')}><Settings aria-hidden="true" />{t('Open settings', '설정 열기')}<ArrowRight aria-hidden="true" /></Button>
+        <Button data-guide-link="new" onClick={() => onNavigate('new')}><ListTodo aria-hidden="true" />{t('Choose task mode', '작업 모드 선택')}<ArrowRight aria-hidden="true" /></Button>
         <Button data-guide-link="tasks" variant="outline" onClick={() => onNavigate('tasks')}><ListTodo aria-hidden="true" />{t('Go to tasks', '작업 목록으로')}</Button>
       </div>
     </section>
@@ -62,9 +62,9 @@ export function GettingStarted({ locale, setups, onNavigate }: {
           <li>{t('Invoke harness-connect in your current native parent. Pause/resume controls observation; stop observation before connecting another task on the same retained native root.',
             '현재 네이티브 부모에서 harness-connect를 호출하세요. 일시중단·재개는 관측을 제어하며 유지된 native root를 다른 작업에 연결하기 전에 관측을 종료하세요.')}</li>
         </ol>
-        <p className="border-t pt-4 text-muted-foreground">{t('Native qualification is pending. No installation or copied prompt grants authority; blocked collection stays blocked. Costs remain partial.',
-          '네이티브 지원 검증은 대기 중입니다. 설치나 문구 복사로 권한을 부여하지 않으며 차단된 수집은 유지됩니다. 비용은 부분 관측입니다.')}</p>
-        <Button data-guide-link="ordinary-tasks" variant="outline" onClick={() => onNavigate('tasks')}>{t('Open tasks', '작업 열기')}<ArrowRight aria-hidden="true" /></Button>
+        <p className="border-t pt-4 text-muted-foreground">{t('Ordinary observation is allowed within the supported source route. Native qualification is pending; installation alone does not authorize collection. Costs remain partial.',
+          '지원되는 원본 경로에서 일반 관측을 사용할 수 있습니다. 네이티브 지원 검증은 대기 중이며 설치만으로 수집 권한을 부여하지 않습니다. 비용은 부분 관측입니다.')}</p>
+        <Button data-guide-link="ordinary-tasks" variant="outline" onClick={() => onNavigate('new')}>{t('Create a task', '새 작업 만들기')}<ArrowRight aria-hidden="true" /></Button>
       </CardContent>
     </Card>
 
@@ -132,7 +132,7 @@ export function GettingStarted({ locale, setups, onNavigate }: {
       <div className="max-w-2xl space-y-2"><h2 id="support-title" className="text-lg font-semibold">{t('Check before connecting', '연결 전에 확인할 것')}</h2>
         <p className="text-sm leading-relaxed text-muted-foreground">{t('Support depends on the configured product, version and connection route. The entries below describe configured settings, not detection of the installed agent. Follow the task’s support status; do not bypass a blocked connection.', '지원 여부는 설정된 제품·버전·연결 경로마다 다릅니다. 아래는 구성된 설정의 상태이며 설치된 에이전트를 탐지한 결과가 아닙니다. 작업의 측정 지원 상태를 따르고 차단된 연결을 우회하지 마세요.')}</p>
       </div>
-      {setups.length === 0 && <p className="rounded-lg bg-muted/60 p-4 text-sm">{t('No reviewed criteria connected yet. Open Settings to connect a project and review your inputs.', '아직 연결된 측정 기준이 없습니다. 설정에서 프로젝트와 검토된 입력을 연결하세요.')}</p>}
+      {setups.length === 0 && <p className="rounded-lg bg-muted/60 p-4 text-sm">{t('No comparison settings saved. Ordinary Claude observation does not require them; choose comparison only after reviewing its settings.', '저장된 비교 설정이 없습니다. 일반 Claude 관측에는 필요하지 않으며 비교 작업은 설정을 검토한 뒤 선택하세요.')}</p>}
       {setups.map(setup => setup.support_details && <Card key={setup.id}><CardContent className="space-y-3"><h3 className="font-medium">{setup.name}</h3><SupportGuidance support={setup.support_details} locale={locale} compact /></CardContent></Card>)}
       <p className="text-sm leading-relaxed text-muted-foreground">{t('Measurement excludes prompt, response and source-code contents. Collection requires a registered project, an active task and an authorized linked session.', '측정 데이터에는 프롬프트·응답·소스 코드 내용을 포함하지 않습니다. 수집은 등록된 프로젝트·활성 작업·관측 권한을 확인한 연결 세션 범위에서만 진행합니다.')}</p>
     </section>

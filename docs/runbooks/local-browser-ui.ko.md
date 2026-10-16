@@ -15,13 +15,13 @@ UI는 인증 변경, 커밋 생성, 서비스 외부 공개를 하지 않습니�
 ```sh
 npm ci
 npm run build
-npm start -- --db local.sqlite ui --setup reviewed-ui-setup.json
+npm start -- --db local.sqlite ui
 ```
 
 메인 CLI 등록 후에는 같은 동작을 다음 명령으로 실행합니다.
 
 ```sh
-hm --db local.sqlite ui --setup reviewed-ui-setup.json
+hm --db local.sqlite ui
 ```
 
 표시된 `http://127.0.0.1:4318` 주소를 여세요. `--port`는 로컬 포트만 바꾸며
@@ -33,6 +33,32 @@ hm --db local.sqlite ui --setup reviewed-ui-setup.json
 import하기 전에 `unsupported_node`(exit 2), `build_required`(exit 3),
 `dependencies_required`(exit 4)를 구분합니다. 체크아웃에서 표시된 안내를 따르세요.
 AI 제품을 설치하거나 전역 runtime을 바꾸지는 않습니다.
+
+빈 UI를 여는 데 설정 파일은 필요하지 않습니다. 일반 Claude 관측은 **설정**에서
+프로젝트를 등록하고 Claude 연결을 설정한 뒤, 프로젝트 패키지를 미리보기·설치하세요.
+**새 작업**에서 **일반 Claude 관측**을 선택하고 이름·프로젝트·완료 기준을 지정하세요.
+비교·protocol·A/B 배정은 필요하지 않습니다.
+[일반 연결 절차](harness-connect.ko.md#일반-claude-관측-지원-검증-대기)를 따르세요.
+아래 비교 설정은 선택 사항이며 배정된 A/B 작업에 적용됩니다.
+검토한 비교를 시작할 때 불러오려면 `--setup reviewed-ui-setup.json`을 추가하세요.
+
+## 로컬 삭제와 비공개 메타데이터
+
+CLI의 작업·프로젝트 삭제와 보존 기간 정리는 등록된 비공개 UI 작업·원본
+기록과 응답 캐시도 제거합니다. 사용된 동작 키는 계속 차단하므로 이전 요청을
+재시도해도 삭제한 작업을 다시 만들지 않습니다. 측정 데이터 삭제가 커밋된 뒤
+영속 정리 기록으로 후속 삭제를 수행하며, 두 데이터베이스 파일을 하나의
+원자적 트랜잭션으로 처리하지는 않습니다. `ui_metadata_cleanup_pending`은
+삭제 권한 처리는 커밋됐지만 비공개 데이터 정리가 끝나지 않았다는 뜻입니다.
+동일한 메타데이터 파일에 대한 접근을 복구하고 명령을 다시 실행하세요.
+Store 시작 시에도 미완료 정리를 재시도하며 교체되었거나 안전하지 않은 파일은 수정하지 않습니다.
+
+UI를 열면 사용자 지정 `--metadata` 경로를 포함한 메타데이터 파일을 등록합니다.
+업그레이드 후에는 이전에 사용한 각 사용자 지정 UI 메타데이터 파일을 한 번
+열고 나서 CLI 삭제에 해당 파일의 정리까지 맡기세요. 아직 열지 않아 등록되지
+않은 기존 사용자 지정 파일은 CLI가 발견할 수 없습니다. 해당 파일을 열 때
+기존 tombstone을 반영한 뒤 비공개 기록을 노출합니다. 이미 내보낸 파일과
+네이티브 대화 기록은 로컬 작업 삭제 범위에 포함되지 않습니다.
 
 ## 작업에 적용할 측정 기준
 
@@ -180,16 +206,19 @@ JS
 
 ## 연결 경로 선택
 
-아래 단계는 정확한 Codex 0.160.0 티켓 경로입니다. 일반 터미널 세션과 가족 수집은
-[Harness Connect](harness-connect.ko.md)를 사용하세요. 해당 경로는 별도의 profile
-증거와 로컬 파일럿 권한을 요구하며 Codex 0.162.0/0.162.1 root와
-Claude 2.1.291/2.1.293/2.1.294/2.1.296 가족을 포함합니다.
-2.1.296의 qualified 상태는 제한된 native print-mode 증거만 뜻하며 대화형 검증이나
-제품 수집 허용이 아닙니다. 모든 ordinary Claude profile에는 `allowCandidateProfiles: true`가
-필요하며 기본 provider 거부와 ordinary service 수집 gate는 계속 닫혀 있습니다.
-`native_unverified_pilot`, `legacy_unverified`, `candidate_pilot` label은 유지됩니다.
-skill 설치만으로 수집이 허용되지는 않습니다. 파일·launch workflow의 호환 범위가
-두 UI 경로의 source 허용 범위를 넓히지는 않습니다.
+아래 번호 단계는 정확한 Codex 0.160.0 티켓 경로입니다. 일반 터미널 세션과 가족 수집은
+[Harness Connect](harness-connect.ko.md)를 사용하세요.
+배정 없는 일반 Claude 관측은 코드 소유 profile의 정확한 원본 버전과 binary hash에서
+일반 사용이 허용되며, native 지원 검증은 대기 상태(`qualified: false`)입니다.
+pilot 플래그나 `allowCandidateProfiles: true`는 필요하지 않습니다.
+Codex 0.162.1의 제한된 일반 수집은 여전히 동결된 `functional_pilot` protocol과
+배정을 사용하며, 배정 없는 일반 작업 모드가 아닙니다.
+별도 승인된 Codex root 전용·Claude 사용자 조작 pilot 경로는 자체 gate를 유지합니다.
+Claude 비교/pilot provider에는 여전히 `allowCandidateProfiles: true`가 필요하며,
+제한된 print-mode 검증은 대화형 검증이나 일반 사용 허용을 뜻하지 않습니다.
+과거 `native_unverified_pilot`, `legacy_unverified`, `candidate_pilot` label은 유지됩니다.
+skill 설치만으로 수집이 허용되지는 않으며 파일·launch workflow의 호환 범위가
+이 source 허용 범위를 넓히지는 않습니다.
 
 설정·작업 상세·시작 안내는 설치 버전 탐지가 아닌 설정된 제품·버전과 코드의
 readiness metadata에서 경로별 설명을 만듭니다. 정확한 launch 원본 검증과
@@ -222,8 +251,8 @@ fixture의 준비 상태만 확인하세요. 네이티브 에이전트를 실행
 관측을 이미 시작하므로 측정 시작 버튼을 한 번 더 표시하지 않습니다.
 
 **설치·연결 진단 보기**에서 설정된 버전, 미확인 설치 버전, 프로젝트 패키지, 세션,
-작업 연결, 수집, 원본 신뢰 상태를 구분합니다. 설치만으로 일반 Claude 수집을
-허용하지 않으며 기존 차단은 유지합니다. 연결 실패 시 정해진 blocker 코드만
+작업 연결, 수집, 원본 신뢰 상태를 구분합니다. 설치는 허용된 일반 Claude 원본·binary
+범위를 넓히거나 native 지원 검증을 입증하지 않습니다. 연결 실패 시 정해진 blocker 코드만
 로컬 작업 UI에 남깁니다. 명령과 프로젝트 경로를 측정 기록이나 공유 보고서에 넣지 않습니다.
 
 시작 중·측정 중·일시중단·권한 철회·종료는 별도 상태입니다. 활성 수집에 사용량이

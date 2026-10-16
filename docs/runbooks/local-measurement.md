@@ -6,7 +6,8 @@ This is the legacy generic file-collection path. For first assigned A/B work, us
 See the [Codex exact-version admission and partial measurement workflow](codex-version-admission.md) for 0.158.0 and subsequent candidate versions.
 
 Ordinary Claude observation from the browser UI is a different path with its own
-admission, which is closed while native qualification is pending. See
+admission for normal use under exact source/binary gates; native qualification
+remains pending. No pilot flag is required. See
 [Harness Connect](harness-connect.md#ordinary-claude-observation-qualification-pending).
 It doesn't change this collector's versions, trust states or limits.
 

@@ -73,8 +73,12 @@ Catalog-backed results additionally include catalog provenance and exact compone
 matches. Explicit-table results retain the explicit-table report shape.
 Read `compatibility_unverified_partial_amount` and `legacy_unverified_partial_amount`
 separately from verified `partial_amount`; see [source trust and coverage](observed-cost.md#4-read-amount-missingness-and-coverage-separately).
-An assigned V2 task uses its frozen comparison reference; a standalone task uses
-the current catalog. Explicit historical comparison tables still work. New V2
+An ordinary observation task uses its immutable creation-time price pin
+(`ordinary_task_pin`), selected before any comparison reference. An assigned V2 task
+uses its frozen comparison reference (`frozen_comparison`). Only tasks without
+either pin, including legacy standalone tasks, use the current catalog
+(`current_catalog`). Catalog refresh changes neither ordinary task pins nor frozen
+comparison references. Explicit historical comparison tables still work. New V2
 comparison CLI configurations may omit `price_table_id`; registration fills it once.
 Refresh does not change that registered reference. Advanced `--price-table` retains
 the [previous explicit procedure](observed-cost.md#1-select-the-rate-table).
