@@ -11,6 +11,7 @@ import {
 import { IdSchema } from './contracts.js';
 import { CodexSessionBindingProvider } from './session-binding-codex.js';
 import type { Store } from './store.js';
+import { withLiveWebMetadataScope } from './local-web-metadata.js';
 
 const sourceRoot = z.string().min(1).max(4096).refine(path => isAbsolute(path) && resolve(path) === path && !/[\0\r\n]/.test(path));
 const settingsSchema = z.strictObject({
@@ -136,9 +137,11 @@ export function createCodexProjectSetupManager(store: Store, metadata: Database.
           product_version: parsed.product_version ?? effective.product_version,
           source_roots: parsed.source_roots ?? effective.source_roots,
         });
-        metadata.prepare('INSERT INTO web_codex_connections(project_id,settings) VALUES(?,?) ON CONFLICT(project_id) DO UPDATE SET settings=excluded.settings')
-          .run(projectId, JSON.stringify(next));
-        return inspect(projectId);
+        return withLiveWebMetadataScope(store, { projectId }, () => {
+          metadata.prepare('INSERT INTO web_codex_connections(project_id,settings) VALUES(?,?) ON CONFLICT(project_id) DO UPDATE SET settings=excluded.settings')
+            .run(projectId, JSON.stringify(next));
+          return inspect(projectId);
+        });
       }
       case 'preview-install':
       case 'preview-remove': {

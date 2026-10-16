@@ -151,10 +151,10 @@ export function createSetupReviewManager(
         if (issues.length) return { ready: false as const, issues };
         let result: ReturnType<typeof apply> | undefined;
         try {
-          privateDb.transaction(() => store.immediateTransaction(() => {
+          store.immediateTransaction(() => privateDb.transaction(() => {
             result = apply(input);
             throw rollback;
-          }))();
+          })());
         } catch (error) { if (error !== rollback) throw error; }
         finally { if (result) shared.discardPreview(result.preview.token); }
         if (!result) throw new Error('invalid_ui_setup');

@@ -186,7 +186,7 @@ export async function serveCodexSessionBindingQualificationUiPreparation(file:st
   };
   const forbidden=()=>Promise.reject(new Error('binding_qualification_prepare_only'));
   app=createLocalWebServer({origin:`http://127.0.0.1:${i.port}`,metadataFile:i.metadata,uiRoot:fileURLToPath(new URL('../dist/local-ui/',import.meta.url)),domain:{
-   async bootstrap(){const dto=z.object({tasks:z.array(z.object({id:z.string()}).passthrough())}).passthrough().parse(await ownedDomain.bootstrap());return{...dto,tasks:dto.tasks.map(t=>task(t.id))};},task,
+   metadataStore:store,async bootstrap(){const dto=z.object({tasks:z.array(z.object({id:z.string()}).passthrough())}).passthrough().parse(await ownedDomain.bootstrap());return{...dto,tasks:dto.tasks.map(t=>task(t.id))};},task,
    registerProject:forbidden,createTask:forbidden,refreshPrices:forbidden,chooseDirectory:forbidden,importSetup:forbidden,chooseSession:forbidden,
    async taskAction(id,action,input){if(id!==i.task_id||action!=='apply')throw new Error('binding_qualification_prepare_only');await ownedDomain.taskAction(id,action,input);return task(id);},
    async close(){await ownedDomain.close?.();store.close();},
@@ -211,7 +211,7 @@ export async function serveCodexSessionBindingQualificationResults(file:string,f
   const task=(id:string)=>{if(id!==i.task_id)throw new Error('binding_qualification_scope_invalid');const dto=z.object({version:z.string(),actions:z.array(z.object({code:z.string(),enabled:z.boolean(),reason:z.string().nullable()}))}).passthrough().parse(owned.task(id));return{...dto,actions:dto.actions.map(a=>permitted.has(a.code)?a:{...a,enabled:false,reason:'binding_qualification_results_only'})};};
   const forbidden=()=>Promise.reject(new Error('binding_qualification_results_only'));
   app=createLocalWebServer({origin:`http://127.0.0.1:${i.port}`,metadataFile:i.metadata,uiRoot:fileURLToPath(new URL('../dist/local-ui/',import.meta.url)),domain:{
-   async bootstrap(){const dto=z.object({tasks:z.array(z.object({id:z.string()}).passthrough())}).passthrough().parse(await owned.bootstrap());return{...dto,tasks:dto.tasks.map(t=>task(t.id))};},task,
+   metadataStore:store,async bootstrap(){const dto=z.object({tasks:z.array(z.object({id:z.string()}).passthrough())}).passthrough().parse(await owned.bootstrap());return{...dto,tasks:dto.tasks.map(t=>task(t.id))};},task,
    registerProject:forbidden,createTask:forbidden,refreshPrices:forbidden,chooseDirectory:forbidden,importSetup:forbidden,chooseSession:forbidden,
    async taskAction(id,action,input){if(id!==i.task_id||!permitted.has(action))throw new Error('binding_qualification_results_only');await owned.taskAction(id,action,input);return task(id);},
    async close(){await owned.close?.();store.close();},
@@ -331,6 +331,7 @@ export async function executeCodexSessionBindingQualification(file:string,consen
   };
   const forbidden=()=>Promise.reject(new Error('binding_qualification_control_only'));
   const serverDomain=i.route==='ordinary_admission'?{
+   metadataStore:store,
    async bootstrap(){const dto=z.object({tasks:z.array(z.object({id:z.string()}).passthrough())}).passthrough().parse(await ownedDomain.bootstrap());return{...dto,tasks:dto.tasks.map(task=>scopedTask(task.id))};},task:scopedTask,
    registerProject:forbidden,createTask:forbidden,refreshPrices:forbidden,chooseDirectory:forbidden,importSetup:forbidden,chooseSession:forbidden,
    bindSetup:forbidden,reviewSetup:forbidden,saveReviewedSetup:forbidden,applicationWorkspace:forbidden,applicationContext:forbidden,applicationLaunchContext:forbidden,applicationHandoff:forbidden,applicationReview:forbidden,

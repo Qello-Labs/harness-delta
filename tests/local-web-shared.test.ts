@@ -27,6 +27,38 @@ function pair(f: ReturnType<typeof localWebFixture>,name='Synthetic pair') {
   const {descriptor}=generateComparison(f.project,{schema_version:1,id:'baseline-vs-v2',name,arm_a:'baseline',arm_b:'v2'});
   return {path:join(f.project,'harness-config/comparisons/baseline-vs-v2.json'),descriptor};
 }
+test('shared setup acquires the Store writer lock before private metadata writes', async () => {
+  const f = localWebFixture(); const p = pair(f);
+  const domain = createLocalWebDomain({store:f.store,metadataFile:f.metadataFile,profiles:[f.profile],picker:()=>Promise.resolve(p.path)});
+  const competing = new Database(f.store.filename);
+  competing.pragma('busy_timeout = 0');
+  const prepare: unknown = Object.getOwnPropertyDescriptor(Database.prototype, 'prepare')?.value;
+  if (typeof prepare !== 'function') throw new Error('missing_original_prepare');
+  let checked = false;
+  const intercept = vi.spyOn(Database.prototype, 'prepare').mockImplementation(function (this: Database.Database, sql) {
+    if (sql.startsWith('INSERT OR IGNORE INTO web_shared_versions')) {
+      checked = true;
+      expect(() => competing.exec('BEGIN IMMEDIATE')).toThrow('database is locked');
+    }
+    return Reflect.apply(prepare, this, [sql]) as Database.Statement;
+  });
+  try {
+    const preview = await domain.importSetup!() as { token: string };
+    await domain.bindSetup!({token:preview.token,project_id:'project-1',template_id:f.profile.id});
+    expect(checked).toBe(true);
+    new Deletion(f.store).deleteProject('project-1');
+    const metadata = new Database(f.metadataFile);
+    try {
+      expect(metadata.prepare('SELECT * FROM web_shared_versions').all()).toEqual([]);
+      expect(metadata.prepare('SELECT * FROM web_profiles').all()).toEqual([]);
+    } finally { metadata.close(); }
+  } finally {
+    intercept.mockRestore();
+    if (competing.inTransaction) competing.exec('ROLLBACK');
+    competing.close();
+    await domain.close?.(); f.cleanup();
+  }
+});
 test('actual picker previews and binds a portable pair to an explicit reviewed local profile, repeats and survives restart', async()=>{
   const f=localWebFixture();const p=pair(f);let domain=createLocalWebDomain({store:f.store,metadataFile:f.metadataFile,profiles:[f.profile],picker:()=>Promise.resolve(p.path)});
   try {

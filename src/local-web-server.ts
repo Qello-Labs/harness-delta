@@ -10,12 +10,15 @@ import Database from 'better-sqlite3';
 import { z } from 'zod';
 import { OrdinaryProjectActionSchema, type OrdinaryProjectAction } from './local-web-ordinary.js';
 import { CodexProjectActionSchema, type CodexProjectAction } from './local-web-codex.js';
+import type { Store } from './store.js';
+import { registerWebMetadata, withLiveWebMetadataScope, type WebMetadataScope } from './local-web-metadata.js';
 
 /** Accepted imports retain imported:true; counts describe actual transactional saves. */
 export type LocalWebSetupImportResult = { cancelled: true } | { imported: true; added_count: number; existing_count: number };
 
 /** Transport boundary only; implementations call the shared domain/Store. */
 export interface LocalWebDomain {
+  readonly metadataStore: Store;
   bootstrap(): unknown;
   task(id: string): { version: string } & Record<string, unknown>;
   registerProject(directory: string): Promise<unknown>;
@@ -96,6 +99,7 @@ const safeCodes = new Set(['application_cleanup_pending','application_managed_re
   'claude_scope_mismatch', 'claude_source_missing', 'claude_source_stale', 'claude_source_untrusted',
   'claude_source_version_unobserved', 'claude_source_version_unsupported']);
 export function localWebError(error: unknown): string {
+  if (error instanceof Error && error.message === 'ui_metadata_cleanup_pending') return error.message;
   return error instanceof Error && (isLocalWebTaskErrorCode(error.message) || /^codex_connect_[a-z_]+$/.test(error.message) || safeCodes.has(error.message) || ['configuration_conflict', 'protocol_conflict', 'price_table_conflict', 'unknown_protocol', 'unknown_variant', 'unknown_price_table', 'incomplete_protocol', 'registration_too_late', 'ineligible_variant', 'configuration_mismatch', 'invalid_strata', 'overlapping_strata', 'synthetic_only'].includes(error.message)) ? error.message : 'local_operation_failed';
 }
 function sameSecret(input: string | undefined, expected: string): boolean {
@@ -114,6 +118,8 @@ export function createLocalWebServer(options: LocalWebOptions) {
   records.pragma('busy_timeout = 5000');
   records.exec(`CREATE TABLE IF NOT EXISTS web_actions (id TEXT PRIMARY KEY, request_hash TEXT NOT NULL,
     state TEXT NOT NULL, status INTEGER, response TEXT)`);
+  const store = options.domain.metadataStore;
+  registerWebMetadata(store, records);
   let queue: Promise<void> = Promise.resolve();
   app.addHook('onRequest', async (request, reply) => {
     reply.header('Cache-Control', 'no-store').header('X-Content-Type-Options', 'nosniff').header('Referrer-Policy', 'no-referrer')
@@ -149,8 +155,13 @@ export function createLocalWebServer(options: LocalWebOptions) {
     const previous = queue; queue = new Promise<void>(resolve => { unlock = resolve; }); await previous;
     try {
       // Re-read scope even on replay: deleted tasks must never return from cached responses.
-      const task = taskId ? options.domain.task(taskId) : null;
       const old = records.prepare('SELECT * FROM web_actions WHERE id=?').get(key) as { request_hash: string; state: string; response: string; status: number } | undefined;
+      if (old?.state === 'deleted') return { status: 400, result: { error: 'deleted_identifier' } };
+      const task = taskId ? options.domain.task(taskId) : null;
+      const projectId = task && typeof task.project_id === 'string' ? task.project_id
+        : body && typeof body === 'object' && 'project_id' in body && typeof body.project_id === 'string' ? body.project_id
+        : request.url.match(/^\/api\/projects\/([^/]+)\//)?.[1];
+      const scope: WebMetadataScope = { ...(taskId ? { taskId } : {}), ...(projectId ? { projectId } : {}) };
       if (old) {
         if (old.request_hash !== hash) throw new Error('ui_action_conflict');
         if (old.state === 'pending') throw new Error('ui_action_uncertain');
@@ -159,10 +170,32 @@ export function createLocalWebServer(options: LocalWebOptions) {
         return { status: old.status, result: cached };
       }
       if (task && request.headers['if-match'] !== task.version) throw new Error('ui_state_changed');
-      records.prepare("INSERT INTO web_actions(id,request_hash,state) VALUES (?,?,'pending')").run(key, hash);
+      withLiveWebMetadataScope(store, scope, () => {
+        records.prepare("INSERT INTO web_actions(id,request_hash,state,task_id,project_id) VALUES (?,?,'pending',?,?)")
+          .run(key, hash, taskId ?? null, projectId ?? null);
+      });
       let result: unknown; let status = 200;
       try { result = await execute(body); } catch (error) { result = { error: localWebError(error) }; status = 400; }
-      records.prepare("UPDATE web_actions SET state='done',status=?,response=? WHERE id=?").run(status, JSON.stringify(result), key);
+      const resultId = status === 200 && result && typeof result === 'object' && 'id' in result && typeof result.id === 'string'
+        ? result.id : undefined;
+      const completedScope = { ...scope,
+        ...(request.url === '/api/tasks' && resultId ? { taskId: resultId } : {}),
+        ...(request.url === '/api/projects' && resultId ? { projectId: resultId } : {}),
+      };
+      try {
+        withLiveWebMetadataScope(store, completedScope, () => {
+          const saved = records.prepare(`UPDATE web_actions SET state='done',status=?,response=?,task_id=?,project_id=?
+            WHERE id=? AND state='pending'`).run(status, JSON.stringify(result),
+            completedScope.taskId ?? null, completedScope.projectId ?? null, key);
+          if (saved.changes !== 1) throw new Error('deleted_identifier');
+        });
+      } catch (error) {
+        if (!(error instanceof Error) || error.message !== 'deleted_identifier') throw error;
+        store.immediateTransaction(() => {
+          records.prepare("UPDATE web_actions SET state='deleted',request_hash='',status=400,response=NULL WHERE id=?").run(key);
+        });
+        return { status: 400, result: { error: 'deleted_identifier' } };
+      }
       return { status, result };
     } finally { unlock?.(); }
   };

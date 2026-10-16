@@ -113,6 +113,30 @@ test('stop synchronously fences delayed read callbacks and drains before releasi
   expect(f.store.get<{ state: string }>('SELECT state FROM binding_root_segments')?.state).toBe('closed');
 });
 
+test('generic finalization releases the ordinary root for another task without old usage', async () => {
+  const f = fixture(); await f.connect(); f.usage(); f.advance();
+  await f.binding.tick(f.taskId);
+  f.advance(); f.life.finalize(f.taskId, 'success', ['accepted']);
+  const second = f.task(); f.use(f.binding, second); f.advance();
+  await expect(f.binding.connect(second, 'claude_code', f.receipt())).resolves.toMatchObject({ state: 'observing' });
+  expect(f.binding.status(f.taskId)).toMatchObject({ selected_root_id: null, requests: 1 });
+  expect(f.binding.status(second).requests).toBe(0);
+  expect(f.life.summary(f.taskId).outcome).toBe('success');
+});
+
+test('generic finalization fences a delayed ordinary read before another task can use its result', async () => {
+  const f = fixture(); await f.connect(); f.usage();
+  const entered = deferred<BindingReadBoundary | undefined>(); const release = deferred<void>();
+  f.onRead(boundary => { entered.resolve(boundary); return release.promise; });
+  const reading = f.binding.tick(f.taskId); const boundary = await entered.promise;
+  f.advance(); f.life.finalize(f.taskId, 'aborted', []);
+  expect(() => boundary?.baselineLedger?.add('after-finalize')).toThrow('binding_scope_revoked');
+  release.resolve();
+  await expect(reading).rejects.toThrow('binding_scope_revoked');
+  expect(f.store.eventCount()).toBe(0);
+  expect(f.binding.status(f.taskId).selected_root_id).toBeNull();
+});
+
 test('stop also fences acquisition waiting on metadata inspection before any reservation exists', async () => {
   const f = fixture(); const entered = deferred<void>(); const release = deferred<void>();
   f.onInspect(() => { entered.resolve(); return release.promise; });

@@ -19,6 +19,7 @@ import Database from 'better-sqlite3';
 import { z } from 'zod';
 import { Lifecycle } from './lifecycle.js';
 import { Store } from './store.js';
+import { registerWebMetadata, withLiveWebMetadataScope } from './local-web-metadata.js';
 import { comparisonProtocol, comparisonVariant, protocolRow } from './comparison.js';
 import { CodexWorkflowExecutionSchema } from './codex-workflow-adapter.js';
 import { recoverCodexWorkflow } from './codex-workflow-journal.js';
@@ -155,20 +156,23 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
   privateDb.exec(`CREATE TABLE IF NOT EXISTS web_profiles(id TEXT PRIMARY KEY, payload TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS web_tasks(id TEXT PRIMARY KEY,name TEXT NOT NULL,profile_id TEXT NOT NULL,setup TEXT NOT NULL,startup TEXT,source TEXT,reason TEXT);
     CREATE TABLE IF NOT EXISTS web_sources(handle TEXT PRIMARY KEY,task_id TEXT NOT NULL,payload TEXT NOT NULL)`);
+  registerWebMetadata(store, privateDb);
   const jobs = new Map<string, Job>(); const picker = options.picker ?? nativeLocalPicker;
-  const saveProfiles = (inputs: LocalWebProfile[]) => privateDb.transaction(() => {
+  const saveProfiles = (inputs: LocalWebProfile[]) => store.immediateTransaction(() => privateDb.transaction(() => {
     let addedCount = 0; let existingCount = 0;
     for (const input of inputs) {
       const profile = LocalWebProfileSchema.parse(input);
+      withLiveWebMetadataScope(store, { projectId: profile.setup.workflow.assignment.project_id }, () => {
       // Replacing an existing definition would silently change a user's setup.
       const old = privateDb.prepare('SELECT payload FROM web_profiles WHERE id=?').get(profile.id) as { payload: string } | undefined;
       if (old && old.payload !== JSON.stringify(profile)) throw new Error('ui_setup_conflict');
       const saved = privateDb.prepare('INSERT OR IGNORE INTO web_profiles(id,payload) VALUES (?,?)').run(profile.id, JSON.stringify(profile));
       addedCount += saved.changes;
       if (saved.changes === 0) existingCount++;
+      });
     }
     return { addedCount, existingCount };
-  })();
+  })());
   saveProfiles(options.profiles ?? []);
   const profiles = () => (privateDb.prepare('SELECT payload FROM web_profiles ORDER BY rowid').all() as { payload: string }[]).map(p => LocalWebProfileSchema.parse(JSON.parse(p.payload) as unknown));
   const applications=new ApplicationCoordinator(store,()=>[options.metadataFile,...profiles().flatMap(profile=>[profile.execution.codex_home,...(profile.session_binding?.product==='codex'?[profile.session_binding.receipt_directory,...profile.session_binding.source_roots]:profile.session_binding?[profile.session_binding.receipt_directory,profile.session_binding.claude_projects_directory]:[])])]);
@@ -435,7 +439,7 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
       action('revoke-collection', !finalized && !revoked, 'binding_scope_revoked'),
       action('finish-success', !finalized && connected, 'external_connection_required'),
       action('finish-failed', !finalized && connected, 'external_connection_required'),
-      action('finish-abandoned', !finalized && connected, 'external_connection_required'),
+      action('finish-abandoned', !finalized, 'finalized'),
     ];
     return {
       id, mode: 'ordinary' as const, name: record.name, project_id: task.project_id, setup_id: record.profile_id,
@@ -471,6 +475,7 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
     };
   };
   const domain: LocalWebDomain = {
+    metadataStore: store,
     async bootstrap() {
       codexProjects.pruneDeleted();
       await bindings.flushForgotten();
@@ -530,8 +535,10 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
           ...(input.size ? { expected_size: input.size } : {}),
           ...(input.assignee ? { assignee: input.assignee } : {}),
         });
-        privateDb.prepare('INSERT INTO web_tasks(id,name,profile_id,setup) VALUES (?,?,?,?)')
-          .run(id, input.name, 'ordinary-claude', JSON.stringify(ordinaryTaskSettings(store, id)));
+        withLiveWebMetadataScope(store, { taskId: id, projectId: input.project_id }, () => {
+          privateDb.prepare('INSERT INTO web_tasks(id,name,profile_id,setup,project_id) VALUES (?,?,?,?,?)')
+            .run(id, input.name, 'ordinary-claude', JSON.stringify(ordinaryTaskSettings(store, id)), input.project_id);
+        });
         return Promise.resolve(taskDto(id));
       }
       const profile = profileFor(input.setup_id); const existing = store.get<{ local_root: string }>('SELECT local_root FROM projects WHERE id=?', [input.project_id]);
@@ -544,15 +551,21 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
         sharedSetups.assertProfile(profile);
         const id=randomUUID();const reserved:ExternalTaskSetup={...setup,workflow:{...setup.workflow,confirmation_id:randomUUID(),assignment:{...setup.workflow.assignment,task_id:id,logical_task_id:randomUUID(),alias_ids:[randomUUID()]}}};
         const pins=sharedSetups.journalTask(profile,id)!;
-        privateDb.prepare('INSERT INTO web_tasks(id,name,profile_id,setup,reason) VALUES (?,?,?,?,?)').run(id,input.name,profile.id,JSON.stringify(reserved),'shared_preparation_pending');
-        store.execute('INSERT INTO shared_configuration_tasks(task_id,project_id,settings_hash,setup_hash) VALUES(?,?,?,?)',[id,input.project_id,pins.settingsHash,pins.setupHash]);
+        withLiveWebMetadataScope(store, { projectId: input.project_id }, () => {
+          store.execute('INSERT INTO shared_configuration_tasks(task_id,project_id,settings_hash,setup_hash) VALUES(?,?,?,?)',[id,input.project_id,pins.settingsHash,pins.setupHash]);
+          privateDb.prepare('INSERT INTO web_tasks(id,name,profile_id,setup,reason,project_id) VALUES (?,?,?,?,?,?)')
+            .run(id,input.name,profile.id,JSON.stringify(reserved),'shared_preparation_pending',input.project_id);
+        });
         try {prepareExternalTask(store,reserved,false);assertSharedTask(store,id,undefined,true);privateDb.prepare('UPDATE web_tasks SET reason=NULL WHERE id=?').run(id);if(profile.session_binding)registerBindingCollectionControl(store,id);}
         catch(error){privateDb.prepare('UPDATE web_tasks SET reason=? WHERE id=?').run(localWebError(error),id);}
         return Promise.resolve(taskDto(id));
       }
       const created = createExternalTask(store, setup, false); const id = created.state.task_id;
       if (profile.session_binding) registerBindingCollectionControl(store,id);
-      privateDb.prepare('INSERT INTO web_tasks(id,name,profile_id,setup) VALUES (?,?,?,?)').run(id, input.name, profile.id, JSON.stringify(created.setup));
+      withLiveWebMetadataScope(store, { taskId: id, projectId: input.project_id }, () => {
+        privateDb.prepare('INSERT INTO web_tasks(id,name,profile_id,setup,project_id) VALUES (?,?,?,?,?)')
+          .run(id, input.name, profile.id, JSON.stringify(created.setup), input.project_id);
+      });
       return Promise.resolve(taskDto(id));
     },
     async chooseDirectory() { if(options.nativePilot)throw new Error('binding_pilot_control_only');
@@ -577,7 +590,9 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
       if (!match) throw new Error('native_source_unqualified');
       // Filename identity only. Session contents are read exclusively by the scoped domain collector.
       const source: Source = { handle: randomUUID(), label: basename(path), path, session_id: z.uuid().parse(match[1]) };
-      privateDb.prepare('INSERT INTO web_sources(handle,task_id,payload) VALUES (?,?,?)').run(source.handle, taskId, JSON.stringify(source));
+      withLiveWebMetadataScope(store, { taskId }, () => {
+        privateDb.prepare('INSERT INTO web_sources(handle,task_id,payload) VALUES (?,?,?)').run(source.handle, taskId, JSON.stringify(source));
+      });
       return { handle: source.handle, label: source.label };
     },
     async taskAction(id, action, input) {
