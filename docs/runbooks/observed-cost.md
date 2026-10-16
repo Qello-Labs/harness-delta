@@ -9,8 +9,11 @@ Linked root/child/rework events contribute only when their source and interval a
 This report cannot qualify a source or prove that parent/child counters do not overlap.
 
 For the normal flow, use the [supplied reference catalog](reference-price-catalog.md):
-`estimate-task` no longer requires `--price-table`. Assigned V2 tasks retain their
-frozen comparison table; standalone tasks use the current catalog. The procedure
+`estimate-task` no longer requires `--price-table`. Ordinary observation tasks retain
+the immutable price table pinned at creation (`ordinary_task_pin`). Assigned V2
+tasks retain their frozen comparison table (`frozen_comparison`). Only tasks without
+either pin, including legacy standalone tasks, use the current catalog (`current_catalog`).
+Catalog refresh does not reprice existing ordinary or assigned V2 tasks. The procedure
 below is the advanced explicit-table path and remains available for historical estimates.
 
 ## 1. Select the rate table

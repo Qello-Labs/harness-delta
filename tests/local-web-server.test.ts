@@ -5,18 +5,26 @@ import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { expect, test } from 'vitest';
 import { createLocalWebServer, type LocalWebDomain } from '../src/local-web-server.js';
+import { Store } from '../src/store.js';
+import { Deletion } from '../src/deletion.js';
+import { EventEmitter, once } from 'node:events';
 
 const origin = 'http://127.0.0.1:4318';
 function domain() {
+  const store = new Store(':memory:');
+  store.execute("INSERT INTO projects(id) VALUES ('project-1')", []);
+  store.execute("INSERT INTO tasks(id,project_id) VALUES ('task-1','project-1')", []);
   let version = 'initial'; let count = 0;
   const task = () => ({ id: 'task-1', name: 'Synthetic private label', version, state: 'registered' });
   const api: LocalWebDomain = {
+    metadataStore: store,
     bootstrap: () => ({ projects: [], setups: [], tasks: [task()], catalog: null }),
     task, registerProject: directory => Promise.resolve({ id: 'project-1', directory }),
     createTask: () => Promise.resolve(task()),
     taskAction: () => { count++; version = 'changed'; return Promise.resolve(task()); },
     refreshPrices: () => Promise.resolve({ status: 'failed', reason: 'catalog_source_not_configured' }),
     chooseDirectory: () => Promise.resolve(null), chooseSession: () => Promise.resolve(null),
+    close: () => { store.close(); return Promise.resolve(); },
   };
   return { api, calls: () => count };
 }
@@ -88,4 +96,44 @@ test('application reviews are transient and deleted tasks cannot replay publicat
  f.api.task=()=>{throw new Error('unknown_task');};expect((await f.app.inject(request)).statusCode).not.toBe(200);expect(f.calls()).toBe(1);
  }finally{db.close();}
  }finally{await f.app.close();rmSync(root,{recursive:true,force:true});}
+});
+
+test.each(['create', 'action'] as const)('deletion fences a delayed %s response and keeps its consumed key blocked', async kind => {
+  const root = mkdtempSync(join(tmpdir(), 'web-response-fence-'));
+  const path = join(root, 'transport.sqlite');
+  const f = await fixture(path);
+  const signals = new EventEmitter();
+  const entered = once(signals, 'entered', { signal: AbortSignal.timeout(3000) });
+  const released = once(signals, 'released', { signal: AbortSignal.timeout(3000) });
+  const delayed = async () => {
+    signals.emit('entered');
+    await released;
+    return { id: 'task-1', name: 'synthetic-delayed-private-label', version: 'changed' };
+  };
+  if (kind === 'create') f.api.createTask = delayed;
+  else f.api.taskAction = delayed;
+  const request = { method: 'POST' as const,
+    url: kind === 'create' ? '/api/tasks' : '/api/tasks/task-1/pause',
+    headers: f.headers,
+    payload: kind === 'create' ? { name: 'synthetic-request', project_id: 'project-1', setup_id: 'setup-1' } : {},
+  };
+  try {
+    const pending = f.app.inject(request);
+    await entered;
+    new Deletion(f.api.metadataStore).deleteTask('task-1');
+    signals.emit('released');
+    const result = await pending;
+    expect(result.statusCode).toBe(400);
+    expect(result.json()).toEqual({ error: 'deleted_identifier' });
+    const db = new Database(path);
+    try {
+      expect(db.prepare('SELECT state,response FROM web_actions WHERE id=?').get(f.headers['idempotency-key']))
+        .toEqual({ state: 'deleted', response: null });
+    } finally { db.close(); }
+    expect((await f.app.inject(request)).json()).toEqual({ error: 'deleted_identifier' });
+  } finally {
+    signals.emit('released');
+    await f.app.close();
+    rmSync(root, { recursive: true, force: true });
+  }
 });

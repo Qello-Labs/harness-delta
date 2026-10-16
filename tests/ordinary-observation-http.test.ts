@@ -10,6 +10,7 @@ import { createLocalWebServer } from '../src/local-web-server.js';
 import { ordinaryProjectSettings, ordinaryTask } from '../src/ordinary-observation.js';
 import { Deletion } from '../src/deletion.js';
 import { claudeBindingAdmission } from '../src/claude-binding-admission.js';
+import Database from 'better-sqlite3';
 
 describe('ordinary observation HTTP preparation', () => {
   const origin = 'http://127.0.0.1:4327';
@@ -93,6 +94,29 @@ describe('ordinary observation HTTP preparation', () => {
     expect(installed.json()).toMatchObject({ installation: { state: 'installed', hookRegistration: 'unverified' } });
     expect(store.all('SELECT * FROM sessions')).toEqual([]);
     expect(store.eventCount()).toBe(0);
+  });
+
+  it.each([false, true])('abandons an unconnected ordinary task with revoked=%s without inventing activity or success', async revoked => {
+    await app.inject({ method: 'POST', url: setup, headers: headers(), payload: { operation: 'configure' } });
+    const created = await app.inject({ method: 'POST', url: '/api/tasks', headers: headers(), payload: {
+      mode: 'ordinary', name: 'Synthetic cancelled setup', project_id: 'project', criterion_ids: ['accepted'],
+    } });
+    let task = created.json<{ id: string; version: string; actions: { code: string; enabled: boolean }[] }>();
+    if (revoked) {
+      const result = await app.inject({ method: 'POST', url: `/api/tasks/${task.id}/revoke-collection`,
+        headers: { ...headers(), 'if-match': task.version }, payload: {} });
+      task = result.json<typeof task>();
+    }
+    expect(task.actions.find(action => action.code === 'finish-abandoned')?.enabled).toBe(true);
+    const result = await app.inject({ method: 'POST', url: `/api/tasks/${task.id}/finish-abandoned`,
+      headers: { ...headers(), 'if-match': task.version }, payload: {} });
+    expect(result.statusCode).toBe(200);
+    expect(result.json()).toMatchObject({ state: 'finalized', outcome: { status: 'aborted' },
+      measurement: { active_ms: null } });
+    expect(store.all('SELECT * FROM active_intervals')).toEqual([]);
+    expect(store.all('SELECT * FROM attempts')).toEqual([]);
+    expect(store.all('SELECT * FROM sessions')).toEqual([]);
+    expect(() => new Lifecycle(store).finalize(task.id, 'success', ['accepted'])).toThrow('invalid_transition');
   });
 
   it('composes owned installation readiness with ordinary admission and revocation', async () => {
@@ -181,5 +205,35 @@ describe('ordinary observation HTTP preparation', () => {
     const replay = await app.inject(request);
     expect(replay.statusCode).toBe(400);
     expect(store.all('SELECT * FROM ordinary_project_settings')).toEqual([]);
+  });
+
+  it.each(['task', 'project', 'retention'] as const)('purges private ordinary metadata and replay payloads after %s deletion', async kind => {
+    await app.inject({ method: 'POST', url: setup, headers: headers(), payload: { operation: 'configure' } });
+    const request = { method: 'POST' as const, url: '/api/tasks', headers: headers(), payload: {
+      mode: 'ordinary', name: 'synthetic-private-deletion-label', project_id: 'project', criterion_ids: ['accepted'],
+    } };
+    const created = await app.inject(request);
+    const task = created.json<{ id: string }>();
+    const metadata = new Database(join(root, 'metadata.sqlite'));
+    const transport = new Database(join(root, 'transport.sqlite'));
+    try {
+      metadata.prepare('INSERT INTO web_sources(handle,task_id,payload) VALUES (?,?,?)')
+        .run('synthetic-source', task.id, JSON.stringify({ path: '/synthetic/private-source' }));
+      const deletion = new Deletion(store);
+      if (kind === 'task') deletion.deleteTask(task.id);
+      else if (kind === 'project') deletion.deleteProject('project');
+      else {
+        new Lifecycle(store).finalize(task.id, 'aborted', []);
+        deletion.configureRetention('project', 1);
+        expect(deletion.applyRetention('project', '2099-01-01T00:00:00Z')).toBe(1);
+      }
+      expect(metadata.prepare('SELECT * FROM web_tasks WHERE id=?').all(task.id)).toEqual([]);
+      expect(metadata.prepare('SELECT * FROM web_sources WHERE task_id=?').all(task.id)).toEqual([]);
+      expect(JSON.stringify(transport.prepare('SELECT response FROM web_actions').all()))
+        .not.toContain(request.payload.name);
+      const replay = await app.inject(request);
+      expect(replay.statusCode).toBe(400);
+      expect(store.all('SELECT * FROM tasks')).toEqual([]);
+    } finally { metadata.close(); transport.close(); }
   });
 });

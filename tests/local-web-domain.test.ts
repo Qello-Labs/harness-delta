@@ -16,6 +16,31 @@ import { codexHumanPilotProfileId } from '../src/session-binding-human-pilot.js'
 import { codexBindingAdmission } from '../src/codex-binding-admission.js';
 import { CodexSessionBindingProvider } from '../src/session-binding-codex.js';
 import { LocalWebProfileSchema } from '../src/local-web-domain.js';
+import Database from 'better-sqlite3';
+import { Store } from '../src/store.js';
+
+test('a deleted task cannot publish a source selected by a delayed picker', async () => {
+  const f = localWebFixture();
+  const signals = new EventEmitter();
+  const entered = once(signals, 'entered', { signal: AbortSignal.timeout(3000) });
+  const released = once(signals, 'released', { signal: AbortSignal.timeout(3000) });
+  const source = f.newRoot();
+  const domain = createLocalWebDomain({ store: f.store, metadataFile: f.metadataFile, profiles: [f.profile],
+    picker: async () => { signals.emit('entered'); await released; return source.path; } });
+  try {
+    const { id } = z.object({ id: z.string() }).parse(await domain.createTask({
+      name: 'Synthetic picker deletion', project_id: 'project-1', setup_id: f.profile.id,
+    }));
+    const selection = domain.chooseSession(id);
+    await entered;
+    const other = new Store(f.store.filename);
+    try { new Deletion(other).deleteTask(id); } finally { other.close(); }
+    signals.emit('released');
+    await expect(selection).rejects.toThrow('deleted_identifier');
+    const db = new Database(f.metadataFile);
+    try { expect(db.prepare('SELECT * FROM web_sources').all()).toEqual([]); } finally { db.close(); }
+  } finally { signals.emit('released'); await domain.close?.(); f.cleanup(); }
+});
 
 test('ordinary binding pause fences an in-flight tick without an error guard and resumes fresh usage', async () => {
   const f = localWebFixture(codexBindingAdmission.profileId, { product: 'codex', productVersion: '0.162.1' });

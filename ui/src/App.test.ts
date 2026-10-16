@@ -9,6 +9,7 @@ import { SharedSetupPreview, type SharedSetupImport } from './SharedSetupPreview
 import { AgentConnectionSetup } from './AgentConnectionSetup';
 import { HarnessApplication } from './HarnessApplication';
 import { ClaudeConnection } from './ClaudeConnection';
+import { OrdinaryCriteria } from './OrdinaryObservationSetup';
 import type { Setup, Snapshot, SupportDetails, Task } from './types';
 import { connectionRoute } from './AssignedHarness';
 import * as api from './api';
@@ -47,7 +48,7 @@ const syntheticSupport: SupportDetails = {
 };
 const imported: SharedSetupImport = { shared: true, token: 'import-token', projects: projects.map(project => ({ project_id: project.id, name: project.name, pair: { id: 'pair', name: 'Pair', arm_a: { version: 'applied' }, arm_b: { version: 'candidate' }, settings_hash: 'hash' }, original_tools: [], templates: [] })) };
 const savedConnection = { imported: true, already_connected: false, profile_id: 'shared-setting', local_setup_path: '.harness-delta/setup/synthetic.json' };
-type AppControl = { children?: ReactNode; id?: string; name?: string; value?: string; checked?: boolean; disabled?: boolean; onChange?: () => void; onClick?: () => void };
+type AppControl = { children?: ReactNode; id?: string; name?: string; value?: string; checked?: boolean; disabled?: boolean; 'aria-expanded'?: boolean; 'data-action-blocked'?: string; 'data-task-action'?: string; onChange?: () => void; onClick?: () => void };
 function appControls(node: ReactNode): { type: unknown; key: string | null; props: AppControl }[] {
   if (Array.isArray(node)) return node.flatMap(appControls);
   if (!isValidElement<AppControl>(node)) return [];
@@ -119,12 +120,31 @@ test('saved setting opens a new task with its project, setting, type and size se
     if (!first) throw new Error('Missing saved fixture');
     harness.savedSetups().props.onUse(first);
     const controls = appControls(harness.render());
+    expect(controls.find(node => node.type === 'select' && node.props.id === 'task-mode')?.props.value).toBe('comparison');
     for (const [id, value] of [['project', 'one'], ['setup', 'saved-one'], ['type', 'fix'], ['size', 'medium']]) {
       expect(controls.find(node => node.type === 'select' && node.props.id === id)?.props.value).toBe(value);
     }
     expect(location.hash).toBe('new');
     expect(vi.mocked(api.mutate)).not.toHaveBeenCalled();
   } finally { vi.unstubAllGlobals(); harness.restore(); }
+});
+
+test('a new task without comparison settings defaults to ordinary criteria and can switch explicitly', () => {
+  const harness = appHarness(snapshot, [[3, 'new']]);
+  try {
+    const controls = appControls(harness.render());
+    const mode = controls.find(node => node.type === 'select' && node.props.id === 'task-mode');
+    expect(mode?.props.value).toBe('ordinary');
+    expect(controls.some(node => node.type === OrdinaryCriteria)).toBe(true);
+    expect(controls.some(node => node.props.id === 'setup')).toBe(false);
+    if (!isValidElement<{ onChange: (event: { target: { value: string } }) => void }>(mode)) throw new Error('Missing mode selector');
+    mode.props.onChange({ target: { value: 'comparison' } });
+    const next = appControls(harness.render());
+    expect(next.find(node => node.type === 'select' && node.props.id === 'task-mode')?.props.value).toBe('comparison');
+    expect(next.some(node => node.props.id === 'setup')).toBe(true);
+    expect(next.some(node => node.type === OrdinaryCriteria)).toBe(false);
+    expect(api.mutate).not.toHaveBeenCalled();
+  } finally { harness.restore(); }
 });
 
 test('new-task selection explains the server recruitment window before submitting a task', () => {
@@ -291,6 +311,30 @@ const waitingTask: Task = {
   actions: [{ code: 'session-connect', enabled: false, reason: 'binding_provider_unavailable' }],
   startup: null, criteria: ['criterion-one'], source: null, reason: null,
 };
+
+test.each([[false, true], [true, false], [true, true], [false, false]])(
+  'outcome menu honors independent failed=%s and abandoned=%s permissions',
+  (failed, abandoned) => {
+    const task: Task = { ...waitingTask, mode: 'ordinary', actions: [
+      { code: 'finish-failed', enabled: failed, reason: failed ? null : 'external_connection_required' },
+      { code: 'finish-abandoned', enabled: abandoned, reason: abandoned ? null : 'binding_scope_revoked' },
+    ] };
+    const harness = appHarness({ ...snapshot, tasks: [task] }, [[3, 'detail'], [4, task]]);
+    vi.stubGlobal('location', { hash: '', origin: 'http://127.0.0.1:4318' });
+    try {
+      const menu = appControls(harness.render()).find(node => node.props['aria-expanded'] !== undefined);
+      expect(menu?.props.disabled).toBe(!failed && !abandoned);
+      if (!failed && !abandoned) return;
+      menu?.props.onClick?.();
+      const controls = appControls(harness.render());
+      for (const [code, enabled] of [['finish-failed', failed], ['finish-abandoned', abandoned]] as const) {
+        expect(controls.find(node => node.props['data-task-action'] === code)?.props.disabled).toBe(!enabled);
+        expect(controls.some(node => node.props['data-action-blocked'] === code)).toBe(!enabled);
+      }
+      expect(api.mutate).not.toHaveBeenCalled();
+    } finally { vi.unstubAllGlobals(); harness.restore(); }
+  },
+);
 
 test.each(['rejected', 'prepared'])('preparation retry keeps distinct application and connection identities when %s', async result => {
   const blocked: Task = { ...waitingTask, status: 'blocked_configuration', reason: 'outside_recruitment',

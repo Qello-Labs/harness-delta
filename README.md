@@ -1,6 +1,6 @@
 # Harness Delta
 
-Measure metadata for an assigned development task across explicitly linked sessions.
+Measure metadata for a development task across explicitly linked sessions.
 
 **Preview: partial local measurement.** Codex 0.160.0 has two separately admitted
 workflow profiles, and Claude Code 2.1.296 has a parent-only profile (launch and
@@ -12,8 +12,22 @@ Installation does not start collection. The package is private and supports Node
 현재는 부분 로컬 측정 미리보기이며 전체 비용·실제 청구액·추론에 따른 도입 판정은 제공하지 않습니다.
 Claude Code 2.1.296은 부모 전용 프로필(launch와 유지한 세션의 resume)과 별도의 read-only 직계 자식 1개 프로필을 지원합니다.
 
-**Start here:** [Measure one assigned task](docs/runbooks/workflow-quickstart.md) ·
+**Start here:** [Open the local UI](docs/runbooks/local-browser-ui.md#start-the-local-service) ·
+[로컬 UI 열기](docs/runbooks/local-browser-ui.ko.md#로컬-서비스-시작).
+For ordinary Claude observation, register a project, configure its Claude connection,
+then create an ordinary task; no comparison, protocol or A/B assignment is required.
+This route is admitted for normal use under its exact source/binary gates; native
+qualification remains pending. Follow [Harness Connect](docs/runbooks/harness-connect.md#ordinary-claude-observation-qualification-pending).
+일반 Claude 관측은 프로젝트 등록·Claude 연결 설정 후 일반 작업을 만들면 됩니다.
+비교·protocol·A/B 배정은 필요 없으며, 정확한 원본·바이너리 조건에서 일반 사용이
+허용됩니다. native 지원 검증은 대기 상태입니다. [일반 관측 절차](docs/runbooks/harness-connect.ko.md#일반-claude-관측-지원-검증-대기)를 따르세요.
+
+For assigned A/B work, use [Measure one assigned task](docs/runbooks/workflow-quickstart.md) ·
 [배정된 작업 하나 측정하기](docs/runbooks/workflow-quickstart.ko.md).
+Codex ordinary-session collection still uses the frozen `functional_pilot` assignment
+path, not the assignment-free ordinary Claude task mode.
+Codex 일반 세션 수집은 배정 없는 일반 Claude 작업 모드가 아닌,
+동결된 `functional_pilot` 배정 경로를 사용합니다.
 The procedure covers installation → A/B setup → launch → stop/pause/resume/new session →
 human outcome → partial cost and missingness → recovery.
 
@@ -21,6 +35,7 @@ human outcome → partial cost and missingness → recovery.
 
 | Need | English | 한국어 |
 | --- | --- | --- |
+| Ordinary observation without A/B setup | [Local UI](docs/runbooks/local-browser-ui.md), [Harness Connect](docs/runbooks/harness-connect.md#ordinary-claude-observation-qualification-pending) | [로컬 UI](docs/runbooks/local-browser-ui.ko.md), [일반 관측](docs/runbooks/harness-connect.ko.md#일반-claude-관측-지원-검증-대기) |
 | First installation and functional pilot | [Task procedure](docs/runbooks/workflow-quickstart.md) | [작업 절차](docs/runbooks/workflow-quickstart.ko.md) |
 | Partial estimate and missing prices | [Observed cost](docs/runbooks/observed-cost.md) | [관측 비용](docs/runbooks/observed-cost.ko.md) |
 | Exact native/child contracts | [Native workflow](docs/runbooks/task-native-workflow.md) | 핵심 지원 범위는 [작업 절차](docs/runbooks/workflow-quickstart.ko.md) |

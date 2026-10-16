@@ -62,16 +62,23 @@ export function OrdinaryObservationSetup({ projectId, locale, busy, perform }: {
  }
  const disabled = busy || reading || !status;
  const blocked = !!status && (status.installation.state === 'blocked' || status.installation.blockers.length > 0);
+ const installationLabels = {
+  absent: t('Installation needed', '설치 필요'), installed: t('Installed', '설치됨'),
+  update_available: t('Update available', '갱신 가능'), blocked: t('Existing files need review', '기존 파일 확인 필요'),
+ };
  return <Card data-ordinary-setup={projectId}><CardHeader><CardTitle>{t('Claude connection setup', 'Claude 연결 설정')}</CardTitle><CardDescription>{t('Project-only package setup. No comparison assignment or native configuration changes.', '프로젝트 전용 패키지 설정입니다. 비교 배정이나 네이티브 설정 변경은 없습니다.')}</CardDescription></CardHeader><CardContent className="space-y-4">
-  {error && <p role="alert" className="text-sm text-destructive">{t('Could not read or update setup. Refresh and review the saved state.', '설정을 읽거나 처리하지 못했습니다. 새로고침 후 저장 상태를 확인하세요.')} <code>{error}</code></p>}
+  {error && <div className="text-sm"><p role="alert" className="text-destructive">{t('Could not read or update setup. Refresh and review the saved state.', '설정을 읽거나 처리하지 못했습니다. 새로고침 후 저장 상태를 확인하세요.')}</p><details className="mt-2"><summary className="cursor-pointer text-muted-foreground">{t('Error diagnostics', '오류 진단 보기')}</summary><code>{error}</code></details></div>}
   {!status && !error && <p role="status">{t('Reading setup…', '설정 확인 중…')}</p>}
   {status && <>
-   <div className="flex flex-wrap gap-2"><Badge variant="secondary">{status.configured ? t('Configured', '설정됨') : t('Not configured', '설정 전')}</Badge><Badge variant="outline" data-installation-state={status.installation.state}>{t('Package', '패키지')}: {status.installation.state}</Badge><Badge variant="outline" data-admission={String(status.admission.admitted)}>{status.admission.admitted ? t('Ordinary connection allowed', '일반 연결 허용') : t('Connection unavailable', '연결 불가')}</Badge></div>
+   <div className="flex flex-wrap gap-2"><Badge variant="secondary">{status.configured ? t('Configured', '설정됨') : t('Not configured', '설정 전')}</Badge><Badge variant="outline" data-installation-state={status.installation.state}>{installationLabels[status.installation.state]}</Badge><Badge variant="outline" data-admission={String(status.admission.admitted)}>{status.admission.admitted ? t('Ordinary connection allowed', '일반 연결 허용') : t('Connection unavailable', '연결 불가')}</Badge></div>
    <p className="text-sm">{t(`All Claude-family models are allowed at their observed effort. Family limit ${status.admission.max_family_members} members; cost remains partial.`, `모든 Claude 계열 모델과 관측된 effort를 허용합니다. 가족 한도 ${status.admission.max_family_members}개이며 비용은 부분 관측입니다.`)}</p>
-   <p className="text-sm text-muted-foreground">{t('Copied package ≠ registered hook ≠ native receipt ≠ observing. Hook registration is unverified; invoke the skill in the native parent and check the connection state.', '패키지 복사 ≠ hook 등록 ≠ 네이티브 receipt ≠ 관측 중입니다. hook 등록은 미확인입니다. 네이티브 부모에서 skill을 호출하고 연결 상태를 확인하세요.')}</p>
-   <dl className="grid gap-3 text-sm sm:grid-cols-2">{[[t('Package destination', '패키지 위치'), status.installation.destination], [t('Receipt directory', 'Receipt 디렉토리'), status.installation.receiptDirectory]].map(([label, value]) => <div key={label}><dt className="text-muted-foreground">{label}</dt><dd className="break-all">{value}</dd></div>)}</dl>
-   {status.installation.blockers.length > 0 && <ul role="alert" className="list-disc pl-5 text-sm">{status.installation.blockers.map(blocker => <li key={blocker}>{blocker}</li>)}</ul>}
-   <p className="text-sm text-muted-foreground">{t('Edited or unowned files block changes. Status and preview do not write files; installation never creates a native receipt.', '수정되었거나 소유하지 않은 파일은 변경을 차단합니다. 상태 조회·미리보기는 파일을 쓰지 않으며 설치로 네이티브 receipt를 만들지 않습니다.')}</p>
+   <p className="text-sm text-muted-foreground">{t('After installation, invoke harness-connect in the native parent and check the connection state. Installation alone does not start observation.', '설치 후 네이티브 부모에서 harness-connect를 호출하고 연결 상태를 확인하세요. 설치만으로 관측을 시작하지 않습니다.')}</p>
+   {blocked && <p role="alert" className="text-sm">{t('Installation changes are blocked. Review the diagnostics below; existing files are preserved.', '설치 변경이 차단됐습니다. 아래 진단을 확인하세요. 기존 파일은 보존합니다.')}</p>}
+   <details className="text-sm"><summary className="cursor-pointer text-muted-foreground">{t('Installation diagnostics', '설치 진단 보기')}</summary>
+    <dl className="mt-3 grid gap-3 sm:grid-cols-2">{[[t('Package state', '패키지 상태'), status.installation.state], [t('Package destination', '패키지 위치'), status.installation.destination], [t('Receipt directory', 'Receipt 디렉토리'), status.installation.receiptDirectory], [t('Hook registration', 'Hook 등록'), status.installation.hookRegistration]].map(([label, value]) => <div key={label}><dt className="text-muted-foreground">{label}</dt><dd className="break-all">{value}</dd></div>)}</dl>
+    {status.installation.blockers.length > 0 && <ul className="mt-3 list-disc pl-5">{status.installation.blockers.map(blocker => <li key={blocker}><code>{blocker}</code></li>)}</ul>}
+    <p className="mt-3 text-muted-foreground">{t('Copied package ≠ registered hook ≠ native receipt ≠ observing. Edited or unowned files block changes. Status and preview do not write files; installation never creates a native receipt.', '패키지 복사 ≠ hook 등록 ≠ 네이티브 receipt ≠ 관측 중입니다. 수정되었거나 소유하지 않은 파일은 변경을 차단합니다. 상태 조회·미리보기는 파일을 쓰지 않으며 설치로 네이티브 receipt를 만들지 않습니다.')}</p>
+   </details>
   </>}
   <div className="flex flex-wrap gap-2">
    <Button variant="outline" disabled={disabled || status?.configured} onClick={() => { void operate('configure'); }}>{t('Configure Claude', 'Claude 설정')}</Button>
@@ -80,7 +87,7 @@ export function OrdinaryObservationSetup({ projectId, locale, busy, perform }: {
    {status?.installation.blockers.includes('installation_recovery_required') && <Button variant="outline" disabled={disabled} onClick={() => { void operate('recover-lock'); }}>{t('Recover stopped installer', '종료된 설치 잠금 복구')}</Button>}
   </div>
   {preview && status?.changes && <div className="space-y-3 rounded-lg border p-4" data-install-preview={preview}>
-   <ul className="space-y-2 text-sm">{status.changes.map(change => <li key={change.path} className="break-all"><code>{change.path}</code> · {change.action}<div className="text-xs text-muted-foreground">{change.beforeHash ?? '—'} → {change.afterHash ?? '—'}</div></li>)}</ul>
+   <ul className="space-y-2 text-sm">{status.changes.map(change => <li key={change.path} className="break-all"><code>{change.path}</code> · {change.action === 'create' ? t('Create', '생성') : change.action === 'update' ? t('Update', '갱신') : t('Remove', '제거')}<details className="text-xs text-muted-foreground"><summary className="cursor-pointer">{t('File diagnostics', '파일 진단 보기')}</summary><p>{change.action} · {change.beforeHash ?? '—'} → {change.afterHash ?? '—'}</p></details></li>)}</ul>
    <p className="text-sm">{t('Review these relative package paths before choosing to change files.', '상대 패키지 경로를 검토한 뒤 파일 변경을 직접 선택하세요.')}</p>
    <div className="flex flex-wrap gap-2"><Button data-install-choice={preview} disabled={disabled || blocked || status.changes.length === 0} onClick={() => { void operate(preview); }}>{preview === 'install' ? t('Install / update reviewed package', '검토한 패키지 설치·갱신') : t('Remove reviewed package', '검토한 패키지 제거')}</Button><Button variant="outline" disabled={reading} onClick={() => setPreview(null)}>{t('Cancel', '취소')}</Button></div>
   </div>}

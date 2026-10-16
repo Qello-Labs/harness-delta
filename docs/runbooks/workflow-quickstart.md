@@ -17,9 +17,10 @@ yourself, choose the matching procedure before preparing inputs:
 | Intended workflow | Procedure and boundary |
 | --- | --- |
 | Prepare tasks and review results in the browser | [Local browser workflow](local-browser-ui.md); guided setup reviews inputs before saving and does not start collection |
-| Connect an ordinary terminal session | [Harness Connect](harness-connect.md); only a separately operator-authorized `functional_pilot`; ordinary production sources remain blocked |
+| Ordinary Claude observation without A/B assignment | [Normal UI flow](harness-connect.md#ordinary-claude-observation-qualification-pending); admitted for normal use under exact source/binary gates; native qualification pending; no pilot flag |
+| Codex 0.162.1 ordinary family | [Bounded ordinary profile](harness-connect.md#codex-01621-bounded-ordinary-profile); frozen `functional_pilot` protocol and assignment, one fresh root and up to two fresh direct children; not assignment-free ordinary task mode |
 | Codex 0.162.0 ordinary root | [Root-only pilot](harness-connect.md#codex-01620-ordinary-root-local-pilot); operator-authorized observation, one fresh root, no children |
-| Claude ordinary family | [Human-operated pilot](harness-connect.md#claude-human-operated-ui-pilot); exact candidate version, fresh parent and at most two new members |
+| Claude comparison/pilot family | [Human-operated pilot](harness-connect.md#claude-human-operated-ui-pilot); separate local pilot authority and candidate-provider flag, exact profile version, fresh parent and at most two new members; not the normal ordinary task flow |
 | Codex 0.160.0 startup ticket | [External session workflow](external-session-workflow.md); exact fresh root and ticket, no automatic family inheritance |
 
 These paths have different source and authority gates. A launch-workflow
@@ -322,8 +323,22 @@ node dist/cli.js --db .harness-delta/pilot/local.sqlite workflow codex resume \
   --execution .harness-delta/pilot/resume.json --confirmation confirmation-2
 ```
 
-Claude Code has no resume or link operation here; continue with another `workflow claude launch`
-on the same task, using a new `run_id` and confirmation ID. The new session starts without the earlier conversation.
+For Claude's exact parent-only profile, resume a launch kept with `"resumable": true`
+using `claude-resume.json`: set `operation: "resume"`, a fresh `run_id`,
+`resume_run_id` to the earlier kept run of the same task, and retain its workspace.
+Only read-only kept launch and read-only resume have native evidence; edit-mode
+resume and permission changes are not established.
+
+```sh
+node dist/cli.js --db .harness-delta/pilot/local.sqlite workflow claude resume \
+  --config .harness-delta/pilot/workflow.json --runtime .harness-delta/pilot/runtime.json \
+  --execution .harness-delta/pilot/claude-resume.json --confirmation confirmation-2
+```
+
+Claude child and conditional-version resume, and external link, remain unsupported.
+Without a kept parent session, use another `workflow claude launch` on the same task
+with a new `run_id` and confirmation ID; that new session has no earlier conversation.
+See [Claude resume limits](task-native-workflow.md#claude-resume).
 
 For another independent root, use a new `run_id` and prompt in `launch.json` with the same workflow file.
 Run the launch command from step 5 with a new confirmation ID.

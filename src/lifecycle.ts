@@ -10,7 +10,7 @@ import type { Store } from './store.js';
 import { interruptManagedRuns } from './managed-journal.js';
 import { authorizeCandidateScope } from './nested-candidate.js';
 import { revokeOtelProcesses } from './otel-journal.js';
-import { recordInFlightWorkflowGaps } from './runtime-history.js';
+import { recordInFlightWorkflowGaps, recordObservationGap } from './runtime-history.js';
 
 export type TaskState = 'registered' | 'active' | 'paused' | 'finalized';
 export type Outcome = 'success' | 'failed' | 'aborted';
@@ -120,7 +120,9 @@ export class Lifecycle {
     z.array(IdSchema).refine(ids => new Set(ids).size === ids.length).parse(criteriaMet);
     this.store.immediateTransaction(() => {
       const task = this.task(taskId);
-      if (task.state !== 'active' && task.state !== 'paused') throw new Error('invalid_transition');
+      const unstartedOrdinaryAbandon = task.state === 'registered' && outcome === 'aborted' &&
+        this.store.get('SELECT task_id FROM ordinary_tasks WHERE task_id=?', [taskId]);
+      if (task.state !== 'active' && task.state !== 'paused' && !unstartedOrdinaryAbandon) throw new Error('invalid_transition');
       const metadata = parseTaskMetadata(JSON.parse(task.metadata) as unknown);
       if (criteriaMet.some(id => !metadata.criterion_ids.includes(id)) ||
           (outcome === 'success' && criteriaMet.length !== metadata.criterion_ids.length)) throw new Error('invalid_criteria');
@@ -130,6 +132,20 @@ export class Lifecycle {
           [randomUUID(), taskId, now, now, 'cancellation']);
       }
       if (task.state === 'active') recordInFlightWorkflowGaps(this.store, taskId, now);
+      const bindings = this.store.all<{ session_id: string; observed_since: string; gaps: string }>(
+        `SELECT b.session_id,b.observed_since,b.gaps FROM session_bindings b
+         JOIN binding_root_segments s ON s.root_session_id=b.root_id
+         WHERE s.task_id=? AND s.state!='closed'`, [taskId]);
+      for (const binding of bindings) {
+        if (task.state === 'active') recordObservationGap(this.store, taskId, binding.session_id,
+          binding.observed_since, now, 'incomplete', now);
+        const gaps = z.array(z.string()).parse(JSON.parse(binding.gaps));
+        this.store.execute("UPDATE session_bindings SET state='stopped',cursor=NULL,gaps=? WHERE session_id=?",
+          [JSON.stringify([...new Set([...gaps, 'unobserved_interval'])]), binding.session_id]);
+      }
+      this.store.execute(`UPDATE binding_root_segments SET state='closed',revision=revision+1,
+        observer_identity=NULL,closed_at=? WHERE task_id=? AND state!='closed'`, [now, taskId]);
+      this.store.execute('UPDATE ordinary_tasks SET selected_root_id=NULL WHERE task_id=?', [taskId]);
       interruptManagedRuns(this.store, taskId, 'finalize', now);
       revokeOtelProcesses(this.store, taskId, 'finalize', now);
       this.store.execute('INSERT INTO outcomes(task_id,status,criteria_met,first_success,assessed_at) VALUES (?,?,?,?,?)',

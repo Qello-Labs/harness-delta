@@ -10,6 +10,7 @@ import type { Store } from './store.js';
 import { comparisonRelativePath, ensureRepositoryDirectory, hashBytes, readComparison, readRepositoryFile, readStrictJson, checkOriginalTools } from './harness-config.js';
 import { checkSharedBinding } from './local-web-shared-guard.js';
 import { readPriceTable } from './pricing.js';
+import { withLiveWebMetadataScope } from './local-web-metadata.js';
 // Private path strings retain their exact filesystem spelling.
 function privateJson(value:unknown):string {
  if(Array.isArray(value))return '['+value.map(privateJson).join(',')+']';
@@ -81,6 +82,7 @@ export function createSharedSetupManager(store:Store,privateDb:Database.Database
       if(!possible.length)fail('shared_project_required');for(const [key,value] of tokens)if(value.expires<Date.now())tokens.delete(key);if(tokens.size>=64)fail('shared_import_limit');const token=randomUUID();tokens.set(token,{path,expires:Date.now()+300000,projects:Object.fromEntries(possible.map(project=>[project.project_id,{settingsHash:project.pair.settings_hash,templates:Object.fromEntries(project.templates.map(template=>[template.id,hashBytes(JSON.stringify(profiles().find(profile=>profile.id===template.id)))]))}]))});return {shared:true,token,projects:possible};
     },
     bind(input:{token:string;project_id:string;template_id:string},onFileCreated?:(remove:()=>void)=>void){
+      return withLiveWebMetadataScope(store,{projectId:input.project_id},()=>{
       const selected=tokens.get(input.token);if(!selected||selected.expires<Date.now())fail('shared_import_expired');const {project,template,protocol,pair}=eligible(input.project_id,input.template_id,selected.path);
       const preview=selected.projects[input.project_id];if(!preview||preview.settingsHash!==pair.descriptor.settings_hash||preview.templates[input.template_id]!==hashBytes(JSON.stringify(template)))fail('shared_preview_changed');
       const descriptorPath=comparisonRelativePath(project.local_root,selected.path);
@@ -97,6 +99,7 @@ export function createSharedSetupManager(store:Store,privateDb:Database.Database
       catch(error){removeCreatedFile();throw error;}
       tokens.delete(input.token);
       return {imported:true,already_connected:already,profile_id:profile.id,local_setup_path:localPath};
+      });
     },
     assertProfile(profile:LocalWebProfile){if(!profile.shared_binding)return;const loaded=readSharedLocalSetup(profile.shared_binding.project_root,profile.shared_binding.local_setup_path);if(JSON.stringify(loaded)!==JSON.stringify(profile))fail('shared_binding_changed');},
     journalTask(profile:LocalWebProfile,taskId:string,requireExisting=false){if(!profile.shared_binding)return;const binding=profile.shared_binding;const bytes=readRepositoryFile(binding.project_root,binding.local_setup_path);const setupHash=hashBytes(bytes);

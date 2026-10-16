@@ -98,7 +98,8 @@ source 교체, ancestry, 세 번째·중첩 멤버, 다른 정확 버전은 차�
 
 사용자가 승인한 2026-10-15 정책에 따라 이 흐름은 일반 사용이 허용됩니다. 코드 소유
 profile `claude-binding-02196-family-v1`은 정확한 Claude Code 원본 버전과 binary
-hash에서만 일반 연결을 허용합니다. 모든 Claude 모델(`claude`로 시작하는 모델 ID)을
+hash에서만 일반 연결을 허용합니다. 모든 Claude 모델(대소문자 구분 없이 정확히
+`claude`이거나 `claude-`로 시작하는 모델 ID)을
 받아들이며 관측된 모델과 effort를 그대로 저장합니다. 일반 사용 허용은 profile의
 과거 `qualified: false` 증거 표시와 별개입니다. 이 표시는 승격되지 않았고, 이 정책을
 위해 새 native 시험을 실행하지도 않았습니다. 다른 원본 버전이나 binary는 여전히 고정

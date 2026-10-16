@@ -44,6 +44,29 @@ test('a build without installed dependencies has a distinct prerequisite result'
 });
 
 test.each([
+  "Could not locate the bindings file. Tried: /private/PRIVATE_SENTINEL/better_sqlite3.node",
+  "The module '/private/PRIVATE_SENTINEL/better_sqlite3.node' was compiled against a different Node.js version using NODE_MODULE_VERSION 137",
+])('startup detects an unloadable native addon without importing the CLI', message => {
+  const root = mkdtempSync(join(tmpdir(), 'hm-native-'));
+  try {
+    mkdirSync(join(root, 'dist'));
+    writeFileSync(join(root, 'dist', 'cli.js'), 'throw new Error("entry must not be imported");');
+    for (const name of ['commander', 'better-sqlite3']) {
+      const directory = join(root, 'node_modules', name);
+      mkdirSync(directory, { recursive: true });
+      writeFileSync(join(directory, 'index.js'), name === 'commander' ? 'module.exports = {};' :
+        `module.exports = class Database { constructor() { throw new Error(${JSON.stringify(message)}); } };`);
+    }
+    const launcher = new URL('../scripts/hm.mjs', import.meta.url).href;
+    const result = spawnSync(process.execPath, ['--input-type=module', '-e',
+      `import {launch} from ${JSON.stringify(launcher)};process.exitCode=await launch([],new URL(${JSON.stringify(pathToFileURL(root + '/').href)}));`], { encoding: 'utf8' });
+    expect(result.status).toBe(4);
+    expect(JSON.parse(result.stderr)).toMatchObject({ error: 'native_dependency' });
+    expect(result.stderr).not.toContain('PRIVATE_SENTINEL');
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test.each([
   { script: 'skills/harness-register/scripts/run.mjs', args: ['--harness-delta', '/synthetic', '--root', '/synthetic', '--input', '/synthetic'], json: false },
   { script: 'skills/harness-compare-config/scripts/run.mjs', args: ['--harness-delta', '/synthetic', '--root', '/synthetic', '--input', '/synthetic'], json: false },
   { script: 'skills/harness-apply/scripts/apply.mjs', args: ['status', '--origin', 'http://127.0.0.1:1', '--task', 'synthetic'], json: false },

@@ -6,6 +6,7 @@ import { affectedComparisonProtocols, invalidateComparisonSnapshots } from './re
 import { IdSchema, TimestampSchema } from './contracts.js';
 import { utcNow, type Clock } from './lifecycle.js';
 import type { Store } from './store.js';
+import { assertWebMetadataCleanupDone, flushWebMetadataCleanup, queueWebMetadataCleanup } from './local-web-metadata.js';
 
 export class Deletion {
   private deletionDepth=0;
@@ -20,15 +21,20 @@ export class Deletion {
     this.deletionDepth++;
     try{this.store.immediateTransaction(() => {
       if (this.isDeleted('task', taskId)) return;
-      if (!this.store.get('SELECT id FROM tasks WHERE id = ?', [taskId])) throw new Error('unknown_task');
+      const task = this.store.get<{ project_id: string }>(
+        'SELECT project_id FROM tasks WHERE id=? UNION ALL SELECT project_id FROM shared_configuration_tasks WHERE task_id=?',
+        [taskId, taskId]);
+      if (!task) throw new Error('unknown_task');
+      queueWebMetadataCleanup(this.store, 'task', taskId, task.project_id);
       queueApplicationCleanup(this.store,taskId);
       recordSourceTaskDeletion(this.store, taskId, TimestampSchema.parse(this.clock()));
       this.deleteComparisonData(taskId);
       for (const session of this.store.all<{ id: string }>('SELECT id FROM sessions WHERE task_id = ?', [taskId])) this.tombstone('session', session.id);
       this.tombstone('task', taskId);
       this.store.execute('DELETE FROM tasks WHERE id = ?', [taskId]);
+      this.store.execute('DELETE FROM shared_configuration_tasks WHERE task_id=?', [taskId]);
     });}finally{this.deletionDepth--;}
-    if(this.deletionDepth===0){flushApplicationCleanup(this.store);assertApplicationCleanupDone(this.store,taskId);}
+    if(this.deletionDepth===0){flushApplicationCleanup(this.store);flushWebMetadataCleanup(this.store);assertApplicationCleanupDone(this.store,taskId);assertWebMetadataCleanupDone(this.store,'task',taskId);}
   }
 
   deleteProject(projectId: string): void {
@@ -38,6 +44,7 @@ export class Deletion {
     try{this.store.immediateTransaction(() => {
       if (this.isDeleted('project', projectId)) return;
       if (!this.store.get('SELECT id FROM projects WHERE id = ?', [projectId])) throw new Error('unknown_project');
+      queueWebMetadataCleanup(this.store, 'project', projectId, projectId);
       deleteMappedProject(this.store, projectId, TimestampSchema.parse(this.clock()));
       recordSourceProjectDeletion(this.store, projectId, TimestampSchema.parse(this.clock()));
       for (const protocol of this.store.all<{ id: string }>('SELECT id FROM comparison_protocols WHERE project_id=?', [projectId])) {
@@ -45,11 +52,13 @@ export class Deletion {
         if (ids.length) this.discloseReports(ids);
         invalidateComparisonSnapshots(this.store, protocol.id, 'deletion', TimestampSchema.parse(this.clock()));
       }
-      for (const task of this.store.all<{ id: string }>('SELECT id FROM tasks WHERE project_id = ?', [projectId])) this.deleteTask(task.id);
+      for (const task of this.store.all<{ id: string }>(
+        'SELECT id FROM tasks WHERE project_id=? UNION SELECT task_id AS id FROM shared_configuration_tasks WHERE project_id=?',
+        [projectId, projectId])) this.deleteTask(task.id);
       this.tombstone('project', projectId);
       this.store.execute('DELETE FROM projects WHERE id = ?', [projectId]);
     });}finally{this.deletionDepth--;}
-    if(this.deletionDepth===0){flushApplicationCleanup(this.store);for(const taskId of cleanupTasks)assertApplicationCleanupDone(this.store,taskId);}
+    if(this.deletionDepth===0){flushApplicationCleanup(this.store);flushWebMetadataCleanup(this.store);for(const taskId of cleanupTasks)assertApplicationCleanupDone(this.store,taskId);assertWebMetadataCleanupDone(this.store,'project',projectId);}
   }
 
   configureRetention(projectId: string, days: number): void {
@@ -71,7 +80,7 @@ export class Deletion {
       for (const task of tasks) {this.deleteTask(task.id);cleanupTasks.push(task.id);}
       return tasks.length;
     });}finally{this.deletionDepth--;}
-    flushApplicationCleanup(this.store);for(const taskId of cleanupTasks)assertApplicationCleanupDone(this.store,taskId);return deleted;
+    flushApplicationCleanup(this.store);flushWebMetadataCleanup(this.store);for(const taskId of cleanupTasks)assertApplicationCleanupDone(this.store,taskId);assertWebMetadataCleanupDone(this.store,'project',projectId);return deleted;
   }
 
   private deleteComparisonData(taskId: string): void {
