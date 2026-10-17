@@ -15,6 +15,8 @@ import { EventSchema, SourceCompatibilitySchema } from '../src/contracts.js';
 import { z } from 'zod';
 import * as priceSelection from '../src/price-catalog-selection.js';
 import * as localWeb from '../src/local-web-domain.js';
+import * as localServer from '../src/local-web-server.js';
+import { command as runFixtureCommand } from '../src/instrumented-codex-qualification.js';
 import { createSessionBindingService } from '../src/session-binding-service.js';
 import { CodexSessionBindingProvider } from '../src/session-binding-codex.js';
 import { comparisonProtocol, protocolRow } from '../src/comparison.js';
@@ -27,6 +29,32 @@ const digest=(s:Buffer|string)=>createHash('sha256').update(s).digest('hex');
 function fixture(mode='normal'){
  const root=realpathSync(mkdtempSync(join(tmpdir(),'ordinary-binding-qualification-')));const home=join(root,'home');mkdirSync(home);mkdirSync(join(home,'sessions'));
  const deterministic=mode.startsWith('six-requests')||mode.startsWith('late-');
+ const stimulusPids:number[]=[];
+ const stimulusController=new AbortController();
+ const serverFactory=localServer.createLocalWebServer;
+ // Harness helpers must not enter the process tree whose disappearance is measured.
+ const stimulus=vi.spyOn(localServer,'createLocalWebServer').mockImplementation(options=>{
+  const app=serverFactory(options);
+  app.post('/synthetic-stimulus',async request=>{
+   const input=z.discriminatedUnion('operation',[
+    z.strictObject({operation:z.literal('hook'),payload:z.record(z.string(),z.unknown())}),
+    z.strictObject({operation:z.literal('connect'),receipt:z.uuid()}),
+   ]).parse(request.body);
+   const intent=z.object({node:z.string(),project:z.string(),wrapper:z.string(),codex_home:z.string(),connector:z.string().nullable(),project_id:z.string(),task_id:z.string()})
+    .parse(JSON.parse(readFileSync(join(root,'attempt','execution-intent.json'),'utf8')));
+   const env={...process.env,CODEX_HOME:intent.codex_home};
+   const signal=AbortSignal.any([stimulusController.signal,AbortSignal.timeout(4000)]);
+   const output=input.operation==='hook'
+    ?await runFixtureCommand(intent.wrapper,[],intent.project,env,Buffer.from(JSON.stringify(input.payload)),[0],signal)
+    :await runFixtureCommand(intent.node,mode.startsWith('six-requests')
+     ?[z.string().parse(intent.connector),'--receipt',input.receipt]
+     :[join(intent.project,'.agents/skills/harness-connect/scripts/connect.mjs'),'connect','--origin',options.origin,'--product','codex','--project',intent.project_id,'--task',intent.task_id,'--receipt',input.receipt],intent.project,env,undefined,[0],signal);
+   stimulusPids.push(process.pid);
+   const response:unknown=input.operation==='hook'?JSON.parse(output.toString('utf8')):{connected:true};
+   return response;
+  });
+  return app;
+ });
 
  const uiAction=`const b=await(await fetch(origin+'/api/bootstrap')).json();const action=async code=>{const current=await(await fetch(origin+'/api/tasks/'+i.task_id)).json();const response=await fetch(origin+'/api/tasks/'+i.task_id+'/'+code,{method:'POST',headers:{origin,'content-type':'application/json','x-harness-csrf':b.csrf,'idempotency-key':randomUUID(),'if-match':current.version},body:'{}'});if(!response.ok)throw Error(code+response.status);return await response.json();};`;
  const followUp:Record<string,string>={
@@ -43,8 +71,9 @@ function fixture(mode='normal'){
   continued:uiAction+`await action('pause');const pending=usage(root,'continued-turn').split('\\n');appendFileSync(file(root),pending[0]+'\\n');await action('resume-binding');appendFileSync(file(root),pending[1]+'\\n');await new Promise(r=>setTimeout(r,350));`,
  };
  const script=join(root,'native-fixture.mjs');
- writeFileSync(script,`import{readFileSync,writeFileSync,appendFileSync,mkdirSync}from'node:fs';import{watch}from'node:fs/promises';import{join}from'node:path';import{randomUUID}from'node:crypto';import{execFileSync}from'node:child_process';
+ writeFileSync(script,`import{readFileSync,writeFileSync,appendFileSync,mkdirSync}from'node:fs';import{watch}from'node:fs/promises';import{join}from'node:path';import{randomUUID}from'node:crypto';
  const i=JSON.parse(readFileSync(process.env.HARNESS_BINDING_TEST_INTENT,'utf8'));const origin='http://127.0.0.1:'+i.port;const root=randomUUID();const children=[randomUUID(),randomUUID()];const at=()=>new Date().toISOString();const row=(type,payload)=>JSON.stringify({timestamp:at(),type,payload})+'\\n';
+ const stimulus=async body=>{const bootstrap=await(await fetch(origin+'/api/bootstrap')).json();const response=await fetch(origin+'/synthetic-stimulus',{method:'POST',headers:{origin,'content-type':'application/json','x-harness-csrf':bootstrap.csrf},body:JSON.stringify(body),signal:AbortSignal.timeout(4000)});if(!response.ok)throw Error('synthetic_stimulus_failed');return await response.json();};
  ${mode==='deadline-before-connect'?"setInterval(()=>{},1000);await new Promise(()=>{});":''}
  ${mode==='attention-notification'||mode==='attention-publication-failure'?`
  ${mode==='attention-publication-failure'?"mkdirSync(join(i.directory,'native-attention.json'));":''}
@@ -53,15 +82,15 @@ function fixture(mode='normal'){
  await denied;process.exit(0);
  `:''}
  const file=id=>join(i.codex_home,'sessions',id+'.jsonl');const meta=(id,parent)=>row('session_meta',{id,session_id:root,cwd:i.project,cli_version:i.product_version,parent_thread_id:parent,source:parent?{subagent:{thread_spawn:{parent_thread_id:parent,depth:1}}}:'cli'});
- writeFileSync(file(root),meta(root,null));const record=(id,parent)=>{const output=execFileSync(i.wrapper,[],{input:JSON.stringify({hook_event_name:parent?'SubagentStart':'SessionStart',session_id:root,agent_id:parent?id:undefined,turn_id:parent?'child-turn':undefined,source:parent?undefined:'startup',cwd:i.project,transcript_path:file(id)}),encoding:'utf8'});return /[a-f0-9-]{36}/.exec(JSON.parse(output).hookSpecificOutput.additionalContext)[0];};
+ writeFileSync(file(root),meta(root,null));const record=async(id,parent)=>{const payload={hook_event_name:parent?'SubagentStart':'SessionStart',session_id:root,agent_id:parent?id:undefined,turn_id:parent?'child-turn':undefined,source:parent?undefined:'startup',cwd:i.project,transcript_path:file(id)};const output=await stimulus({operation:'hook',payload});return /[a-f0-9-]{36}/.exec(output.hookSpecificOutput.additionalContext)[0];};
  const usage=(id,turn,model='gpt-6.1-sol',input=${mode==='six-requests-tokens'||mode.startsWith('six-requests-late-tokens')?20000:10})=>row('turn_context',{cwd:i.project,turn_id:turn,root_turn_id:id===root?turn:'root-turn',model,effort:'high'})+row('token_usage_record',{thread_id:id,session_id:root,turn_id:turn,root_turn_id:id===root?turn:'root-turn',response_id:randomUUID(),usage:{input_tokens:input,cached_input_tokens:2,output_tokens:3,reasoning_output_tokens:1,total_tokens:input+3}});
  ${mode==='baseline'||mode==='root-stop'?"appendFileSync(file(root),usage(root,'baseline-turn'));":''}
  ${mode.startsWith('six-requests-staged')?"for(let n=0;n<2;n++)appendFileSync(file(root),usage(root,'connection-turn'));":''}
- const receipt=record(root,null);const helper=join(i.project,'.agents/skills/harness-connect/scripts/connect.mjs');execFileSync(i.node,${mode.startsWith('six-requests')?"[i.connector,'--receipt',receipt]":"[helper,'connect','--origin',origin,'--product','codex','--project',i.project_id,'--task',i.task_id,'--receipt',receipt]"},{stdio:'ignore'});
+ const receipt=await record(root,null);await stimulus({operation:'connect',receipt});
  ${mode.startsWith('six-requests-staged')?"appendFileSync(file(root),usage(root,'connection-turn').split('\\n')[1]+'\\n');":''}
  ${deterministic?`
  const completion=(async()=>{for await(const event of watch(i.directory,{signal:AbortSignal.timeout(4000)})){if(event.filename==='collector-complete')return;}throw Error('synthetic_completion_missing');})();
- for(const child of children){writeFileSync(file(child),meta(child,root));record(child,root);}
+ for(const child of children){writeFileSync(file(child),meta(child,root));await record(child,root);}
  for(let n=0;n<${mode.startsWith('late-')?1:4};n++)appendFileSync(file(root),usage(root,'root-'+n));
  for(const child of children)appendFileSync(file(child),usage(child,'child-turn'));
  ${mode.startsWith('late-')?followUp[mode]:''}
@@ -72,7 +101,7 @@ function fixture(mode='normal'){
     ${mode.includes('ordinary')?`const dto=await(await fetch(origin+'/api/tasks/'+i.task_id)).json();writeFileSync(join(i.directory,'ordinary-dto.json'),JSON.stringify(dto));`:''}
     process.exit(0);
  `:`
- await new Promise(r=>setTimeout(r,30));for(const child of children){writeFileSync(file(child),meta(child,root));record(child,root);}
+ await new Promise(r=>setTimeout(r,30));for(const child of children){writeFileSync(file(child),meta(child,root));await record(child,root);}
  for(const id of[root,...children]){appendFileSync(file(id),row('turn_context',{cwd:i.project,turn_id:id===root?'root-turn':'child-turn',root_turn_id:'root-turn',model:'gpt-6.1-sol',effort:'high'})+row('token_usage_record',{thread_id:id,session_id:root,turn_id:id===root?'root-turn':'child-turn',root_turn_id:'root-turn',response_id:randomUUID(),usage:{input_tokens:10,cached_input_tokens:2,output_tokens:3,reasoning_output_tokens:1,total_tokens:13}}));}
  for(let n=0;n<150;n++){const t=await(await fetch(origin+'/api/tasks/'+i.task_id)).json();if(t.binding?.requests===3&&t.binding.children===2){${followUp[mode]??''}process.exit(0);}await new Promise(r=>setTimeout(r,20));}process.exit(4);
  `}
@@ -126,7 +155,7 @@ function fixture(mode='normal'){
   const late=JSON.parse(readFileSync(join(root,'attempt','late-record.json'),'utf8')) as {file:string;bytes:string};
   appendFileSync(late.file,late.bytes);finalInjectionObserved=true;
  }:undefined;
- return{root,home,script,dir:join(root,'attempt'),dependency:{script,durationMs:mode==='deadline-before-connect'?500:5000,...(beforeFinalSourceCheck?{beforeFinalSourceCheck}:{})},completionObserved:()=>completionObserved,finalInjectionObserved:()=>finalInjectionObserved,cleanup:()=>{observation?.mockRestore();clockOverride?.mockRestore();rmSync(root,{recursive:true,force:true});}};
+ return{root,home,script,dir:join(root,'attempt'),dependency:{script,durationMs:mode==='deadline-before-connect'?500:5000,...(beforeFinalSourceCheck?{beforeFinalSourceCheck}:{})},stimulusPids:()=>stimulusPids,completionObserved:()=>completionObserved,finalInjectionObserved:()=>finalInjectionObserved,cleanup:()=>{stimulusController.abort();stimulus.mockRestore();observation?.mockRestore();clockOverride?.mockRestore();rmSync(root,{recursive:true,force:true});}};
 }
 const consent=(sha:string)=>({intent_sha256:sha,approval_reference:'synthetic-test-only',actual_model_run:true,transient_hooks:true,native_source_reads:true,owned_process_termination:true});
 test.each([
@@ -139,8 +168,9 @@ test.each([
   const result=await executeCodexSessionBindingQualification(p.intentPath,{...consent(p.sha256),network_command_permission:true},f.dependency);
 
   expect(f.completionObserved(),JSON.stringify(result)).toBe(true);
+  expect(f.stimulusPids()).toEqual(Array.from({length:4},()=>process.pid));
   expect(result,JSON.stringify(result)).toMatchObject({route:'ordinary_admission',ordinary_path_verified:true,ordinary_admission_verified:false,validation_kind:'synthetic',status:'completed',reason:null,collector_error:null,safety_usage_verification:'verified',
-   native:{status:'completed',exitCode:0,ownershipVerified:true,terminationVerified:true},binding:{roots:1,children:2,requests:6},product_gate_delta:false,complete_cost:null,hard_billing_bound:null,
+   native:{status:'completed',exitCode:0,ownershipVerified:true,terminationVerified:true,ownedMembers:1},binding:{roots:1,children:2,requests:6},product_gate_delta:false,complete_cost:null,hard_billing_bound:null,
    independent_source_check:{sources:3,observed_request_matches:6,native_owned_requests:9,excluded_baseline_requests:3,scope:'exact_new_linked_sources',complete_cost:false}});
   const options=vi.mocked(localWeb.createLocalWebDomain).mock.calls.find(([o])=>o.bindingObservation)?.[0];
   expect(options).toBeDefined();expect(options).not.toHaveProperty('qualificationLease');expect(options).not.toHaveProperty('humanPilot');expect(options).not.toHaveProperty('nativePilot');
