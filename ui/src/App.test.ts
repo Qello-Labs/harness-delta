@@ -12,6 +12,7 @@ import { ClaudeConnection } from './ClaudeConnection';
 import { OrdinaryCriteria } from './OrdinaryObservationSetup';
 import type { Setup, Snapshot, SupportDetails, Task } from './types';
 import { connectionRoute } from './AssignedHarness';
+import { SupportGuidance } from './SupportGuidance';
 import * as api from './api';
 
 vi.mock('react', async importOriginal => { const react = await importOriginal<typeof import('react')>(); return { ...react, useState: vi.fn(react.useState), useRef: vi.fn(react.useRef), useEffect: vi.fn(react.useEffect) }; });
@@ -311,6 +312,47 @@ const waitingTask: Task = {
   actions: [{ code: 'session-connect', enabled: false, reason: 'binding_provider_unavailable' }],
   startup: null, criteria: ['criterion-one'], source: null, reason: null,
 };
+
+test.each([3, 8])('ordinary task renders its configured family limit %s without a Claude version label', limit => {
+  const version = limit === 3 ? '2.1.301' : '2.1.296';
+  const missing = { status: 'missing' as const, value: null, statuses: [], reasons: [] };
+  const task: Task = { ...waitingTask, mode: 'ordinary',
+    binding: { product: 'claude_code', product_version: version,
+      max_family_members: limit, state: 'unconnected', roots: 0, children: 0, requests: null,
+      gaps: [], cost_coverage: 'partial', support: 'claude_family', sessions: [],
+      summary: { requests: null, input_total: missing, output_total: missing, partial_amount: null,
+        currency: 'USD', unpriced_events: 0, price_table_id: null, complete_cost: null } } };
+  delete task.support_details;
+  const harness = appHarness({ ...snapshot, tasks: [task] }, [[3, 'detail'], [4, task]]);
+  vi.stubGlobal('location', { hash: '', origin: 'http://127.0.0.1:4318' });
+  try {
+    const html = renderToStaticMarkup(harness.render());
+    const displayed = /<span data-family-limit="(\d+)">(\d+)<\/span>/.exec(html);
+    expect(displayed?.slice(1).map(Number)).toEqual([limit, limit]);
+    expect(html).not.toContain(version);
+  } finally { vi.unstubAllGlobals(); harness.restore(); }
+});
+
+test.each(['0.162.1', '0.163.0'])('task family guidance renders the frozen Codex version %s', productVersion => {
+  const missing = { status: 'missing' as const, value: null, statuses: [], reasons: [] };
+  const support: SupportDetails = { ...familySupport, family: 'verified_bounded_family', product_version: productVersion };
+  const task: Task = { ...waitingTask, support_details: support,
+    binding: { state: 'unconnected', roots: 0, children: 0, requests: null, gaps: [], cost_coverage: 'partial',
+      support: 'verified_bounded_family', sessions: [],
+      summary: { requests: null, input_total: missing, output_total: missing, partial_amount: null,
+        currency: 'USD', unpriced_events: 0, price_table_id: null, complete_cost: null } } };
+  for (const locale of ['ko', 'en'] as const) {
+    const harness = appHarness({ ...snapshot, tasks: [task] }, [[0, locale], [3, 'detail'], [4, task]]);
+    vi.stubGlobal('location', { hash: '', origin: 'http://127.0.0.1:4318' });
+    try {
+      const html = renderToStaticMarkup(harness.render()) +
+        renderToStaticMarkup(createElement(SupportGuidance, { support, locale }));
+      const versions = [...html.matchAll(/Codex (0\.\d+\.\d+)/g)].map(match => match[1]);
+      expect(versions.length).toBeGreaterThan(0);
+      expect(new Set(versions)).toEqual(new Set([productVersion]));
+    } finally { vi.unstubAllGlobals(); harness.restore(); }
+  }
+});
 
 test.each([[false, true], [true, false], [true, true], [false, false]])(
   'outcome menu honors independent failed=%s and abandoned=%s permissions',
