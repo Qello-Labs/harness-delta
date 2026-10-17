@@ -3,7 +3,7 @@ import { appendFileSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFile
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { claudeBindingAdmission } from '../src/claude-binding-admission.js';
+import { claudeBindingAdmission, claudeBindingAdmissions } from '../src/claude-binding-admission.js';
 import { claudeProjectDirName, ClaudeSessionBindingProvider } from '../src/session-binding-claude.js';
 import type { CandidateScope } from '../src/nested-candidate.js';
 import type { ClaudeBindingOptions } from '../src/session-binding-claude.js';
@@ -69,6 +69,47 @@ describe('ordinary Claude provider boundary', () => {
 
   it('rejects an unqualified native image before any transcript body read', async () => {
     const provider = makeProvider({ readProcessBinary: () => ({ productVersion: '2.1.294', sha256: 'a'.repeat(64) }) });
+    await expect(provider.inspectCurrent({ receipt })).rejects.toThrow('claude_binary_unqualified');
+    await expect(provider.resolveCurrent({ receipt })).rejects.toThrow('claude_binary_unqualified');
+    expect(reads).toEqual([]);
+  });
+
+  it.each(claudeBindingAdmissions)('binds image and transcript to selected $productVersion', async admission => {
+    writeFileSync(source, jsonLine({
+      type: 'user', sessionId: native, version: admission.productVersion,
+      timestamp: new Date(now - 2000).toISOString(),
+    }) + jsonLine(assistant('prior', { version: admission.productVersion })), { mode: 0o600 });
+    const provider = makeProvider({
+      productVersion: admission.productVersion,
+      readProcessBinary: () => ({ productVersion: admission.productVersion, sha256: admission.binarySha256 }),
+    });
+    expect(provider.supportedVersion(admission.productVersion)).toBe(true);
+    expect(provider.supportedVersion('2.1.302')).toBe(false);
+    const parent = await provider.resolveCurrent({ receipt });
+    expect(parent.productVersion).toBe(admission.productVersion);
+    const scope: CandidateScope = {
+      taskId: 'ordinary-task', projectId: 'ordinary-project', allowedRootTurnIds: ['binding-observation'],
+      sessions: [{ sessionId: native, rootSessionId: native, parentSessionId: null,
+        sourceId: native, product: 'claude_code', nativeSessionId: native,
+        agentId: null, processId: parent.nativeMapping?.processId ?? null }],
+    };
+    const baseline = await provider.readUsage(parent, null, scope, { baseline: true });
+    const provisional = assistant('future', { version: admission.productVersion });
+    appendFileSync(source, jsonLine({ ...provisional, message: { ...provisional.message, stop_reason: null } }));
+    const held = await provider.readUsage(parent, baseline.cursor, scope);
+    expect(held.records).toEqual([]);
+    appendFileSync(source, jsonLine(assistant('future', { version: admission.productVersion })));
+    const complete = await provider.readUsage(parent, held.cursor, scope);
+    expect(complete.records).toHaveLength(1);
+    expect(complete.records[0]?.requestId).toBe('future');
+  });
+
+  it.each(claudeBindingAdmissions)('rejects other admitted images before body reads for $productVersion', async admission => {
+    const other = claudeBindingAdmissions.find(row => row.productVersion !== admission.productVersion)!;
+    const provider = makeProvider({
+      productVersion: admission.productVersion,
+      readProcessBinary: () => ({ productVersion: other.productVersion, sha256: other.binarySha256 }),
+    });
     await expect(provider.inspectCurrent({ receipt })).rejects.toThrow('claude_binary_unqualified');
     await expect(provider.resolveCurrent({ receipt })).rejects.toThrow('claude_binary_unqualified');
     expect(reads).toEqual([]);

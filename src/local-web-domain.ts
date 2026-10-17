@@ -42,14 +42,14 @@ import { issueCodexHumanPilotScope, assertHumanPilotScope, isHumanPilotProtocol,
 import type { BindingProduct, SessionBindingProvider } from './session-binding-contract.js';
 import { issueClaudeHumanPilotScope, assertClaudeHumanPilotSource, isClaudeHumanPilotScope } from './session-binding-claude-human-pilot.js';
 import { setTimeout as delay } from 'node:timers/promises';
-import { codexBindingAdmission, isAdmittedCodexBindingProtocol } from './codex-binding-admission.js';
+import { getCodexBindingAdmission, isAdmittedCodexBindingProtocol } from './codex-binding-admission.js';
 import {
   assertOrdinaryTaskPrepared, createOrdinaryTask, ordinaryTask,
   ordinaryTaskSettings, OrdinaryProjectSettingsSchema, revokeOrdinaryObservation,
 } from './ordinary-observation.js';
 import { ordinaryProjectAction, ordinaryProjectDto } from './local-web-ordinary.js';
 import { createOrdinarySessionBindingService } from './ordinary-session-binding.js';
-import { claudeBindingAdmission } from './claude-binding-admission.js';
+import { getClaudeBindingAdmission } from './claude-binding-admission.js';
 import { inspectClaudeProjectSkill, inspectOrdinaryClaudeProjectSkill } from './claude-connect-readiness.js';
 import { codexReceiptDirectoryState, createCodexProjectSetupManager } from './local-web-codex.js';
 
@@ -78,7 +78,7 @@ export function localWebSupport(store: Store, profile: LocalWebProfile) {
   const rootPilot = familyPilot && protocol.schema_version === 2 && protocol.source_profiles[0]?.profile_id === codexRootHumanPilotProfileId;
   const ordinaryFamily = protocol.schema_version === 2 && isAdmittedCodexBindingProtocol(protocol);
   const parserCompatibility = ordinaryFamily
-    ? resolveSourceCompatibility('codex',workflow.product_version,'codex_binding',codexBindingAdmission.profileId)
+    ? resolveSourceCompatibility('codex',workflow.product_version,'codex_binding',getCodexBindingAdmission(workflow.product_version)?.profileId)
     : rootPilot ? resolveSourceCompatibility('codex', workflow.product_version, 'codex_workflow', 'codex-workflow-own-response-v1') : null;
   const parserState=parserCompatibility?effectiveSourceCompatibility(store,parserCompatibility):null;
   const launchAllowed = !ordinaryFamily && protocolRecord.status === 'frozen' && protocol.schema_version === 2 && (functionalWorkflowEligible(store, protocol) || comparisonReadiness(store, protocol.id).real_allocation);
@@ -93,7 +93,7 @@ export function localWebSupport(store: Store, profile: LocalWebProfile) {
     product: workflow.assignment.metadata.product, product_version: workflow.product_version,
     launch,
     ticket: synthetic ? 'synthetic_validation_only' : workflow.assignment.metadata.product === 'codex' && workflow.product_version === '0.160.0' ? 'exact_version_only' : 'unsupported',
-    family: synthetic ? 'synthetic_validation_only' : protocolRecord.status === 'frozen' && ordinaryFamily && parserState?.state!=='invalidated' ? 'verified_bounded_family' : protocolRecord.status === 'frozen' && familyPilot ? rootPilot ? 'candidate_root_pilot' : 'candidate_pilot' : 'qualification_required',
+    family: synthetic ? 'synthetic_validation_only' : protocolRecord.status === 'frozen' && ordinaryFamily && parserState && parserState.state!=='invalidated' ? parserState.state==='verified'?'verified_bounded_family':'candidate_pilot' : protocolRecord.status === 'frozen' && familyPilot ? rootPilot ? 'candidate_root_pilot' : 'candidate_pilot' : 'qualification_required',
     ...(parserState ? { family_parser_compatibility: parserState } : {}),
     complete_cost: false, inference: false,
   };
@@ -217,9 +217,12 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
       if (record.profile_id === 'ordinary-claude') {
         const config = ordinaryTask(store, id) ? ordinaryTaskSettings(store, id) :
           OrdinaryProjectSettingsSchema.parse(JSON.parse(record.setup));
+        const admission = getClaudeBindingAdmission(config.product_version);
+        if (!admission?.admitted) throw new Error('binding_source_unqualified');
         const result = [new ClaudeSessionBindingProvider({
           receiptDir: config.receipt_directory, claudeProjectsDir: config.claude_projects_directory,
-          projectRoot, ordinaryAdmission: true, maxFamilyMembers: claudeBindingAdmission.maxFamilyMembers,
+          projectRoot, ordinaryAdmission: true, productVersion: config.product_version,
+          maxFamilyMembers: admission.maxFamilyMembers,
           authorizeSource: source => ordinaryBindings.assertSource(id, source),
           memberEligible: member => ordinaryBindings.memberEligible(id, member),
         })];
@@ -229,6 +232,7 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
       const protocol = comparisonProtocol(store,protocolRow(store,setupFor(record).workflow.assignment.protocol_id));
       const ordinaryFamily = !options.qualificationLease && !options.nativePilot && protocol.schema_version === 2 && isAdmittedCodexBindingProtocol(protocol);
       const workflow = setupFor(record).workflow;
+      const ordinaryAdmission=ordinaryFamily?getCodexBindingAdmission(workflow.product_version):undefined;
       const savedProjectConfig = workflow.assignment.metadata.product === 'codex' && !options.qualificationLease && !options.nativePilot
         ? codexProjects.configuration(workflow.assignment.project_id) : undefined;
       const projectConfig = savedProjectConfig?.product_version === workflow.product_version ? savedProjectConfig : undefined;
@@ -245,8 +249,8 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
         ? [new CodexSessionBindingProvider({ receiptDirectory: config.receipt_directory, sourceRoots: config.source_roots, projectRoot,
           ...(setupFor(record).workflow.assignment.metadata.product==='synthetic' ? {} : {productVersion:setupFor(record).workflow.product_version}),
           ...(options.qualificationLease ? {maxDepth:1,maxFamilyMembers:3,
-            ...(setupFor(record).workflow.product_version==='0.162.1'?{ordinaryFamilyQualification:true}:{})} : options.nativePilot ? {maxDepth:1,maxFamilyMembers:codexRootPilotVersions.some(version=>version===setupFor(record).workflow.product_version)?1:3} : {}),
-          ...(ordinaryFamily ? { ordinaryFamilyAdmission:true,maxDepth:codexBindingAdmission.maxDepth,maxFamilyMembers:codexBindingAdmission.maxFamilyMembers } : {}),
+             ...(['0.162.1','0.163.0'].includes(setupFor(record).workflow.product_version)?{ordinaryFamilyQualification:true}:{})} : options.nativePilot ? {maxDepth:1,maxFamilyMembers:codexRootPilotVersions.some(version=>version===setupFor(record).workflow.product_version)?1:3} : {}),
+          ...(ordinaryAdmission ? { ordinaryFamilyAdmission:true,maxDepth:ordinaryAdmission.maxDepth,maxFamilyMembers:ordinaryAdmission.maxFamilyMembers } : {}),
           ...(options.nativePilot?.observe && options.nativePilot.taskId===id && codexRootPilotVersions.some(version=>version===setupFor(record).workflow.product_version) ? {ordinaryRootPilot:true} : {}) })]
         : [new ClaudeSessionBindingProvider({ receiptDir: config.receipt_directory, claudeProjectsDir: config.claude_projects_directory, projectRoot, ...(options.nativePilot ? { allowCandidateProfiles: true, maxFamilyMembers: 3, authorizeSource: source => { if (!humanPilot || options.nativePilot?.taskId !== id) throw new Error('binding_source_unqualified'); assertClaudeHumanPilotSource(humanPilot, store, id, source); } } : {}) })];
       } catch (error) {
@@ -402,7 +406,7 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
         freshness_evidence: state.freshness_evidence, tool_use_evidence: state.tool_use_evidence, assigned_variant_id: state.assigned_variant_id },
       price: { partial_amount: result.cost?.partial_amount ?? null, compatibility_unverified_partial_amount: result.cost?.compatibility_unverified_partial_amount ?? null, legacy_unverified_partial_amount: result.cost?.legacy_unverified_partial_amount ?? null, compatibility: result.cost?.compatibility ?? null, currency: result.cost?.currency ?? 'USD', unpriced_events: result.cost?.unpriced_events ?? 0, basis: result.cost?.price_table_hash ?? null },
       criteria: setup.workflow.assignment.metadata.criterion_ids, actions, startup, source: source ? { handle: source.handle, label: source.label } : null,
-      binding: { ...binding, ...(supportDetails.context === 'synthetic_validation_only' ? {} : { product: bindingProduct }), support: supportDetails.context === 'synthetic_validation_only' ? 'synthetic_validation_only' : options.nativePilot && id===options.nativePilot.taskId ? (humanPilot ? 'native_unverified_pilot' : 'native_pilot_preparation_only') : options.qualificationLease ? 'native_qualification_only' : bindingAvailable ? ordinaryAvailable ? 'verified_bounded_family' : 'qualification_required' : 'instrumentation_required' },
+      binding: { ...binding, ...(supportDetails.context === 'synthetic_validation_only' ? {} : { product: bindingProduct }), support: supportDetails.context === 'synthetic_validation_only' ? 'synthetic_validation_only' : options.nativePilot && id===options.nativePilot.taskId ? (humanPilot ? 'native_unverified_pilot' : 'native_pilot_preparation_only') : options.qualificationLease ? 'native_qualification_only' : bindingAvailable ? ordinaryAvailable ? supportDetails.family : 'qualification_required' : 'instrumentation_required' },
       reason: record.reason === 'measurement_paused' ? null : record.reason ?? state.reason_code,
     };
   };
@@ -410,6 +414,9 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
     const task = life.task(id);
     const preparation = ordinaryTask(store, id);
     if (!preparation) throw new Error('ordinary_preparation_required');
+    const settings = ordinaryTaskSettings(store, id);
+    const admission = getClaudeBindingAdmission(settings.product_version);
+    if (!admission) throw new Error('binding_source_unqualified');
     const metadata = parseTaskMetadata(JSON.parse(task.metadata));
     const binding = ordinaryBindings.status(id);
     const summary = life.summary(id);
@@ -449,7 +456,7 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
       state: task.state, status: finalized ? summary.outcome : active ? 'active' : connected ? 'paused' : 'waiting_for_session',
       connection_readiness: {
         skill: inspectOrdinaryClaudeProjectSkill(effectiveTaskWorkspace(store, id)),
-        configured_version: ordinaryTaskSettings(store, id).product_version,
+        configured_version: settings.product_version,
         installed_version: null, collection_revoked: revoked,
       },
       measurement: { state: finalized ? 'measurement_ended' : active ? 'active' : connected ? 'paused' : 'waiting_connection',
@@ -468,9 +475,9 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
         basis: binding.price_table_hash },
       criteria: metadata.criterion_ids, actions, startup: null, source: null,
       binding: { ...binding, product: 'claude_code' as const,
-        product_version: claudeBindingAdmission.productVersion, max_family_members: claudeBindingAdmission.maxFamilyMembers,
+        product_version: settings.product_version, max_family_members: admission.maxFamilyMembers,
         supported_model_family: 'claude' as const,
-        support: claudeBindingAdmission.admitted ? 'claude_family' : 'ordinary_qualification_pending' },
+        support: admission.admitted ? 'claude_family' : 'ordinary_qualification_pending' },
       reason: record.reason === 'measurement_paused' ? null : record.reason,
     };
   };

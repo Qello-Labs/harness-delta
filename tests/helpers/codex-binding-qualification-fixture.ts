@@ -40,7 +40,7 @@ export async function leaseBindingQualificationFixture(p: Awaited<ReturnType<typ
   const row = (type: string, payload: unknown) => JSON.stringify({ timestamp: new Date(now).toISOString(), type, payload }) + '\n';
   const member = (id: string, parent: string | null) => {
     writeFileSync(source(id), row('session_meta', {
-      id, session_id: root, cwd: p.intent.project, cli_version: '0.162.1', parent_thread_id: parent,
+      id, session_id: root, cwd: p.intent.project, cli_version: p.intent.product_version, parent_thread_id: parent,
       source: parent ? { subagent: { thread_spawn: { parent_thread_id: parent, depth: 1 } } } : 'cli',
     }));
     const output = JSON.parse(execFileSync(p.intent.wrapper, [], { encoding: 'utf8', input: JSON.stringify({
@@ -54,7 +54,7 @@ export async function leaseBindingQualificationFixture(p: Awaited<ReturnType<typ
   const receipt = member(root, null);
   const provider = new CodexSessionBindingProvider({
     receiptDirectory: p.intent.receipts, sourceRoots: [join(p.home, 'sessions')], projectRoot: p.intent.project,
-    productVersion: '0.162.1', ordinaryFamilyQualification: true, maxDepth: 1, maxFamilyMembers: 3,
+    productVersion: p.intent.product_version, ordinaryFamilyQualification: true, maxDepth: 1, maxFamilyMembers: 3,
     clock: () => new Date(now).toISOString(),
   });
   const identity = await provider.resolveCurrent({ receipt });
@@ -68,7 +68,8 @@ export async function leaseBindingQualificationFixture(p: Awaited<ReturnType<typ
   const requestIds = new Map<string, string>([root, ...children].map(id => [id, randomUUID()]));
   const usage = (id: string) => row('token_usage_record', {
     thread_id: id, session_id: root, turn_id: `${id}-turn`, root_turn_id: `${root}-turn`, response_id: requestIds.get(id),
-    usage: { input_tokens: 100, cached_input_tokens: 10, output_tokens: 20, reasoning_output_tokens: 5, total_tokens: 120 },
+    usage: { input_tokens: 100, cached_input_tokens: 10, output_tokens: 20, reasoning_output_tokens: 5, total_tokens: 120,
+      ...(p.intent.product_version === '0.163.0' ? { cache_write_input_tokens: 7 } : {}) },
   });
   for (const id of [root, ...children]) {
     appendFileSync(source(id), row('turn_context', {

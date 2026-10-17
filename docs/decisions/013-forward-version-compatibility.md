@@ -163,6 +163,41 @@ admission. Claude 2.1.296 is now the exact workflow base described below, not a
 conditional workflow release. Synthetic fallback tests establish conditional behavior,
 not new live admission.
 
+The 2026-10-16 UTC check of official GitHub and npm metadata agrees on
+[Codex 0.163.0](https://github.com/openai/codex/releases/tag/rust-v0.163.0) and
+[Claude Code 2.1.301](https://github.com/anthropics/claude-code/releases/tag/v2.1.301).
+Both still select the existing conditional file and root-workflow parsers.
+Codex remains below 0.164.0 but crosses a `0.x` minor boundary. The
+[target implementation](https://github.com/openai/codex/blob/83086188ae0614bd882818ff1aa23f3194962012/codex-rs/core/src/session/mod.rs#L4948-L5101)
+now records supplied usage for some incomplete responses in spending totals without
+replacing the installed context baseline. That accounting change, saved permissions,
+interruption and process-output changes require actual target-binary conformance.
+Claude remains below 2.2.0, but undocumented transcript semantics and changes to
+compaction, hooks and telemetry remain qualification concerns. The
+[pinned Claude changelog](https://github.com/anthropics/claude-code/blob/03b5892ee77de289bcd5dfa39f541525ade74aff/CHANGELOG.md)
+also reports new transcript API-parameter content and 5m/1h telemetry fields;
+neither may be copied or added to aggregate counters without its own reviewed
+projection. Existing parser
+selection is not evidence that these consumed contracts are unchanged.
+This maintenance snapshot adds synthetic target regressions, not exact admissions,
+new ordinary binding candidates, wider windows or native qualification. Existing
+ordinary source gates and historical trust are preserved.
+
+Subsequent 2026-10-16 Codex 0.163.0 ordinary-route native acceptance established
+the separate exact `codex-binding-01630-direct-family-v1` source for a fresh root
+and up to two fresh direct children, with partial observed usage only. It does not
+qualify file/workflow sources, incomplete-response completeness, resume or deeper
+topology, and does not rewrite earlier unverified observations. See the
+[route-specific acceptance](../validation/codex-ordinary-binding-qualification.md#2026-10-16-ordinary-route-acceptance).
+
+Subsequent Claude 2.1.301 actual-binary localhost normal/SIGINT print-mode
+conformance establishes its separate transcript profile and a separately configured
+ordinary binding record, `claude-binding-2-1-301-family-v1`, with one root and two
+flattened members. A real-service localhost rehearsal also passed; ordinary
+qualification remains false pending separate authenticated acceptance.
+The 2.1.296 default, old pins, file/workflow windows and historical trust remain
+unchanged. See the [bounded evidence](../validation/claude-ordinary-binding-02196-qualification.md#2026-10-16-exact-21301-transcript-qualification).
+
 On 2026-10-13 the Claude workflow base moved from 2.1.291 to 2.1.296 with its own
 [exact admission](../validation/claude-workflow-02196-source-readiness.md); 2.1.289
 through 2.1.295 are unsupported for that source. Keeping or resuming a session and the

@@ -123,10 +123,31 @@ the generated report if you need a historical snapshot after deletion or new dat
 Implemented 2026-10-08: [ADR 013](../decisions/013-forward-version-compatibility.md)
 enables automatic conditional parser reuse for stable releases inside finite windows.
 File collection uses Codex 0.158.0 for newer versions below 0.164.0, and Claude Code
-2.1.283 for newer versions below 2.2.0. Current stable Codex CLI 0.162.1 and Claude Code 2.1.296
+2.1.283 for newer versions below 2.2.0. As checked on 2026-10-16 UTC, stable
+Codex CLI 0.163.0 and Claude Code 2.1.301
 therefore enroll by default with `compatibility_unverified` trust. Exact registered
 versions remain verified; prereleases, suffixes, old unregistered versions and
 out-of-window releases fail before source access.
+
+These are inherited parser selections, not new exact admissions or actual-binary
+qualification. The Codex minor transition and Claude consumed-contract uncertainties
+require target-binary conformance before extending support. Ordinary session binding
+retains its separate exact-version gates; see [Harness Connect](harness-connect.md).
+
+The separate Codex 0.163.0 bounded ordinary binding profile passed native acceptance
+on 2026-10-16. Its exact binding provenance does not promote these file/workflow
+estimates or earlier observations; collection and costs remain partial.
+
+Claude 2.1.301 has a separate exact ordinary binding record with one root plus
+two flattened members and `qualified: false`. Bounded print-mode localhost normal
+and SIGINT transcript conformance and real-service localhost rehearsal passed;
+authenticated ordinary acceptance remains pending.
+Explicit configuration preserves the historical default and frozen tasks.
+This does not qualify file/workflow collection or complete usage/cost.
+
+Codex 0.163.0 cumulative totals can include usage from incomplete responses.
+Its unverified estimates are not directly comparable with 0.162.x cohorts until
+target conformance establishes the changed accounting boundary.
 
 Usage records preserve actual product version, parser/profile and rule revision.
 Task reports show unverified tokens under `usage.compatibility_unverified`;
@@ -137,9 +158,9 @@ An all-unverified task has a null verified total, not a false zero. All data sta
 
 ```sh
 node dist/cli.js --db ./local.db compatibility status
-node dist/cli.js --db ./local.db compatibility inspect --product codex --version 0.162.1 --source file
-node dist/cli.js --db ./local.db compatibility inspect --product claude_code --version 2.1.296 --source file
-node dist/cli.js --db ./local.db compatibility invalidate --product codex --version 0.162.1 --source file --reason semantic_incompatibility
+node dist/cli.js --db ./local.db compatibility inspect --product codex --version 0.163.0 --source file
+node dist/cli.js --db ./local.db compatibility inspect --product claude_code --version 2.1.301 --source file
+node dist/cli.js --db ./local.db compatibility invalidate --product codex --version 0.163.0 --source file --reason semantic_incompatibility
 ```
 
 Expected: inspect returns actual version, selected parser and trust; invalidate

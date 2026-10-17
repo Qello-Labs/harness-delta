@@ -96,6 +96,27 @@ test('synthetic product projection retains Claude-format TTL metadata without ad
 
 const candidateBytes = () => readFileSync(new URL('../config/prices/catalogs/reference-catalog-2026-10-08-v3.json', import.meta.url));
 const candidateBasis = () => compilePriceBasis(parsePriceCatalog(JSON.parse(candidateBytes().toString('utf8')) as unknown));
+const refreshedBytes = () => readFileSync(new URL('../config/prices/catalogs/reference-catalog-2026-10-16-v4.json', import.meta.url));
+
+test.each([
+  ['claude-fable-5-1', '0.0006825'],
+  ['claude-mythos-5-1', '0.0006825'],
+  ['claude-opus-5-5', '0.000276'],
+  ['claude-sonnet-5-5', '0.000138'],
+  ['claude-haiku-4-5-20251001', '0.0000705'],
+] as const)('catalog v4 prices disjoint mixed TTL usage for %s', (model, amount) => {
+  const r = request(10, 10);
+  r.event.payload.model = r.runtime.model = model;
+  const refreshed = compilePriceBasis(parsePriceCatalog(JSON.parse(refreshedBytes().toString('utf8'))));
+  expect(priceUsage(r.event, refreshed.table).partial_amount).toBe(amount);
+  expect(projectCatalogCost([r.event, r.event], refreshed, r.event.task_id, '2026-10-16T12:00:00Z', 'output-only-v1')).toMatchObject({
+    legacy_unverified_partial_amount: amount, partial_amount: null, complete_amount: null,
+  });
+  delete r.event.payload.cache_write_ttl;
+  expect(projectCatalogCost([r.event], refreshed, r.event.task_id, '2026-10-16T12:00:00Z', 'output-only-v1')).toMatchObject({
+    price_reasons: ['unverified_condition'], unpriced_events: 1,
+  });
+});
 
 test.each([[100000, '0.01000105'], [100001, '0.05000575']] as const)('v3 Haiku mixed TTL uses the full prompt tier (%i)', (total, amount) => {
   const r = request(10, 10);
@@ -105,6 +126,20 @@ test.each([[100000, '0.01000105'], [100001, '0.05000575']] as const)('v3 Haiku m
   expect(priceUsage(r.event, candidateBasis().table, 'output-only-v1', [r.runtime]).partial_amount).toBe(amount);
   const missing = projectCatalogCost([r.event], candidateBasis(), r.event.task_id, cutoff, 'output-only-v1');
   expect(missing).toMatchObject({ legacy_unverified_partial_amount: null, price_reasons: ['unverified_condition'] });
+});
+
+test.each([[100000, '0.01000105'], [100001, '0.05000575']] as const)('catalog v4 retains Haiku request boundary and mixed TTL arithmetic (%i)', (total, amount) => {
+  const r = request(10, 10);
+  r.event.payload.model = r.runtime.model = 'claude-haiku-5-5';
+  r.event.payload.input_total.value = total;
+  const ordinaryInput = r.event.payload.billing_components[0];
+  if (!ordinaryInput) throw new Error('missing_synthetic_component');
+  ordinaryInput.reading = { status: 'observed', value: total - 50, reason: null };
+  const refreshed = compilePriceBasis(parsePriceCatalog(JSON.parse(refreshedBytes().toString('utf8'))));
+  expect(priceUsage(r.event, refreshed.table, 'output-only-v1', [r.runtime]).partial_amount).toBe(amount);
+  expect(projectCatalogCost([r.event], refreshed, r.event.task_id, '2026-10-16T12:00:00Z', 'output-only-v1')).toMatchObject({
+    legacy_unverified_partial_amount: null, price_reasons: ['unverified_condition'],
+  });
 });
 
 test('v3 missing one-hour rate keeps five-minute and other components with explicit missing_rate', () => {
@@ -128,8 +163,11 @@ test('v3 rates do not promote compatibility trust or revive invalidated source u
     compatibility_unverified_partial_amount: null, complete_amount: null, matches: [] });
 });
 
-test.each(['observed', 'legacy'] as const)('frozen %s TTL survives refresh/repricing without historical rewrite or live backfill', async ttl => {
-  const store = new Store(':memory:'); const now = '2026-10-09T01:00:00Z';
+test.each([
+  ['observed', candidateBytes], ['legacy', candidateBytes],
+  ['observed', refreshedBytes], ['legacy', refreshedBytes],
+] as const)('frozen %s TTL survives refresh/repricing without historical rewrite or live backfill (%#)', async (ttl, targetBytes) => {
+  const store = new Store(':memory:'); const now = '2026-10-16T12:00:00Z';
   try {
     const r = request(10, 10, ttl); const life = new Lifecycle(store, () => '2026-10-08T00:00:00Z');
     life.registerProject(r.event.project_id, process.cwd());
@@ -142,7 +180,7 @@ test.each(['observed', 'legacy'] as const)('frozen %s TTL survives refresh/repri
     const result = createPriceRevaluation(store, { id: 'old', inputId: input.input_id, targetTableId: old.table.id }, now);
     const frozen = store.get('SELECT payload,hash FROM price_cost_inputs WHERE id=?', [input.input_id]);
     const saved = store.get('SELECT payload FROM price_revaluations WHERE id=?', ['old']);
-    await refreshPriceCatalog(store, () => Promise.resolve(candidateBytes()), digest(candidateBytes()), now);
+    await refreshPriceCatalog(store, () => Promise.resolve(targetBytes()), digest(targetBytes()), now);
     const target = preparePriceBasis(store, now);
     store.execute('DELETE FROM runtime_evidence', []); store.execute('DELETE FROM events', []);
     const repriced = createPriceRevaluation(store, { id: 'new', inputId: input.input_id, targetTableId: target.table.id }, now);

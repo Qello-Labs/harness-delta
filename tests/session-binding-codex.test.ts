@@ -56,7 +56,7 @@ test('native receipt is the identity proof and producer retains only allowlisted
   await expect(f.provider.resolveCurrent({ receipt: randomUUID() })).rejects.toThrow('binding_identity_unavailable');
 });
 
-test.each([undefined, '0.160.0', '0.162.0', '0.162.1'])('reviewed hook configuration %s supplies metadata-only root application identity', async productVersion => {
+test.each([undefined, '0.160.0', '0.162.0', '0.162.1', '0.163.0'])('reviewed hook configuration %s supplies metadata-only root application identity', async productVersion => {
   const f = fixture(productVersion); writeFileSync(f.path('root'), 'NOT A TRANSCRIPT');
   const proposal = proposeCodexSessionBindingHooks({ receiptDirectory: f.journal, sourceRoots: [f.dir], projectRoot: f.dir,
     nodeExecutable: process.execPath, scriptPath: resolve('scripts/session-binding-codex-hook.mjs'),
@@ -75,7 +75,7 @@ test.each([undefined, '0.160.0', '0.162.0', '0.162.1'])('reviewed hook configura
   expect(f.provider.capabilities().productionSupported).toBe(false);
 });
 
-test.each(['', '0.162', '0.0162.0', '0.162.0-beta.1', '0.162.1-rc.1', '0.162.2', '0.161.0', '0.163.0', '0.164.0', '1.0.0'])(
+test.each(['', '0.162', '0.0162.0', '0.162.0-beta.1', '0.162.1-rc.1', '0.162.2', '0.161.0', '0.163.0-rc.1', '0.163.1', '0.164.0', '1.0.0'])(
   'unreviewed or malformed configured version %s fails before source access', productVersion => {
     const options = { receiptDirectory: '/synthetic/absent/receipts', sourceRoots: ['/synthetic/absent/sources'],
       projectRoot: '/synthetic/absent/project', productVersion };
@@ -92,6 +92,7 @@ test.each(['', '0.162', '0.0162.0', '0.162.0-beta.1', '0.162.1-rc.1', '0.162.2',
 test.each([
   ['0.160.0', '0.162.0'], ['0.162.0', '0.160.0'], ['0.162.0', '0.162'], ['0.162.0', '0.164.0'],
   ['0.162.0', '0.162.1'], ['0.162.1', '0.162.0'],
+  ['0.163.0', '0.162.1'], ['0.162.1', '0.163.0'],
 ])('provider %s rejects receipt version %s before source access', async (productVersion, receiptVersion) => {
   const f = fixture(productVersion); const receipt = f.receipt('root');
   const path = join(f.journal, `${receipt}.json`);

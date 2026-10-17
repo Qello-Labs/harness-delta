@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { closeSync, constants, fstatSync, openSync, readSync, realpathSync } from 'node:fs';
 import { isAbsolute } from 'node:path';
-import { claudeBindingAdmission, claudeBindingRuntimeSupported } from './claude-binding-admission.js';
+import { claudeBindingAdmissions, claudeBindingRuntimeSupported } from './claude-binding-admission.js';
 
 export interface ClaudeProcessBinary {
   readonly productVersion: string;
@@ -38,10 +38,11 @@ export function readClaudeProcessBinary(pid: number): ClaudeProcessBinary {
     }
     const after = fstatSync(fd);
     const digest = hash.digest('hex');
+    const admission = claudeBindingAdmissions.find(row => row.admitted && row.binarySha256 === digest);
     if (before.dev !== after.dev || before.ino !== after.ino || before.size !== after.size ||
       before.mtimeMs !== after.mtimeMs || before.ctimeMs !== after.ctimeMs ||
-      digest !== claudeBindingAdmission.binarySha256) throw new Error('claude_binary_unqualified');
-    const binary = { productVersion: claudeBindingAdmission.productVersion, sha256: digest };
+      !admission) throw new Error('claude_binary_unqualified');
+    const binary = { productVersion: admission.productVersion, sha256: digest };
     images.set(key, binary);
     if (images.size > 64) {
       const oldest = images.keys().next().value;

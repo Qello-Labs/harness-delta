@@ -36,7 +36,7 @@ export function issueCodexBindingLease(store: Store, taskId: string, owner: Owne
  const protocol=comparisonProtocol(store,protocolRow(store,assignment.protocol_id));
  if(protocol.schema_version!==2||protocol.source_profiles.length!==1||protocol.source_profiles[0]?.product!=='codex')throw new Error('binding_qualification_scope_invalid');
  const productVersion=protocol.source_profiles[0].product_version;
- if(productVersion!=='0.160.0'&&productVersion!=='0.162.1')throw new Error('binding_qualification_scope_invalid');
+ if(productVersion!=='0.160.0'&&productVersion!=='0.162.1'&&productVersion!=='0.163.0')throw new Error('binding_qualification_scope_invalid');
  const lease=Object.freeze({qualificationOnly:true as const});
  leases.set(lease,{store,taskId,root:realpathSync(root),productVersion,owner,deadline,issuedAt:Date.now(),generation:task.generation,taskState:task.state,rootId:null,childIds:new Set(),arm:assignment.variant_id,pricePin:protocol.price_table_id,revoked:false,requests:new Map(),baseline:new Set(),collectorError:null,limitWitness:null});
  return lease;
@@ -65,7 +65,7 @@ export function assertBindingQualification(lease: BindingQualificationLease|unde
 export function bindingQualificationCompatibility(lease: BindingQualificationLease | undefined) {
  if(!lease)return null;
  const version=leases.get(lease)?.productVersion;
- return version==='0.162.1'?resolveSourceCompatibility('codex',version,'codex_workflow','codex-workflow-own-response-v1'):null;
+ return version==='0.162.1'||version==='0.163.0'?resolveSourceCompatibility('codex',version,'codex_workflow','codex-workflow-own-response-v1'):null;
 }
 /** Called synchronously after a lifecycle transition, before another body read.
  * Generation/pins and the independent owner deadline never reset on resume. */

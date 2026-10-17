@@ -42,6 +42,151 @@ assignment is required. Follow the [ordinary connection steps](harness-connect.m
 The comparison setup below is optional and applies to assigned A/B tasks.
 To load an already reviewed comparison at startup, add `--setup reviewed-ui-setup.json`.
 
+## Click through Setup
+
+These Korean UI screenshots were captured on 2026-10-16 from the running local
+server and built UI. Project paths, identities, comparison inputs and rates are
+isolated examples. No native agent was launched or connected. The comparison uses
+**synthetic validation**, not real measurement: its 2099 recruitment dates, participant,
+criteria, sample size and rates are not recommendations. Use your own reviewed values.
+Select **EN** in the header for English labels.
+
+For ordinary Claude observation, complete project registration and Claude setup
+below, then follow the [task walkthrough](../guide/walkthrough.md#step-4-create-a-task).
+Comparison settings are optional; do not prepare an A/B comparison for ordinary Claude work.
+
+### Register and select the project
+
+1. Select **Setup**. With no project registered, **Connect project** and comparison
+   preparation are disabled until their inputs are available.
+
+![Initial Setup screen](../guide/images/settings-01-empty.png)
+
+2. Enter the Git project's absolute directory, or use **Choose**. Select
+   **Connect project**. The example path is disposable; do not paste it into
+   your own installation. Registration reads HEAD, not session contents.
+
+3. After connection, the project is selected and **Agent connection setup** appears.
+   Project selection determines which agent settings and saved comparisons you see.
+
+![Selected project after connecting](../guide/images/settings-02-project-help.png)
+
+### Configure Claude and review installation
+
+Select **Claude Code**, then **Configure Claude**. **Configured** and **Installed**
+are separate badges. Select **Preview install / update** to see relative paths
+and actions without writing files.
+
+![Claude install preview](../guide/images/settings-06-claude-preview.png)
+
+Review the paths under `.claude/skills/harness-connect/`, then select
+**Install / update reviewed package**. The badge becomes **Installed**.
+**Cancel** closes the preview without applying it. **Preview removal** is a
+separate operation, not a way to stop measurement.
+
+![Claude package installed](../guide/images/settings-07-claude-installed.png)
+
+Installation alone does not connect a session or collect usage. Create an ordinary
+task and invoke its connection prompt in Claude afterward. Support still depends
+on the [current source and binary gates](harness-connect.md#current-implementation),
+not on reaching this screen.
+
+### Configure Codex and distinguish its states
+
+Select **Codex** to switch products. Before configuration, the example shows
+**Not configured**, `Files: absent`, unverified hook trust and 0 linked roots.
+Select **Configure Codex** to save the displayed version and permitted source roots.
+
+![Codex setup before configuration](../guide/images/settings-03-codex-before.png)
+
+Select **Preview install**. Review the skill package, recorder, project hook
+file and receipt directory, then select **Install reviewed package**.
+
+![Codex installation preview](../guide/images/settings-04-codex-preview.png)
+
+![Codex package installed, no native root linked](../guide/images/settings-05-codex-installed.png)
+
+`Files: installed` does not change **Hook trust: unverified** or **Linked roots: 0**.
+Review native hook trust and start or resume Codex before connecting a task.
+**Refresh status** rereads setup; it does not connect a session. Codex still requires
+its [separate assigned route](harness-connect.md#codex-01621-bounded-ordinary-profile),
+not the assignment-free ordinary Claude mode.
+
+### Prepare and check a comparison file
+
+Only continue here for A/B work. In **2. Prepare comparison settings**, choose how
+the harness is applied. **Only the instructions changed** delivers selected
+instructions; **An agent must apply it** requires the separate application procedure.
+This choice is not an A/B arm selection.
+
+Enter the prepared candidate's project-relative path, plus any supporting files
+and README source. Select **Copy agent request** and review the agent's proposed
+registration inputs before it creates a comparison file. If clipboard access fails,
+the UI offers text to copy manually; copying never runs an agent.
+
+![Application method and candidate inputs](../guide/images/settings-08-comparison-method.png)
+
+Enter the returned comparison JSON's absolute path and select **Check comparison
+file**. **Comparison file verified · not saved yet** shows the ordered A/B pair.
+The request for measurement settings and remaining choices appear below it.
+Checking a file neither saves a setting nor proves B is applied.
+
+![Verified comparison and remaining setup decisions](../guide/images/settings-09-comparison-checked.png)
+
+### Load the bundle and review the conditions
+
+Use **Copy measurement request** to obtain the still-missing reviewed decisions
+from your agent. Under **Load prepared settings**, choose its single setup bundle.
+This is different from importing an existing UI manifest under **Have an existing
+settings file?**; a comparison descriptor alone is not a measurement bundle.
+
+![Loaded bundle, confirmation still unchecked — synthetic example](../guide/images/settings-10-review-ready.png)
+
+Check project, ordered A/B pair, application method, purpose, participants,
+recruitment dates, sample rules, allowed work, criteria, follow-up, missingness,
+prices and source scope. **Technical details and complete conditions** expands
+the full inputs. In this example the purpose is visibly **Synthetic validation**.
+
+If the selected application method differs from the file, a warning appears.
+Loading a bundle does not choose a method for you. Select the matching method or
+prepare a new reviewed comparison; do not change the method merely to bypass the warning.
+Review changed inputs again before saving.
+
+![Application-method mismatch warning](../guide/images/settings-11-mode-mismatch.png)
+
+### Confirm, save and reuse
+
+Select **I confirm these conditions for new tasks** only after review.
+**Confirm and save settings** becomes available when both the confirmation and
+application method match. Select it once. Review alone has not saved anything.
+
+![Confirmation enables saving — synthetic example](../guide/images/settings-12-confirm-save.png)
+
+The saved comparison appears under **Saved comparison and measurement settings**.
+Expand **Review saved conditions** to see its task types and sizes.
+The saved card identifies the same A/B pair by variant IDs (`variant-a` / `variant-b`)
+rather than the reviewed names (`baseline` / `candidate`). It is reusable;
+do not import it again for each task. Saving creates no task and starts no agent
+or measurement.
+
+![Saved comparison and expanded conditions — synthetic example](../guide/images/settings-13-saved-conditions.png)
+
+Select **New task with this setting**. The form opens in comparison mode with the
+project and setting already selected. In this example **recruitment has not started**
+because its dates are deliberately in 2099, so task preparation is blocked.
+This is not a connection failure or a reason to copy the example dates.
+
+![Prefilled task form and recruitment gate — synthetic example](../guide/images/settings-14-new-task-prefilled.png)
+
+### Inspect the price basis
+
+Expand **Price basis details** on the right to read the cached catalog version and
+provider-price check date. **Refresh prices** is an explicit online update attempt,
+not a guarantee that a new catalog exists. This capture only expanded the details;
+it did not run a price refresh. Existing task price pins are not replaced.
+
+![Cached price basis details](../guide/images/settings-15-price-details.png)
+
 ## Local deletion and private metadata
 
 The CLI's task/project deletion and retention commands also scrub registered private

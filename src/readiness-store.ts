@@ -6,7 +6,7 @@ import { parseProtocol,type CostCoverageEvidence } from './flexible-contracts.js
 import { codexWorkflowCostFacts } from './codex-workflow-journal.js';
 import { evaluateCostCoverage } from './cost-coverage.js';
 import { evaluateReadiness,productionSourceEvidence,syntheticSourceEvidence } from './readiness.js';
-import { codexBindingAdmission, isAdmittedCodexBindingProtocol } from './codex-binding-admission.js';
+import { getCodexBindingAdmission, isAdmittedCodexBindingProtocol } from './codex-binding-admission.js';
 export function comparisonReadiness(store:Store,protocolId:string,at=new Date().toISOString()){
   const row=protocolRow(store,protocolId);const protocol=parseProtocol(JSON.parse(row.settings) as unknown);
   if(protocol.schema_version!==2)throw new Error('unsupported_readiness_mode');
@@ -14,7 +14,7 @@ export function comparisonReadiness(store:Store,protocolId:string,at=new Date().
   const registry=protocol.purpose==='synthetic_validation'?syntheticSourceEvidence:productionSourceEvidence;
   const ids=registry.filter(e=>protocol.source_profiles.some(p=>p.product===e.product&&p.product_version===e.product_version&&p.profile_id===e.profile_id)).map(e=>e.id);
   const blocked=protocol.source_profiles.some(profile=>{
-    const source=profile.product==='codex'?profile.profile_id===codexBindingAdmission.profileId?'codex_binding':'codex_workflow':profile.product==='claude_code'?'claude_workflow':null;
+    const source=profile.product==='codex'?profile.profile_id===getCodexBindingAdmission(profile.product_version)?.profileId?'codex_binding':'codex_workflow':profile.product==='claude_code'?'claude_workflow':null;
     const compatibility=source&&resolveSourceCompatibility(profile.product,profile.product_version,source,profile.profile_id);
     if(!compatibility)return false;try{assertCompatibilityAllowed(store,compatibility);return false;}catch{return true;}
   });

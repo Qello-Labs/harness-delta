@@ -129,9 +129,12 @@ function fixture(mode='normal'){
  return{root,home,script,dir:join(root,'attempt'),dependency:{script,durationMs:mode==='deadline-before-connect'?500:5000,...(beforeFinalSourceCheck?{beforeFinalSourceCheck}:{})},completionObserved:()=>completionObserved,finalInjectionObserved:()=>finalInjectionObserved,cleanup:()=>{observation?.mockRestore();clockOverride?.mockRestore();rmSync(root,{recursive:true,force:true});}};
 }
 const consent=(sha:string)=>({intent_sha256:sha,approval_reference:'synthetic-test-only',actual_model_run:true,transient_hooks:true,native_source_reads:true,owned_process_termination:true});
-test('ordinary admission observes root4 child1 each without qualification authority or complete cost',async()=>{
+test.each([
+ ['0.162.1','codex-binding-01621-direct-family-v1','verified','verified_bounded_family'],
+ ['0.163.0','codex-binding-01630-direct-family-v1','verified','verified_bounded_family'],
+] as const)('ordinary %s observes root4 child1 each without qualification authority or complete cost',async(productVersion,profileId,state,support)=>{
  const f=fixture('six-requests-staged-ordinary');try{
-  const p=await prepareCodexSessionBindingQualification(f.dir,{binary:realpathSync(process.execPath),codexHome:f.home,productVersion:'0.162.1',route:'ordinary_admission'},f.dependency);
+  const p=await prepareCodexSessionBindingQualification(f.dir,{binary:realpathSync(process.execPath),codexHome:f.home,productVersion,route:'ordinary_admission'},f.dependency);
 
   const result=await executeCodexSessionBindingQualification(p.intentPath,{...consent(p.sha256),network_command_permission:true},f.dependency);
 
@@ -142,13 +145,13 @@ test('ordinary admission observes root4 child1 each without qualification author
   const options=vi.mocked(localWeb.createLocalWebDomain).mock.calls.find(([o])=>o.bindingObservation)?.[0];
   expect(options).toBeDefined();expect(options).not.toHaveProperty('qualificationLease');expect(options).not.toHaveProperty('humanPilot');expect(options).not.toHaveProperty('nativePilot');
   const dto=z.object({binding:z.object({support:z.string(),roots:z.number(),children:z.number(),requests:z.number()}),support_details:z.object({family:z.string()}),actions:z.array(z.object({code:z.string(),enabled:z.boolean()}))}).passthrough().parse(JSON.parse(readFileSync(join(f.dir,'ordinary-dto.json'),'utf8')));
-  expect(dto.binding).toEqual({support:'verified_bounded_family',roots:1,children:2,requests:6});
-  expect(dto.support_details.family).toBe('verified_bounded_family');
+  expect(dto.binding).toEqual({support,roots:1,children:2,requests:6});
+  expect(dto.support_details.family).toBe(support);
   expect(dto.actions.filter(a=>!['session-connect','pause','resume-binding','emergency-stop'].includes(a.code)).every(a=>!a.enabled)).toBe(true);
   const store=new Store(p.intent.database);try{
    const pins=store.all<{payload:string}>('SELECT payload FROM session_source_compatibility');
    expect(pins).toHaveLength(3);
-   for(const pin of pins)expect(SourceCompatibilitySchema.parse(JSON.parse(pin.payload))).toMatchObject({state:'verified',source:'codex_binding',product_version:'0.162.1',parser_version:'0.162.1',profile_id:codexBindingAdmission.profileId});
+   for(const pin of pins)expect(SourceCompatibilitySchema.parse(JSON.parse(pin.payload))).toMatchObject({state,source:'codex_binding',product_version:productVersion,parser_version:productVersion,profile_id:profileId});
    const counts=store.all<{requests:number}>('SELECT count(*) AS requests FROM binding_requests r JOIN events e ON e.id=r.event_id GROUP BY e.session_id ORDER BY requests');
    expect(counts.map(c=>c.requests)).toEqual([1,1,4]);
   }finally{store.close();}
@@ -279,7 +282,7 @@ test('attention publication failure after reservation stops the owned trial with
  }finally{f.cleanup();}
 },10000);
 
-for(const [mode,reason] of [
+for(const productVersion of ['0.162.1','0.163.0'])for(const [mode,reason] of [
  ['six-requests',null],
  ['six-requests-staged',null],
  ['six-requests-tokens',null],
@@ -289,10 +292,10 @@ for(const [mode,reason] of [
  ['six-requests-late-over-limit','binding_qualification_request_limit'],
  ['six-requests-pin-conflict','binding_qualification_counter_mismatch'],
  ['six-requests-event-compat-conflict','binding_qualification_counter_mismatch'],
-] as const)test(`synthetic 0.162.1 execution reserves and tears down root4 plus child1 each with ${mode}`,async()=>{
+] as const)test(`synthetic ${productVersion} execution reserves and tears down root4 plus child1 each with ${mode}`,async()=>{
  const f=fixture(mode);try{
-  const p=await prepareCodexSessionBindingQualification(f.dir,{binary:realpathSync(process.execPath),codexHome:f.home,productVersion:'0.162.1'},f.dependency);
-  expect(p.intent).toMatchObject({validation_kind:'synthetic',product_version:'0.162.1',root_request_stop:8,observed_request_stop:10,helper_network_permission:'single_command_network_only',product_gate_delta:false});
+  const p=await prepareCodexSessionBindingQualification(f.dir,{binary:realpathSync(process.execPath),codexHome:f.home,productVersion},f.dependency);
+  expect(p.intent).toMatchObject({validation_kind:'synthetic',product_version:productVersion,root_request_stop:8,observed_request_stop:10,helper_network_permission:'single_command_network_only',product_gate_delta:false});
   const before=new Store(p.intent.database);try{expect(before.get<{reserved:number}>('SELECT reserved FROM binding_qualification')?.reserved).toBe(0);}finally{before.close();}
 
   const result=await executeCodexSessionBindingQualification(p.intentPath,{...consent(p.sha256),network_command_permission:true},f.dependency);

@@ -6,7 +6,7 @@ import { main } from '../src/cli.js';
 import { Lifecycle } from '../src/lifecycle.js';
 import { Store } from '../src/store.js';
 
-test.each([['codex', '0.161.0'], ['codex', '0.162.1'], ['claude_code', '2.1.292'], ['claude_code', '2.1.293'], ['claude_code', '2.1.296']])('CLI links recent regular %s, displays trust and persists invalidation across commands', async (product, version) => {
+test.each([['codex', '0.161.0'], ['codex', '0.162.1'], ['codex', '0.163.0'], ['claude_code', '2.1.292'], ['claude_code', '2.1.293'], ['claude_code', '2.1.296'], ['claude_code', '2.1.301']])('CLI links recent regular %s, displays trust and persists invalidation across commands', async (product, version) => {
   const root = mkdtempSync(join(tmpdir(), 'compatibility-cli-')); const db = join(root, 'db.sqlite');
   const store = new Store(db);
   const life = new Lifecycle(store); life.registerProject('p', root);

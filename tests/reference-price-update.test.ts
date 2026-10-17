@@ -19,6 +19,101 @@ function candidateBytes() {
 }
 function candidate() { return parsePriceCatalog(JSON.parse(candidateBytes().toString('utf8')) as unknown); }
 
+const refreshedUrl = new URL('../config/prices/catalogs/reference-catalog-2026-10-16-v4.json', import.meta.url);
+const refreshedAt = '2026-10-16T12:00:00Z';
+function refreshedBytes() { return readFileSync(refreshedUrl); }
+function refreshedCandidate() { return parsePriceCatalog(JSON.parse(refreshedBytes().toString('utf8'))); }
+
+test('October 16 candidate advances catalog version without changing schema or existing rates', () => {
+  const previousBytes = readFileSync(new URL('../config/prices/catalogs/reference-catalog-2026-10-08-v3.json', import.meta.url));
+  const previous = parsePriceCatalog(JSON.parse(previousBytes.toString('utf8')));
+  const next = refreshedCandidate();
+  expect(next).toMatchObject({ schema_version: 3, catalog_version: 4, catalog_id: 'reference-catalog-2026-10-16',
+    policy_id: 'reference-standard-observed-cache-ttl-v3', verified_at: '2026-10-16T00:00:00Z', published_at: '2026-10-16T00:00:00Z' });
+  expect(next.models).toHaveLength(11);
+  for (const row of previous.models) {
+    expect(next.models.find(model => model.model === row.model)).toEqual({ ...row, verified_at: next.verified_at });
+  }
+  expect(next.models.every(row => row.effective_from === null && row.effective_until === null)).toBe(true);
+  expect(digest(previousBytes)).toBe('3ecd87627df79d86a1c562635e119f0d51c30dd62c692fb3d7615710d55691ae');
+  expect(digest(candidateBytes())).toBe('145226cc91e537aa95cb74d2dfa2441a1e9b2d8dbdd5353c3999e972e8b8627e');
+  expect(digest(bundledCatalogBytes())).toBe('ae7f1aefab3b78f87bf9259b68b29882edc498b305831e3c2b3146f0968adf24');
+});
+
+test.each([
+  ['gpt-5.6-sol', 'gpt-5.6-sol', ['4', '0.4', '5', '20'], '0.000708'],
+  ['gpt-5.6', 'gpt-5.6-sol', ['4', '0.4', '5', '20'], '0.000708'],
+  ['gpt-5.6-cyber', 'gpt-5.6-cyber', ['12.5', '1.25', '15.625', '75'], '0.0023375'],
+] as const)('October 16 candidate prices the literal %s under the existing reference policy', (model, canonical, rates, amount) => {
+  const original = makeFlexibleFixture().events[0];
+  if (!original) throw new Error('missing_synthetic_event');
+  const event = { ...original, payload: { ...original.payload, product: 'codex' as const, model,
+    input_total: { status: 'observed' as const, value: 140, reason: null },
+    billing_components: [...original.payload.billing_components,
+      { kind: 'cache_write' as const, reading: { status: 'observed' as const, value: 20, reason: null } }] } };
+  const basis = compilePriceBasis(refreshedCandidate());
+  for (const [index, component] of (['ordinary_input', 'cache_read', 'cache_write', 'output'] as const).entries()) {
+    expect(matchCatalogComponent(event, component, basis)).toMatchObject({
+      canonical_model: canonical, provider_basis: 'reference_policy', status: 'matched', price_per_unit: rates[index],
+    });
+  }
+  expect(projectCatalogCost([event, event], basis, event.task_id, refreshedAt, 'output-only-v1')).toMatchObject({
+    legacy_unverified_partial_amount: amount, partial_amount: null, complete_amount: null,
+  });
+  expect(matchCatalogComponent(event, 'output', basis, { providerId: 'reseller' })).toMatchObject({ reason: 'unsupported_provider' });
+});
+
+test.each(['gpt-5.6-sol-fast', 'gpt-6.1-sol-high', 'gpt-rosalind-research', 'claude-mythos-5-1-20260901', 'claude-haiku-5-5-20261007'])(
+  'October 16 candidate does not infer unsupported model %s', model => {
+    const original = makeFlexibleFixture().events[0];
+    if (!original) throw new Error('missing_synthetic_event');
+    const event = { ...original, payload: { ...original.payload, product: model.startsWith('claude-') ? 'claude_code' as const : 'codex' as const, model } };
+    expect(matchCatalogComponent(event, 'output', compilePriceBasis(refreshedCandidate()))).toMatchObject({
+      status: 'unavailable', reason: 'unknown_model', price_per_unit: null,
+    });
+  });
+
+test('October 16 refresh keeps the v3 comparison pin and rejects unknown schema instead of confusing it with catalog version', async () => {
+  const previousBytes = readFileSync(new URL('../config/prices/catalogs/reference-catalog-2026-10-08-v3.json', import.meta.url));
+  const store = new Store(':memory:');
+  try {
+    seedProject(store);
+    expect(await refreshPriceCatalog(store, () => Promise.resolve(previousBytes), digest(previousBytes), refreshedAt)).toMatchObject({ status: 'updated' });
+    const first = preparePriceBasis(store, refreshedAt);
+    expect(first.table.id).toBe('catalog-prices-011d292e970f5edb1b183cd77a3a6a364ab42bafbdcfc63706462e50fd58f722');
+    const fixture = makeFlexibleFixture();
+    fixture.variants.forEach(variant => registerVariant(store, variant));
+    const { price_table_id: omitted, ...draft } = fixture.protocol; void omitted;
+    registerProtocolWithCatalogDefaults(store, draft, refreshedAt);
+    freezeProtocol(store, fixture.protocol.id, beforeRecruitment);
+    assignTask(store, { ...assignmentInput, schema_version: 2, task_id: 'task', logical_task_id: 'logical', metadata: fixture.metadata },
+      { clock: () => fixture.protocol.recruitment_start, shuffle: rows => rows });
+    const bytes = refreshedBytes();
+    expect(await refreshPriceCatalog(store, () => Promise.resolve(bytes), digest(bytes), refreshedAt)).toMatchObject({ status: 'updated' });
+    const current = preparePriceBasis(store, refreshedAt);
+    expect(current.table.id).not.toBe(first.table.id);
+    expect(current.table.version).toBe('catalog-v4');
+    expect(current.matching_version).toBe('exact-catalog-observed-cache-ttl-v3');
+    expect(readPriceBasis(store, first.table.id)).toEqual(first);
+    expect(selectTaskPriceTable(store, 'task', refreshedAt)).toEqual({ tableId: first.table.id, selection: 'frozen_comparison' });
+    const future = Buffer.from(JSON.stringify({ ...current.catalog, schema_version: 4 }));
+    expect(await refreshPriceCatalog(store, () => Promise.resolve(future), digest(future), refreshedAt)).toMatchObject({ reason: 'invalid_price_catalog' });
+    expect(preparePriceBasis(store, refreshedAt)).toEqual(current);
+    expect(await refreshPriceCatalog(store, () => Promise.resolve(previousBytes), digest(previousBytes), refreshedAt)).toMatchObject({ reason: 'catalog_rollback' });
+    expect(readPriceCatalogStatus(store).catalog_version).toBe(4);
+  } finally { store.close(); }
+});
+
+test('October 16 manifest binds version four bytes under schema three capability', () => {
+  const bytes = refreshedBytes();
+  const release = preparePriceCatalogRelease(bytes);
+  expect(release.manifest).toMatchObject({ schema_version: 1, publisher_id: 'harness-delta',
+    catalog_id: 'reference-catalog-2026-10-16', catalog_version: 4, policy_id: 'reference-standard-observed-cache-ttl-v3',
+    artifact_sha256: digest(bytes), artifact_bytes: bytes.length, artifact_file: `catalog-${digest(bytes)}.json` });
+  expect(release.artifact).toEqual(bytes);
+  expect(parsePriceCatalog(JSON.parse(bundledCatalogBytes().toString('utf8'))).catalog_version).toBe(1);
+});
+
 test('candidate changes only the source-verified Sonnet row and adds verified request tiers for the literal Haiku ID', () => {
   const previous = parsePriceCatalog(JSON.parse(bundledCatalogBytes().toString('utf8')) as unknown);
   const next = candidate();

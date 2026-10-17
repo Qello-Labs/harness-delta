@@ -22,7 +22,31 @@ ordinary provider. It passes no qualification lease to the domain or binding
 service; the runner retains separate owned-run safety guards for limits,
 immutable intent, task scope and emergency termination. Those guards never grant
 source access. The default `--route qualification` retains the historical route.
-Select `--product-version 0.162.1` with the ordinary option.
+Select the exact registered version with the ordinary option; the default remains unchanged.
+
+Codex 0.163.0 is a separate exact bounded ordinary profile, pinned to macOS arm64
+binary SHA256 `8813367285524ac798dd96d1b071aea30d58708c7226fd236cd275cf1cfdee31`.
+Its same-release executable sibling `codex-code-mode-host` is also required,
+SHA256 `79f123a85dbc61e8f5d0f0c050dfc3f4b81a8305d33a32b41e008b7f6e035698`.
+The official platform package ships both; the standalone Codex archive does not.
+Preparation refuses a missing, non-executable, symlinked, writable-by-others or
+unreviewed host before creating the intent. Its canonical path and hash are frozen
+in the intent and rechecked before execution. `--no-daemon` does not remove this
+owned execution-host requirement.
+Select `--product-version 0.163.0 --route qualification`. It uses the reviewed
+staged connection recipe, one-command network approval, notification handling
+and 900-second / ten-observed-request / 200,000-observed-token envelope described
+below. It does not use the failed external `sandbox-exec` startup environment.
+The native CLI's read-only sandbox and on-request approvals remain in effect.
+Its qualification-route native trial passed fresh receipt/family usage reconciliation
+and owned termination on 2026-10-16: three exact linked sources, six observed requests,
+and three connection-baseline requests excluded. The separate
+`--product-version 0.163.0 --route ordinary_admission` trial subsequently passed
+without collection qualification authority; see [the exact acceptance below](#2026-10-16-ordinary-route-acceptance).
+Only future observations under this exact binding profile receive verified provenance.
+Earlier candidate observations, file/workflow compatibility, existing versions,
+defaults and historical evidence remain unchanged. Preparation, synthetic regressions
+and the earlier ephemeral startup smoke are not substitutes for either native trial.
 
 The [2026-10-13 ordinary-route acceptance](#2026-10-13-ordinary-route-acceptance)
 proves that exact route on the pinned native binary, with independent review.
@@ -451,6 +475,39 @@ Independent review is required under the repository workflow.
 See [source acquisition evidence](codex-ordinary-hook-source-acquisition.md),
 [the portable runbook](../runbooks/harness-connect.md), and
 [the binding decision](../decisions/012-session-family-bindings.md).
+
+## 2026-10-16 ordinary-route acceptance
+
+The separate Codex 0.163.0 ordinary-route trial completed on macOS arm64 / Node 24,
+using the exact CLI and code-mode host hashes above. Its immutable intent SHA256 is
+`a8add9d20b6c7c7845090c70b4896d0b6922acfdb916495b81ec71dc4281683e`.
+The ordinary domain and binding service received no `qualificationLease`,
+`humanPilot` or `nativePilot` collection authority. Code-owned exact protocol and
+provider gates, frozen configuration, registered scope and owned safety observation
+remained active.
+
+After one human-approved network-only connector, a fresh root and two fresh direct
+children used gpt-6.1-sol/high. Independent post-exit reconciliation matched all six
+observed own requests (root four, children one each) from three exact linked sources:
+nine native-owned requests minus three excluded connection-baseline requests.
+Observed input was 129848 tokens and output 227; the trial's frozen-price partial
+reference estimate was USD 0.0995084, not vendor billing.
+Native exit was 0; ownership, controlling terminal and termination were verified
+for thirteen owned members. Result fields were `status=completed`,
+`ordinary_admission_verified=true`, `ordinary_path_verified=true` and
+`safety_usage_verification=verified`, without collector or observer errors.
+
+The trial ran with the new record still unqualified. Its original unverified pins
+and observations remain immutable; they are not rewritten by the later exact
+`codex-binding-01630-direct-family-v1` admission. Only new ordinary observations
+under that profile use verified provenance. The earlier qualification-route trial,
+synthetic regressions and startup-only smoke are separate evidence.
+
+The retained `binding_unobserved_context` gap is not backfilled. Costs remain
+partial, `complete_cost=null`, with no inference or whole-task completeness.
+Resume, deeper/additional descendants, incomplete-response completeness and
+tool-owned launch are not admitted. File/workflow compatibility windows, historical
+0.162.1 evidence/defaults, task/price pins and global installations are unchanged.
 
 ## 2026-10-13 ordinary-route acceptance
 

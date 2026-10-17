@@ -4,6 +4,7 @@ import type { Stats } from 'node:fs';
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
+import { getCodexBindingAdmission } from './codex-binding-admission.js';
 import { durablePrivateBytes } from './harness-application-files.js';
 import { hashBytes, readRepositoryFile, readStrictJson, safeRelativePath } from './harness-config.js';
 
@@ -237,7 +238,7 @@ function mergeHooks(bytes: Buffer | null, before: HookEntries | null, after: Hoo
 }
 const quote = (value: string) => `'${value.replaceAll("'", "'\"'\"'")}'`;
 function packageSource(root: string, options: CodexConnectInstallationOptions) {
-  if (options.productVersion !== '0.162.1') fail('product_version_unsupported');
+  if (!getCodexBindingAdmission(options.productVersion)) fail('product_version_unsupported');
   if (!Array.isArray(options.sourceRoots) || options.sourceRoots.length === 0 || options.sourceRoots.length > 32)
     fail('source_roots_invalid');
   for (const sourceRoot of options.sourceRoots) {

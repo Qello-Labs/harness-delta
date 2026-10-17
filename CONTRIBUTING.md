@@ -27,6 +27,13 @@ model at the observed reasoning effort; that trial model is history, not a requi
 [capability evidence](docs/decisions/001-adapter-capabilities.md), and
 [local measurement runbook](docs/runbooks/local-measurement.md).
 
+Codex 0.163.0 has a separate bounded ordinary profile with native no-lease acceptance
+on 2026-10-16: one fresh root and up to two fresh direct children. Its exact profile,
+required same-release execution host, partial-cost limits and verification record
+are documented in [Harness Connect](docs/runbooks/harness-connect.md#codex-01630-bounded-ordinary-profile).
+The 0.162.1 profile/default and all historical pins remain unchanged; select 0.163.0
+explicitly rather than upgrading saved settings automatically.
+
 ## Development environment
 
 Use Node.js 24 or 26 and npm. With nvm, the `.nvmrc` default remains Node 24:
@@ -132,13 +139,17 @@ The accepted [forward-version compatibility policy](docs/decisions/013-forward-v
 allows conditional reuse of a verified parser for newer releases within declared
 source-specific windows, with unverified estimates kept separate and incompatible
 data invalidated. Runtime rules live in `src/source-compatibility.ts`; exact profiles
-remain the evidence boundary for verified support. The current stable Codex CLI
-0.162.1 and Claude Code 2.1.296 use conditional parser reuse for file collection, not new exact
-admissions. Codex 0.162.1 workflow collection also remains conditional; the Claude
+remain the evidence boundary for verified support. The stable releases checked on
+2026-10-16 UTC, Codex CLI 0.163.0 and Claude Code 2.1.301, use conditional parser
+reuse for file collection, not new exact admissions. Their root-workflow selection
+also remains conditional. File/workflow target-binary conformance is pending for
+the Codex minor transition and Claude consumed-contract uncertainties; conditional
+selection does not grant ordinary binding admission. Codex 0.163.0 has separate
+ordinary-route evidence, not a file/workflow admission. The Claude
 workflow source is exactly admitted for 2.1.296. Ordinary binding separately permits the exact Codex 0.162.0/0.162.1
 root-only and Claude 2.1.291/2.1.293/2.1.294/2.1.296 profiles under explicit
 local human-pilot authority; see [Harness Connect](docs/runbooks/harness-connect.md).
-The Claude 2.1.296 transcript profile is qualified only for bounded native print-mode
+The Claude 2.1.296 and 2.1.301 transcript profiles are qualified only for bounded native print-mode
 evidence, not interactive qualification or production admission; the others are
 candidates. The comparison/pilot provider, even for qualified profiles, requires
 `allowCandidateProfiles: true`; it does not grant ordinary observation authority.
@@ -162,6 +173,13 @@ evidence. No new native trial was run, so don't describe the route as natively
 qualified or promote earlier observations. See
 [ADR 016](docs/decisions/016-ordinary-observation.md) and the
 [user flow and limits](docs/runbooks/harness-connect.md#ordinary-claude-observation-qualification-pending).
+
+The separate exact `claude-binding-2-1-301-family-v1` record admits explicit
+2.1.301 configuration with one root and two flattened members, preserving the
+2.1.296 default and frozen tasks. It uses the same Claude-model/observed-effort
+policy and remains `qualified: false`. Actual-binary localhost normal and SIGINT
+print-mode conformance and real-service localhost rehearsal passed; authenticated ordinary acceptance is pending. See the
+[dated qualification record](docs/validation/claude-ordinary-binding-02196-qualification.md#2026-10-16-exact-21301-transcript-qualification).
 
 Registered file adapters live in `src/adapter-profiles.ts`. Verified registration is an exact `(product, version)` allowlist. Conditional parser selection is separate. A new version whose semantics are unchanged is data, fixtures, and evidence. A semantic change is a named code variant plus tests; the old variant is not edited to fit the new version. Codex 0.158.0 uses the checkpoint variant and a historical exact-version admission. See the [admission workflow](docs/runbooks/codex-version-admission.md) and [current offline readiness limits](docs/validation/codex-01580-offline-readiness.md). The archived live report does not qualify the current source identity or establish whole-task completeness. The conformance runner is manual. `npm test` runs offline synthetic unit tests of the report projector, the candidate parser, and the confirmation helpers. It does not run the conformance runner, spawn product CLIs, or open real sessions. See [ADR 007](docs/decisions/007-adapter-version-profiles.md).
 

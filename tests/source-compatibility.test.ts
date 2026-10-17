@@ -6,7 +6,7 @@ import { Lifecycle } from '../src/lifecycle.js';
 import { Store } from '../src/store.js';
 import { EventSchema } from '../src/contracts.js';
 
-test.each([['codex', '0.161.0'], ['codex', '0.162.1'], ['claude_code', '2.1.292'], ['claude_code', '2.1.293'], ['claude_code', '2.1.296']])('recent regular %s can enroll without opening its source', (product, version) => {
+test.each([['codex', '0.161.0'], ['codex', '0.162.1'], ['codex', '0.163.0'], ['claude_code', '2.1.292'], ['claude_code', '2.1.293'], ['claude_code', '2.1.296'], ['claude_code', '2.1.301']])('recent regular %s can enroll without opening its source', (product, version) => {
   const root = mkdtempSync(join(tmpdir(), 'compatibility-'));
   const store = new Store(':memory:');
   try {
@@ -20,8 +20,10 @@ test.each([['codex', '0.161.0'], ['codex', '0.162.1'], ['claude_code', '2.1.292'
 
 import { collectionFixture, products } from './helpers/collection-fixture.js';
 
-test.each(products)('%s latest stable reuses its parser, counts only new turns and persists trust', product => {
-  const version = product === 'codex' ? '0.162.1' : '2.1.296';
+test.each([
+  ['codex', '0.162.1'], ['codex', '0.163.0'],
+  ['claude_code', '2.1.296'], ['claude_code', '2.1.301'],
+] as const)('%s %s reuses its parser, counts only new turns and persists trust', (product, version) => {
   const f = collectionFixture(product, version);
   try {
     f.life.start('t1');
@@ -40,6 +42,26 @@ test.each(products)('%s latest stable reuses its parser, counts only new turns a
 import { Collector } from '../src/collection.js';
 import { effectiveSourceCompatibility, invalidateCompatibility, overlayEventCompatibility, resolveSourceCompatibility, sessionCompatibility } from '../src/source-compatibility.js';
 
+test('Claude binding admission remains exact and independent of file and workflow evidence', () => {
+  expect(resolveSourceCompatibility('claude_code', '2.1.301', 'claude_binding')).toMatchObject({
+    state: 'compatibility_unverified', product_version: '2.1.301', parser_version: '2.1.301',
+    profile_id: 'claude-binding-2-1-301-family-v1',
+  });
+  expect(resolveSourceCompatibility('claude_code', '2.1.296', 'claude_binding')).toMatchObject({
+    state: 'compatibility_unverified', profile_id: 'claude-binding-02196-family-v1',
+  });
+  for (const version of ['2.1.300', '2.1.302', '2.1.301-rc.1', '2.1.301+build'])
+    expect(resolveSourceCompatibility('claude_code', version, 'claude_binding')).toBeNull();
+  expect(resolveSourceCompatibility('codex', '2.1.301', 'claude_binding')).toBeNull();
+  expect(resolveSourceCompatibility('claude_code', '2.1.301', 'claude_binding', 'claude-binding-02196-family-v1')).toBeNull();
+  expect(resolveSourceCompatibility('claude_code', '2.1.301', 'file')).toMatchObject({
+    state: 'compatibility_unverified', parser_version: '2.1.283',
+  });
+  expect(resolveSourceCompatibility('claude_code', '2.1.301', 'claude_workflow')).toMatchObject({
+    state: 'compatibility_unverified', parser_version: '2.1.296',
+  });
+});
+
 test('finite source windows prefer exact verified profiles and reject suffixes and boundary transitions', () => {
   expect(resolveSourceCompatibility('codex', '0.158.0', 'file')?.state).toBe('verified');
   expect(resolveSourceCompatibility('codex', '0.160.0', 'codex_workflow')?.state).toBe('verified');
@@ -52,7 +74,7 @@ test('finite source windows prefer exact verified profiles and reject suffixes a
   for (const version of ['2.1.288', '2.1.289', '2.1.290', '2.1.291', '2.1.292', '2.1.293', '2.1.294', '2.1.295']) {
     expect(resolveSourceCompatibility('claude_code', version, 'claude_workflow')).toBeNull();
   }
-  for (const version of ['2.1.297', '2.1.298']) {
+  for (const version of ['2.1.297', '2.1.298', '2.1.301']) {
     expect(resolveSourceCompatibility('claude_code', version, 'claude_workflow'))
       .toMatchObject({ state: 'compatibility_unverified', product_version: version, parser_version: '2.1.296' });
     expect(resolveSourceCompatibility('claude_code', version, 'claude_workflow', 'claude-workflow-direct-child-v1')).toBeNull();
@@ -178,4 +200,25 @@ test('binding-only invalidation leaves unpinned historical usage unchanged', () 
     expect(overlayEventCompatibility(store,historical)).toEqual(historical);
     expect(resolveSourceCompatibility('codex','0.162.1','file')).toMatchObject({state:'compatibility_unverified'});
   } finally {store.close();}
+});
+
+test('exact ordinary admission does not promote earlier unverified usage or other sources', () => {
+  const store = new Store(':memory:');
+  const compatibility = resolveSourceCompatibility('codex', '0.163.0', 'codex_binding');
+  if (!compatibility) throw new Error('binding_profile_missing');
+  expect(compatibility.state).toBe('verified');
+  const reading = { status: 'observed', value: 1, reason: null };
+  const historical = EventSchema.parse({
+    id: 'historical-binding', project_id: 'p', task_id: 't', session_id: 's', source_key: 'historical-binding',
+    occurred_at: '2026-10-16T00:00:00Z', payload: {
+      kind: 'usage', product: 'codex', product_version: '0.163.0', epoch: 'candidate', model: 'gpt-6.1-sol',
+      input_total: reading, cached_input: reading, output_total: reading, reasoning_output: reading,
+      source_compatibility: { ...compatibility, state: 'compatibility_unverified' },
+    },
+  });
+  try {
+    expect(overlayEventCompatibility(store, historical)).toEqual(historical);
+    expect(resolveSourceCompatibility('codex', '0.163.0', 'file')).toMatchObject({ state: 'compatibility_unverified' });
+    expect(resolveSourceCompatibility('codex', '0.163.0', 'codex_workflow')).toMatchObject({ state: 'compatibility_unverified' });
+  } finally { store.close(); }
 });

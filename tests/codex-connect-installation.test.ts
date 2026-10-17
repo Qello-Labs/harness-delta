@@ -108,9 +108,10 @@ test('install requires reviewed matching hashes before any mutation', () => {
   expect(() => install(f.project, f.options)).toThrow('codex_connect_installation_preview_required');
   expect(snapshot(f.project)).toBe(before);
 });
-test('install merges native entries and creates a real private empty receipt directory', () => {
+test.each(['0.162.1', '0.163.0'])('install %s merges native entries and creates a real private empty receipt directory', productVersion => {
   const f = fixture();
-  const result = install(f.project, reviewed(f.project, f.options));
+  const options = { ...f.options, productVersion };
+  const result = install(f.project, reviewed(f.project, options));
   expect(result.state).toBe('installed');
   expect(result.installedHash).toBe(result.packageHash);
   expect(result.hookRegistration).toBe('unverified');
@@ -119,7 +120,7 @@ test('install merges native entries and creates a real private empty receipt dir
   expect(document.hooks.Stop).toEqual(initialHooks.hooks.Stop);
   expect(document.hooks.SessionStart[0]).toEqual(unrelated);
   const command = [realpathSync(process.execPath), join(f.project, recorder), '--receipt-directory',
-    join(f.project, metadata, 'receipts'), '--product-version', '0.162.1', '--source-root', f.sourceRoot].map(quote).join(' ');
+    join(f.project, metadata, 'receipts'), '--product-version', productVersion, '--source-root', f.sourceRoot].map(quote).join(' ');
   expect(document.hooks.SessionStart[1]).toEqual({ matcher: 'startup|resume|clear|compact',
     hooks: [{ type: 'command', command }] });
   expect(document.hooks.SubagentStart).toEqual([{ hooks: [{ type: 'command', command }] }]);
@@ -131,6 +132,17 @@ test('install merges native entries and creates a real private empty receipt dir
   expect(lstatSync(join(f.project, metadata, 'installation.json')).mode & 0o777).toBe(0o600);
   expect(readdirSync(join(f.project, metadata, 'receipts'))).toEqual([]);
   expect(readFileSync(join(f.project, '.codex/config.toml'), 'utf8')).toBe('trust is not installation');
+});
+test.each([
+  ['0.162.1', '0.163.0'],
+  ['0.163.0', '0.162.1'],
+])('a reviewed %s install cannot authorize %s hook configuration', (beforeVersion, afterVersion) => {
+  const f = fixture();
+  const options = reviewed(f.project, { ...f.options, productVersion: beforeVersion });
+  const before = snapshot(f.project);
+  expect(() => install(f.project, { ...options, productVersion: afterVersion }))
+    .toThrow('codex_connect_installation_preview_changed');
+  expect(snapshot(f.project)).toBe(before);
 });
 test('repeat install does not rewrite hook formatting or owned files', () => {
   const f = fixture(); install(f.project, reviewed(f.project, f.options));
@@ -319,7 +331,7 @@ test.each(['symlink parent', 'symlink hooks', 'hardlink hooks', 'hardlink owned'
     expect(snapshot(f.project)).toBe(before);
   },
 );
-test.each(['0.162.0', '0.162.2', ''])('version %s cannot expand exact admission', productVersion => {
+test.each(['0.162.0', '0.162.2', '0.163.1', '0.163.0-beta.1', ''])('version %s cannot expand exact admission', productVersion => {
   const f = fixture(), before = snapshot(f.project);
   expect(install(f.project, { ...f.options, productVersion }).blockers).toContain('codex_connect_product_version_unsupported');
   expect(snapshot(f.project)).toBe(before);

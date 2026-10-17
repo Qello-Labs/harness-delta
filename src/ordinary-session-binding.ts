@@ -2,11 +2,11 @@ import { execFileSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { addTokens, TimestampSchema } from './contracts.js';
-import { claudeBindingAdmission, isClaudeModel } from './claude-binding-admission.js';
+import { getClaudeBindingAdmission, isClaudeModel } from './claude-binding-admission.js';
 import { childReadinessDeadline } from './binding-child-readiness.js';
 import { assertApplicationWorkingIdentity, bindApplicationEpoch, effectiveTaskWorkspace } from './harness-application.js';
 import { Lifecycle, utcNow, type Clock } from './lifecycle.js';
-import { assertOrdinaryTaskPrepared, ordinaryTask } from './ordinary-observation.js';
+import { assertOrdinaryTaskPrepared, ordinaryTask, ordinaryTaskSettings } from './ordinary-observation.js';
 import { captureObservedCostInput } from './observed-cost-report.js';
 import { projectCatalogCost } from './catalog-cost-report.js';
 import { readPriceBasis } from './price-catalog-store.js';
@@ -74,17 +74,22 @@ export function createOrdinarySessionBindingService(options: {
     if (!provider) throw new Error('binding_provider_unavailable');
     return provider;
   };
-  const compatibility = () => {
-    const value = resolveSourceCompatibility('claude_code', claudeBindingAdmission.productVersion, 'claude_binding');
+  const admissionFor = (taskId: string) => {
+    const admission = getClaudeBindingAdmission(ordinaryTaskSettings(store, taskId).product_version);
+    if (!admission?.admitted) throw new Error('binding_source_unqualified');
+    return admission;
+  };
+  const compatibility = (taskId: string) => {
+    const admission = admissionFor(taskId);
+    const value = resolveSourceCompatibility('claude_code', admission.productVersion, 'claude_binding', admission.profileId);
     if (!value) throw new Error('binding_source_unqualified');
     assertCompatibilityAllowed(store, value); return value;
   };
   const authorize = (taskId: string, active = false) => {
     if (closed) throw new Error('binding_scope_revoked');
-    const settings = assertOrdinaryTaskPrepared(store, taskId); const task = life.task(taskId);
-    if (settings.product_version !== claudeBindingAdmission.productVersion) throw new Error('binding_source_unqualified');
+    assertOrdinaryTaskPrepared(store, taskId); const task = life.task(taskId);
     if (active && task.state !== 'active') throw new Error('binding_scope_revoked');
-    compatibility(); return task;
+    compatibility(taskId); return task;
   };
   const nativeAvailable = (nativeId: string) => {
     if (store.get("SELECT 1 FROM tombstones WHERE kind='session' AND id=? UNION ALL SELECT 1 FROM session_binding_forgets WHERE product='claude_code' AND native_session_id=?", [nativeId, nativeId]))
@@ -152,7 +157,7 @@ export function createOrdinarySessionBindingService(options: {
       !metadata.recordedAt || !Number.isFinite(Date.parse(metadata.recordedAt)) ||
       Date.parse(metadata.recordedAt) <= boundary || Date.parse(metadata.recordedAt) > Date.parse(now()) ||
       !metadata.processId || metadata.processId !== processId) return false;
-    if (rows(taskId, attempt.segment.root_session_id).length + attempt.members.size >= claudeBindingAdmission.maxFamilyMembers)
+    if (rows(taskId, attempt.segment.root_session_id).length + attempt.members.size >= admissionFor(taskId).maxFamilyMembers)
       throw new Error('binding_family_limit');
     attempt.members.set(metadataKey(metadata), metadata); return true;
   };
@@ -266,7 +271,7 @@ export function createOrdinarySessionBindingService(options: {
   };
   const checkIdentity = (taskId: string, input: VerifiedSessionIdentity, measurementSessionId?: string) => {
     const value = VerifiedSessionIdentitySchema.parse(input); authorize(taskId, true);
-    if (value.product !== 'claude_code' || value.productVersion !== claudeBindingAdmission.productVersion ||
+    if (value.product !== 'claude_code' || value.productVersion !== admissionFor(taskId).productVersion ||
       value.cwd !== effectiveTaskWorkspace(store, taskId)) throw new Error('binding_identity_mismatch');
     nativeAvailable(value.nativeMapping?.nativeSessionId ?? value.sessionId);
     assertApplicationWorkingIdentity(store, taskId, value, measurementSessionId); return value;
@@ -277,7 +282,7 @@ export function createOrdinarySessionBindingService(options: {
     const task = authorize(taskId, true);
     if (input.parentId !== null) store.execute('INSERT INTO sessions(id,project_id,task_id,parent_id,product,product_version) VALUES (?,?,?,?,?,?)',
       [input.measurementId, task.project_id, taskId, input.parentId, input.value.product, input.value.productVersion]);
-    pinSessionCompatibility(store, input.measurementId, compatibility());
+    pinSessionCompatibility(store, input.measurementId, compatibility(taskId));
     bindApplicationEpoch(store, taskId, input.measurementId);
     store.execute("INSERT INTO session_bindings(session_id,task_id,root_id,identity,relation_evidence_id,connect_receipt,observed_since,generation,state) VALUES (?,?,?,?,?,?,?,?,'observing')",
       [input.measurementId, taskId, segment.root_session_id, JSON.stringify(input.value), input.relation, input.receipt,
@@ -321,7 +326,7 @@ export function createOrdinarySessionBindingService(options: {
         }));
         if (!admitted || !sameSource(admitted, value) || Date.parse(value.createdAt) < Date.parse(segment.baseline_at ?? segment.opened_at))
           throw new Error('binding_member_ineligible');
-        if (rows(taskId, segment.root_session_id).length >= claudeBindingAdmission.maxFamilyMembers) throw new Error('binding_family_limit');
+        if (rows(taskId, segment.root_session_id).length >= admissionFor(taskId).maxFamilyMembers) throw new Error('binding_family_limit');
         insertBinding(taskId, segment, { value, measurementId: randomUUID(), parentId: root.session_id,
           relation: child.relationEvidenceId, receipt: null });
       }
@@ -390,7 +395,7 @@ export function createOrdinarySessionBindingService(options: {
     const provider = providerFor(taskId, product);
     return !!provider.inspectCurrent && provider.capabilities().usage === 'own_requests' &&
       (options.syntheticProviderForTask?.(taskId) === true ||
-        (claudeBindingAdmission.admitted && provider.capabilities().productionSupported));
+        (admissionFor(taskId).admitted && provider.capabilities().productionSupported));
   };
   const status = (taskId: string) => {
     const task = life.task(taskId); const all = rows(taskId); const segment = selected(taskId);
@@ -442,7 +447,7 @@ export function createOrdinarySessionBindingService(options: {
       throw new Error('binding_scope_revoked');
     nativeAvailable(proof.nativeSessionId);
     if (proof.receipt !== input.receipt || proof.agentId !== null || proof.cwd !== effectiveTaskWorkspace(store, taskId) ||
-      proof.productVersion !== claudeBindingAdmission.productVersion || !proof.processId ||
+      proof.productVersion !== admissionFor(taskId).productVersion || !proof.processId ||
       !proof.sourceRef || !proof.sourceIdentity || Date.parse(proof.recordedAt) > Date.parse(now()) ||
       !Number.isFinite(Date.parse(proof.recordedAt))) throw new Error('binding_identity_mismatch');
     const stop = store.get<{ boundary: string | null }>("SELECT max(closed_at) AS boundary FROM binding_root_segments WHERE product='claude_code' AND native_root_id=?", [proof.nativeSessionId])?.boundary;

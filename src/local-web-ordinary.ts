@@ -1,7 +1,7 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { z } from 'zod';
-import { claudeBindingAdmission } from './claude-binding-admission.js';
+import { claudeBindingAdmission, getClaudeBindingAdmission } from './claude-binding-admission.js';
 import {
   installClaudeConnectInstallation, previewClaudeConnectInstallation,
   removeClaudeConnectInstallation, statusClaudeConnectInstallation,
@@ -34,14 +34,17 @@ function projectRoot(store: Store, projectId: string): string {
 export function ordinaryProjectDto(store: Store, projectId: string) {
   const root = projectRoot(store, projectId);
   const settings = ordinaryProjectSettings(store, projectId);
+  const productVersion = settings?.product_version ?? claudeBindingAdmission.productVersion;
+  const admission = getClaudeBindingAdmission(productVersion);
+  if (!admission) throw new Error('claude_source_version_unsupported');
   return {
     project_id: projectId, configured: settings !== undefined, product: 'claude_code' as const,
-    product_version: settings?.product_version ?? claudeBindingAdmission.productVersion,
+    product_version: productVersion,
     installation: statusClaudeConnectInstallation(root),
     admission: {
-      profile_id: claudeBindingAdmission.profileId, admitted: claudeBindingAdmission.admitted,
-      qualified: claudeBindingAdmission.qualified,
-      max_family_members: claudeBindingAdmission.maxFamilyMembers,
+      profile_id: admission.profileId, admitted: admission.admitted,
+      qualified: admission.qualified,
+      max_family_members: admission.maxFamilyMembers,
       model_family: 'claude' as const,
     },
   };
@@ -54,12 +57,13 @@ export function ordinaryProjectAction(store: Store, projectId: string, input: Or
     case 'recover-lock':
       return { ...ordinaryProjectDto(store, projectId), installation: recoverClaudeConnectInstallationLock(root) };
     case 'configure': {
-      if (action.product_version !== undefined && action.product_version !== claudeBindingAdmission.productVersion)
-        throw new Error('claude_source_version_unsupported');
       const previous = ordinaryProjectSettings(store, projectId);
+      const productVersion = action.product_version ?? previous?.product_version ?? claudeBindingAdmission.productVersion;
+      if (!getClaudeBindingAdmission(productVersion)?.admitted)
+        throw new Error('claude_source_version_unsupported');
       const installation = statusClaudeConnectInstallation(root);
       saveOrdinaryProjectSettings(store, projectId, {
-        schema_version: 1, product: 'claude_code', product_version: claudeBindingAdmission.productVersion,
+        schema_version: 1, product: 'claude_code', product_version: productVersion,
         receipt_directory: join(root, installation.receiptDirectory),
         claude_projects_directory: action.claude_projects_directory ?? previous?.claude_projects_directory ??
           join(process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), '.claude'), 'projects'),

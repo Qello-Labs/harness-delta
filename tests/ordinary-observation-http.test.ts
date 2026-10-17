@@ -2,14 +2,15 @@ import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, unlinkSync, w
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Lifecycle } from '../src/lifecycle.js';
 import { Store } from '../src/store.js';
 import { createLocalWebDomain } from '../src/local-web-domain.js';
 import { createLocalWebServer } from '../src/local-web-server.js';
-import { ordinaryProjectSettings, ordinaryTask } from '../src/ordinary-observation.js';
+import { ordinaryProjectSettings, ordinaryTask, ordinaryTaskSettings } from '../src/ordinary-observation.js';
 import { Deletion } from '../src/deletion.js';
 import { claudeBindingAdmission } from '../src/claude-binding-admission.js';
+import { ClaudeSessionBindingProvider } from '../src/session-binding-claude.js';
 import Database from 'better-sqlite3';
 
 describe('ordinary observation HTTP preparation', () => {
@@ -29,7 +30,7 @@ describe('ordinary observation HTTP preparation', () => {
     const reply = await app.inject({ url: '/api/bootstrap', headers: { host: '127.0.0.1:4327' } });
     csrf = reply.json<{ csrf: string }>().csrf;
   });
-  afterEach(async () => { await app.close(); store.close(); rmSync(root, { recursive: true, force: true }); });
+  afterEach(async () => { vi.restoreAllMocks(); await app.close(); store.close(); rmSync(root, { recursive: true, force: true }); });
   const headers = () => ({
     host: '127.0.0.1:4327', origin, 'x-harness-csrf': csrf, 'idempotency-key': randomUUID(),
   });
@@ -38,7 +39,9 @@ describe('ordinary observation HTTP preparation', () => {
   it('reads setup and installation previews without preparing or installing anything', async () => {
     const before = await app.inject({ url: setup, headers: { host: '127.0.0.1:4327' } });
     expect(before.statusCode).toBe(200);
-    expect(before.json()).toMatchObject({ configured: false, installation: { state: 'absent', hookRegistration: 'unverified' } });
+    expect(before.json()).toMatchObject({ configured: false, product_version: '2.1.296',
+      admission: { profile_id: claudeBindingAdmission.profileId, max_family_members: 8 },
+      installation: { state: 'absent', hookRegistration: 'unverified' } });
     const preview = await app.inject({ method: 'POST', url: setup, headers: headers(), payload: { operation: 'preview-install' } });
     expect(preview.statusCode).toBe(200);
     expect(preview.json()).toMatchObject({ configured: false, installation: { state: 'absent' } });
@@ -59,7 +62,8 @@ describe('ordinary observation HTTP preparation', () => {
   it('configures and creates an ordinary task without setup, assignment or protocol fields', async () => {
     const configured = await app.inject({ method: 'POST', url: setup, headers: headers(), payload: { operation: 'configure' } });
     expect(configured.statusCode).toBe(200);
-    expect(configured.json()).toMatchObject({ configured: true, installation: { state: 'absent' } });
+    expect(configured.json()).toMatchObject({ configured: true, product_version: '2.1.296',
+      installation: { state: 'absent' } });
     const request = { method: 'POST' as const, url: '/api/tasks', headers: headers(), payload: {
       mode: 'ordinary', name: 'Synthetic observation', project_id: 'project', criterion_ids: ['accepted'],
     } };
@@ -80,6 +84,92 @@ describe('ordinary observation HTTP preparation', () => {
     expect(dto.body).not.toContain('claude_projects_directory');
     expect(dto.body).not.toContain('receipt_directory');
   });
+
+  it('preserves an explicitly selected exact version when configuration omits the version', async () => {
+    const projects = join(root, 'synthetic-claude-projects');
+    const configured = await app.inject({ method: 'POST', url: setup, headers: headers(), payload: {
+      operation: 'configure', product_version: '2.1.301', claude_projects_directory: projects,
+    } });
+    expect(configured.statusCode).toBe(200);
+    expect(configured.json()).toMatchObject({ configured: true, product_version: '2.1.301',
+      admission: { admitted: true, qualified: false, max_family_members: 3, model_family: 'claude' } });
+    const saved = ordinaryProjectSettings(store, 'project');
+    const repeated = await app.inject({ method: 'POST', url: setup, headers: headers(),
+      payload: { operation: 'configure' } });
+    expect(repeated.statusCode).toBe(200);
+    expect(repeated.json()).toEqual(configured.json());
+    expect(ordinaryProjectSettings(store, 'project')).toEqual(saved);
+    const inspected = await app.inject({ url: setup, headers: { host: '127.0.0.1:4327' } });
+    expect(inspected.json()).toEqual(configured.json());
+  });
+
+  it.each(['2.1.300', '2.1.302', '2.1.301-preview', ''])(
+    'rejects unsupported exact version %s without changing saved settings', async productVersion => {
+      await app.inject({ method: 'POST', url: setup, headers: headers(),
+        payload: { operation: 'configure', product_version: '2.1.301' } });
+      const saved = ordinaryProjectSettings(store, 'project');
+      const rejected = await app.inject({ method: 'POST', url: setup, headers: headers(),
+        payload: { operation: 'configure', product_version: productVersion } });
+      expect(rejected.statusCode).toBe(400);
+      expect(rejected.json()).toMatchObject({ error: 'claude_source_version_unsupported' });
+      expect(ordinaryProjectSettings(store, 'project')).toEqual(saved);
+    },
+  );
+
+  it.each([
+    { frozenVersion: '2.1.296', selectedVersion: '2.1.301', frozenLimit: 8, selectedLimit: 3 },
+    { frozenVersion: '2.1.301', selectedVersion: '2.1.296', frozenLimit: 3, selectedLimit: 8 },
+  ])('keeps task DTO and reconstructed provider on frozen $frozenVersion after selecting $selectedVersion',
+    async ({ frozenVersion, selectedVersion, frozenLimit, selectedLimit }) => {
+      await app.inject({ method: 'POST', url: setup, headers: headers(),
+        payload: { operation: 'configure', product_version: frozenVersion } });
+      const created = await app.inject({ method: 'POST', url: '/api/tasks', headers: headers(), payload: {
+        mode: 'ordinary', name: 'Synthetic frozen version', project_id: 'project', criterion_ids: ['accepted'],
+      } });
+      expect(created.statusCode).toBe(200);
+      const task = created.json<{ id: string }>();
+      const frozen = ordinaryTask(store, task.id);
+      const selected = await app.inject({ method: 'POST', url: setup, headers: headers(),
+        payload: { operation: 'configure', product_version: selectedVersion } });
+      expect(selected.statusCode).toBe(200);
+      expect(selected.json()).toMatchObject({ product_version: selectedVersion,
+        admission: { max_family_members: selectedLimit } });
+      expect(ordinaryTask(store, task.id)).toEqual(frozen);
+
+      await app.close();
+      const providerVersions: string[][] = [];
+      const capabilities = Object.getOwnPropertyDescriptor(
+        ClaudeSessionBindingProvider.prototype, 'capabilities',
+      )?.value as ClaudeSessionBindingProvider['capabilities'];
+      vi.spyOn(ClaudeSessionBindingProvider.prototype, 'capabilities').mockImplementation(function (
+        this: ClaudeSessionBindingProvider,
+      ) {
+        providerVersions.push(['2.1.296', '2.1.301'].filter(version => this.supportedVersion(version)));
+        return capabilities.call(this);
+      });
+      const domain = createLocalWebDomain({ store, metadataFile: join(root, 'metadata.sqlite') });
+      app = createLocalWebServer({ origin, domain, metadataFile: join(root, 'transport.sqlite') });
+      const reply = await app.inject({ url: '/api/bootstrap', headers: { host: '127.0.0.1:4327' } });
+      csrf = reply.json<{ csrf: string }>().csrf;
+      const restored = await app.inject({ url: `/api/tasks/${task.id}`, headers: { host: '127.0.0.1:4327' } });
+      expect(restored.statusCode).toBe(200);
+      expect(restored.json()).toMatchObject({
+        connection_readiness: { configured_version: frozenVersion },
+        binding: { product_version: frozenVersion, max_family_members: frozenLimit, support: 'claude_family' },
+      });
+      expect(providerVersions.length).toBeGreaterThan(0);
+      expect(providerVersions.every(versions => versions.length === 1 && versions[0] === frozenVersion)).toBe(true);
+      expect(ordinaryTaskSettings(store, task.id).product_version).toBe(frozenVersion);
+      expect(ordinaryTask(store, task.id)).toEqual(frozen);
+
+      const next = await app.inject({ method: 'POST', url: '/api/tasks', headers: headers(), payload: {
+        mode: 'ordinary', name: 'Synthetic selected version', project_id: 'project', criterion_ids: ['accepted'],
+      } });
+      expect(next.statusCode).toBe(200);
+      expect(next.json()).toMatchObject({ connection_readiness: { configured_version: selectedVersion },
+        binding: { product_version: selectedVersion, max_family_members: selectedLimit } });
+    },
+  );
 
   it('installs only after a configured explicit action and keeps registration unverified', async () => {
     await app.inject({ method: 'POST', url: setup, headers: headers(), payload: { operation: 'configure' } });

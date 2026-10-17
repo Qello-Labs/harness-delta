@@ -9,7 +9,7 @@ import { createOrdinarySessionBindingService, type OrdinarySessionBindingService
 import type { BindingReadBoundary, BindingUsageRecord, NativeConnectionProof, SessionBindingProvider, VerifiedSessionIdentity } from '../../src/session-binding-contract.js';
 import type { CandidateScope } from '../../src/nested-candidate.js';
 
-export function ordinaryBindingFixture() {
+export function ordinaryBindingFixture(productVersion = '2.1.296') {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'ordinary-binding-')));
   let timestamp = Date.parse('2026-10-13T09:00:00.000Z');
   const clock = () => new Date(timestamp).toISOString();
@@ -18,7 +18,7 @@ export function ordinaryBindingFixture() {
   const life = new Lifecycle(store, clock);
   life.registerProject('project', root);
   saveOrdinaryProjectSettings(store, 'project', {
-    schema_version: 1, product: 'claude_code', product_version: '2.1.296',
+    schema_version: 1, product: 'claude_code', product_version: productVersion,
     receipt_directory: '/synthetic/receipts', claude_projects_directory: '/synthetic/projects',
   }, clock);
   const task = () => createOrdinaryTask(store, { project_id: 'project', criterion_ids: ['accepted'] }, clock);
@@ -40,7 +40,7 @@ export function ordinaryBindingFixture() {
     const agent = parent ? randomUUID() : null;
     const sessionId = agent ? `${native}:${agent}` : native;
     const value: VerifiedSessionIdentity = {
-      product: 'claude_code', productVersion: '2.1.296', sessionId,
+      product: 'claude_code', productVersion: parent?.productVersion ?? productVersion, sessionId,
       parentSessionId: parent?.sessionId ?? null, sourceRef: `/synthetic/${sessionId}.jsonl`,
       sourceIdentity: randomUUID(), cwd: root, identityEvidenceId: randomUUID(), createdAt: clock(),
       nativeMapping: { nativeSessionId: native, agentId: agent, processId: parent ? null : `process:${randomUUID()}` },
@@ -120,7 +120,7 @@ export function ordinaryBindingFixture() {
     advance();
     const observed = (amount: number) => ({ status: 'observed' as const, value: amount, reason: null });
     const record: BindingUsageRecord = { requestId, sessionId: value.sessionId, occurredAt: clock(), turnId: null, effort: null,
-      payload: { schema_version: 2, kind: 'usage', product: 'claude_code', product_version: '2.1.296',
+      payload: { schema_version: 2, kind: 'usage', product: 'claude_code', product_version: value.productVersion,
         model: 'claude-opus-5-5', epoch: 'epoch', attribution: 'verified', input_total: observed(10),
         cached_input: observed(2), output_total: observed(3), reasoning_output: { status: 'missing', value: null, reason: 'not_available' },
         billing_components: [{ kind: 'output', reading: observed(3) }] } };

@@ -24,24 +24,36 @@ async function prepared(productVersion = '0.162.1') {
   return p;
 }
 
-async function family() {
-  const p = await prepared(); const f = await leaseBindingQualificationFixture(p);
+async function family(productVersion = '0.162.1') {
+  const p = await prepared(productVersion); const f = await leaseBindingQualificationFixture(p);
   cleanups.push(() => f.store.close()); return f;
 }
 
-test('target preparation freezes actual product version in intent and protocol', async () => {
-  const p = await prepared();
+test('synthetic qualification cannot inject a native execution host before reservation', async () => {
+  const p = await prepared('0.163.0');
+  writeFileSync(p.intentPath, JSON.stringify({ ...p.intent,
+    code_mode_host: { path: p.fixture.script, sha256: 'a'.repeat(64) },
+  }));
+  await expect(executeCodexSessionBindingQualification(p.intentPath, {
+    intent_sha256: p.sha256, approval_reference: 'synthetic-only', actual_model_run: true,
+    transient_hooks: true, native_source_reads: true, owned_process_termination: true, network_command_permission: true,
+  }, p.fixture)).rejects.toThrow('binding_qualification_code_mode_host_invalid');
+  expect(() => readFileSync(join(p.intent.directory, 'execution.reserved'))).toThrow();
+});
+
+test.each(['0.162.1', '0.163.0'])('target %s preparation freezes actual product version in intent and protocol', async productVersion => {
+  const p = await prepared(productVersion);
   const store = new Store(p.intent.database);
   cleanups.push(() => store.close());
   const protocol = protocolRow(store, 'qualification-protocol');
   expect(JSON.parse(protocol.settings)).toMatchObject({
-    source_profiles: [{ product: 'codex', product_version: '0.162.1', profile_id: 'codex-workflow-own-response-v1' }],
+    source_profiles: [{ product: 'codex', product_version: productVersion, profile_id: 'codex-workflow-own-response-v1' }],
   });
   expect(p.intent).toMatchObject({
-    product_version: '0.162.1', validation_kind: 'synthetic', product_gate_delta: false,
+    product_version: productVersion, validation_kind: 'synthetic', product_gate_delta: false,
     root_request_stop: 8, observed_request_stop: 10, child_request_stop: 1, observed_token_stop: 200000,
     helper_network_permission: 'single_command_network_only',
-    profile: { setup: { workflow: { product_version: '0.162.1' } }, execution: { timeout_ms: 900000 } },
+    profile: { setup: { workflow: { product_version: productVersion } }, execution: { timeout_ms: 900000 } },
   });
   const args = codexBindingQualificationArgv(p.intent);
   expect(p.intent).toHaveProperty('post_connect_input',expect.any(String));
@@ -52,8 +64,8 @@ test('target preparation freezes actual product version in intent and protocol',
   expect(notifications).toEqual({tui:{notifications:['approval-requested','agent-turn-complete'],notification_method:'osc9',notification_condition:'always'}});
 });
 
-test('target hook records configured version without opening its source body', async () => {
-  const p = await prepared();
+test.each(['0.162.1', '0.163.0'])('target %s hook records configured version without opening its source body', async productVersion => {
+  const p = await prepared(productVersion);
   const id = randomUUID(); const source = join(p.home, 'sessions', `${id}.jsonl`);
   writeFileSync(source, 'PRIVATE_SYNTHETIC_NON_TRANSCRIPT\n');
   const output = JSON.parse(execFileSync(p.intent.wrapper, [], { encoding: 'utf8', input: JSON.stringify({
@@ -61,7 +73,7 @@ test('target hook records configured version without opening its source body', a
   }) })) as { hookSpecificOutput: { additionalContext: string } };
   const receipt = /[a-f0-9-]{36}/.exec(output.hookSpecificOutput.additionalContext)?.[0];
   expect(receipt).toBeDefined();
-  expect(JSON.parse(readFileSync(join(p.intent.receipts, `${receipt}.json`), 'utf8'))).toMatchObject({ productVersion: '0.162.1' });
+  expect(JSON.parse(readFileSync(join(p.intent.receipts, `${receipt}.json`), 'utf8'))).toMatchObject({ productVersion });
 });
 
 test('historical target retains its ordinary arguments', async () => {
@@ -135,8 +147,8 @@ test.each(['project', 'project.with.dots', 'project with "quotes" and \\slash'])
   },
 );
 
-test('target execution requires separate command network consent before reservation', async () => {
-  const p = await prepared();
+test.each(['0.162.1', '0.163.0'])('target %s execution requires separate command network consent before reservation', async productVersion => {
+  const p = await prepared(productVersion);
   await expect(executeCodexSessionBindingQualification(p.intentPath, {
     intent_sha256: p.sha256, approval_reference: 'synthetic-only', actual_model_run: true,
     transient_hooks: true, native_source_reads: true, owned_process_termination: true,
@@ -146,10 +158,10 @@ test('target execution requires separate command network consent before reservat
   expect(() => readFileSync(join(p.intent.directory, 'execution.reserved'))).toThrow();
 });
 
-test('target manual startup is rejected before preparing a permission-enabled workspace', async () => {
-  const p = await prepared(); const directory = join(p.root, 'manual-target');
+test.each(['0.162.1', '0.163.0'])('target %s manual startup is rejected before preparing a permission-enabled workspace', async productVersion => {
+  const p = await prepared(productVersion); const directory = join(p.root, 'manual-target');
   await expect(prepareCodexSessionBindingQualification(directory, {
-    binary: realpathSync(process.execPath), codexHome: p.home, productVersion: '0.162.1', startMode: 'manual',
+    binary: realpathSync(process.execPath), codexHome: p.home, productVersion, startMode: 'manual',
   }, p.fixture)).rejects.toThrow('binding_qualification_invalid_intent');
   expect(() => readFileSync(join(directory, 'execution-intent.json'))).toThrow();
 });
@@ -302,27 +314,27 @@ test('target eighth root request reaches both stops and a ninth cannot enter the
   });
 });
 
-test('candidate metadata preparation does not admit ordinary external collection', async () => {
-  const p = await prepared();
+test.each(['0.162.1', '0.163.0'])('candidate %s metadata preparation does not admit ordinary external collection', async productVersion => {
+  const p = await prepared(productVersion);
   const store = new Store(p.intent.database); cleanups.push(() => store.close());
   expect(externalTaskState(store, p.intent.task_id).state).toBe('configuration_verified');
   expect(bindingSourceSupported(store, p.intent.task_id)).toBe(false);
   await expect(runExternalWorkflow(store, p.intent.profile.setup.workflow, {
-    ...p.intent.profile.execution, product_version: '0.162.1', run_id: 'unadmitted-collect',
+    ...p.intent.profile.execution, product_version: productVersion, run_id: 'unadmitted-collect',
     operation: 'collect', session_id: randomUUID(),
   }, p.intent.profile.setup.runtime, p.intent.profile.setup.preparation)).rejects.toThrow('external_source_unsupported');
   expect(store.all('SELECT id FROM sessions')).toEqual([]);
   expect(store.eventCount()).toBe(0);
 });
 
-test('native preparation rejects an unpinned executable before creating an intent', async () => {
-  const p = await prepared(); const destination = join(p.root, 'invalid-native');
+test.each(['0.162.1', '0.163.0'])('native %s preparation rejects an unpinned executable before creating an intent', async productVersion => {
+  const p = await prepared(productVersion); const destination = join(p.root, 'invalid-native');
   const nodeVersion = process.versions.node;
   try {
     // Model the pinned native runtime independently of the fixture test runner.
     Object.defineProperty(process.versions, 'node', { value: '24.21.0' });
     await expect(prepareCodexSessionBindingQualification(destination, {
-      binary: realpathSync(process.execPath), codexHome: p.home, productVersion: '0.162.1',
+      binary: realpathSync(process.execPath), codexHome: p.home, productVersion,
     })).rejects.toThrow('binding_qualification_binary_mismatch');
   } finally { Object.defineProperty(process.versions, 'node', { value: nodeVersion }); }
   expect(() => readFileSync(join(destination, 'execution-intent.json'))).toThrow();
@@ -363,17 +375,30 @@ test('target substitution cannot reuse its frozen consent or reserve execution',
   expect(store.get('SELECT reserved FROM binding_qualification')).toEqual({ reserved: 0 });
 });
 
-test('candidate provider configuration cannot authorize ordinary source access', async () => {
-  const p = await prepared();
+test.each(['0.162.1', '0.163.0'])('candidate %s provider configuration cannot authorize ordinary source access', async productVersion => {
+  const p = await prepared(productVersion);
   const store = new Store(p.intent.database); cleanups.push(() => store.close());
   const provider = new CodexSessionBindingProvider({
     receiptDirectory: p.intent.receipts, sourceRoots: [join(p.home, 'sessions')], projectRoot: p.intent.project,
-    productVersion: '0.162.1', ordinaryFamilyQualification: true, maxDepth: 1, maxFamilyMembers: 3,
+    productVersion, ordinaryFamilyQualification: true, maxDepth: 1, maxFamilyMembers: 3,
   });
   const resolve = vi.spyOn(provider, 'resolveCurrent');
   const service = createSessionBindingService({ store, providers: [provider], setupFor: () => p.intent.profile.setup });
   await expect(service.connect(p.intent.task_id, 'codex', { receipt: randomUUID() })).rejects.toThrow('binding_source_unqualified');
   expect(resolve).not.toHaveBeenCalled();
+});
+
+test('0.163 ordinary preparation stays separate from the historical root-only pilot', async () => {
+  const p = await prepared('0.163.0');
+  const directory = join(p.root, 'ordinary-target');
+  const ordinary = await prepareCodexSessionBindingQualification(directory, {
+    binary: realpathSync(process.execPath), codexHome: p.home, productVersion: '0.163.0', route: 'ordinary_admission',
+  }, p.fixture);
+  expect(ordinary.intent).toMatchObject({ route: 'ordinary_admission', product_version: '0.163.0' });
+  expect(() => new CodexSessionBindingProvider({
+    receiptDirectory: p.intent.receipts, sourceRoots: [join(p.home, 'sessions')], projectRoot: p.intent.project,
+    productVersion: '0.163.0', ordinaryRootPilot: true, maxDepth: 1, maxFamilyMembers: 1,
+  })).toThrow('binding_configuration_invalid');
 });
 
 test.each([
@@ -396,22 +421,22 @@ test('leased target rejects another version without replacing its root identity'
   expect(f.service.status(f.intent.task_id)).toMatchObject({ roots: 1, children: 0, requests: 0 });
 });
 
-test('leased target family collects own responses without ancestor or cumulative double counting', async () => {
-  const f = await family();
+test.each(['0.162.1', '0.163.0'])('leased target %s family collects own responses without ancestor or cumulative double counting', async productVersion => {
+  const f = await family(productVersion);
   await f.service.tick(f.intent.task_id); await f.service.tick(f.intent.task_id);
   expect(f.service.status(f.intent.task_id)).toMatchObject({ roots: 1, children: 2, requests: 3 });
   const payloads = f.store.all<{ payload: string }>('SELECT payload FROM events').map(r => JSON.parse(r.payload) as unknown);
   expect(payloads).toHaveLength(3);
   for (const payload of payloads) expect(payload).toMatchObject({
-    product_version: '0.162.1', input_total: { value: 100 }, output_total: { value: 20 },
+    product_version: productVersion, input_total: { value: 100 }, output_total: { value: 20 },
     billing_components: [
-      { kind: 'ordinary_input', reading: { value: 90 } }, { kind: 'cache_read', reading: { value: 10 } },
-      { kind: 'cache_write', reading: { status: 'observed', value: 0 } }, { kind: 'output', reading: { value: 20 } },
+      { kind: 'ordinary_input', reading: { value: productVersion === '0.163.0' ? 83 : 90 } }, { kind: 'cache_read', reading: { value: 10 } },
+      { kind: 'cache_write', reading: { status: 'observed', value: productVersion === '0.163.0' ? 7 : 0 } }, { kind: 'output', reading: { value: 20 } },
     ],
-    source_compatibility: { state: 'compatibility_unverified', product_version: '0.162.1', parser_version: '0.160.0' },
+    source_compatibility: { state: 'compatibility_unverified', product_version: productVersion, parser_version: '0.160.0' },
   });
   for (const id of [f.rootId, ...f.children]) expect(sessionCompatibility(f.store, id)).toMatchObject({
-    state: 'compatibility_unverified', product_version: '0.162.1', parser_version: '0.160.0',
+    state: 'compatibility_unverified', product_version: productVersion, parser_version: '0.160.0',
   });
 });
 
