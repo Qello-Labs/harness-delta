@@ -178,7 +178,10 @@ The separate exact `claude-binding-2-1-301-family-v1` record admits explicit
 2.1.301 configuration with one root and two flattened members, preserving the
 2.1.296 default and frozen tasks. It uses the same Claude-model/observed-effort
 policy and remains `qualified: false`. Actual-binary localhost normal and SIGINT
-print-mode conformance and real-service localhost rehearsal passed; authenticated ordinary acceptance is pending. See the
+print-mode conformance and real-service localhost rehearsal passed. The authenticated
+ordinary attempt on 2026-10-17 stopped at the instrument's `stream_model` guard
+before connection; usage and billing remain unknown, and ordinary qualification
+is still outstanding. See the
 [dated qualification record](docs/validation/claude-ordinary-binding-02196-qualification.md#2026-10-16-exact-21301-transcript-qualification).
 
 Registered file adapters live in `src/adapter-profiles.ts`. Verified registration is an exact `(product, version)` allowlist. Conditional parser selection is separate. A new version whose semantics are unchanged is data, fixtures, and evidence. A semantic change is a named code variant plus tests; the old variant is not edited to fit the new version. Codex 0.158.0 uses the checkpoint variant and a historical exact-version admission. See the [admission workflow](docs/runbooks/codex-version-admission.md) and [current offline readiness limits](docs/validation/codex-01580-offline-readiness.md). The archived live report does not qualify the current source identity or establish whole-task completeness. The conformance runner is manual. `npm test` runs offline synthetic unit tests of the report projector, the candidate parser, and the confirmation helpers. It does not run the conformance runner, spawn product CLIs, or open real sessions. See [ADR 007](docs/decisions/007-adapter-version-profiles.md).
