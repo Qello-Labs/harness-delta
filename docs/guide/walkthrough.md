@@ -54,14 +54,21 @@ when the work is done. You always start and stop the agent yourself.
 
 ### Claude and Codex version updates
 
-Newer-version support is being updated separately from this screenshot guide.
-The repository status on **2026-10-16** is:
+The screenshots retain the 2.1.296 setup above. Separate exact-version records
+extend ordinary admission without changing existing defaults or task pins.
+The repository status on **2026-10-17** is:
 
 | Route | Version status | What this means for this guide |
 | --- | --- | --- |
-| Ordinary Claude connection | Exact 2.1.296 version and reviewed binary; native qualification remains incomplete | This is the currently admitted connection route shown here. |
-| Ordinary Codex connection | Exact 0.162.1, bounded family, frozen `functional_pilot` assignment | Not the assignment-free Claude flow. |
-| Update targets: Claude 2.1.301 / Codex 0.163.0 | Existing file and selected workflow windows return `compatibility_unverified`; target-binary conformance and ordinary connection admission are pending | Conditional parser reuse does not enable connection through this flow. |
+| Ordinary Claude connection | Exact 2.1.296 or explicitly configured 2.1.301 and its reviewed binary; both ordinary records remain `qualified: false` | This guide shows the existing 2.1.296 default. The 2.1.301 profile permits one root plus two flattened members; it does not qualify interactive use. |
+| Ordinary Codex connection | Exact 0.162.1 or explicitly selected 0.163.0, bounded family, frozen `functional_pilot` assignment; 0.163.0 passed separate ordinary-route native acceptance | Not the assignment-free Claude flow. Both routes retain partial-cost limits. |
+| File and selected workflow sources for Claude 2.1.301 / Codex 0.163.0 | Conditional parser reuse remains `compatibility_unverified` | Ordinary binding evidence does not promote file/workflow or historical observations. |
+
+Claude 2.1.301 passed bounded print-mode transcript conformance and a localhost
+service rehearsal. Its authenticated ordinary attempt on 2026-10-17 stopped at
+the `stream_model` guard before connection; usage and billing are unknown,
+and ordinary qualification remains outstanding. See the
+[blocked-attempt record](../validation/claude-ordinary-binding-02196-qualification.md#2026-10-17-authenticated-ordinary-attempt-blocked).
 
 Check [Harness Connect current implementation](../runbooks/harness-connect.md#current-implementation)
 before starting, and [native workflow limits](../runbooks/task-native-workflow.md#conditional-forward-versions)

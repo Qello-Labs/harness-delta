@@ -144,7 +144,10 @@ not display a Claude version selector. Binary, receipt and transcript must match
 the same frozen task version. Both records remain `qualified: false`; the new
 profile's [print-mode conformance](../validation/claude-ordinary-binding-02196-qualification.md#2026-10-16-exact-21301-transcript-qualification)
 does not qualify interactive use, complete usage or cost. Separate ordinary
-authenticated acceptance is pending. A separate localhost rehearsal passed through
+authenticated qualification remains outstanding: the 2026-10-17
+[authenticated attempt](../validation/claude-ordinary-binding-02196-qualification.md#2026-10-17-authenticated-ordinary-attempt-blocked)
+stopped at the `stream_model` guard before connection, with usage and billing
+unknown. A separate localhost rehearsal passed through
 the real ordinary service/provider (seven native requests minus one baseline,
 six observed requests); it does not qualify the production scheduler or TUI.
 File/workflow and historical pins are not promoted.
@@ -214,8 +217,9 @@ The admitted route behaves as follows.
 - **No backfill.** Paused, offline and pre-connection usage stays unobserved.
 - **Baseline store.** Exclusions are kept in SQLite, so the 1,024-ID cap of the
   pilot path doesn't apply here. That cap is unchanged for the pilot path.
-- **Family limit.** At most eight members, root included. A ninth returns
-  `binding_family_limit`. Members are flattened under the root; the immediate
+- **Family limit.** Frozen 2.1.296 tasks allow at most eight members, root included;
+  a ninth returns `binding_family_limit`. Frozen 2.1.301 tasks allow at most three
+  members, root included; a fourth returns the same code. Members are flattened under the root; the immediate
   parent of a nested member is not verified.
 - **Model.** Every Claude model is accepted at its observed effort; there is no
   model pin. A usage record from another product's model stops collection with
@@ -335,8 +339,10 @@ are flattened under the root: the documented hook fields do not establish their
 direct nested parent. Child re-calls only confirm an active independently discovered
 family. A paused family requires parent reconnect unless its code-owned human UI pilot
 authority permits same-live-root UI resume as described below. Interactive qualification of
-native profile/counter/source formats remains pending. Only 2.1.296 has bounded print-mode
-qualification as described below; other listed versions remain candidates.
+native profile/counter/source formats remains pending. Both 2.1.296 and 2.1.301 have
+bounded print-mode transcript qualification; 2.1.301 includes normal/SIGINT
+localhost conformance, not authenticated ordinary acceptance. The 2.1.291,
+2.1.293 and 2.1.294 transcript profiles remain candidates.
 No model or effort setting is imposed.
 
 The UI refreshes family counts and partial usage. Pause/server restart stops collection;
@@ -492,7 +498,7 @@ or latest counter semantics; those still require an approved native trial.
 
 The local operator may select one prepared `functional_pilot` task using the
 `claude-ordinary-human-pilot` source profile, with an exact version
-listed by the ordinary provider (currently 2.1.291, 2.1.293, 2.1.294 or 2.1.296). Existing file and
+listed by the ordinary provider (currently 2.1.291, 2.1.293, 2.1.294, 2.1.296 or 2.1.301). Existing file and
 launch-workflow version compatibility does not qualify ordinary family sources.
 The profile, binary version, project source directory and receipt directory must
 be reviewed before installation or native observation. A browser or manifest
@@ -538,9 +544,11 @@ evidence, not interactive qualification or production admission: an offline actu
 native print-mode pilot confirmed skill loading, receipts, family membership and own
 counters; see [the qualification record](../validation/claude-ordinary-binding-02196-qualification.md).
 The skill-scoped `SubagentStop` hook wrote no receipt there, and discovery does not
-depend on it. The other listed versions have synthetic evidence only. Actual 2.1.291, 2.1.293 or 2.1.294 skill loading,
+depend on it. The separate 2.1.301 transcript profile has bounded localhost
+normal/SIGINT print-mode evidence, not interactive or authenticated ordinary
+qualification. The 2.1.291, 2.1.293 and 2.1.294 profiles have synthetic evidence only. Actual 2.1.291, 2.1.293 or 2.1.294 skill loading,
 family counters, pause/resume and human completion still need an explicitly
-approved native trial. All comparison/pilot Claude profiles, including qualified 2.1.296,
+approved native trial. All comparison/pilot Claude profiles, including transcript-qualified 2.1.296 and 2.1.301,
 require `allowCandidateProfiles: true`; default provider refusal for pilot
 profiles remains closed. Current labels remain `native_unverified_pilot`,
 `legacy_unverified` and `candidate_pilot`. These pilot profiles do not grant

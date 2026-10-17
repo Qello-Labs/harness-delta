@@ -139,7 +139,10 @@ binary, receipt, transcript는 같은 작업의 고정 버전과 일치해야 �
 두 record 모두 `qualified: false`이며 새 profile의
 [print-mode 검증](../validation/claude-ordinary-binding-02196-qualification.md#2026-10-16-exact-21301-transcript-qualification)은
 interactive 사용이나 완전한 사용량·비용을 검증하지 않습니다. 별도 일반 경로 검증은
-인증 경로에서 대기 중입니다. 별도 localhost 리허설은 실제 일반 service/provider를
+아직 미완료입니다. 2026-10-17
+[인증 시험](../validation/claude-ordinary-binding-02196-qualification.md#2026-10-17-authenticated-ordinary-attempt-blocked)은
+연결 전에 `stream_model` guard에서 중단됐으며 사용량·청구액은 알 수 없습니다.
+별도 localhost 리허설은 실제 일반 service/provider를
 통해 native 요청 7개에서 baseline 1개를 뺀 6개 관측이 일치했습니다.
 production scheduler나 TUI를 검증하지 않으며 파일·workflow 및 과거 pin의 신뢰 상태는
 승격하지 않습니다.
@@ -204,8 +207,10 @@ hook 등록, native receipt, 관측 중은 서로 다른 네 가지 사실입니
 - **소급 수집 없음.** 일시중단, 오프라인, 연결 전 사용량은 미관측으로 남습니다.
 - **Baseline 저장.** 제외 ID를 SQLite에 보관하므로 pilot 경로의 1,024개 한도가
   여기에는 적용되지 않습니다. pilot 경로의 한도는 그대로입니다.
-- **가족 한도.** root를 포함해 최대 8개입니다. 아홉 번째는 `binding_family_limit`을
-  반환합니다. 멤버는 root 아래로 평탄화하며, 중첩 멤버의 직접 부모는 검증하지 않습니다.
+- **가족 한도.** 2.1.296으로 고정된 작업은 root를 포함해 최대 8개이며 아홉 번째는
+  `binding_family_limit`을 반환합니다. 2.1.301로 고정된 작업은 root를 포함해 최대
+  3개이며 네 번째는 같은 코드를 반환합니다. 멤버는 root 아래로 평탄화하며,
+  중첩 멤버의 직접 부모는 검증하지 않습니다.
 - **모델.** 모든 Claude 모델을 관측된 effort와 함께 받아들이며 모델 고정은 없습니다.
   다른 제품 모델의 사용량 기록은 `binding_runtime_unsupported`로 수집을 중단합니다. 같은 batch의 지원 모델 기록을
   포함해 해당 source batch 전체를 거부합니다. 명시적 재개는 새 baseline으로 그
@@ -325,8 +330,10 @@ Claude는 SubagentStart/Stop hooks로 이후 멤버를 기록하고 각 transcri
 발견된 연결만 확인합니다. 중지된 family는 아래의 코드 소유 사용자 UI pilot
 권한으로 같은 살아 있는 부모를 재개할 수 있으면 UI 재개를 사용하고,
 그 외에는 부모에서 다시 연결해야 합니다. Native profile·counter·source 형식의
-interactive qualification은 아직 완료되지 않았습니다. 아래에서 설명하는 제한된 print-mode
-qualification은 2.1.296에만 해당하며 나머지 나열된 버전은 candidate 상태입니다.
+interactive qualification은 아직 완료되지 않았습니다. 2.1.296과 2.1.301 모두
+제한된 print-mode transcript qualification을 갖습니다. 2.1.301은 localhost
+정상 완료/SIGINT 적합성 검증을 포함하며 인증 ordinary 경로 검증은 아닙니다.
+2.1.291, 2.1.293, 2.1.294 transcript profile은 candidate 상태입니다.
 model이나 effort 설정은 강제하지 않습니다.
 
 UI는 가족 수와 부분 사용량을 갱신합니다. pause/서버 재시작은 수집을 멈춥니다.
@@ -475,7 +482,7 @@ native 시험이 계속 필요합니다.
 ## Claude 사용자 조작 UI pilot
 
 로컬 운영자는 ordinary provider에 나열된 정확한 버전(현재 2.1.291,
-2.1.293, 2.1.294 또는 2.1.296)과 `claude-ordinary-human-pilot` source profile을 사용한 준비된
+2.1.293, 2.1.294, 2.1.296 또는 2.1.301)과 `claude-ordinary-human-pilot` source profile을 사용한 준비된
 `functional_pilot` 작업 하나를 선택할 수 있습니다. 기존 file·실행 workflow의
 버전 호환성은 일반 가족 원본의 지원 검증이 아닙니다. 설치·실제 관측 전에
 profile, binary 버전, 프로젝트 원본 디렉터리와 receipt 디렉터리를 검토하세요.
@@ -521,9 +528,11 @@ pilot gate의 합성 검증 범위를 갖습니다.
 pilot 한 번으로 skill 로딩, receipt, 가족 구성원과 자체 counter를 확인했습니다.
 [검증 기록](../validation/claude-ordinary-binding-02196-qualification.md)을 참고하세요.
 그 관측에서 skill 범위의 `SubagentStop` hook은 receipt를 남기지 않았고, 구성원 탐색은 여기에 의존하지 않습니다.
-나머지 나열된 버전은 합성 증거만 갖습니다. 실제 2.1.291, 2.1.293 또는 2.1.294 skill 로딩, 가족 counter,
+별도 2.1.301 transcript profile은 제한된 localhost 정상 완료/SIGINT print-mode
+증거를 갖지만 interactive 또는 인증 ordinary 경로를 검증하지는 않습니다.
+2.1.291, 2.1.293, 2.1.294 profile은 합성 증거만 갖습니다. 실제 2.1.291, 2.1.293 또는 2.1.294 skill 로딩, 가족 counter,
 pause/resume과 사용자 완료는 별도로 승인된 native 시험이 필요합니다.
-qualified인 2.1.296을 포함한 모든 비교/pilot Claude profile에는
+transcript-qualified인 2.1.296과 2.1.301을 포함한 모든 비교/pilot Claude profile에는
 `allowCandidateProfiles: true`가 필요합니다. pilot profile에 대한 기본 provider
 거부는 계속 유지됩니다. 현재 label인 `native_unverified_pilot`,
 `legacy_unverified`, `candidate_pilot`은 유지됩니다.

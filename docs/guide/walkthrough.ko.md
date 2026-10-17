@@ -53,14 +53,21 @@ Harness Delta는 **어떤 개발 작업에 AI 에이전트가 토큰을 얼마�
 
 ### Claude와 Codex 버전 업데이트
 
-새 버전 지원은 이 스크린샷 가이드와 별도로 업데이트 중입니다.
-**2026-10-16** 저장소 기준 상태는 다음과 같습니다.
+스크린샷은 위의 2.1.296 설정을 유지합니다. 별도의 정확한 버전 record가
+기존 기본값이나 작업 pin을 바꾸지 않고 일반 연결 허용 범위를 확장합니다.
+**2026-10-17** 저장소 기준 상태는 다음과 같습니다.
 
 | 경로 | 버전 상태 | 이 가이드에서의 의미 |
 | --- | --- | --- |
-| 일반 Claude 연결 | 정확히 2.1.296과 검토된 바이너리. 네이티브 qualification은 아직 미완료 | 현재 이 가이드에서 사용하는 연결 허용 경로입니다. |
-| 일반 Codex 연결 | 정확히 0.162.1, 제한된 가족 범위, 고정된 `functional_pilot` 배정 | 비교 배정 없는 Claude 흐름과 다릅니다. |
-| 업데이트 대상: Claude 2.1.301 / Codex 0.163.0 | 기존 파일·일부 워크플로 창에서 `compatibility_unverified`. 대상 바이너리 검증과 일반 연결 허용은 대기 중 | 조건부 파서 재사용이 이 흐름의 세션 연결을 허용하지는 않습니다. |
+| 일반 Claude 연결 | 정확히 2.1.296 또는 명시적으로 설정한 2.1.301과 해당 검토 바이너리. 두 일반 관측 record 모두 `qualified: false` | 이 가이드는 기존 2.1.296 기본값을 보여 줍니다. 2.1.301 profile은 root 하나와 flattened 멤버 둘까지 허용하며 interactive 사용을 검증하지는 않습니다. |
+| 일반 Codex 연결 | 정확히 0.162.1 또는 명시적으로 선택한 0.163.0, 제한된 가족 범위, 고정된 `functional_pilot` 배정. 0.163.0은 별도 ordinary 경로 native 검증을 통과 | 비교 배정 없는 Claude 흐름과 다릅니다. 두 경로 모두 부분 비용 제한을 유지합니다. |
+| Claude 2.1.301 / Codex 0.163.0의 파일·일부 워크플로 원본 | 조건부 파서 재사용은 계속 `compatibility_unverified` | 일반 binding 검증 근거가 파일·워크플로나 과거 관측의 신뢰 상태를 승격하지는 않습니다. |
+
+Claude 2.1.301은 제한된 print-mode transcript 적합성 검증과 localhost
+service 리허설을 통과했습니다. 2026-10-17 인증 ordinary 시험은 연결 전에
+`stream_model` guard에서 중단됐습니다. 사용량·청구액은 알 수 없으며
+일반 경로 qualification은 아직 미완료입니다.
+[중단된 시험 기록](../validation/claude-ordinary-binding-02196-qualification.md#2026-10-17-authenticated-ordinary-attempt-blocked)을 참고하세요.
 
 시작 전 [Harness Connect 현재 구현](../runbooks/harness-connect.ko.md#현재-구현)을
 확인하세요. 별도 워크플로 경로는 [네이티브 워크플로 제한](../runbooks/task-native-workflow.md#conditional-forward-versions)을

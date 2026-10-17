@@ -55,14 +55,21 @@ test('does not generalize the release repair to another workspace package set', 
     .toThrow('lock_mismatch');
 });
 
-test('a checkout claiming a different HEAD cannot reach source qualification', async () => {
-  const root = mkdtempSync(join(tmpdir(), 'hd-source-rejection-'));
-  directories.push(root);
-  execFileSync('/usr/bin/git', ['init', '--quiet', root], { env: gitEnvironment });
-  writeFileSync(join(root, '.git/HEAD'), `${'a'.repeat(40)}\n`);
-  const before = readFileSync(join(root, '.git/HEAD'));
-  await expect(inspectInstrumentedCodexSource(root)).rejects.toThrow('source_mismatch');
-  expect(readFileSync(join(root, '.git/HEAD'))).toEqual(before);
+describe('source checkout HEAD', () => {
+  let root: string;
+  beforeEach(async ({ signal }) => {
+    root = mkdtempSync(join(tmpdir(), 'hd-source-rejection-'));
+    directories.push(root);
+    await runQualificationCommand('/usr/bin/git', ['init', '--quiet', root],
+      root, gitEnvironment, undefined, [0], signal);
+    writeFileSync(join(root, '.git/HEAD'), `${'a'.repeat(40)}\n`);
+  });
+
+  test('a checkout claiming a different HEAD cannot reach source qualification', async () => {
+    const before = readFileSync(join(root, '.git/HEAD'));
+    await expect(inspectInstrumentedCodexSource(root)).rejects.toThrow('source_mismatch');
+    expect(readFileSync(join(root, '.git/HEAD'))).toEqual(before);
+  });
 });
 
 test('canonical patch rendering reaches source rejection through real Git diff commands', async () => {
