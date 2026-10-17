@@ -64,6 +64,30 @@ This is synthetic-response print-only evidence, not authenticated ordinary
 acceptance, interactive qualification, complete usage or billing. The code-owned
 ordinary record remains `qualified: false`.
 
+### 2026-10-17 authenticated ordinary attempt: blocked
+
+After a new explicit one-trial approval, the same reviewed instrument ran with
+normal authentication and no model endpoint/key override. It stopped at the SDK
+`stream_model` guard before connection: zero committed connect receipts were
+observed, and no terminal request, native counter projection or SDK result was
+available for reconciliation. Usage and billing are unknown, not observed zero.
+The saved diagnostic does not retain the rejected model value or raw SDK text,
+so it cannot distinguish an alias difference, a synthetic error response or
+another cause. This is an instrument guard failure, not ordinary acceptance.
+
+The independent owner verified ownership and termination of three tracked
+processes, with no discovery failure or cleanup exhaustion; control-stop reaped
+the worker and left all tracked members and groups absent. That cleanup proof
+does not turn the blocked run into a successful validation.
+The single-use ordinary reservation is consumed; no additional paid retry ran.
+Intent digest:
+`65fa685aebabe57c996e4e403f9d130f3b4f89aeb64548f82c89a2949110b371`;
+sanitized evidence digest:
+`97e396b25bc3b024f35d6fdaa403c9700e6eb176cdda757224d211001f3b87bb`.
+Authenticated ordinary qualification remains outstanding. The bounded
+localhost evidence, `qualified: false` admission policy, historical pins and
+unsupported interactive/scheduler/completeness claims are unchanged.
+
 ## Historical 2.1.296 qualification
 
 The following records describe their original qualification-time policy.
