@@ -38,7 +38,10 @@ harness-config/
 
 `harness-config` is suitable for deliberate Git sharing. Inspect selected files
 before publishing them. Private local bindings belong in ignored
-`.harness-delta/setup`; keep that directory out of Git. The revision suffix allows
+`.harness-delta/setup`; keep that directory out of Git.
+[Section 8](#8-keep-local-product-files-out-of-the-target-git-history) lists the
+private directories and connection packages to keep out of Git, and the Codex
+hook file to review before commit. The revision suffix allows
 multiple reviewed local settings without replacing historical task pins.
 
 ## 2. Register baseline and modified versions
@@ -208,7 +211,7 @@ adapts project rules and scripts. Register both versions normally, then generate
    no branch switch or new worktree is automatic.
 3. Request a fresh native session. On macOS with an installed CLI this requests a
    Terminal interactive session with the prepared prompt. The installed grammar
-   was checked for Codex CLI 0.161.0 and Claude Code 2.1.295; actual native opening
+   was checked for Codex 0.161.0 and Claude Code 2.1.295; actual native opening
    and agent acceptance are unverified. Desktop prompt deep links and other
    platforms are unsupported. If unavailable or failed, open a fresh session in
    the selected target yourself and paste the copyable application context.
@@ -225,9 +228,14 @@ adapts project rules and scripts. Register both versions normally, then generate
    File application does not prove generated-instruction loading or measurement
    readiness. Existing identity/loading/source gates remain in force; these
    working-session routes remain production-qualification-pending. The explicit
-   Codex 0.162.0/0.162.1 root-only local functional pilot can connect after completed file
+   Codex 0.162.0 and 0.162.1 root-only local functional pilot can connect after completed file
    application under separate task/source authority; its parser references remain
    unverified. See [the bounded pilot](harness-connect.md#codex-01620-ordinary-root-local-pilot).
+   Separate assigned routes also admit the Codex 0.162.1 and Codex 0.163.0 ordinary
+   family profiles. Ordinary Claude observation is assignment-free and uses
+   Claude Code 2.1.296 by default, or explicitly configured Claude Code 2.1.301.
+   File application does not select or upgrade those versions.
+   See [Harness Connect](harness-connect.md#current-implementation).
 
 Application helper operations are `context`, `checkpoint`, `identity`, `report`
 and `status`. Use the installed skill path and Node 24 or 26. Checkpoints retain actual
@@ -342,3 +350,77 @@ paths. A shared hook must select the task for that worktree; an alternate
 Keep the task and its checkpoint records until restoration and the commit check
 are complete. Deleting a task still never restores files. These commands change
 no native support limit, identity gate or measurement eligibility.
+
+## 8. Keep local product files out of the target Git history
+
+Harness Delta leaves the target `.gitignore` and Git hooks unchanged.
+Project registration in the local UI reads Git HEAD and writes no target files.
+Harness registration copies the selected artifact bytes into `harness-config/`.
+Local setup, connection, instruction preparation and agent application then
+write the private paths below. A reviewed Codex connection install also merges
+entries into the existing `.codex/hooks.json`. `application restore` rewrites
+checkpointed working-tree files and leaves the Git index unchanged. The product
+never sets `skip-worktree` or `assume-unchanged`.
+
+Add these rules to the target repository before the first install or
+application. If another rule re-includes `.agents/skills/**`, put the
+`harness-connect` line after that exception. A later Gitignore rule wins.
+
+```gitignore
+.harness-delta/
+.harness-delta-managed/
+/.claude/skills/harness-connect/
+/.agents/skills/harness-connect/
+```
+
+| Path | Writer | Git treatment |
+| --- | --- | --- |
+| `.harness-delta/setup/` | Local comparison binding | Keep the whole `.harness-delta/` directory out of Git. |
+| `.harness-delta/applications/<task-id>/` | Agent-application checkpoints, context and result records | Same directory rule. `restore` reads these bytes as the baseline. |
+| `.harness-delta/claude-connect/` | Claude connection metadata and `receipts/` | Same directory rule. |
+| `.harness-delta/codex-connect/` | Codex connection metadata and `receipts/` | Same directory rule. |
+| `.harness-delta-managed/active-instructions.md` | External-session instruction preparation | Keep `.harness-delta-managed/` out of Git. Format-2 agent application does not write this file. Switching a task to `agent_applied` leaves an existing file in place and stops using it. |
+| `.claude/skills/harness-connect/` | Reviewed Claude connection install | Local package. Keep it out of Git unless the project deliberately commits the reviewed bytes. |
+| `.agents/skills/harness-connect/` | Reviewed Codex connection install | Same as the Claude package. |
+| `harness-config/` | Comparison author, before registration | Suitable for deliberate Git sharing after review. Ignoring it is a project choice, not a product requirement. |
+
+`harness-apply` stays in the Harness Delta checkout. The application prompt
+names that skill path. Do not copy it into the target.
+
+A reviewed Codex install merges its hook entries into the target
+`.codex/hooks.json` and preserves unrelated entries. The merged command contains
+the absolute Node binary, the recorder under `.harness-delta/codex-connect/`,
+the receipt directory and the approved absolute source roots. Leave the whole
+file untracked when the project does not version it. When the file already
+contains the project's own hooks, review the diff and leave the Harness Delta
+entries unstaged instead of ignoring the whole file. See the
+[Codex connection install](harness-connect.md#project-agent-connection-setup).
+
+`.gitignore` does not affect files Git already tracks. The applying agent edits
+discovered project files, such as `AGENTS.md` and selected scripts, in the
+working tree. Those edits remain eligible for `git add` until they leave the
+index. Before committing other work, follow
+[section 7](#7-restore-applied-edits-and-check-staged-files): restore
+checkpointed paths, restage only the intended files, then run
+`application check-staged`. When the finding list is not empty, the command
+exits 2 with `application_changes_staged`. Any index entry whose path contains
+`.harness-delta` or `.harness-delta-managed` is `private_record_staged`,
+including an entry that matches HEAD. A checkpointed path whose index differs
+from HEAD is `application_index_invalid` when its stage is not `0` or its mode
+is not `100644` or `100755`, including a staged symlink, and
+`application_change_staged` when the staged blob differs from the checkpoint
+baseline after the same Git clean conversion used for staging. A checkpointed
+path whose reported applied hash equals that baseline is omitted from this
+comparison. The check reads the index, including a supplied `GIT_INDEX_FILE`,
+and does not read current working-tree bytes. It does not inspect connection
+packages or `.codex/hooks.json`.
+
+`check-staged` is optional. Each task and worktree has its own task id, so a
+shared pre-commit hook cannot hard-code one id. When you add the command, keep
+the existing hook, pass absolute paths to `dist/cli.js` and the local database,
+and select the task for that worktree. The product never installs or overwrites
+the hook. A missing hook does not block `git commit`.
+
+Keep the task and `.harness-delta/applications/<task-id>/` until restoration
+and the staged check are finished. Removing that directory removes the baseline
+`restore` uses. Deleting a task still does not restore working-tree files.

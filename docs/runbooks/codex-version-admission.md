@@ -15,14 +15,19 @@ support, rather than a prerequisite for every future in-window reference estimat
 
 ## Current support
 
-0.156.1 remains registered with its original behavior. The 0.158.0 checkpoint
+This section is the exact file-adapter registry only: Codex 0.156.1 and Codex 0.158.0.
+The commands below do not register ordinary-session or workflow versions. Those routes
+are [Harness Connect](harness-connect.md#current-implementation) and the
+[file and workflow windows](local-measurement.md#versions-conformance-and-update-controls).
+
+Codex 0.156.1 remains registered with its original behavior. The Codex 0.158.0 checkpoint
 variant is implemented and uses M2: `multi_agent_version` values `disabled`, `v1`
 and `v2` describe available tools, not observed children. `collaboration_mode.mode`
 accepts `default` and `plan`. Actual child activity, inherited roots, forks,
 compaction, model changes and ambiguous settings block the affected snapshot.
 Already stored usage stays partial. Command diagnostics are excluded for this variant.
 
-0.158.0 was admitted on 2026-09-29 after a freshly confirmed exec/resume run
+Codex 0.158.0 was admitted on 2026-09-29 after a freshly confirmed exec/resume run
 passed every required check under M2 (observed capability `v2`). Its entry in
 `src/codex-admissions.json` binds that evidence to the implementation and policy.
 Production linking and collection accept this historical exact entry. The current
@@ -83,7 +88,7 @@ This writes an exact-version entry in reviewed application source
 version range. Review that diff with the synthetic tests and public capability
 notes. Installation, tests, hooks and CI never run product conformance.
 
-## Collect and report with an admitted 0.158.0
+## Collect and report with an admitted Codex 0.158.0
 
 Build first (`npm run build`). Use an explicitly known session ID and exact native
 rollout path from an authorized **CLI exec** session. Do not discover sessions by

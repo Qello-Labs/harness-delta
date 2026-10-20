@@ -3,7 +3,7 @@
 기존 generic 파일 수집 경로입니다. 처음 배정된 A/B 작업은
 [작업 절차](workflow-quickstart.ko.md)를 사용하세요.
 
-0.158.0과 후속 후보 버전의 개발 검증은 [정확한 버전 admission](codex-version-admission.md)을 참고하세요.
+Codex 0.158.0과 후속 후보 버전의 개발 검증은 [정확한 버전 admission](codex-version-admission.md)을 참고하세요.
 
 브라우저 UI의 일반 Claude 관측은 정확한 원본·binary 조건에서 일반 사용이 허용되는
 별도 경로이며, native 지원 검증은 대기 상태입니다. pilot 플래그는 필요하지 않습니다.
@@ -129,9 +129,9 @@ DB 데이터·설정·보고 기준시각이 같으면 같은 기간 보고서�
 
 2026-10-08 구현: [ADR 013](../decisions/013-forward-version-compatibility.md)에 따라
 명시된 유한 범위의 안정 릴리스에 기존 파서를 자동으로 조건부 재사용합니다.
-파일 수집은 Codex 0.158.0 이후 0.164.0 미만 버전에 0.158.0 파서를 사용하고,
-Claude Code 2.1.283 이후 2.2.0 미만 버전에 2.1.283 파서를 사용합니다.
-2026-10-16 UTC에 확인한 안정 버전 Codex CLI 0.163.0과 Claude Code 2.1.301은 기본적으로
+파일 수집은 Codex 0.158.0 초과 0.164.0 미만 버전에 Codex 0.158.0 파서를 사용하고,
+Claude Code 2.1.283 초과 2.2.0 미만 버전에 Claude Code 2.1.283 파서를 사용합니다.
+2026-10-16 UTC에 확인한 안정 버전 Codex 0.163.0과 Claude Code 2.1.301은 기본적으로
 `compatibility_unverified` 신뢰 상태로 등록됩니다. 등록된 정확한 버전은 검증 상태를
 유지합니다. 사전 릴리스, 접미사, 등록되지 않은 이전 버전, 범위 밖 릴리스는
 원본 접근 전에 거부됩니다.
@@ -145,7 +145,7 @@ Claude Code 2.1.283 이후 2.2.0 미만 버전에 2.1.283 파서를 사용합니
 정확한 binding provenance로 이 파일·workflow 추정값이나 과거 관측을 승격하지 않으며,
 수집과 비용은 여전히 부분 범위입니다.
 
-Claude 2.1.301의 별도 exact 일반 binding record는 root 하나와 flattened 멤버
+Claude Code 2.1.301의 별도 exact 일반 binding record는 root 하나와 flattened 멤버
 둘까지 허용하며 `qualified: false`입니다. 제한된 print-mode localhost 정상·SIGINT
 transcript 적합성 검증과 실제 service localhost 리허설은 통과했으며 인증된 일반 경로 검증은 대기 중입니다.
 명시적 설정은 과거 기본값과 고정 작업을 유지하며 파일·workflow 수집이나 완전한
@@ -153,7 +153,7 @@ transcript 적합성 검증과 실제 service localhost 리허설은 통과했�
 
 Codex 0.163.0의 누적 합계에는 완료되지 않은 응답의 사용량도 포함될 수 있습니다.
 대상 적합성 검증으로 변경된 집계 경계를 확인하기 전에는 이 미검증 추정값을
-0.162.x 집단과 직접 비교하지 마세요.
+Codex 0.162.x 집단과 직접 비교하지 마세요.
 
 사용량 기록은 실제 제품 버전, 파서/프로필, 규칙 리비전을 보존합니다.
 작업 보고서는 미검증 토큰을 `usage.compatibility_unverified`에 표시합니다.
@@ -179,7 +179,7 @@ node dist/cli.js --db ./local.db compatibility invalidate --product codex --vers
 검토된 명명 파서 변형, 집중 테스트, 전체 검증이 필요합니다.
 자동 또는 사용자용 차단 해제 단축 경로는 없습니다.
 
-등록된 정확한 파일 어댑터도 부분 관측입니다. Codex CLI 0.156.1/0.158.0과
+등록된 정확한 파일 어댑터도 부분 관측입니다. Codex 0.156.1과 0.158.0,
 Claude Code 2.1.283이 해당됩니다. Codex 0.158.0은 M2 경계 안의 순차적 부분 사용량을
 다룹니다. [ADR 007](../decisions/007-adapter-version-profiles.md)을 확인하세요.
 파일 호환성은 native 실행을 허용하지 않습니다.
@@ -204,7 +204,7 @@ Claude Code 2.1.283이 해당됩니다. Codex 0.158.0은 M2 경계 안의 순차
 
 `npm run check`로 CLI 흐름, 민감 정보 대체 문자열의 유출 방지, 트랜잭션 롤백,
 일시정지·재시작, 보고서에 대한 합성 인수 테스트를 실행할 수 있습니다.
-이 일반 수집기의 검증 범위는 macOS arm64, Codex CLI 0.156.1/0.158.0, Claude Code 2.1.283입니다.
+이 일반 수집기의 검증 범위는 macOS arm64, Codex 0.156.1과 0.158.0, Claude Code 2.1.283입니다.
 앱 세션, 부모·자식 세션의 완전한 합산, 0이 아닌 추론 토큰의 의미, 다른 버전과 플랫폼은
 별도 검증이 필요합니다. 이 일반 수집기로 실제 실험이나 통계적 추론을 통한 도입 결정을 하지 마세요.
 

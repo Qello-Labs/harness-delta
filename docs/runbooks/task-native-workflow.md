@@ -28,7 +28,7 @@ remain unavailable.
 `complete_cost: false`: parent-only `claude-workflow-own-trace-v1`, which covers a
 fresh launch and the resume of a session kept by a resumable launch, and
 `claude-workflow-direct-child-v1`, a fresh read-only root with at most one read-only
-direct child. 2.1.288 was retired from the workflow on 2026-10-06 and 2.1.291 on
+direct child. Claude Code 2.1.288 was retired from the workflow on 2026-10-06 and 2.1.291 on
 2026-10-13. Newer in-window versions remain conditional for a fresh parent-only
 launch, not exact admissions; see [Claude parent-only workflow](#claude-parent-only-workflow).
 
@@ -43,13 +43,13 @@ blockers; a writable configuration flag cannot admit a source.
 
 ## Conditional forward versions
 
-Stable Codex releases newer than 0.160.0 and below 0.164.0, including 0.163.0,
+Stable Codex releases newer than 0.160.0 and below 0.164.0, including Codex 0.163.0,
 can reuse `codex-workflow-own-response-v1` or the separate
 `codex-workflow-direct-child-v1` profile in a `functional_pilot`.
 Set execution JSON `product_version` to the actual Codex version; the workflow
 configuration and protocol `source_profiles` must use that same version. Keep the
 same `profile_id`. Supply the actual executable SHA-256 under `binary.sha256`.
-The adapter checks both executable bytes and `--version`; the exact 0.160.0
+The adapter checks both executable bytes and `--version`; the exact Codex 0.160.0
 path retains its existing pinned identity. Root/direct-child scope and permissions
 remain unchanged; a compatibility rule does not admit broader binding families.
 
@@ -57,7 +57,7 @@ Claude Code releases newer than 2.1.296 and below 2.2.0 can
 reuse `claude-workflow-own-trace-v1` for a fresh parent-only functional launch.
 Set `binary.version`, configuration `product_version`, and protocol profile version
 to the actual version; supply the executable SHA-256. Runtime checks remain active.
-Versions 2.1.289 through 2.1.295 are unsupported for the workflow source.
+Claude Code versions 2.1.289 through 2.1.295 are unsupported for the workflow source.
 In the window, assigned child execution fails before assignment with
 `workflow_adapter_mismatch`: the execution selects the direct-child profile, but
 the conditional protocol holds only own-trace. Direct adapter preflight may instead
@@ -77,7 +77,7 @@ not promote these workflow estimates or alter their parser/window pins; see
 [Harness Connect](harness-connect.md#codex-01630-bounded-ordinary-profile).
 
 Codex 0.163.0 cumulative totals can include usage from incomplete responses;
-its unverified estimates are not directly comparable with 0.162.x cohorts until
+its unverified estimates are not directly comparable with Codex 0.162.x cohorts until
 target conformance establishes that accounting boundary.
 
 New versions have `compatibility_unverified` source trust. Reports separate their
@@ -85,7 +85,7 @@ reference tokens/costs from verified amounts. Functional eligibility does not ma
 `real_allocation`, complete task cost or inference ready, and real experiments
 retain exact source evidence. `hm compatibility inspect` accepts `--source
 codex_workflow` or `--source claude_workflow`. Without `--profile`, the Claude
-workflow source shows the own-trace row for 2.1.296; pass
+workflow source shows the own-trace row for Claude Code 2.1.296; pass
 `--profile claude-workflow-direct-child-v1` to inspect the child profile.
 `compatibility invalidate` can still block a retired version when a stored cohort
 exists for it. Contract failures block the affected
@@ -193,7 +193,7 @@ editing the file. [Example files](../../examples/workflow/) match these schemas:
 ```
 
 Paths must be absolute and canonical. For launch/resume, the native binary must
-match `binary.sha256` and report the selected `product_version`; exact 0.160.0
+match `binary.sha256` and report the selected `product_version`; exact Codex 0.160.0
 requires the code-owned pin. Conditional versions require their reviewed actual
 hash. The metadata-only recorder must match its code-owned content hash.
 Launch/resume check these files, the prompt and Codex home before assignment or
@@ -292,7 +292,7 @@ stay closed under their existing independent gates.
 ## Single direct-child launch and durable collection
 
 The separately admitted `codex-workflow-direct-child-v1` profile supports Codex
-0.160.0 on the pinned macOS arm64 binary and Node24. Include the exact profile in
+0.160.0 on the pinned macOS arm64 binary and Node 24. Include the exact profile in
 the frozen v2 protocol's source profiles:
 
 ```json
@@ -301,7 +301,7 @@ the frozen v2 protocol's source profiles:
 
 For a conditional functional pilot, use the same profile ID with the actual
 in-window version in the protocol, workflow configuration and execution JSON.
-Supply that binary's reviewed SHA-256. The read-only, macOS arm64/Node24 launch
+Supply that binary's reviewed SHA-256. The read-only, macOS arm64/Node 24 launch
 boundary and fresh-root/single-child limits still apply; its estimates remain
 `compatibility_unverified`, not exactly admitted.
 
@@ -401,15 +401,15 @@ A separate exact profile admits one read-only direct child; see
 [Claude direct-child profile](#claude-direct-child-profile).
 The binary's `version` must equal the configured `product_version`.
 
-2.1.288 and 2.1.291 are retired; their tasks need a new protocol and eligible version.
+Claude Code 2.1.288 and 2.1.291 are retired; their tasks need a new protocol and eligible version.
 Stored usage keeps its original labels. Historical qualification remains in the retired
-[2.1.288](../validation/claude-workflow-02188-source-readiness.md) and
+[Claude Code 2.1.288](../validation/claude-workflow-02188-source-readiness.md) and
 [2.1.291](../validation/claude-workflow-02191-source-readiness.md) records.
 
 A protocol lists one profile per product and version, so a parent-only protocol and
 a direct-child protocol are separate protocols. A new non-synthetic protocol may list
 at most one entry per Claude workflow profile. Exact-version registration
-requires that profile's newest admitted version (2.1.296); `functional_pilot` also permits
+requires that profile's newest admitted version (Claude Code 2.1.296); `functional_pilot` also permits
 one newer own-trace version in the [conditional window](#conditional-forward-versions).
 Other selections fail with `claude_workflow_version_not_latest`. Registration does
 not change an existing protocol's version or promote conditional source trust.
@@ -476,7 +476,7 @@ complete task cost, billing and inference remain unavailable.
 
 ### Claude direct-child profile
 
-`claude-workflow-direct-child-v1` is a separate exact profile for 2.1.296 with no
+`claude-workflow-direct-child-v1` is a separate exact profile for Claude Code 2.1.296 with no
 conditional window. See [the admission evidence](../validation/claude-workflow-02196-direct-child-source-readiness.md).
 Register a separate protocol whose source profile is:
 

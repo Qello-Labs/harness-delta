@@ -90,8 +90,9 @@ consistent. A new session does not rerandomize the task or reset followup.
 This v1 assignment path and the [assigned native workflow](task-native-workflow.md)
 have separate validation boundaries. Keep assigned native tasks on `workflow codex`
 or `workflow claude`; generic `session link`/`collect` has different parser and
-scope contracts. Codex 0.160.0 is now eligible for conditional file-parser reuse,
-but that does not transfer its native workflow admission to the file lane.
+scope contracts. Codex versions newer than 0.158.0 and below 0.164.0, including Codex 0.160.0,
+are eligible for conditional file-parser reuse,
+but that does not transfer native workflow admission to the file lane.
 See [file-version controls](local-measurement.md#versions-conformance-and-update-controls).
 Whole-task cost and inference remain unavailable.
 
@@ -140,5 +141,5 @@ SIGTERM/relaunch, explicit new-root linkage after collected/uncollected source
 loss, offline and pause/resume exclusion, replay, failed first completion/rework,
 human outcome and report arithmetic, fork/child rejection and synthetic issue
 assignment reuse across processes. It does not invoke Codex or Claude, access real
-session files, prove actual 0.160.0 multi-root continuity, validate model/effort
+session files, prove actual Codex 0.160.0 multi-root continuity, validate model/effort
 switches, or establish complete usage/cost or adoption readiness.

@@ -15,11 +15,15 @@ no product executable or model request. The production registry admits two separ
 [the fresh root/single-direct-child workflow](../validation/codex-workflow-01600-direct-child-source-readiness.md).
 [Conditional workflow versions](task-native-workflow.md#conditional-forward-versions)
 are additionally eligible for functional pilots with unverified trust.
-Both exact profiles collect partial own-response usage and have no complete cost. The child
+Both Codex 0.160.0 profiles collect partial own-response usage and have no complete cost. The child
 profile requires read-only permissions and does not support family resume.
+The registry also holds the exact Codex 0.162.1 and 0.163.0 ordinary binding profiles, usable only in a
+matching single-profile `functional_pilot`; see [Harness Connect](harness-connect.md).
 A v2 protocol accepts one profile per product/version, so choose one Codex profile
 for that protocol. Claude Code 2.1.296 is admitted for parent-only launch and resume
-(`claude-workflow-own-trace-v1`; 2.1.288 and 2.1.291 are retired) and, as a separate profile, for a read-only root with one direct child (`claude-workflow-direct-child-v1`). Candidate parsers for Codex CLI 0.158.0 and Claude Code 2.1.283 are
+(`claude-workflow-own-trace-v1`; Claude Code 2.1.288 and 2.1.291 are retired) and, as a separate profile, for a read-only root with one direct child (`claude-workflow-direct-child-v1`).
+Ordinary observation for Claude Code 2.1.296 and explicitly configured Claude Code 2.1.301
+is a separate non-comparison route. Candidate parsers for Codex 0.158.0 and Claude Code 2.1.283 are
 synthetic test candidates, not admitted sources. The existing v1 partial adapters
 remain separate. No desktop/app support or complete usage is inferred.
 
