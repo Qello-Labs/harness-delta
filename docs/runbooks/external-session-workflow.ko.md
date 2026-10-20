@@ -8,7 +8,7 @@
 
 ## 지원과 증거
 
-생산 source guard는 독립 `cli`/`exec` root의 정확한 Codex 0.160.0 own-response profile입니다. 새 수동 coordinator는 오프라인 합성 검증을 거쳤으며, 첫 작업 전 startup 기록 시점은 별도 승인된 실제 검증이 필요합니다. IDE/app/MCP, fork, compaction, child는 이 경로에 허용되지 않습니다. Claude 수동 지원은 외부 process/telemetry qualification 대기 상태입니다. 이미 허용된 Claude 2.1.296 도구 소유 workflow(2.1.288과 2.1.291은 지원 종료)는 다른 경로이므로 수동 외부 source의 증거가 아닙니다. 설치된 새 버전을 조용히 허용하지 마세요.
+생산 source guard는 독립 `cli`/`exec` root의 정확한 Codex 0.160.0 own-response profile입니다. 새 수동 coordinator는 오프라인 합성 검증을 거쳤으며, 첫 작업 전 startup 기록 시점은 별도 승인된 실제 검증이 필요합니다. IDE/app/MCP, fork, compaction, child는 이 경로에 허용되지 않습니다. Claude 수동 지원은 외부 process/telemetry qualification 대기 상태입니다. 이미 허용된 Claude Code 2.1.296 도구 소유 workflow(Claude Code 2.1.288과 2.1.291은 지원 종료)는 다른 경로이므로 수동 외부 source의 증거가 아닙니다. 설치된 새 버전을 조용히 허용하지 마세요.
 
 증거를 구분하세요:
 

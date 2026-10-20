@@ -106,8 +106,10 @@ Claude에서 그 작업의 호출 문구를 실행하세요. 이 화면에 도�
 `파일: installed`여도 **Hook 신뢰: 미확인**과 **연결된 루트: 0**은 그대로입니다.
 네이티브 hook 신뢰를 확인하고 Codex를 새로 시작하거나 재개한 뒤 작업을 연결하세요.
 **상태 새로고침**은 설정을 다시 읽을 뿐 세션을 연결하지 않습니다. Codex에는
-배정 없는 일반 Claude 모드가 아닌 [별도 배정 경로](harness-connect.ko.md#codex-01621-제한-일반-profile)가
-필요합니다.
+배정 없는 일반 Claude 모드가 아닌 별도 배정 경로가 필요합니다.
+[Codex 0.162.1 제한 일반 profile](harness-connect.ko.md#codex-01621-제한-일반-profile) 또는
+명시적으로 선택한 [Codex 0.163.0 제한 일반 profile](harness-connect.ko.md#codex-01630-제한-일반-profile)입니다.
+버전 선택기에는 둘 다 있으며, 저장된 설정은 저장된 버전을 유지합니다.
 
 ### 비교 파일 준비와 확인
 
@@ -346,11 +348,13 @@ JS
 
 아래 번호 단계는 정확한 Codex 0.160.0 티켓 경로입니다. 일반 터미널 세션과 가족 수집은
 [Harness Connect](harness-connect.ko.md)를 사용하세요.
-배정 없는 일반 Claude 관측은 코드 소유 profile의 정확한 원본 버전과 binary hash에서
-일반 사용이 허용되며, native 지원 검증은 대기 상태(`qualified: false`)입니다.
+배정 없는 일반 Claude 관측은 설정된 profile의 정확한 원본 버전과 binary hash에서
+일반 사용이 허용됩니다. 기본값은 Claude Code 2.1.296이고, Claude Code 2.1.301은
+명시적으로 설정합니다. native 지원 검증은 대기 상태(`qualified: false`)입니다.
 pilot 플래그나 `allowCandidateProfiles: true`는 필요하지 않습니다.
-Codex 0.162.1의 제한된 일반 수집은 여전히 동결된 `functional_pilot` protocol과
-배정을 사용하며, 배정 없는 일반 작업 모드가 아닙니다.
+Codex 0.162.1과 명시적으로 선택한 Codex 0.163.0의 제한된 일반 수집은 여전히
+동결된 `functional_pilot` protocol과 배정을 사용하며, 둘 다 배정 없는 일반 작업
+모드가 아닙니다.
 별도 승인된 Codex root 전용·Claude 사용자 조작 pilot 경로는 자체 gate를 유지합니다.
 Claude 비교/pilot provider에는 여전히 `allowCandidateProfiles: true`가 필요하며,
 제한된 print-mode 검증은 대화형 검증이나 일반 사용 허용을 뜻하지 않습니다.

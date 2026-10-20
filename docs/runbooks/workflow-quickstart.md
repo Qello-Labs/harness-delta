@@ -17,9 +17,10 @@ yourself, choose the matching procedure before preparing inputs:
 | Intended workflow | Procedure and boundary |
 | --- | --- |
 | Prepare tasks and review results in the browser | [Local browser workflow](local-browser-ui.md); guided setup reviews inputs before saving and does not start collection |
-| Ordinary Claude observation without A/B assignment | [Normal UI flow](harness-connect.md#ordinary-claude-observation-qualification-pending); admitted for normal use under exact source/binary gates; native qualification pending; no pilot flag |
+| Ordinary Claude observation without A/B assignment | [Normal UI flow](harness-connect.md#ordinary-claude-observation-qualification-pending); default Claude Code 2.1.296, or explicit Claude Code 2.1.301; admitted for normal use under that profile's exact source and binary; native qualification pending; no pilot flag |
+| Codex 0.163.0 ordinary family | [Bounded ordinary profile](harness-connect.md#codex-01630-bounded-ordinary-profile); separate exact profile selected explicitly; frozen `functional_pilot` protocol and assignment, one fresh root and up to two fresh direct children; not assignment-free ordinary task mode |
 | Codex 0.162.1 ordinary family | [Bounded ordinary profile](harness-connect.md#codex-01621-bounded-ordinary-profile); frozen `functional_pilot` protocol and assignment, one fresh root and up to two fresh direct children; not assignment-free ordinary task mode |
-| Codex 0.162.0 ordinary root | [Root-only pilot](harness-connect.md#codex-01620-ordinary-root-local-pilot); operator-authorized observation, one fresh root, no children |
+| Codex 0.162.0 and 0.162.1 ordinary root | [Root-only pilot](harness-connect.md#codex-01620-ordinary-root-local-pilot); operator-authorized observation, one fresh root, no children |
 | Claude comparison/pilot family | [Human-operated pilot](harness-connect.md#claude-human-operated-ui-pilot); separate local pilot authority and candidate-provider flag, exact profile version, fresh parent and at most two new members; not the normal ordinary task flow |
 | Codex 0.160.0 startup ticket | [External session workflow](external-session-workflow.md); exact fresh root and ticket, no automatic family inheritance |
 
@@ -32,16 +33,16 @@ Installing the skill or preparing a browser task does not authorize observation.
 | Path | Supported boundary |
 | --- | --- |
 | Codex 0.160.0 root workflow | Launch, same-session resume, explicit independent-root link, foreground collect, stop and recover; partial usage |
-| Codex 0.160.0 direct-child workflow | Separate profile: fresh root and one fresh child, pinned macOS arm64/Node24, read-only; no family resume or external child link |
-| Legacy file collector | Exact profiles: Codex 0.156.1/0.158.0 and Claude Code 2.1.283; conditional file versions also available; use [local measurement](local-measurement.md) |
-| Claude Code 2.1.296 parent-only workflow | Fresh launch per run (read-only or `workspace-edit`), another launch on the same task, resume of a session kept with `resumable`, stop and recover; partial usage. 2.1.288 and 2.1.291 are retired |
+| Codex 0.160.0 direct-child workflow | Separate profile: fresh root and one fresh child, pinned macOS arm64/Node 24, read-only; no family resume or external child link |
+| Legacy file collector | Exact profiles: Codex 0.156.1 and 0.158.0, and Claude Code 2.1.283; conditional file versions also available; use [local measurement](local-measurement.md) |
+| Claude Code 2.1.296 parent-only workflow | Fresh launch per run (read-only or `workspace-edit`), another launch on the same task, resume of a session kept with `resumable`, stop and recover; partial usage. Claude Code 2.1.288 and 2.1.291 are retired |
 | Claude Code 2.1.296 direct-child workflow | Separate profile: fresh read-only root and at most one read-only `workflow-child`; exact version only; no resume, no deeper or additional children |
 | App/IDE/MCP, forks, compaction, deeper descendants | Unsupported for this procedure |
 | Complete task cost, actual billing, savings or adoption inference | Unavailable |
 | Team file exchange | Synthetic validation only; functional-pilot results cannot use that exchange |
 
-Stable Codex versions `>0.160.0` and `<0.164.0` (including 0.162.1), and Claude Code versions
-`>2.1.296` and `<2.2.0`, may reuse their workflow
+Stable Codex versions newer than 0.160.0 and below 0.164.0 (including Codex 0.162.1 and 0.163.0), and Claude Code versions
+newer than 2.1.296 and below 2.2.0, may reuse their workflow
 profiles in a `functional_pilot`. They remain `compatibility_unverified`, with
 separate reference estimates. The Claude window covers a fresh parent-only launch only: no child and no resume. These windows do not qualify ticket connections or
 ordinary session families. See [version configuration and checks](task-native-workflow.md#conditional-forward-versions).
@@ -155,13 +156,13 @@ Those values require the owner's choice; they do not establish statistical power
 | `claude-resume.json` (Claude only) | The same setup, a fresh `run_id`, `resume_run_id` of an earlier resumable run of the task, and that run's `workspace` |
 
 Keep the workflow configuration, protocol source profile and executable version
-identical. The checked-in Codex examples use 0.160.0; for a conditional version,
+identical. The checked-in Codex examples use Codex 0.160.0; for a conditional version,
 set execution `product_version` and its actual `binary.sha256` too.
 For Claude, use `product: "claude_code"`, profile `claude-workflow-own-trace-v1`,
 and the selected version in `workflow.json`, `protocol.json` and `binary.version`.
 A protocol holds one profile per product/version and at most one entry per Claude
 workflow profile; use a separate protocol with `claude-workflow-direct-child-v1` for child runs.
-A functional protocol permits each Claude workflow profile at 2.1.296, or the own-trace profile at a version
+A functional protocol permits each Claude workflow profile at Claude Code 2.1.296, or the own-trace profile at a version
 inside its conditional window. Other non-synthetic protocols require the newest
 exact admission; see [registration rules](task-native-workflow.md#claude-parent-only-workflow).
 Point `binary.path` at the exact versioned file, not the `claude` launcher.

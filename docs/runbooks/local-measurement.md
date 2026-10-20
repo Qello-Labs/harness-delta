@@ -3,7 +3,7 @@
 This is the legacy generic file-collection path. For first assigned A/B work, use
 [the task procedure](workflow-quickstart.md) ([한국어](workflow-quickstart.ko.md)).
 
-See the [Codex exact-version admission and partial measurement workflow](codex-version-admission.md) for 0.158.0 and subsequent candidate versions.
+See the [Codex exact-version admission and partial measurement workflow](codex-version-admission.md) for Codex 0.158.0 and subsequent candidate versions.
 
 Ordinary Claude observation from the browser UI is a different path with its own
 admission for normal use under exact source/binary gates; native qualification
@@ -122,9 +122,9 @@ the generated report if you need a historical snapshot after deletion or new dat
 
 Implemented 2026-10-08: [ADR 013](../decisions/013-forward-version-compatibility.md)
 enables automatic conditional parser reuse for stable releases inside finite windows.
-File collection uses Codex 0.158.0 for newer versions below 0.164.0, and Claude Code
-2.1.283 for newer versions below 2.2.0. As checked on 2026-10-16 UTC, stable
-Codex CLI 0.163.0 and Claude Code 2.1.301
+File collection uses the Codex 0.158.0 parser for Codex versions newer than 0.158.0 and below 0.164.0,
+and the Claude Code 2.1.283 parser for Claude Code versions newer than 2.1.283 and below 2.2.0.
+As checked on 2026-10-16 UTC, stable Codex 0.163.0 and Claude Code 2.1.301
 therefore enroll by default with `compatibility_unverified` trust. Exact registered
 versions remain verified; prereleases, suffixes, old unregistered versions and
 out-of-window releases fail before source access.
@@ -138,7 +138,7 @@ The separate Codex 0.163.0 bounded ordinary binding profile passed native accept
 on 2026-10-16. Its exact binding provenance does not promote these file/workflow
 estimates or earlier observations; collection and costs remain partial.
 
-Claude 2.1.301 has a separate exact ordinary binding record with one root plus
+Claude Code 2.1.301 has a separate exact ordinary binding record with one root plus
 two flattened members and `qualified: false`. Bounded print-mode localhost normal
 and SIGINT transcript conformance and real-service localhost rehearsal passed;
 authenticated ordinary acceptance remains pending.
@@ -146,7 +146,7 @@ Explicit configuration preserves the historical default and frozen tasks.
 This does not qualify file/workflow collection or complete usage/cost.
 
 Codex 0.163.0 cumulative totals can include usage from incomplete responses.
-Its unverified estimates are not directly comparable with 0.162.x cohorts until
+Its unverified estimates are not directly comparable with Codex 0.162.x cohorts until
 target conformance establishes the changed accounting boundary.
 
 Usage records preserve actual product version, parser/profile and rule revision.
@@ -172,7 +172,7 @@ external copies. A repair requires synthetic reproduction, a reviewed named pars
 variant where semantics changed, focused tests and the full check before clearing a
 block. There is no automatic or user-facing unblock shortcut.
 
-Registered exact file adapters remain partial: Codex CLI 0.156.1/0.158.0 and Claude
+Registered exact file adapters remain partial: Codex 0.156.1 and 0.158.0, and Claude
 Code 2.1.283. Codex 0.158.0 covers sequential partial usage under the M2 boundaries.
 See [ADR 007](../decisions/007-adapter-version-profiles.md). File compatibility does
 not authorize native launch; use the separate workflow windows in the
@@ -196,7 +196,7 @@ snapshot per poll; this is not an unbounded production log tailer.
 
 Run `npm run check` for synthetic acceptance tests, including the CLI flow, privacy
 sentinel, rollback, pause/restart and reports. This generic collector's evidence covers
-macOS arm64, Codex CLI 0.156.1/0.158.0 and Claude Code 2.1.283 only. App sessions,
+macOS arm64, Codex 0.156.1 and 0.158.0, and Claude Code 2.1.283 only. App sessions,
 parent/child complete accounting, nonzero reasoning semantics, other versions and
 other platforms need separate validation. Do not use this preview for a real
 experiment or inferential adoption decision.

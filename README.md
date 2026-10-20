@@ -68,18 +68,18 @@ assignment path, not the assignment-free ordinary Claude mode.
 | Claude Code 2.1.301 (exact version and binary; explicit configuration) | Separate ordinary observation profile: one root and up to two flattened members, 3 members total |
 | Codex 0.163.0 (exact version) | Separate bounded ordinary profile: one fresh parent and up to two fresh direct children inside a frozen `functional_pilot` |
 | Codex 0.162.1 (exact version) | Bounded ordinary profile inside a frozen `functional_pilot` protocol |
-| Codex 0.160.0 | Two separately admitted workflow profiles |
+| Codex 0.160.0 (exact version) | Two separately admitted workflow profiles |
 
 Codex 0.163.0 passed separate ordinary-route native acceptance on 2026-10-16;
 its exact binding profile does not promote file/workflow or historical observations.
 Both Claude ordinary admissions remain `qualified: false`; admission for normal
-use is separate from native qualification. For 2.1.301, bounded print-mode
+use is separate from native qualification. For Claude Code 2.1.301, bounded print-mode
 transcript conformance and real-service localhost rehearsal passed, but the
 authenticated ordinary attempt on 2026-10-17 stopped at the instrument's
 `stream_model` guard before connection. Usage and billing are unknown, and
 ordinary qualification remains outstanding; see the
 [blocked-attempt record](docs/validation/claude-ordinary-binding-02196-qualification.md#2026-10-17-authenticated-ordinary-attempt-blocked).
-The 2.1.296 default and existing task pins remain unchanged.
+The Claude Code 2.1.296 default and existing task pins remain unchanged.
 Existing file and selected workflow windows still label Codex 0.163.0 and
 Claude Code 2.1.301 `compatibility_unverified`.
 Conditional parser reuse does not extend the exact connection routes above. Ordinary connections

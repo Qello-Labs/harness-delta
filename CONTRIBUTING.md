@@ -3,12 +3,12 @@
 Harness Delta has metadata contracts and a local storage foundation. Read the
 [product requirements](docs/requirements.md) before proposing or implementing behavior.
 The repository provides a local measurement CLI, legacy partial sequential adapters
-for Codex CLI 0.156.1/0.158.0 and Claude Code 2.1.283, and two separately admitted
+for Codex 0.156.1 and 0.158.0 and Claude Code 2.1.283, plus two separately admitted
 Codex 0.160.0 workflow profiles: root own responses and a fresh root with one fresh
 direct child. The child profile is read-only; family resume and broader descendant
 collection are unsupported. Assigned CLI wiring has synthetic coverage and later bounded actual root
 functional observations; exact admission and configuration-scope limits are separate evidence. Claude Code 2.1.296 has two separately admitted
-profiles (2.1.288 and 2.1.291 are retired): a parent-only profile covering launch and resume of a kept session, and a
+profiles (Claude Code 2.1.288 and 2.1.291 are retired): a parent-only profile covering launch and resume of a kept session, and a
 read-only profile with one direct child. Deeper or additional Claude children and child resume are unsupported.
 Ordinary file, binding and workflow usage remains partial, with no inferential
 adoption support. The separately qualified instrumented
@@ -31,7 +31,7 @@ Codex 0.163.0 has a separate bounded ordinary profile with native no-lease accep
 on 2026-10-16: one fresh root and up to two fresh direct children. Its exact profile,
 required same-release execution host, partial-cost limits and verification record
 are documented in [Harness Connect](docs/runbooks/harness-connect.md#codex-01630-bounded-ordinary-profile).
-The 0.162.1 profile/default and all historical pins remain unchanged; select 0.163.0
+The Codex 0.162.1 profile/default and all historical pins remain unchanged; select Codex 0.163.0
 explicitly rather than upgrading saved settings automatically.
 
 ## Development environment
@@ -140,16 +140,16 @@ allows conditional reuse of a verified parser for newer releases within declared
 source-specific windows, with unverified estimates kept separate and incompatible
 data invalidated. Runtime rules live in `src/source-compatibility.ts`; exact profiles
 remain the evidence boundary for verified support. The stable releases checked on
-2026-10-16 UTC, Codex CLI 0.163.0 and Claude Code 2.1.301, use conditional parser
+2026-10-16 UTC, Codex 0.163.0 and Claude Code 2.1.301, use conditional parser
 reuse for file collection, not new exact admissions. Their root-workflow selection
 also remains conditional. File/workflow target-binary conformance is pending for
 the Codex minor transition and Claude consumed-contract uncertainties; conditional
 selection does not grant ordinary binding admission. Codex 0.163.0 has separate
 ordinary-route evidence, not a file/workflow admission. The Claude
-workflow source is exactly admitted for 2.1.296. Ordinary binding separately permits the exact Codex 0.162.0/0.162.1
-root-only and Claude 2.1.291/2.1.293/2.1.294/2.1.296 profiles under explicit
+workflow source is exactly admitted for Claude Code 2.1.296. Ordinary binding separately permits the exact Codex 0.162.0 and 0.162.1
+root-only profiles and the Claude Code 2.1.291, 2.1.293, 2.1.294, 2.1.296 and 2.1.301 profiles under explicit
 local human-pilot authority; see [Harness Connect](docs/runbooks/harness-connect.md).
-The Claude 2.1.296 and 2.1.301 transcript profiles are qualified only for bounded native print-mode
+The Claude Code 2.1.296 and 2.1.301 transcript profiles are qualified only for bounded native print-mode
 evidence, not interactive qualification or production admission; the others are
 candidates. The comparison/pilot provider, even for qualified profiles, requires
 `allowCandidateProfiles: true`; it does not grant ordinary observation authority.
@@ -175,8 +175,8 @@ qualified or promote earlier observations. See
 [user flow and limits](docs/runbooks/harness-connect.md#ordinary-claude-observation-qualification-pending).
 
 The separate exact `claude-binding-2-1-301-family-v1` record admits explicit
-2.1.301 configuration with one root and two flattened members, preserving the
-2.1.296 default and frozen tasks. It uses the same Claude-model/observed-effort
+Claude Code 2.1.301 configuration with one root and two flattened members, preserving the
+Claude Code 2.1.296 default and frozen tasks. It uses the same Claude-model/observed-effort
 policy and remains `qualified: false`. Actual-binary localhost normal and SIGINT
 print-mode conformance and real-service localhost rehearsal passed. The authenticated
 ordinary attempt on 2026-10-17 stopped at the instrument's `stream_model` guard

@@ -38,7 +38,7 @@ Harness Delta는 **어떤 개발 작업에 AI 에이전트가 토큰을 얼마�
 | --- | --- |
 | 작업 | 측정 단위입니다. "알림함 읽기 API"처럼 결과를 판정할 수 있는 요청 하나입니다. |
 | 일반 Claude 관측 | A/B 배정 없이 평소처럼 Claude로 작업하며 사용량만 관측하는 모드입니다. |
-| 부모 / 자식 세션 | 사용자가 연 Claude 세션이 부모이고, 그 세션이 띄운 하위 에이전트가 자식입니다. 부모 포함 최대 8개까지 함께 집계합니다. |
+| 부모 / 자식 세션 | 사용자가 연 Claude 세션이 부모이고, 그 세션이 띄운 하위 에이전트가 자식입니다. 기본값 Claude Code 2.1.296 profile은 부모 포함 최대 8개까지 함께 집계합니다. 명시적으로 설정한 Claude Code 2.1.301 profile은 부모 포함 최대 3개입니다. |
 | 일시중단 | 수집만 멈춥니다. Claude는 계속 실행되며, 멈춘 구간의 사용량은 나중에 채우지 않습니다. |
 | 관측 비용 | 관측되고 단가가 확인된 사용량의 **부분 추정**입니다. 청구액이 아닙니다. |
 
@@ -48,22 +48,22 @@ Harness Delta는 **어떤 개발 작업에 AI 에이전트가 토큰을 얼마�
 | --- | --- | --- |
 | Node.js | 24 또는 26 | `node --version` |
 | 일반 Claude 실행 환경 | macOS arm64 | `node -p "process.platform + ' ' + process.arch"` |
-| Claude Code | **정확히 2.1.296** (검토된 바이너리) | `claude --version` |
+| Claude Code | 기본값 **Claude Code 2.1.296**, 또는 명시적으로 설정한 **Claude Code 2.1.301**. 각각 검토된 바이너리가 필요합니다. 이 가이드는 2.1.296을 사용합니다. | `claude --version` |
 | 대상 저장소 | Git 저장소이며 현재 작업 브랜치가 준비됨 | `git status --short` |
 
 ### Claude와 Codex 버전 업데이트
 
-스크린샷은 위의 2.1.296 설정을 유지합니다. 별도의 정확한 버전 record가
+스크린샷은 위의 Claude Code 2.1.296 설정을 유지합니다. 별도의 정확한 버전 record가
 기존 기본값이나 작업 pin을 바꾸지 않고 일반 연결 허용 범위를 확장합니다.
 **2026-10-17** 저장소 기준 상태는 다음과 같습니다.
 
 | 경로 | 버전 상태 | 이 가이드에서의 의미 |
 | --- | --- | --- |
-| 일반 Claude 연결 | 정확히 2.1.296 또는 명시적으로 설정한 2.1.301과 해당 검토 바이너리. 두 일반 관측 record 모두 `qualified: false` | 이 가이드는 기존 2.1.296 기본값을 보여 줍니다. 2.1.301 profile은 root 하나와 flattened 멤버 둘까지 허용하며 interactive 사용을 검증하지는 않습니다. |
-| 일반 Codex 연결 | 정확히 0.162.1 또는 명시적으로 선택한 0.163.0, 제한된 가족 범위, 고정된 `functional_pilot` 배정. 0.163.0은 별도 ordinary 경로 native 검증을 통과 | 비교 배정 없는 Claude 흐름과 다릅니다. 두 경로 모두 부분 비용 제한을 유지합니다. |
-| Claude 2.1.301 / Codex 0.163.0의 파일·일부 워크플로 원본 | 조건부 파서 재사용은 계속 `compatibility_unverified` | 일반 binding 검증 근거가 파일·워크플로나 과거 관측의 신뢰 상태를 승격하지는 않습니다. |
+| 일반 Claude 연결 | 정확히 Claude Code 2.1.296 또는 명시적으로 설정한 Claude Code 2.1.301과 해당 검토 바이너리. 두 일반 관측 record 모두 `qualified: false` | 이 가이드는 기존 Claude Code 2.1.296 기본값을 보여 줍니다. Claude Code 2.1.301 profile은 root 하나와 flattened 멤버 둘까지 허용하며 interactive 사용을 검증하지는 않습니다. |
+| 일반 Codex 연결 | 정확히 Codex 0.162.1 또는 명시적으로 선택한 Codex 0.163.0, 제한된 가족 범위, 고정된 `functional_pilot` 배정. Codex 0.163.0은 별도 ordinary 경로 native 검증을 통과 | 비교 배정 없는 Claude 흐름과 다릅니다. 두 경로 모두 부분 비용 제한을 유지합니다. |
+| Claude Code 2.1.301과 Codex 0.163.0의 파일·일부 워크플로 원본 | 조건부 파서 재사용은 계속 `compatibility_unverified` | 일반 binding 검증 근거가 파일·워크플로나 과거 관측의 신뢰 상태를 승격하지는 않습니다. |
 
-Claude 2.1.301은 제한된 print-mode transcript 적합성 검증과 localhost
+Claude Code 2.1.301은 제한된 print-mode transcript 적합성 검증과 localhost
 service 리허설을 통과했습니다. 2026-10-17 인증 ordinary 시험은 연결 전에
 `stream_model` guard에서 중단됐습니다. 사용량·청구액은 알 수 없으며
 일반 경로 qualification은 아직 미완료입니다.
@@ -141,8 +141,11 @@ Codex 설정·비교 파일 검토·설정 묶음 불러오기·확정·저장�
 
 ![설치 완료](images/08-claude-installed.png)
 
-Qello 백엔드의 `.gitignore`는 이미 `/.claude/skills/harness-connect/`,
-`.harness-delta/` 등 Harness Delta 로컬 산출물을 제외합니다(#357). 그래서 설치한
+Qello 백엔드의 `.gitignore`는
+[대상 저장소 Git에서 로컬 제품 파일 제외](../runbooks/harness-config.ko.md#8-대상-저장소-git에서-로컬-제품-파일-제외)의
+로컬 제품 경로를 이미 제외합니다(#357). 이 저장소는 자신의 `/harness-config/`와
+`/docs/harness/harness-delta/` 복사본도 무시합니다. 작업과 worktree마다 task id가
+다르므로 `check-staged`는 공유 Git hook에 넣지 않습니다. 그래서 설치한
 패키지와 연결 기록이 `git add -A`나 `./harness start`·`sync`의 clean worktree 검사에
 섞이지 않습니다.
 
@@ -340,7 +343,7 @@ Qello 백엔드 작업에서는 평소처럼 Claude가 테스트와 검증을 �
 | 증상 | 원인 | 조치 |
 | --- | --- | --- |
 | 프로젝트 연결 시 `local_operation_failed` | `~` 경로 등 해석할 수 없는 경로 | 절대 경로를 입력하거나 **선택** 버튼을 씁니다. |
-| 연결 시 `claude_source_version_unsupported` | Claude Code가 2.1.296이 아님 | 지원 버전으로 Claude를 실행합니다. |
+| 연결 시 `claude_source_version_unsupported` | Claude Code가 프로젝트에 설정된 버전(기본값 2.1.296)이 아님 | 설정된 버전으로 Claude Code를 실행합니다. |
 | 다른 작업 연결 시 `binding_session_conflict` | 같은 세션이 이전 작업에 아직 묶여 있음 | 이전 작업에서 **관측 종료 · Claude 유지**를 누릅니다. |
 | 설치 시 `package_unowned`, `package_drift` | `.claude/skills/harness-connect`를 손으로 수정했거나 다른 도구가 만든 파일이 있음 | 해당 파일을 백업·검토한 뒤 다시 미리보기합니다. 덮어쓰지 않습니다. |
 | 설치 해제 시 `ordinary_installation_in_use` | 진행 중인 일반 작업이 있음 | 작업을 먼저 종료·판정합니다. |

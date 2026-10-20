@@ -17,9 +17,10 @@ Claude Code 2.1.296(`claude-workflow-own-trace-v1`, 부모 전용; `claude-workf
 | 원하는 workflow | 절차와 지원 경계 |
 | --- | --- |
 | 브라우저에서 작업 준비와 결과 검토 | [로컬 브라우저 workflow](local-browser-ui.ko.md); guided setup은 저장 전에 입력을 검토하며 수집을 시작하지 않음 |
-| A/B 배정 없는 일반 Claude 관측 | [일반 UI 흐름](harness-connect.ko.md#일반-claude-관측-지원-검증-대기); 정확한 원본·binary 조건에서 일반 사용 허용; native 지원 검증 대기; pilot 플래그 불필요 |
+| A/B 배정 없는 일반 Claude 관측 | [일반 UI 흐름](harness-connect.ko.md#일반-claude-관측-지원-검증-대기); 기본값 Claude Code 2.1.296, 또는 명시적 Claude Code 2.1.301; 그 profile의 정확한 원본·binary 조건에서 일반 사용 허용; native 지원 검증 대기; pilot 플래그 불필요 |
+| Codex 0.163.0 일반 가족 | [제한된 일반 profile](harness-connect.ko.md#codex-01630-제한-일반-profile); 명시적으로 선택하는 별도 정확 profile; 동결된 `functional_pilot` protocol과 배정, 새 root 하나와 새 직계 자식 최대 두 개; 배정 없는 일반 작업 모드가 아님 |
 | Codex 0.162.1 일반 가족 | [제한된 일반 profile](harness-connect.ko.md#codex-01621-제한-일반-profile); 동결된 `functional_pilot` protocol과 배정, 새 root 하나와 새 직계 자식 최대 두 개; 배정 없는 일반 작업 모드가 아님 |
-| Codex 0.162.0 일반 root | [root 전용 파일럿](harness-connect.ko.md#codex-01620-일반-root-로컬-pilot); 운영자가 승인한 관측, 새 root 하나만 허용, 자식 미지원 |
+| Codex 0.162.0과 0.162.1 일반 root | [root 전용 파일럿](harness-connect.ko.md#codex-01620-일반-root-로컬-pilot); 운영자가 승인한 관측, 새 root 하나만 허용, 자식 미지원 |
 | Claude 비교/pilot 가족 | [사용자 조작 파일럿](harness-connect.ko.md#claude-사용자-조작-ui-pilot); 별도 로컬 pilot 권한과 candidate-provider 플래그, 정확한 profile 버전, 새 부모와 새 구성원 최대 두 개; 일반 작업 흐름과 별개 |
 | Codex 0.160.0 시작 티켓 | [외부 세션 workflow](external-session-workflow.ko.md); 정확한 새 root와 티켓, 자동 가족 상속 없음 |
 
@@ -32,16 +33,16 @@ skill 설치나 브라우저 작업 준비만으로 관측 권한이 생기지 �
 | 경로 | 지원 범위 |
 | --- | --- |
 | Codex 0.160.0 루트 workflow | launch, 같은 세션 resume, 명시적 독립 루트 link, 전경 collect, stop, recover; 부분 사용량 |
-| Codex 0.160.0 직계 자식 workflow | 별도 프로필: 새 루트와 새 자식 1개, 고정 macOS arm64/Node24, read-only; family resume·외부 자식 link 미지원 |
-| 기존 파일 수집기 | 정확한 프로필: Codex 0.156.1/0.158.0, Claude Code 2.1.283; 조건부 파일 버전도 허용; [로컬 측정](local-measurement.ko.md) 참고 |
-| Claude Code 2.1.296 부모 전용 workflow | 실행마다 새 launch(read-only 또는 `workspace-edit`), 같은 작업의 추가 launch, `resumable`로 유지한 세션의 resume, stop, recover; 부분 사용량. 2.1.288과 2.1.291은 지원 종료 |
+| Codex 0.160.0 직계 자식 workflow | 별도 프로필: 새 루트와 새 자식 1개, 고정 macOS arm64/Node 24, read-only; family resume·외부 자식 link 미지원 |
+| 기존 파일 수집기 | 정확한 프로필: Codex 0.156.1과 0.158.0, Claude Code 2.1.283; 조건부 파일 버전도 허용; [로컬 측정](local-measurement.ko.md) 참고 |
+| Claude Code 2.1.296 부모 전용 workflow | 실행마다 새 launch(read-only 또는 `workspace-edit`), 같은 작업의 추가 launch, `resumable`로 유지한 세션의 resume, stop, recover; 부분 사용량. Claude Code 2.1.288과 2.1.291은 지원 종료 |
 | Claude Code 2.1.296 직계 자식 workflow | 별도 프로필: 새 read-only 루트와 read-only `workflow-child` 최대 1개; 정확한 버전 전용; resume·더 깊은 자식·추가 자식 미지원 |
 | App/IDE/MCP, fork, compaction, 더 깊은 자식 | 이 절차에서 미지원 |
 | 작업 전체 비용, 실제 청구액, 절감·도입 추론 | 제공하지 않음 |
 | 팀 파일 교환 | 합성 검증 전용; 기능 파일럿 결과는 이 경로로 교환할 수 없음 |
 
-정규 Codex 버전 `>0.160.0`, `<0.164.0`(0.162.1 포함)과 Claude Code 버전 `>2.1.296`,
-`<2.2.0`은 `functional_pilot`에서 workflow 프로필을
+안정 Codex 버전 중 0.160.0 초과 0.164.0 미만(Codex 0.162.1과 0.163.0 포함)과 Claude Code 버전 중 2.1.296 초과
+2.2.0 미만은 `functional_pilot`에서 workflow 프로필을
 재사용할 수 있습니다. 신뢰 상태는 `compatibility_unverified`이며 기준 추정액을
 별도로 표시합니다. Claude 범위는 새 부모 전용 launch만 허용합니다. 자식과 resume은 허용하지 않습니다. 이 범위가 티켓 연결이나 일반 세션 가족의 검증을 대신하지는
 않습니다. [버전 설정과 검사](task-native-workflow.md#conditional-forward-versions)를 참고하세요.
@@ -155,13 +156,13 @@ finish는 이 기한 전에 실행해야 합니다. 늦은 결과는 별도 저�
 | `claude-resume.json` (Claude 전용) | 같은 설정, 새 `run_id`, 같은 작업의 이전 resumable 실행을 가리키는 `resume_run_id`, 그 실행의 `workspace` |
 
 workflow 설정·protocol의 source profile·바이너리 버전을 일치시키세요.
-저장소 Codex 예제는 0.160.0입니다. 조건부 버전은 execution의 `product_version`과
+저장소 Codex 예제는 Codex 0.160.0입니다. 조건부 버전은 execution의 `product_version`과
 실제 `binary.sha256`도 설정하세요. Claude는 `product: "claude_code"`,
 프로필 `claude-workflow-own-trace-v1`을 쓰고 `workflow.json`, `protocol.json`,
 `binary.version`에 선택한 버전을 넣으세요. protocol은 product/version마다 profile 하나,
 Claude workflow profile마다 항목 최대 하나를 갖습니다. 자식 실행에는
 `claude-workflow-direct-child-v1`을 쓰는 별도 protocol을 사용하세요.
-기능 protocol은 각 Claude workflow 프로필을 2.1.296으로, 또는 own-trace 프로필을 조건부
+기능 protocol은 각 Claude workflow 프로필을 Claude Code 2.1.296으로, 또는 own-trace 프로필을 조건부
 범위 버전으로 허용합니다. 다른 비합성 protocol은
 최신 정확한 admission을 요구합니다. [등록 규칙](task-native-workflow.md#claude-parent-only-workflow)을 참고하세요.
 `binary.path`는 `claude` 실행기 대신 정확한 버전 파일을 가리켜야 합니다.

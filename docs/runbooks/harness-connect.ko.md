@@ -6,7 +6,7 @@
 
 2026-10-16 UTC 릴리스 확인 대상은 Codex 0.163.0과 Claude Code 2.1.301입니다.
 Codex 0.163.0은 같은 날 별도의 제한된 ordinary 경로 native 검증을 통과했습니다.
-Claude 2.1.301은 제한된 print-mode transcript 적합성 검증을 통과했으며 일반 경로 qualification은 대기 중입니다. 기존 파일 및 root-workflow는 두 버전 모두
+Claude Code 2.1.301은 제한된 print-mode transcript 적합성 검증을 통과했으며 일반 경로 qualification은 대기 중입니다. 기존 파일 및 root-workflow는 두 버전 모두
 `compatibility_unverified`로 선택하며 일반 연결 근거로 다른 소스를 승격하지 않습니다.
 일반 연결에는 아래의 정확한 admission 버전을 사용하세요.
 
@@ -15,7 +15,7 @@ Codex 0.163.0은 [제한된 qualification 절차](../validation/codex-ordinary-b
 Codex 실행 파일 옆에 같은 릴리스의 고정된 `codex-code-mode-host`가 필요하며,
 Codex 단독 아카이브만으로는 부족합니다. 준비와 실행 시 두 파일의 pin을 검사합니다.
 이후 별도의 `--route ordinary_admission` 시험도 qualification 수집 권한 없이 통과했습니다.
-프로젝트 연결 설정과 버전 선택기에서 0.162.1과 함께 0.163.0을 명시적으로 고를 수 있으며,
+프로젝트 연결 설정과 버전 선택기에서 Codex 0.162.1과 함께 Codex 0.163.0을 명시적으로 고를 수 있으며,
 저장된 버전과 기본 버전은 자동으로 올리지 않습니다. 새 정확한 binding profile만
 검증 provenance를 얻으며, 과거 미검증 관측은 그대로 유지합니다.
 
@@ -23,12 +23,13 @@ Codex 단독 아카이브만으로는 부족합니다. 준비와 실행 시 두 
 Codex/Claude 메타데이터 hook/provider, UI 가족 표시가 구현되어 있습니다. 격리 synthetic
 종단 테스트로 부모 한 번 연결, 자식 자동 수집과 부분 사용량 갱신을 검증합니다.
 아래의 Codex 0.162.1 제한 일반 profile은 2026-10-13에 실제 ordinary 경로의
-native 검증과 독립 검토를 통과했고 0.163.0은 아래의 별도 검증 근거를 갖습니다. 다른 일반 native
+native 검증과 독립 검토를 통과했고 Codex 0.163.0은 아래의 별도 검증 근거를 갖습니다. 다른 일반 native
 production source는 qualification 차단 상태입니다. Claude 호출 시
 세션 hook 등록·receipt 조회·평탄화된 family 멤버의 합성 통합도 구현했습니다. provider 설정이나 스킬 설치만으로 production 경로가 열리지
 않습니다. [설계와 실측 계획](../decisions/012-session-family-bindings.md)을 참고하세요.
-A/B 배정이 없는 작업을 위한 일반 Claude 관측은 정확한 현재 Claude 원본 버전과
-binary에서 [일반 사용](#일반-claude-관측-지원-검증-대기)이 허용됩니다.
+A/B 배정이 없는 작업을 위한 일반 Claude 관측은 설정된 profile의 정확한 버전과
+binary에서 [일반 사용](#일반-claude-관측-지원-검증-대기)이 허용됩니다. 기본값은
+Claude Code 2.1.296이고, Claude Code 2.1.301은 명시적으로 설정합니다.
 
 먼저 UI에서 등록 프로젝트의 논리 작업과 A/B 배정을 준비합니다. 승인된 native
 instrumentation이 있으면 평소처럼 연 부모가 신뢰 가능한 receipt를 전달하고,
@@ -131,7 +132,7 @@ source 교체, ancestry, 세 번째·중첩 멤버, 다른 정확 버전은 차�
 ## 일반 Claude 관측
 
 별도 exact profile `claude-binding-2-1-301-family-v1`은 명시적으로 설정한
-2.1.301에서 root 하나와 flattened 멤버 둘까지 허용합니다. 기존 2.1.296 기본값과
+Claude Code 2.1.301에서 root 하나와 flattened 멤버 둘까지 허용합니다. 기존 Claude Code 2.1.296 기본값과
 저장·고정된 작업 설정은 유지됩니다. 프로젝트 설정 API는
 `{"operation":"configure","product_version":"2.1.301"}`을 받으며, 버전을 생략하면
 기존 저장값 또는 과거 기본값을 유지합니다. UI에 Claude 버전 선택기는 표시하지 않습니다.
@@ -207,8 +208,8 @@ hook 등록, native receipt, 관측 중은 서로 다른 네 가지 사실입니
 - **소급 수집 없음.** 일시중단, 오프라인, 연결 전 사용량은 미관측으로 남습니다.
 - **Baseline 저장.** 제외 ID를 SQLite에 보관하므로 pilot 경로의 1,024개 한도가
   여기에는 적용되지 않습니다. pilot 경로의 한도는 그대로입니다.
-- **가족 한도.** 2.1.296으로 고정된 작업은 root를 포함해 최대 8개이며 아홉 번째는
-  `binding_family_limit`을 반환합니다. 2.1.301로 고정된 작업은 root를 포함해 최대
+- **가족 한도.** Claude Code 2.1.296으로 고정된 작업은 root를 포함해 최대 8개이며 아홉 번째는
+  `binding_family_limit`을 반환합니다. Claude Code 2.1.301로 고정된 작업은 root를 포함해 최대
   3개이며 네 번째는 같은 코드를 반환합니다. 멤버는 root 아래로 평탄화하며,
   중첩 멤버의 직접 부모는 검증하지 않습니다.
 - **모델.** 모든 Claude 모델을 관측된 effort와 함께 받아들이며 모델 고정은 없습니다.
@@ -330,10 +331,10 @@ Claude는 SubagentStart/Stop hooks로 이후 멤버를 기록하고 각 transcri
 발견된 연결만 확인합니다. 중지된 family는 아래의 코드 소유 사용자 UI pilot
 권한으로 같은 살아 있는 부모를 재개할 수 있으면 UI 재개를 사용하고,
 그 외에는 부모에서 다시 연결해야 합니다. Native profile·counter·source 형식의
-interactive qualification은 아직 완료되지 않았습니다. 2.1.296과 2.1.301 모두
-제한된 print-mode transcript qualification을 갖습니다. 2.1.301은 localhost
+interactive qualification은 아직 완료되지 않았습니다. Claude Code 2.1.296과 2.1.301 모두
+제한된 print-mode transcript qualification을 갖습니다. Claude Code 2.1.301은 localhost
 정상 완료/SIGINT 적합성 검증을 포함하며 인증 ordinary 경로 검증은 아닙니다.
-2.1.291, 2.1.293, 2.1.294 transcript profile은 candidate 상태입니다.
+Claude Code 2.1.291, 2.1.293, 2.1.294 transcript profile은 candidate 상태입니다.
 model이나 effort 설정은 강제하지 않습니다.
 
 UI는 가족 수와 부분 사용량을 갱신합니다. pause/서버 재시작은 수집을 멈춥니다.
@@ -385,14 +386,14 @@ Claude 기준선의 제외 own request ID는 실시간 replay 목록과 별도�
 SQLite에 보관하며 이 한도가 없습니다.
 
 격리된 일반 Codex CLI qualification 실행기와 실제 호출 승인 범위는 [qualification 절차](../validation/codex-ordinary-binding-qualification.md)를 참고하세요. 준비와 Node fixture 검증만으로 production 지원이 열리지는 않습니다.
-실행기에 별도 정확 버전 0.162.1 후보가 있으며 `--product-version 0.162.1`로
+실행기에 별도 정확 버전 Codex 0.162.1 후보가 있으며 `--product-version 0.162.1`로
 선택합니다. 일반 `--no-daemon` TUI에서 기존 부모 하나·새 직접 자식 둘의 topology를
 유지합니다. 정확한 실행 파일 고정, intent별 승인과 소유 실행의 안전 검증은
 일반 provider 설정과 별개입니다. 기본 qualification 경로는 source lease를
 사용하고, `ordinary_admission`은 별도로 검증된 일반 source 권한을 사용합니다.
 세션 한정 `projects` 인라인 테이블은 새 임시
 프로젝트만 신뢰하며 사용자 설정을 저장하거나 sandbox·승인 권한을 넓히지 않습니다.
-새 0.162.1 계획은 기본 비활성·`UnderDevelopment`인 `exec_permission_approvals`
+새 Codex 0.162.1 계획은 기본 비활성·`UnderDevelopment`인 `exec_permission_approvals`
 feature를 이번 세션에만 별도로 켭니다. 검토된 helper 실행 1회에 inspect/connect를
 묶고 명시적인 network-only 명령 승인을 받으며 기존 파일 권한은 유지합니다.
 이 권한은 host/port 한정이 아니며 managed proxy가 loopback 접근을 계속 차단할
@@ -408,9 +409,9 @@ Enter를 별도 동작으로 누르세요. 입력창에 붙여넣은 문구만�
 안전 한도에는 포함하지만 측정 사용량에는 포함하지 않습니다. 세 세션의 사용량을
 수집하고 작업 턴이 끝나면 대기 중인 TUI를 정상 종료하세요.
 종료 명령 입력과 제출 키도 별도 동작으로 보내세요.
-기존 0.160.0은 root4/child1each/total6을 유지합니다.
-0.162.1의 토큰 정지 한도는 200000이며 0.160.0은 100000을 유지합니다.
-0.162.1의 시간 한도는 900초이며 0.160.0은 120초를 유지합니다.
+기존 Codex 0.160.0은 root4/child1each/total6을 유지합니다.
+Codex 0.162.1의 토큰 정지 한도는 200000이며 Codex 0.160.0은 100000을 유지합니다.
+Codex 0.162.1의 시간 한도는 900초이며 Codex 0.160.0은 120초를 유지합니다.
 target의 연결 기준 수집 창도 900초이며 기존 수집 창은 180초를 유지합니다.
 수집 창이 더 늦게 끝나더라도 native 시작 기준 900초 마감은 실행을 종료합니다.
 권한 모드와 한도는 새 intent에 고정하며
@@ -420,7 +421,7 @@ connector 경로/SHA를 고정하며 inspect가 성공한 뒤에만 connect를 �
 현재 receipt를 쓰는 고정 Node 명령만 승인하고 다른 명령을 연결하면 안 됩니다.
 두 번째 또는 더 넓은 권한 요청은 사람이 거부하며, 연결 차단 후 작업이 계속되면
 소유 실행을 중단해야 합니다. 미연결 활동은 source ledger가 감시하지 못합니다.
-새 0.162.1 계획은 자동 시작만 허용하며 수동 모드는 기존 0.160.0에만 남습니다.
+새 Codex 0.162.1 계획은 자동 시작만 허용하며 수동 모드는 기존 Codex 0.160.0에만 남습니다.
 승인 요청과 agent-turn-complete를 OSC9로 알리고 `notification_condition="always"`로 고정합니다.
 실행 전에 private `native-attention.json` 생성을 구독하고, 각 알림 뒤에는 변경을
 구독하세요. 해당 경로가 이미 있으면 예약을 소비하기 전에 실행을 거부합니다.
@@ -431,7 +432,7 @@ raw PTY framing으로 줄바꿈을 기다리지 않고 digest/count만 알리며
 정상 종료를 제출하세요. 알림 자체는 사용량 수집의 증거가 아니므로 정상 종료 전에
 연결된 세 세션의 사용량을 별도로 확인하세요.
 Node 전용 전달 검증은 target binary의 실제 알림 동작을 검증한 것이 아닙니다.
-고정된 0.162.1 ordinary 경로는 위 제한 profile에서 실제 native 알림,
+고정된 Codex 0.162.1 ordinary 경로는 위 제한 profile에서 실제 native 알림,
 명령 권한과 가족 conformance를 검증했습니다. 다른 일반 경로, 버전,
 runtime과 더 넓은 topology는 미검증입니다.
 source를 읽지 않는 작업 준비는 정확한 버전과 단일 own-response profile의
@@ -455,8 +456,8 @@ npm start -- --db "$DB" ui --pilot-task "$TASK_ID" --pilot-observe --pilot-until
 
 provider와 검토된 SessionStart hook 제안에는 독립적으로 확인한 제품 버전
 `0.162.0` 또는 `0.162.1`을 동일하게 지정합니다. 작업의 workflow와 동결한
-protocol에도 실제 버전을 동일하게 넣으세요. 기존 profile ID는 0.162.1 후보에도
-사용하지만 executable이나 receipt의 버전을 0.162.0으로 바꾸지는 않습니다.
+protocol에도 실제 버전을 동일하게 넣으세요. 기존 profile ID는 Codex 0.162.1 후보에도
+사용하지만 executable이나 receipt의 버전을 Codex 0.162.0으로 바꾸지는 않습니다.
 metadata-only 적용 신원은 transcript 읽기
 권한이 아닙니다. native 시작 전에 프로젝트 로컬 hook 설치/trust와 정확한
 receipt/source 디렉터리를 검토합니다. receipt를 임의로 만들면 안 됩니다.
@@ -466,14 +467,14 @@ receipt/source 디렉터리를 검토합니다. receipt를 임의로 만들면 �
 선택한 checkout의 새 작업 root에서 `harness-connect`를 호출합니다.
 적용 세션 신원 재사용, 미완료 적용, 파일 변경, 이전 root는 계속 차단됩니다.
 
-자체 응답 관측은 0.160.0 파서를 재사용하며 immutable `codex_workflow` parser
+자체 응답 관측은 Codex 0.160.0 파서를 재사용하며 immutable `codex_workflow` parser
 lineage와 `compatibility_unverified`를 표시합니다. 이 표시는 launch 권한이나
 production admission이 아닙니다. 계약 실패는 다음 source 읽기 전에 공통
 parser tuple을 무효화합니다. 비용은 부분 기준가격 추정이며 전체 합계,
 native 지침 로딩 증명이나 추론이 아닙니다.
 [ADR 013](../decisions/013-forward-version-compatibility.md)을 참고하세요.
 
-[0.162.1 릴리스](https://github.com/openai/codex/releases/tag/rust-v0.162.1)는
+[Codex 0.162.1 릴리스](https://github.com/openai/codex/releases/tag/rust-v0.162.1)는
 TUI 질문과 시작 시 feature 호환성을 수정합니다. 합성 검사는 버전별 receipt,
 선택 checkout의 적용 신원, root-only 관측, pause/resume과 계약 무효화를 다룹니다.
 native hook 로딩이나 최신 counter 의미를 검증하지는 않으며 별도로 승인된
@@ -481,7 +482,7 @@ native 시험이 계속 필요합니다.
 
 ## Claude 사용자 조작 UI pilot
 
-로컬 운영자는 ordinary provider에 나열된 정확한 버전(현재 2.1.291,
+로컬 운영자는 ordinary provider에 나열된 정확한 버전(현재 Claude Code 2.1.291,
 2.1.293, 2.1.294, 2.1.296 또는 2.1.301)과 `claude-ordinary-human-pilot` source profile을 사용한 준비된
 `functional_pilot` 작업 하나를 선택할 수 있습니다. 기존 file·실행 workflow의
 버전 호환성은 일반 가족 원본의 지원 검증이 아닙니다. 설치·실제 관측 전에
@@ -512,27 +513,27 @@ native 프로세스 종료·재실행은 측정 재개와 별도 경계입니다
 skill metadata hook은 계속될 수 있습니다. receipt 수명은 hook timeout이나
 helper의 신선한 receipt 탐색 구간과 별개입니다.
 
-[2.1.294 변경 기록](https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md#21294)은
+[Claude Code 2.1.294 변경 기록](https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md#21294)은
 `prompt`와 `agent` hook 판단 수정을 설명합니다. native transcript 필드,
 command hook 로딩이나 counter 호환성을 증명하지 않습니다. ordinary parser는
-변경하지 않았으며, 2.1.294 후보는 연결, 가족 usage, pause/resume과 사용자 완료의
+변경하지 않았으며, Claude Code 2.1.294 후보는 연결, 가족 usage, pause/resume과 사용자 완료의
 합성 검증 범위를 갖습니다.
 
-[2.1.296 변경 기록](https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md#21296)은
+[Claude Code 2.1.296 변경 기록](https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md#21296)은
 managed hook과 token count 수정을 포함하지만 변경 기록만으로 일반 원본을 검증하지는 않습니다.
-변경하지 않은 파서는 2.1.296 신원, 자체 요청 replay, 기준선 제외, 가족 수 한도와
+변경하지 않은 파서는 Claude Code 2.1.296 신원, 자체 요청 replay, 기준선 제외, 가족 수 한도와
 pilot gate의 합성 검증 범위를 갖습니다.
 
-2.1.296 transcript profile의 qualified 상태는 제한된 native print-mode 증거만 뜻하며,
+Claude Code 2.1.296 transcript profile의 qualified 상태는 제한된 native print-mode 증거만 뜻하며,
 대화형 검증이나 제품 수집 허용이 아닙니다. 오프라인 실제 바이너리 리허설과 native print-mode
 pilot 한 번으로 skill 로딩, receipt, 가족 구성원과 자체 counter를 확인했습니다.
 [검증 기록](../validation/claude-ordinary-binding-02196-qualification.md)을 참고하세요.
 그 관측에서 skill 범위의 `SubagentStop` hook은 receipt를 남기지 않았고, 구성원 탐색은 여기에 의존하지 않습니다.
-별도 2.1.301 transcript profile은 제한된 localhost 정상 완료/SIGINT print-mode
+별도 Claude Code 2.1.301 transcript profile은 제한된 localhost 정상 완료/SIGINT print-mode
 증거를 갖지만 interactive 또는 인증 ordinary 경로를 검증하지는 않습니다.
-2.1.291, 2.1.293, 2.1.294 profile은 합성 증거만 갖습니다. 실제 2.1.291, 2.1.293 또는 2.1.294 skill 로딩, 가족 counter,
+Claude Code 2.1.291, 2.1.293, 2.1.294 profile은 합성 증거만 갖습니다. 실제 Claude Code 2.1.291, 2.1.293 또는 2.1.294 skill 로딩, 가족 counter,
 pause/resume과 사용자 완료는 별도로 승인된 native 시험이 필요합니다.
-transcript-qualified인 2.1.296과 2.1.301을 포함한 모든 비교/pilot Claude profile에는
+transcript-qualified인 Claude Code 2.1.296과 2.1.301을 포함한 모든 비교/pilot Claude profile에는
 `allowCandidateProfiles: true`가 필요합니다. pilot profile에 대한 기본 provider
 거부는 계속 유지됩니다. 현재 label인 `native_unverified_pilot`,
 `legacy_unverified`, `candidate_pilot`은 유지됩니다.

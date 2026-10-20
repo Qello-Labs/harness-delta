@@ -38,7 +38,10 @@ harness-config/
 
 `harness-config`는 의도적으로 Git에 공유할 수 있습니다. 공개 전에 선택한 파일을
 확인하세요. PC별 비공개 연결은 Git에서 제외되는 `.harness-delta/setup`에
-저장합니다. 이 디렉토리를 Git에 넣지 마세요. revision 접미사는 과거 작업의
+저장합니다. 이 디렉토리를 Git에 넣지 마세요.
+[8절](#8-대상-저장소-git에서-로컬-제품-파일-제외)에 Git 밖에 둘 비공개
+디렉터리와 연결 패키지, 그리고 커밋 전에 검토할 Codex hook 파일이 있습니다.
+revision 접미사는 과거 작업의
 고정 정보를 바꾸지 않고 여러 검토된 로컬 설정을 유지하기 위한 것입니다.
 
 ## 2. baseline과 수정 버전 등록
@@ -205,7 +208,7 @@ snapshot 무결성은 네이티브 시작 순서, 지침 로딩, 도구 실제 �
    브랜치를 바꾸거나 새 worktree를 자동 생성하지 않습니다.
 3. 새 네이티브 세션 열기를 요청하세요. CLI가 설치된 macOS에서는 준비된
    프롬프트를 전달하는 Terminal 인터랙티브 세션을 요청합니다. 명령 문법은
-   Codex CLI 0.161.0과 Claude Code 2.1.295에서 확인했지만 실제 창 열기와
+   Codex 0.161.0과 Claude Code 2.1.295에서 확인했지만 실제 창 열기와
    에이전트 수용 검증은 남아 있습니다. 데스크톱 프롬프트 deep link와 다른
    플랫폼은 지원하지 않습니다. 사용할 수 없거나 실패하면 선택한 대상에서
    새 세션을 직접 열고 복사 가능한 적용 문맥을 붙여 넣으세요.
@@ -221,9 +224,14 @@ snapshot 무결성은 네이티브 시작 순서, 지침 로딩, 도구 실제 �
    열고 harness-connect를 사용하세요. 파일 적용은 생성 지침의 로딩이나 측정
    준비를 입증하지 않습니다. 기존 신원·로딩·원본 지원 gate를 유지하며, 이
    기능의 작업 세션 경로는 production 지원 검증 대기 중입니다. 명시적인
-   Codex 0.162.0/0.162.1 root-only 로컬 functional pilot은 파일 적용을 완료하고
+   Codex 0.162.0과 0.162.1 root-only 로컬 functional pilot은 파일 적용을 완료하고
    별도 작업·원본 권한을 받은 뒤 연결할 수 있지만, parser 기준값은
    미검증입니다. [제한된 pilot](harness-connect.ko.md#codex-01620-일반-root-로컬-pilot)을 참고하세요.
+   별도 배정 경로는 Codex 0.162.1과 Codex 0.163.0 일반 가족 profile을 허용합니다.
+   일반 Claude 관측은 배정이 없으며 기본값 Claude Code 2.1.296 또는 명시적으로
+   설정한 Claude Code 2.1.301을 사용합니다.
+   파일 적용이 그 버전을 선택하거나 올리지는 않습니다.
+   [Harness Connect](harness-connect.ko.md#현재-구현)를 참고하세요.
 
 적용 helper 동작은 `context`, `checkpoint`, `identity`, `report`, `status`입니다.
 설치된 skill 경로와 Node 24 또는 26을 사용하세요. checkpoint는 실제 dirty 내용과 파일
@@ -334,3 +342,75 @@ hook 명령은 작업이 선택한 worktree에서 CLI·DB의 절대 경로로 �
 복원과 커밋 검사를 마칠 때까지 작업과 checkpoint 기록을 유지하세요. 작업 삭제는
 여전히 파일을 복원하지 않습니다. 이 명령은 네이티브 지원 한계, 신원 gate나 측정
 자격을 바꾸지 않습니다.
+
+## 8. 대상 저장소 Git에서 로컬 제품 파일 제외
+
+Harness Delta는 대상 `.gitignore`와 Git hook을 바꾸지 않습니다.
+로컬 UI의 프로젝트 등록은 Git HEAD만 읽고 대상 파일을 쓰지 않습니다.
+하네스 등록은 선택한 artifact 바이트를 `harness-config/`로 복사합니다.
+그다음 로컬 설정, 연결, 지침 준비, 에이전트 적용이 아래 비공개 경로를 만듭니다.
+검토한 Codex 연결 설치는 기존 `.codex/hooks.json`에 항목을 병합합니다.
+`application restore`는 checkpoint한 작업 트리 파일을 다시 쓰고 Git index는
+그대로 둡니다. 제품은 `skip-worktree`나 `assume-unchanged`를 설정하지 않습니다.
+
+첫 설치나 적용 전에 대상 저장소에 이 규칙을 추가하세요. 다른 규칙이
+`.agents/skills/**`를 다시 포함하면 `harness-connect` 줄을 그 예외보다 뒤에
+두세요. Gitignore에서는 뒤의 규칙이 이깁니다.
+
+```gitignore
+.harness-delta/
+.harness-delta-managed/
+/.claude/skills/harness-connect/
+/.agents/skills/harness-connect/
+```
+
+| 경로 | 기록하는 동작 | Git 처리 |
+| --- | --- | --- |
+| `.harness-delta/setup/` | 로컬 비교 연결 | `.harness-delta/` 디렉터리 전체를 Git 밖에 둡니다. |
+| `.harness-delta/applications/<task-id>/` | 에이전트 적용 checkpoint, context, 결과 기록 | 같은 디렉터리 규칙입니다. `restore`는 이 바이트를 기준으로 사용합니다. |
+| `.harness-delta/claude-connect/` | Claude 연결 메타데이터와 `receipts/` | 같은 디렉터리 규칙입니다. |
+| `.harness-delta/codex-connect/` | Codex 연결 메타데이터와 `receipts/` | 같은 디렉터리 규칙입니다. |
+| `.harness-delta-managed/active-instructions.md` | 외부 세션 지침 준비 | `.harness-delta-managed/`를 Git 밖에 둡니다. format 2 에이전트 적용은 이 파일을 쓰지 않습니다. 작업을 `agent_applied`로 바꾸면 기존 파일은 남고 더 이상 사용하지 않습니다. |
+| `.claude/skills/harness-connect/` | 검토 후 Claude 연결 설치 | 로컬 패키지입니다. 프로젝트가 검토한 바이트를 의도적으로 커밋하는 경우가 아니면 Git 밖에 둡니다. |
+| `.agents/skills/harness-connect/` | 검토 후 Codex 연결 설치 | Claude 패키지와 같습니다. |
+| `harness-config/` | 등록 전 비교 작성자 | 검토 후 의도적으로 Git에 공유할 수 있습니다. 무시 여부는 프로젝트 선택이며 제품 요구사항이 아닙니다. |
+
+`harness-apply`는 Harness Delta checkout에 둡니다. 적용 프롬프트가 그 스킬
+경로를 가리킵니다. 대상 프로젝트로 복사하지 마세요.
+
+검토한 Codex 설치는 hook 항목을 대상 `.codex/hooks.json`에 병합하고 관련 없는
+항목은 유지합니다. 병합된 명령에는 Node 바이너리의 절대 경로,
+`.harness-delta/codex-connect/` 아래 recorder, receipt 디렉터리, 승인한 source
+root의 절대 경로가 들어갑니다. 프로젝트가 이 파일을 버전 관리하지 않으면 파일
+전체를 추적하지 않은 채로 두세요. 이미 프로젝트 자체의 hook이 있으면 파일
+전체를 무시하지 말고 diff를 검토한 뒤 Harness Delta 항목만 stage에서 빼세요.
+[Codex 연결 설치](harness-connect.ko.md#프로젝트-에이전트-연결-설정)를
+참고하세요.
+
+`.gitignore`는 Git이 이미 추적하는 파일에는 적용되지 않습니다. 적용 에이전트는
+`AGENTS.md`와 선택한 스크립트처럼 조사한 프로젝트 파일을 작업 트리에서 직접
+수정합니다. 그 수정은 index에서 빠지기 전까지 `git add` 대상입니다. 다른 작업을
+커밋하기 전에 [7절](#7-적용한-수정-복원과-staged-파일-검사)을 따르세요.
+checkpoint 경로를 복원하고, 의도한 파일만 다시 stage한 뒤
+`application check-staged`를 실행합니다. 결과 목록이 비어 있지 않으면 명령은
+종료 코드 2와 `application_changes_staged`를 반환합니다. 경로에
+`.harness-delta` 또는 `.harness-delta-managed`가 포함된 index 항목은 HEAD와
+같아도 `private_record_staged`입니다. index가 HEAD와 다른 checkpoint 경로는
+stage가 `0`이 아니거나 mode가 `100644` 또는 `100755`가 아니면
+`application_index_invalid`이며, stage된 symlink도 여기 포함됩니다. stage된
+blob이 stage에 쓰는 것과 같은 Git clean 변환을 거친 checkpoint 기준과 다르면
+`application_change_staged`입니다. 보고된 적용 해시가 그 기준과 같은 checkpoint
+경로는 이 비교에서 빠집니다. 검사는 index를 읽으며, 전달된 `GIT_INDEX_FILE`도
+포함합니다. 현재 작업 트리 바이트는 읽지 않습니다. 연결 패키지와
+`.codex/hooks.json`은 검사하지 않습니다.
+
+`check-staged`는 선택 사항입니다. 작업과 worktree마다 task id가 다르므로 공유
+pre-commit hook에 id 하나를 고정할 수 없습니다. 명령을 추가할 때는 기존 hook을
+유지하고, `dist/cli.js`와 로컬 데이터베이스의 절대 경로를 넘기고, 그
+worktree의 작업을 선택하세요. 제품은 hook을 설치하거나 덮어쓰지 않습니다.
+hook이 없어도 `git commit`은 막히지 않습니다.
+
+복원과 staged 검사가 끝날 때까지 작업과
+`.harness-delta/applications/<task-id>/`를 유지하세요. 그 디렉터리를 지우면
+`restore`가 사용하는 기준이 사라집니다. 작업을 삭제해도 작업 트리 파일은
+복원되지 않습니다.

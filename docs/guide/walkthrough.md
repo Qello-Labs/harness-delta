@@ -39,7 +39,7 @@ when the work is done. You always start and stop the agent yourself.
 | --- | --- |
 | Task | The unit of measurement: one request with a judgeable outcome, such as "notification inbox read API". |
 | Ordinary Claude observation | Normal Claude work with usage observation and no A/B assignment. |
-| Parent / child session | The Claude session you open is the parent. Sub-agents it starts are children. Up to 8 members, including the parent, are counted together. |
+| Parent / child session | The Claude session you open is the parent. Sub-agents it starts are children. The default Claude Code 2.1.296 profile counts up to 8 members, including the parent. The explicit Claude Code 2.1.301 profile counts at most 3 members, including the parent. |
 | Pause | Stops collection only. Claude keeps running, and paused usage is never backfilled. |
 | Observed cost | A **partial estimate** of observed usage with matched prices. It is not billing. |
 
@@ -49,22 +49,22 @@ when the work is done. You always start and stop the agent yourself.
 | --- | --- | --- |
 | Node.js | 24 or 26 | `node --version` |
 | Ordinary Claude runtime | macOS arm64 | `node -p "process.platform + ' ' + process.arch"` |
-| Claude Code | **Exactly 2.1.296** (reviewed binary) | `claude --version` |
+| Claude Code | Default **Claude Code 2.1.296**, or explicitly configured **Claude Code 2.1.301**. Each needs its reviewed binary. This walkthrough uses 2.1.296. | `claude --version` |
 | Target repository | A Git repository with a work branch ready | `git status --short` |
 
 ### Claude and Codex version updates
 
-The screenshots retain the 2.1.296 setup above. Separate exact-version records
+The screenshots retain the Claude Code 2.1.296 setup above. Separate exact-version records
 extend ordinary admission without changing existing defaults or task pins.
 The repository status on **2026-10-17** is:
 
 | Route | Version status | What this means for this guide |
 | --- | --- | --- |
-| Ordinary Claude connection | Exact 2.1.296 or explicitly configured 2.1.301 and its reviewed binary; both ordinary records remain `qualified: false` | This guide shows the existing 2.1.296 default. The 2.1.301 profile permits one root plus two flattened members; it does not qualify interactive use. |
-| Ordinary Codex connection | Exact 0.162.1 or explicitly selected 0.163.0, bounded family, frozen `functional_pilot` assignment; 0.163.0 passed separate ordinary-route native acceptance | Not the assignment-free Claude flow. Both routes retain partial-cost limits. |
-| File and selected workflow sources for Claude 2.1.301 / Codex 0.163.0 | Conditional parser reuse remains `compatibility_unverified` | Ordinary binding evidence does not promote file/workflow or historical observations. |
+| Ordinary Claude connection | Exact Claude Code 2.1.296 or explicitly configured Claude Code 2.1.301 and its reviewed binary; both ordinary records remain `qualified: false` | This guide shows the existing Claude Code 2.1.296 default. The Claude Code 2.1.301 profile permits one root plus two flattened members; it does not qualify interactive use. |
+| Ordinary Codex connection | Exact Codex 0.162.1 or explicitly selected Codex 0.163.0, bounded family, frozen `functional_pilot` assignment; Codex 0.163.0 passed separate ordinary-route native acceptance | Not the assignment-free Claude flow. Both routes retain partial-cost limits. |
+| File and selected workflow sources for Claude Code 2.1.301 and Codex 0.163.0 | Conditional parser reuse remains `compatibility_unverified` | Ordinary binding evidence does not promote file/workflow or historical observations. |
 
-Claude 2.1.301 passed bounded print-mode transcript conformance and a localhost
+Claude Code 2.1.301 passed bounded print-mode transcript conformance and a localhost
 service rehearsal. Its authenticated ordinary attempt on 2026-10-17 stopped at
 the `stream_model` guard before connection; usage and billing are unknown,
 and ordinary qualification remains outstanding. See the
@@ -140,10 +140,13 @@ When installation finishes, the badge shows "Installed".
 
 ![Installed](images/08-claude-installed.png)
 
-The Qello backend `.gitignore` already excludes Harness Delta local artifacts such as
-`/.claude/skills/harness-connect/` and `.harness-delta/` (#357). The installed package
-and connection records therefore stay out of `git add -A` and the clean-worktree checks
-of `./harness start` and `sync`.
+The Qello backend `.gitignore` already excludes the local product paths in
+[Keep local product files out of the target Git history](../runbooks/harness-config.md#8-keep-local-product-files-out-of-the-target-git-history)
+(#357). That repository also ignores its own `/harness-config/` and
+`/docs/harness/harness-delta/` copies. `check-staged` stays out of the shared
+Git hook because each task and worktree has its own task id. The installed
+package and connection records therefore stay out of `git add -A` and the
+clean-worktree checks of `./harness start` and `sync`.
 
 > Installation does not start observation. Package installation, hook registration,
 > confirmed connection and active measurement are separate states.
@@ -343,7 +346,7 @@ Select **Back to tasks** to return to the list. The row shows the task name,
 | Symptom | Cause | Action |
 | --- | --- | --- |
 | `local_operation_failed` when connecting a project | Unresolvable path such as `~` | Type an absolute path or use **Choose**. |
-| `claude_source_version_unsupported` on connect | Claude Code is not 2.1.296 | Run Claude with the supported version. |
+| `claude_source_version_unsupported` on connect | Claude Code is not the project's configured version (2.1.296 by default) | Run Claude Code with the configured version. |
 | `binding_session_conflict` when connecting another task | The session is still bound to the previous task | Select **Stop observation · keep Claude running** on that task. |
 | `package_unowned` or `package_drift` on install | Files under `.claude/skills/harness-connect` were edited or created by another tool | Back up and review the files, then preview again. Nothing is overwritten. |
 | `ordinary_installation_in_use` on uninstall | An ordinary task is still active | End and judge the task first. |
