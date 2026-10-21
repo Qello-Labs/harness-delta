@@ -17,8 +17,8 @@ Claude Code 2.1.296(`claude-workflow-own-trace-v1`, 부모 전용; `claude-workf
 | 원하는 workflow | 절차와 지원 경계 |
 | --- | --- |
 | 브라우저에서 작업 준비와 결과 검토 | [로컬 브라우저 workflow](local-browser-ui.ko.md); guided setup은 저장 전에 입력을 검토하며 수집을 시작하지 않음 |
-| A/B 배정 없는 일반 Claude 관측 | [일반 UI 흐름](harness-connect.ko.md#일반-claude-관측-지원-검증-대기); 기본값 Claude Code 2.1.296, 또는 명시적 Claude Code 2.1.301; 그 profile의 정확한 원본·binary 조건에서 일반 사용 허용; native 지원 검증 대기; pilot 플래그 불필요 |
-| Codex 0.163.0 일반 가족 | [제한된 일반 profile](harness-connect.ko.md#codex-01630-제한-일반-profile); 명시적으로 선택하는 별도 정확 profile; 동결된 `functional_pilot` protocol과 배정, 새 root 하나와 새 직계 자식 최대 두 개; 배정 없는 일반 작업 모드가 아님 |
+| A/B 배정 없는 일반 Claude 관측 | [일반 UI 흐름](harness-connect.ko.md#일반-claude-관측-지원-검증-대기); 새 설정은 Claude Code 2.1.306, 저장된 설정은 Claude Code 2.1.296 또는 2.1.301; 그 profile의 정확한 원본·binary 조건에서 일반 사용 허용; native 지원 검증 대기; pilot 플래그 불필요 |
+| Codex 0.163.0 일반 가족 | [제한된 일반 profile](harness-connect.ko.md#codex-01630-제한-일반-profile); 새 설정 기본값인 별도 정확 profile; 동결된 `functional_pilot` protocol과 배정, 새 root 하나와 새 직계 자식 최대 두 개; 배정 없는 일반 작업 모드가 아님 |
 | Codex 0.162.1 일반 가족 | [제한된 일반 profile](harness-connect.ko.md#codex-01621-제한-일반-profile); 동결된 `functional_pilot` protocol과 배정, 새 root 하나와 새 직계 자식 최대 두 개; 배정 없는 일반 작업 모드가 아님 |
 | Codex 0.162.0과 0.162.1 일반 root | [root 전용 파일럿](harness-connect.ko.md#codex-01620-일반-root-로컬-pilot); 운영자가 승인한 관측, 새 root 하나만 허용, 자식 미지원 |
 | Claude 비교/pilot 가족 | [사용자 조작 파일럿](harness-connect.ko.md#claude-사용자-조작-ui-pilot); 별도 로컬 pilot 권한과 candidate-provider 플래그, 정확한 profile 버전, 새 부모와 새 구성원 최대 두 개; 일반 작업 흐름과 별개 |

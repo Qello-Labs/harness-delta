@@ -115,6 +115,15 @@ describe('ordinary Claude provider boundary', () => {
     expect(reads).toEqual([]);
   });
 
+  it.each(claudeBindingAdmissions)('rejects a changed binary hash before body reads for $productVersion', async admission => {
+    const provider = makeProvider({
+      productVersion: admission.productVersion,
+      readProcessBinary: () => ({ productVersion: admission.productVersion, sha256: 'f'.repeat(64) }),
+    });
+    await expect(provider.inspectCurrent({ receipt })).rejects.toThrow('claude_binary_unqualified');
+    expect(reads).toEqual([]);
+  });
+
   it('preserves native identities while using task-scoped measurement mappings for usage', async () => {
     const provider = makeProvider();
     const parent = await provider.resolveCurrent({ receipt });

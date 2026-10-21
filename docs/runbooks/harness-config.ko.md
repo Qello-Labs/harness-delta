@@ -228,8 +228,8 @@ snapshot 무결성은 네이티브 시작 순서, 지침 로딩, 도구 실제 �
    별도 작업·원본 권한을 받은 뒤 연결할 수 있지만, parser 기준값은
    미검증입니다. [제한된 pilot](harness-connect.ko.md#codex-01620-일반-root-로컬-pilot)을 참고하세요.
    별도 배정 경로는 Codex 0.162.1과 Codex 0.163.0 일반 가족 profile을 허용합니다.
-   일반 Claude 관측은 배정이 없으며 기본값 Claude Code 2.1.296 또는 명시적으로
-   설정한 Claude Code 2.1.301을 사용합니다.
+   일반 Claude 관측은 배정이 없으며 새 프로젝트 설정에서는 Claude Code 2.1.306(Codex 기본값은
+   0.163.0)을, 저장된 설정에서는 Claude Code 2.1.296 또는 2.1.301을 사용합니다.
    파일 적용이 그 버전을 선택하거나 올리지는 않습니다.
    [Harness Connect](harness-connect.ko.md#현재-구현)를 참고하세요.
 

@@ -40,6 +40,9 @@ test('connect grants proof-scoped active measurement authority before reading an
 test.each([
   ['2.1.296', '2.1.301'],
   ['2.1.301', '2.1.296'],
+  ['2.1.296', '2.1.306'],
+  ['2.1.301', '2.1.306'],
+  ['2.1.306', '2.1.296'],
 ])('keeps the frozen %s admission when project defaults change to %s', async (version, projectVersion) => {
   const f = fixture(version);
   saveOrdinaryProjectSettings(f.store, 'project', {
@@ -409,6 +412,7 @@ test('member permits authorize only exact metadata and disappear outside the dis
 test.each([
   ['2.1.296', 7],
   ['2.1.301', 2],
+  ['2.1.306', 2],
 ] as const)('version %s admits %s children once despite duplicate metadata admission callbacks', async (version, maxChildren) => {
   const f = fixture(version);
   saveOrdinaryProjectSettings(f.store, 'project', {

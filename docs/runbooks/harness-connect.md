@@ -15,8 +15,8 @@ in the [bounded qualification procedure](../validation/codex-ordinary-binding-qu
 It requires the pinned same-release `codex-code-mode-host` beside the Codex executable;
 the standalone Codex archive alone is insufficient. Preparation and execution check both pins.
 The separate `--route ordinary_admission` trial then passed without qualification
-collection authority. Explicit setup and the version selector support Codex 0.163.0 alongside
-Codex 0.162.1; existing saved/default versions are not upgraded automatically. Only the new
+collection authority. New project setup now defaults to Codex 0.163.0, and the version
+selector still lists Codex 0.162.1; existing saved versions are not upgraded automatically. Only the new
 exact binding profile gains verified provenance; past unverified observations stay unchanged.
 
 The [shared skill](../../skills/harness-connect/SKILL.md), receipt API, binding
@@ -32,8 +32,8 @@ A configured provider or installed skill alone does not enable that production p
 See [design and qualification](../decisions/012-session-family-bindings.md).
 Ordinary Claude observation, for a task with no A/B assignment, is open for
 [normal use](#ordinary-claude-observation-qualification-pending) under the exact
-version and binary of the configured profile: Claude Code 2.1.296 by default, or
-explicitly configured Claude Code 2.1.301.
+version and binary of the configured profile: Claude Code 2.1.306 for new project
+setup, or a saved Claude Code 2.1.296 or 2.1.301 setting.
 
 The UI first prepares the registered logical task and A/B assignment. With approved
 native instrumentation, a normally opened parent supplies a trusted receipt; the
@@ -136,14 +136,18 @@ the reference policy is not actual billing evidence.
 
 ## Ordinary Claude observation
 
-The separate exact `claude-binding-2-1-301-family-v1` profile admits explicitly
-configured Claude Code 2.1.301 with one root plus two flattened members. The existing
-Claude Code 2.1.296 default and saved/frozen task settings remain unchanged. The project setup API
+New project setup defaults to the separate exact `claude-binding-2-1-306-family-v1`
+profile: Claude Code 2.1.306 and its installed binary, one root plus two flattened
+members. The separate exact `claude-binding-2-1-301-family-v1` profile admits explicitly
+configured Claude Code 2.1.301 with the same limits. Saved settings, including the previous
+Claude Code 2.1.296 default, and frozen tasks remain unchanged. The project setup API
 accepts `{"operation":"configure","product_version":"2.1.301"}`; omitting the
-version preserves saved settings, otherwise the historical default. The UI does
+version preserves saved settings, otherwise the 2.1.306 default. The UI does
 not display a Claude version selector. Binary, receipt and transcript must match
-the same frozen task version. Both records remain `qualified: false`; the new
-profile's [print-mode conformance](../validation/claude-ordinary-binding-02196-qualification.md#2026-10-16-exact-21301-transcript-qualification)
+the same frozen task version. All records remain `qualified: false`. The 2.1.306
+[print-mode conformance](../validation/claude-ordinary-binding-02196-qualification.md#2026-10-21-exact-21306-transcript-qualification)
+on 2026-10-21 covers bounded actual-binary localhost normal/SIGINT runs only. The 2.1.301
+[print-mode conformance](../validation/claude-ordinary-binding-02196-qualification.md#2026-10-16-exact-21301-transcript-qualification)
 does not qualify interactive use, complete usage or cost. Separate ordinary
 authenticated qualification remains outstanding: the 2026-10-17
 [authenticated attempt](../validation/claude-ordinary-binding-02196-qualification.md#2026-10-17-authenticated-ordinary-attempt-blocked)
@@ -219,7 +223,7 @@ The admitted route behaves as follows.
 - **Baseline store.** Exclusions are kept in SQLite, so the 1,024-ID cap of the
   pilot path doesn't apply here. That cap is unchanged for the pilot path.
 - **Family limit.** Frozen Claude Code 2.1.296 tasks allow at most eight members, root included;
-  a ninth returns `binding_family_limit`. Frozen Claude Code 2.1.301 tasks allow at most three
+  a ninth returns `binding_family_limit`. Frozen Claude Code 2.1.301 and 2.1.306 tasks allow at most three
   members, root included; a fourth returns the same code. Members are flattened under the root; the immediate
   parent of a nested member is not verified.
 - **Model.** Every Claude model is accepted at its observed effort; there is no
@@ -340,8 +344,8 @@ are flattened under the root: the documented hook fields do not establish their
 direct nested parent. Child re-calls only confirm an active independently discovered
 family. A paused family requires parent reconnect unless its code-owned human UI pilot
 authority permits same-live-root UI resume as described below. Interactive qualification of
-native profile/counter/source formats remains pending. Both Claude Code 2.1.296 and 2.1.301 have
-bounded print-mode transcript qualification; Claude Code 2.1.301 includes normal/SIGINT
+native profile/counter/source formats remains pending. Claude Code 2.1.296, 2.1.301 and 2.1.306 have
+bounded print-mode transcript qualification; Claude Code 2.1.301 and 2.1.306 include normal/SIGINT
 localhost conformance, not authenticated ordinary acceptance. The Claude Code 2.1.291,
 2.1.293 and 2.1.294 transcript profiles remain candidates.
 No model or effort setting is imposed.
@@ -499,7 +503,7 @@ or latest counter semantics; those still require an approved native trial.
 
 The local operator may select one prepared `functional_pilot` task using the
 `claude-ordinary-human-pilot` source profile, with an exact version
-listed by the ordinary provider (currently Claude Code 2.1.291, 2.1.293, 2.1.294, 2.1.296 or 2.1.301). Existing file and
+listed by the ordinary provider (currently Claude Code 2.1.291, 2.1.293, 2.1.294, 2.1.296, 2.1.301 or 2.1.306). Existing file and
 launch-workflow version compatibility does not qualify ordinary family sources.
 The profile, binary version, project source directory and receipt directory must
 be reviewed before installation or native observation. A browser or manifest
@@ -547,9 +551,10 @@ counters; see [the qualification record](../validation/claude-ordinary-binding-0
 The skill-scoped `SubagentStop` hook wrote no receipt there, and discovery does not
 depend on it. The separate Claude Code 2.1.301 transcript profile has bounded localhost
 normal/SIGINT print-mode evidence, not interactive or authenticated ordinary
-qualification. The Claude Code 2.1.291, 2.1.293 and 2.1.294 profiles have synthetic evidence only. Actual Claude Code 2.1.291, 2.1.293 or 2.1.294 skill loading,
+qualification. The separate Claude Code 2.1.306 profile has the same bounded scope
+from 2026-10-21. The Claude Code 2.1.291, 2.1.293 and 2.1.294 profiles have synthetic evidence only. Actual Claude Code 2.1.291, 2.1.293 or 2.1.294 skill loading,
 family counters, pause/resume and human completion still need an explicitly
-approved native trial. All comparison/pilot Claude profiles, including transcript-qualified Claude Code 2.1.296 and 2.1.301,
+approved native trial. All comparison/pilot Claude profiles, including transcript-qualified Claude Code 2.1.296, 2.1.301 and 2.1.306,
 require `allowCandidateProfiles: true`; default provider refusal for pilot
 profiles remains closed. Current labels remain `native_unverified_pilot`,
 `legacy_unverified` and `candidate_pilot`. These pilot profiles do not grant

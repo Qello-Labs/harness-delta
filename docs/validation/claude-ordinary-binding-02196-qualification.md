@@ -1,5 +1,93 @@
 # Claude Code 2.1.296 ordinary transcript profile qualification
 
+## 2026-10-21 exact 2.1.306 transcript qualification
+
+The separate exact `claude-binding-2-1-306-family-v1` record admits Claude Code
+2.1.306 with SHA-256
+`b5d795b7760032d79954b55a9cd1876dcf3a8dc9608fd6bb9f618593f69fd44b`,
+one root and two flattened members, any Claude model and its observed effort.
+Its ordinary admission remains `qualified: false`. The transcript profile's
+`qualified` label means only the bounded actual-binary localhost print-mode
+evidence below, not authenticated ordinary or interactive qualification.
+
+The approved default change selects Codex 0.163.0 and Claude Code 2.1.306 for
+new project connection settings. Defaults are separate from historical admission
+records. Omitting a version preserves saved project settings, and prepared tasks
+retain their frozen source version, family ceiling and price pin. No global
+executable, historical trust, file/workflow window or existing task is upgraded.
+Other `0.163.x` and `2.1.3xx` versions do not gain ordinary admission.
+
+### Upstream comparison
+
+The official target tag is `v2.1.306`, commit
+`d014fc0fa64280540728772fc84063918ed185cc`. The comparison reviewed each
+intervening release against 2.1.301 and the existing 2.1.296 finality profile.
+The file parser base remains 2.1.283; this work does not qualify file or workflow
+collection. Claude's public changelog is not a versioned transcript specification:
+undocumented target semantics remain unknown outside the actual observations.
+
+| Official release | Relevant published change | Effect on the bounded checks |
+| --- | --- | --- |
+| [2.1.302](https://raw.githubusercontent.com/anthropics/claude-code/v2.1.302/CHANGELOG.md) | Default print/SDK subagent forks, foreground nested agents, permission defaults and cache/compaction fixes | Reconcile each member's own requests, exclude inherited history, and keep the explicit invocation and family ceiling |
+| [2.1.303](https://raw.githubusercontent.com/anthropics/claude-code/v2.1.303/CHANGELOG.md) | Unspecified reliability fixes | Consumed-contract changes are unknown rather than assumed absent |
+| [2.1.304](https://raw.githubusercontent.com/anthropics/claude-code/v2.1.304/CHANGELOG.md) | Skill-hook policy/limits, custom-endpoint ToolSearch, headless termination, interrupts and resume fixes | Exercise the packaged hooks, actual API tool names, normal exit and interruption |
+| [2.1.305](https://raw.githubusercontent.com/anthropics/claude-code/v2.1.305/CHANGELOG.md) | ToolSearch regression, model override/fallback reporting and replay fixes | Preserve actual model identity and request replay/finality checks; do not assume failed requests are complete usage |
+| [2.1.306](https://raw.githubusercontent.com/anthropics/claude-code/v2.1.306/CHANGELOG.md) | Cloud print authentication and API-error/compaction fixes with many MCP tools | Keep cloud, authenticated and MCP-heavy behavior outside this localhost/no-MCP claim |
+
+Identity, receipt delivery, own-request counters and stop-reason finality were
+checked with the actual target binary. Null-stop fragments use the existing
+correlated-terminal policy, not a quiet-time or Stop-hook flush assumption.
+Synthetic regressions cover pending requests across read windows and provider
+restart, permanent baseline exclusions, replay conflicts, exact image hashes,
+family overflow and frozen-version reconstruction.
+
+### Localhost evidence and limits
+
+The macOS arm64 / Node 24.21.0 runs used a private disposable HOME/config,
+synthetic credentials and a localhost Messages API. The invocation used print
+mode, explicit default permissions, no MCP servers, a Sonnet parent and two
+custom no-tool Sonnet members. The observed model is trial history, not a runtime
+model restriction. An independent process owner imposed a 105-second scenario
+deadline and verified owned identities/groups were terminated.
+No external OS sandbox was used; endpoint configuration is not kernel-enforced
+network denial.
+
+| Scenario | Served / terminal native requests | Excluded connection baseline | Retained own requests | Retained input / output |
+| --- | --- | --- | --- | --- |
+| Normal | 6 / 6 | 1 | Root 3, each member 1 | 675 / 555 |
+| SIGINT after the synthetic API emitted a partial response | 6 / 5 | 1 | Root 2, each member 1 | 540 / 444 |
+
+Both runs discovered the packaged skill, recorded one root connect receipt and
+two member Start receipts, and preserved exact root/member transcript ownership.
+Every terminal request reconciled ordinary input 101, cache creation 11 and
+cache read 23 separately, with output 111. The interrupted request had no terminal
+native row and remained missing, not zero or backfilled. SIGINT returned process
+exit code 0; that exit code did not make the missing request complete.
+
+A subsequent strengthened fixture passed both scenarios through the real project
+configuration, owned installation and UI task preparation APIs. It confirmed the
+packaged helper's ordinary root connection through the shipped HTTP transport,
+with no binary, process or source-verification override. Seven tracked owned
+process identities were cleaned up in each scenario.
+Earlier fixture failures are not ordinary connection acceptance: copying skill
+files alone did not establish owned-installation readiness, and installed
+project-specific hook bytes are not identical to the unrendered package template.
+Preparing a task only in the measurement store also omitted the UI's private
+task record; the successful fixture used the real UI domain instead.
+
+The target image is 272,984,176 bytes, above the former 256 MiB verifier limit.
+The finite read ceiling now matches that measured admitted image size. Executable
+identity, inode/stability and exact hash checks remain unchanged. A deterministic
+sparse-image regression failed against the old ceiling; adjacent oversize,
+unadmitted digest, nonexecutable image and historical-image cases retain refusal
+or acceptance as appropriate. This is not a wildcard executable allowance.
+
+This evidence does not qualify authenticated ordinary collection, the production
+scheduler, an interactive terminal, arbitrary/default fork configurations,
+nested direct-parent relations, resumed children, compaction, long sessions,
+Node 26 native behavior, complete usage or vendor billing. All costs stay partial.
+The historical 2.1.296 and 2.1.301 records and their evidence remain unchanged.
+
 ## 2026-10-16 exact 2.1.301 transcript qualification
 
 The separate `claude-binding-2-1-301-family-v1` ordinary record preserves the

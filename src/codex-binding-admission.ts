@@ -1,5 +1,7 @@
 import type { FlexibleProtocol } from './flexible-contracts.js';
 
+export const defaultCodexBindingVersion = '0.163.0';
+
 export const codexBindingAdmission = Object.freeze({
   profileId: 'codex-binding-01621-direct-family-v1',
   productVersion: '0.162.1',

@@ -4,7 +4,7 @@ import { isAbsolute, join, resolve } from 'node:path';
 import type Database from 'better-sqlite3';
 import { z } from 'zod';
 import {
-  codexBindingAdmission, codexBindingAdmissions, getCodexBindingAdmission, isQualifiedCodexBindingAdmission,
+  defaultCodexBindingVersion, codexBindingAdmissions, getCodexBindingAdmission, isQualifiedCodexBindingAdmission,
 } from './codex-binding-admission.js';
 import {
   installCodexConnectInstallation, previewCodexConnectInstallation,
@@ -55,7 +55,7 @@ export function createCodexProjectSetupManager(store: Store, metadata: Database.
   }
   function defaults() {
     return settingsSchema.parse({
-      product_version: codexBindingAdmission.productVersion,
+      product_version: defaultCodexBindingVersion,
       source_roots: [join(process.env.CODEX_HOME ?? join(homedir(), '.codex'), 'sessions')],
     });
   }

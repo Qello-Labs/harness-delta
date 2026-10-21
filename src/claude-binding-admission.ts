@@ -1,3 +1,5 @@
+export const defaultClaudeBindingVersion = '2.1.306';
+
 export const claudeBindingAdmission = Object.freeze({
   profileId: 'claude-binding-02196-family-v1',
   productVersion: '2.1.296',
@@ -20,6 +22,16 @@ export const claudeBindingAdmissions = Object.freeze([
     admitted: true,
     maxFamilyMembers: 3,
     evidenceId: 'claude-binding-2-1-301-ordinary-native-v1',
+    qualified: false,
+  } as const),
+  Object.freeze({
+    profileId: 'claude-binding-2-1-306-family-v1',
+    productVersion: '2.1.306',
+    binarySha256: 'b5d795b7760032d79954b55a9cd1876dcf3a8dc9608fd6bb9f618593f69fd44b',
+    model: 'claude-sonnet-5-5',
+    admitted: true,
+    maxFamilyMembers: 3,
+    evidenceId: 'claude-binding-2-1-306-ordinary-localhost-v1',
     qualified: false,
   } as const),
 ]);
