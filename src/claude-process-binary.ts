@@ -9,6 +9,8 @@ export interface ClaudeProcessBinary {
   readonly sha256: string;
 }
 const images = new Map<string, ClaudeProcessBinary>();
+// The exact 2.1.306 image exceeds the former 256 MiB read ceiling.
+const maxImageBytes = 272984176;
 
 /** Kernel image metadata only. No process arguments, environment or transcript reads. */
 export function readClaudeProcessBinary(pid: number): ClaudeProcessBinary {
@@ -24,7 +26,7 @@ export function readClaudeProcessBinary(pid: number): ClaudeProcessBinary {
   const fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   try {
     const before = fstatSync(fd);
-    if (!before.isFile() || before.size < 1 || before.size > 256 * 1048576 || (before.mode & 0o111) === 0)
+    if (!before.isFile() || before.size < 1 || before.size > maxImageBytes || (before.mode & 0o111) === 0)
       throw new Error('claude_binary_unqualified');
     const key = JSON.stringify([pid, path, before.dev, before.ino, before.size, before.mtimeMs, before.ctimeMs]);
     const cached = images.get(key);

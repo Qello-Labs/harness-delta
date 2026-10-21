@@ -39,7 +39,7 @@ when the work is done. You always start and stop the agent yourself.
 | --- | --- |
 | Task | The unit of measurement: one request with a judgeable outcome, such as "notification inbox read API". |
 | Ordinary Claude observation | Normal Claude work with usage observation and no A/B assignment. |
-| Parent / child session | The Claude session you open is the parent. Sub-agents it starts are children. The default Claude Code 2.1.296 profile counts up to 8 members, including the parent. The explicit Claude Code 2.1.301 profile counts at most 3 members, including the parent. |
+| Parent / child session | The Claude session you open is the parent. Sub-agents it starts are children. The default Claude Code 2.1.306 profile counts at most 3 members, including the parent. Saved Claude Code 2.1.301 settings have the same limit; saved Claude Code 2.1.296 settings count up to 8. |
 | Pause | Stops collection only. Claude keeps running, and paused usage is never backfilled. |
 | Observed cost | A **partial estimate** of observed usage with matched prices. It is not billing. |
 
@@ -49,26 +49,30 @@ when the work is done. You always start and stop the agent yourself.
 | --- | --- | --- |
 | Node.js | 24 or 26 | `node --version` |
 | Ordinary Claude runtime | macOS arm64 | `node -p "process.platform + ' ' + process.arch"` |
-| Claude Code | Default **Claude Code 2.1.296**, or explicitly configured **Claude Code 2.1.301**. Each needs its reviewed binary. This walkthrough uses 2.1.296. | `claude --version` |
+| Claude Code | **Claude Code 2.1.306** for new project setup. Existing projects keep their saved version (2.1.296 or 2.1.301). Each needs its reviewed binary. | `claude --version` |
 | Target repository | A Git repository with a work branch ready | `git status --short` |
 
 ### Claude and Codex version updates
 
-The screenshots retain the Claude Code 2.1.296 setup above. Separate exact-version records
-extend ordinary admission without changing existing defaults or task pins.
-The repository status on **2026-10-17** is:
+The screenshots were captured with the earlier Claude Code 2.1.296 setup; the screens
+look the same with 2.1.306 because the UI doesn't show the Claude version. New project
+setup now defaults to Claude Code 2.1.306 and Codex 0.163.0. Saved settings and task pins
+don't change. The repository status on **2026-10-21** is:
 
 | Route | Version status | What this means for this guide |
 | --- | --- | --- |
-| Ordinary Claude connection | Exact Claude Code 2.1.296 or explicitly configured Claude Code 2.1.301 and its reviewed binary; both ordinary records remain `qualified: false` | This guide shows the existing Claude Code 2.1.296 default. The Claude Code 2.1.301 profile permits one root plus two flattened members; it does not qualify interactive use. |
-| Ordinary Codex connection | Exact Codex 0.162.1 or explicitly selected Codex 0.163.0, bounded family, frozen `functional_pilot` assignment; Codex 0.163.0 passed separate ordinary-route native acceptance | Not the assignment-free Claude flow. Both routes retain partial-cost limits. |
-| File and selected workflow sources for Claude Code 2.1.301 and Codex 0.163.0 | Conditional parser reuse remains `compatibility_unverified` | Ordinary binding evidence does not promote file/workflow or historical observations. |
+| Ordinary Claude connection | Exact Claude Code 2.1.306 (new default), or saved Claude Code 2.1.296 or 2.1.301, with its reviewed binary; all ordinary records remain `qualified: false` | The 2.1.306 and 2.1.301 profiles permit one root plus two flattened members; neither qualifies interactive use. |
+| Ordinary Codex connection | Exact Codex 0.163.0 (new default) or saved Codex 0.162.1, bounded family, frozen `functional_pilot` assignment; Codex 0.163.0 passed separate ordinary-route native acceptance | Not the assignment-free Claude flow. Both routes retain partial-cost limits. |
+| File and selected workflow sources for Claude Code 2.1.301, 2.1.306 and Codex 0.163.0 | Conditional parser reuse remains `compatibility_unverified` | Ordinary binding evidence does not promote file/workflow or historical observations. |
 
 Claude Code 2.1.301 passed bounded print-mode transcript conformance and a localhost
 service rehearsal. Its authenticated ordinary attempt on 2026-10-17 stopped at
 the `stream_model` guard before connection; usage and billing are unknown,
 and ordinary qualification remains outstanding. See the
 [blocked-attempt record](../validation/claude-ordinary-binding-02196-qualification.md#2026-10-17-authenticated-ordinary-attempt-blocked).
+Claude Code 2.1.306 passed bounded actual-binary localhost print-mode normal/SIGINT
+conformance on 2026-10-21. That isn't authenticated ordinary or interactive qualification; see the
+[2.1.306 record](../validation/claude-ordinary-binding-02196-qualification.md#2026-10-21-exact-21306-transcript-qualification).
 
 Check [Harness Connect current implementation](../runbooks/harness-connect.md#current-implementation)
 before starting, and [native workflow limits](../runbooks/task-native-workflow.md#conditional-forward-versions)
@@ -346,7 +350,7 @@ Select **Back to tasks** to return to the list. The row shows the task name,
 | Symptom | Cause | Action |
 | --- | --- | --- |
 | `local_operation_failed` when connecting a project | Unresolvable path such as `~` | Type an absolute path or use **Choose**. |
-| `claude_source_version_unsupported` on connect | Claude Code is not the project's configured version (2.1.296 by default) | Run Claude Code with the configured version. |
+| `claude_source_version_unsupported` on connect | Claude Code is not the project's configured version (2.1.306 for new setup) | Run Claude Code with the configured version. |
 | `binding_session_conflict` when connecting another task | The session is still bound to the previous task | Select **Stop observation · keep Claude running** on that task. |
 | `package_unowned` or `package_drift` on install | Files under `.claude/skills/harness-connect` were edited or created by another tool | Back up and review the files, then preview again. Nothing is overwritten. |
 | `ordinary_installation_in_use` on uninstall | An ordinary task is still active | End and judge the task first. |

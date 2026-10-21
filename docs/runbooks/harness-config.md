@@ -233,7 +233,8 @@ adapts project rules and scripts. Register both versions normally, then generate
    unverified. See [the bounded pilot](harness-connect.md#codex-01620-ordinary-root-local-pilot).
    Separate assigned routes also admit the Codex 0.162.1 and Codex 0.163.0 ordinary
    family profiles. Ordinary Claude observation is assignment-free and uses
-   Claude Code 2.1.296 by default, or explicitly configured Claude Code 2.1.301.
+   Claude Code 2.1.306 for new project setup (Codex defaults to 0.163.0), or a saved
+   Claude Code 2.1.296 or 2.1.301 setting.
    File application does not select or upgrade those versions.
    See [Harness Connect](harness-connect.md#current-implementation).
 

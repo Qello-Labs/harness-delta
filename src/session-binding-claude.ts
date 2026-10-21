@@ -48,6 +48,7 @@ export interface ClaudeTranscriptProfile { readonly version: string; readonly st
  * Ordinary admission is a separate code-owned use policy; transcript qualification
  * does not open comparison, pilot or other-version collection. */
 export const claudeBindingProfiles: readonly ClaudeTranscriptProfile[] = Object.freeze([
+  Object.freeze({ version: '2.1.306', status: 'qualified' as const, evidence: 'offline-actual-binary-print-normal-sigint-2026-10-21;validation/claude-ordinary-binding-02196-qualification.md' }),
   Object.freeze({ version: '2.1.301', status: 'qualified' as const, evidence: 'offline-actual-binary-print-normal-sigint-2026-10-16;validation/claude-ordinary-binding-02196-qualification.md' }),
   Object.freeze({ version: '2.1.296', status: 'qualified' as const, evidence: 'offline-actual-binary;native-pilot-2026-10-13;validation/claude-ordinary-binding-02196-qualification.md' }),
   Object.freeze({ version: '2.1.294', status: 'candidate' as const, evidence: 'official-changelog-2.1.294;synthetic-fixtures;native-qualification-pending' }),
@@ -626,7 +627,7 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
     let offset = start.offset;
     let readOffset = offset, scannedBytes = 0;
     const byRequest = new Map<string, Pending>();
-    const nativeFinality = session.productVersion === '2.1.296' || session.productVersion === '2.1.301';
+    const nativeFinality = session.productVersion === '2.1.296' || session.productVersion === '2.1.301' || session.productVersion === '2.1.306';
     // A null cursor or a baseline reads to the current end; a later cursor reads one window per call.
     const toEnd = cursorText === null || baseline;
     for (;;) {
@@ -731,7 +732,7 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
       const requestId = IdSchema.safeParse(row.requestId);
       if (!requestId.success) { gaps.add('request_id_missing'); continue; }
       let messageId: string | null = null, finalized = true;
-      if (version === '2.1.296' || version === '2.1.301') {
+      if (version === '2.1.296' || version === '2.1.301' || version === '2.1.306') {
         const id = IdSchema.safeParse(row.message.id);
         const stop = NativeStopReasonSchema.safeParse(row.message.stopReason);
         if (!id.success || !stop.success) { gaps.add('usage_incomplete'); continue; }

@@ -110,9 +110,9 @@ file and receipt directory, then select **Install reviewed package**.
 Review native hook trust and start or resume Codex before connecting a task.
 **Refresh status** rereads setup; it does not connect a session. Codex still requires
 a separate assigned route: the [Codex 0.162.1 bounded ordinary profile](harness-connect.md#codex-01621-bounded-ordinary-profile)
-or the explicitly selected [Codex 0.163.0 bounded ordinary profile](harness-connect.md#codex-01630-bounded-ordinary-profile).
-It is not the assignment-free ordinary Claude mode. The version selector lists both;
-saved settings stay on the saved version.
+or the [Codex 0.163.0 bounded ordinary profile](harness-connect.md#codex-01630-bounded-ordinary-profile).
+It is not the assignment-free ordinary Claude mode. New project setup defaults to
+Codex 0.163.0; the version selector lists both, and saved settings stay on the saved version.
 
 ### Prepare and check a comparison file
 
@@ -368,11 +368,11 @@ gates remain separate checks when choosing and preparing a task.
 The numbered steps below describe the exact Codex 0.160.0 ticket path. For ordinary
 terminal sessions and family collection, use [Harness Connect](harness-connect.md).
 Assignment-free ordinary Claude observation is admitted for normal use under the
-configured profile's exact source version and binary hash: Claude Code 2.1.296
-by default, or explicitly configured Claude Code 2.1.301. Native qualification
+configured profile's exact source version and binary hash: Claude Code 2.1.306
+for new project setup, or a saved Claude Code 2.1.296 or 2.1.301 setting. Native qualification
 remains pending (`qualified: false`). It requires no pilot flag or
 `allowCandidateProfiles: true`.
-Codex 0.162.1 and explicitly selected Codex 0.163.0 bounded ordinary collection
+Codex 0.162.1 and Codex 0.163.0 bounded ordinary collection
 still use a frozen `functional_pilot` protocol and assignment; neither is an
 assignment-free ordinary task mode.
 The separately authorized Codex root-only and Claude human-operated pilot routes

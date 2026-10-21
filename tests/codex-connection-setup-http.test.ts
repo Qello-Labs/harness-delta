@@ -68,10 +68,10 @@ describe('project Codex connection setup HTTP', () => {
     expect(inspected.statusCode).toBe(200);
     expect(preview.statusCode, preview.body).toBe(200);
     expect(inspected.json()).toMatchObject({
-      configured: false, product: 'codex', product_version: '0.162.1',
+      configured: false, product: 'codex', product_version: '0.163.0',
       admission: {
-        profile_id: codexBindingAdmission.profileId, qualified: true,
-        max_family_members: codexBindingAdmission.maxFamilyMembers,
+        profile_id: 'codex-binding-01630-direct-family-v1', qualified: true,
+        max_family_members: 3,
       },
       readiness: { provider: 'blocked', reason: 'codex_connect_not_configured' },
       connection: { roots: 0, observing: 0 },
@@ -94,15 +94,15 @@ describe('project Codex connection setup HTTP', () => {
     expect(store.all('SELECT * FROM tasks')).toEqual([]);
   });
 
-  it('keeps the historical version when configuring without an explicit version', async () => {
+  it('selects the current admitted version when first configuring without an explicit version', async () => {
     const saved = await post({ operation: 'configure', source_roots: [sources] });
     expect(saved.statusCode, saved.body).toBe(200);
     expect(saved.json()).toMatchObject({
-      configured: true, product_version: '0.162.1', source_roots: [sources],
-      admission: { profile_id: codexBindingAdmission.profileId, qualified: true },
+      configured: true, product_version: '0.163.0', source_roots: [sources],
+      admission: { profile_id: 'codex-binding-01630-direct-family-v1', qualified: true },
     });
     expect((await inspect()).json()).toMatchObject({
-      configured: true, product_version: '0.162.1', source_roots: [sources],
+      configured: true, product_version: '0.163.0', source_roots: [sources],
     });
   });
 

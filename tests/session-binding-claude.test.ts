@@ -144,7 +144,7 @@ describe('Claude current-session identity', () => {
 
   it('fails closed for unqualified, unknown, expired, loose, dead-process and other-project evidence', async () => {
     const sid = randomUUID(); writeRoot(sid); connect(sid); const receipt = locate(sid).receipt!;
-    expect(claudeBindingProfiles.map(profile => [profile.version, profile.status])).toEqual([['2.1.301', 'qualified'], ['2.1.296', 'qualified'], ['2.1.294', 'candidate'], ['2.1.293', 'candidate'], ['2.1.291', 'candidate']]);
+    expect(claudeBindingProfiles.map(profile => [profile.version, profile.status])).toEqual([['2.1.306', 'qualified'], ['2.1.301', 'qualified'], ['2.1.296', 'qualified'], ['2.1.294', 'candidate'], ['2.1.293', 'candidate'], ['2.1.291', 'candidate']]);
     const production = provider({ allowCandidateProfiles: false });
     expect(production.capabilities().productionSupported).toBe(false);
     await expect(production.resolveCurrent({ receipt })).rejects.toThrow('claude_source_version_unsupported');
@@ -632,8 +632,8 @@ describe('Claude bound-session authorization', () => {
     expect(claudeBindingProfiles.find(profile => profile.version === version)?.status).toBe('candidate');
   });
 
-  it('collects 2.1.296 own usage once and excludes the prior baseline', async () => {
-    const sid = randomUUID(); const version = '2.1.296';
+  it.each(['2.1.296', '2.1.301', '2.1.306'])('collects %s own usage once and excludes the prior baseline', async version => {
+    const sid = randomUUID();
     writeFileSync(rootPath(sid), lines([
       userRow(sid, '2026-10-07T00:59:00.000Z', { version }),
       assistant(sid, 'old', [10, 2, 3, 4], { version }),
@@ -652,8 +652,8 @@ describe('Claude bound-session authorization', () => {
     expect(JSON.stringify(batch)).not.toContain(privateText);
   });
 
-  it('keeps 2.1.296 family requests separate under the three-member ceiling', async () => {
-    const sid = randomUUID(); const version = '2.1.296';
+  it.each(['2.1.296', '2.1.301', '2.1.306'])('keeps %s family requests separate under the three-member ceiling', async version => {
+    const sid = randomUUID();
     writeFileSync(rootPath(sid), lines([userRow(sid, '2026-10-07T00:59:00.000Z', { version })]), { mode: 0o600 });
     connect(sid); const p = provider({ maxFamilyMembers: 3 }); const parent = await currentIdentity(sid, p);
     for (const agent of ['one', 'two']) {
@@ -673,8 +673,8 @@ describe('Claude bound-session authorization', () => {
     await expect(p.discoverChildren(parent)).rejects.toThrow('claude_family_scope_limit');
   });
 
-  it('waits for correlated terminal child counters even after a quiet nonassistant boundary', async () => {
-    const sid = randomUUID(); const version = '2.1.296'; const agent = 'finality';
+  it.each(['2.1.296', '2.1.301', '2.1.306'])('waits for %s terminal child counters even after a quiet nonassistant boundary', async version => {
+    const sid = randomUUID(); const agent = 'finality';
     writeFileSync(rootPath(sid), lines([userRow(sid, '2026-10-07T00:59:00.000Z', { version })]), { mode: 0o600 });
     connect(sid); const p = provider({ quiescenceMs: 0 }); const parent = await currentIdentity(sid, p);
     const row = assistant(sid, 'native_pending', [104, 15, 27, 16], { version, agentId: agent, isSidechain: true });
@@ -705,8 +705,8 @@ describe('Claude bound-session authorization', () => {
     expect(JSON.stringify(complete)).not.toContain(privateText);
   });
 
-  it('retains pending terminality across read windows and provider restart', async () => {
-    const sid = randomUUID(); const version = '2.1.296';
+  it.each(['2.1.296', '2.1.301', '2.1.306'])('retains %s pending terminality across read windows and provider restart', async version => {
+    const sid = randomUUID();
     writeFileSync(rootPath(sid), lines([userRow(sid, '2026-10-07T00:59:00.000Z', { version })]), { mode: 0o600 });
     connect(sid); const p = provider({ quiescenceMs: 0, maxReadBytes: 4096 });
     const identity = await currentIdentity(sid, p); const scope = scopeFor([identity]);
@@ -726,8 +726,8 @@ describe('Claude bound-session authorization', () => {
     expect(resumed.gaps).toEqual([]);
   });
 
-  it('permanently excludes a native provisional request observed at baseline', async () => {
-    const sid = randomUUID(); const version = '2.1.296';
+  it.each(['2.1.296', '2.1.301', '2.1.306'])('permanently excludes a %s provisional request observed at baseline', async version => {
+    const sid = randomUUID();
     const row = assistant(sid, 'baseline_pending', [1, 0, 0, 16], { version });
     writeFileSync(rootPath(sid), lines([
       userRow(sid, '2026-10-07T00:59:00.000Z', { version }),

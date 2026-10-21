@@ -39,8 +39,8 @@ describe('ordinary observation HTTP preparation', () => {
   it('reads setup and installation previews without preparing or installing anything', async () => {
     const before = await app.inject({ url: setup, headers: { host: '127.0.0.1:4327' } });
     expect(before.statusCode).toBe(200);
-    expect(before.json()).toMatchObject({ configured: false, product_version: '2.1.296',
-      admission: { profile_id: claudeBindingAdmission.profileId, max_family_members: 8 },
+    expect(before.json()).toMatchObject({ configured: false, product_version: '2.1.306',
+      admission: { profile_id: 'claude-binding-2-1-306-family-v1', max_family_members: 3 },
       installation: { state: 'absent', hookRegistration: 'unverified' } });
     const preview = await app.inject({ method: 'POST', url: setup, headers: headers(), payload: { operation: 'preview-install' } });
     expect(preview.statusCode).toBe(200);
@@ -62,7 +62,7 @@ describe('ordinary observation HTTP preparation', () => {
   it('configures and creates an ordinary task without setup, assignment or protocol fields', async () => {
     const configured = await app.inject({ method: 'POST', url: setup, headers: headers(), payload: { operation: 'configure' } });
     expect(configured.statusCode).toBe(200);
-    expect(configured.json()).toMatchObject({ configured: true, product_version: '2.1.296',
+    expect(configured.json()).toMatchObject({ configured: true, product_version: '2.1.306',
       installation: { state: 'absent' } });
     const request = { method: 'POST' as const, url: '/api/tasks', headers: headers(), payload: {
       mode: 'ordinary', name: 'Synthetic observation', project_id: 'project', criterion_ids: ['accepted'],
@@ -73,6 +73,7 @@ describe('ordinary observation HTTP preparation', () => {
     expect(task.mode).toBe('ordinary');
     expect(task.preparation).not.toHaveProperty('assigned_variant_id');
     expect(ordinaryTask(store, task.id)?.price_table_id).toBeTruthy();
+    expect(ordinaryTaskSettings(store, task.id).product_version).toBe('2.1.306');
     expect(store.all('SELECT * FROM comparison_protocols')).toEqual([]);
     expect(store.all('SELECT * FROM comparison_assignments')).toEqual([]);
     expect(store.all('SELECT * FROM comparison_confirmations')).toEqual([]);
@@ -85,14 +86,18 @@ describe('ordinary observation HTTP preparation', () => {
     expect(dto.body).not.toContain('receipt_directory');
   });
 
-  it('preserves an explicitly selected exact version when configuration omits the version', async () => {
+  it.each([
+    { productVersion: '2.1.296', maxFamilyMembers: 8 },
+    { productVersion: '2.1.301', maxFamilyMembers: 3 },
+    { productVersion: '2.1.306', maxFamilyMembers: 3 },
+  ])('preserves selected $productVersion when configuration omits the version', async ({ productVersion, maxFamilyMembers }) => {
     const projects = join(root, 'synthetic-claude-projects');
     const configured = await app.inject({ method: 'POST', url: setup, headers: headers(), payload: {
-      operation: 'configure', product_version: '2.1.301', claude_projects_directory: projects,
+      operation: 'configure', product_version: productVersion, claude_projects_directory: projects,
     } });
     expect(configured.statusCode).toBe(200);
-    expect(configured.json()).toMatchObject({ configured: true, product_version: '2.1.301',
-      admission: { admitted: true, qualified: false, max_family_members: 3, model_family: 'claude' } });
+    expect(configured.json()).toMatchObject({ configured: true, product_version: productVersion,
+      admission: { admitted: true, qualified: false, max_family_members: maxFamilyMembers, model_family: 'claude' } });
     const saved = ordinaryProjectSettings(store, 'project');
     const repeated = await app.inject({ method: 'POST', url: setup, headers: headers(),
       payload: { operation: 'configure' } });
@@ -103,7 +108,7 @@ describe('ordinary observation HTTP preparation', () => {
     expect(inspected.json()).toEqual(configured.json());
   });
 
-  it.each(['2.1.300', '2.1.302', '2.1.301-preview', ''])(
+  it.each(['2.1.300', '2.1.302', '2.1.305', '2.1.307', '2.1.399', '2.1.301-preview', '2.1.306-rc.1', '2.1.3xx', ''])(
     'rejects unsupported exact version %s without changing saved settings', async productVersion => {
       await app.inject({ method: 'POST', url: setup, headers: headers(),
         payload: { operation: 'configure', product_version: '2.1.301' } });
@@ -119,6 +124,9 @@ describe('ordinary observation HTTP preparation', () => {
   it.each([
     { frozenVersion: '2.1.296', selectedVersion: '2.1.301', frozenLimit: 8, selectedLimit: 3 },
     { frozenVersion: '2.1.301', selectedVersion: '2.1.296', frozenLimit: 3, selectedLimit: 8 },
+    { frozenVersion: '2.1.296', selectedVersion: '2.1.306', frozenLimit: 8, selectedLimit: 3 },
+    { frozenVersion: '2.1.301', selectedVersion: '2.1.306', frozenLimit: 3, selectedLimit: 3 },
+    { frozenVersion: '2.1.306', selectedVersion: '2.1.296', frozenLimit: 3, selectedLimit: 8 },
   ])('keeps task DTO and reconstructed provider on frozen $frozenVersion after selecting $selectedVersion',
     async ({ frozenVersion, selectedVersion, frozenLimit, selectedLimit }) => {
       await app.inject({ method: 'POST', url: setup, headers: headers(),
@@ -144,7 +152,7 @@ describe('ordinary observation HTTP preparation', () => {
       vi.spyOn(ClaudeSessionBindingProvider.prototype, 'capabilities').mockImplementation(function (
         this: ClaudeSessionBindingProvider,
       ) {
-        providerVersions.push(['2.1.296', '2.1.301'].filter(version => this.supportedVersion(version)));
+        providerVersions.push(['2.1.296', '2.1.301', '2.1.306'].filter(version => this.supportedVersion(version)));
         return capabilities.call(this);
       });
       const domain = createLocalWebDomain({ store, metadataFile: join(root, 'metadata.sqlite') });
@@ -220,7 +228,7 @@ describe('ordinary observation HTTP preparation', () => {
     const readTask = () => app.inject({ url: taskUrl, headers: { host: '127.0.0.1:4327' } });
     expect(created.json()).toMatchObject({ mode: 'ordinary', connection_readiness: {
       skill: { state: 'missing', reason: 'project_skill_missing', install_command: null },
-      configured_version: '2.1.296', installed_version: null, collection_revoked: false,
+      configured_version: '2.1.306', installed_version: null, collection_revoked: false,
     } });
     const generation = store.get<{ generation: number }>('SELECT generation FROM tasks WHERE id=?', [task.id]);
     const preview = await app.inject({ method: 'POST', url: setup, headers: headers(), payload: { operation: 'preview-install' } });
@@ -236,7 +244,7 @@ describe('ordinary observation HTTP preparation', () => {
     const ready = await readTask();
     expect(ready.json()).toMatchObject({ connection_readiness: {
       skill: { state: 'installed', reason: null, install_command: null },
-      configured_version: '2.1.296', installed_version: null, collection_revoked: false,
+      configured_version: '2.1.306', installed_version: null, collection_revoked: false,
     }, measurement: { state: 'waiting_connection', active_ms: null } });
     expect(ready.json<{ actions: unknown[] }>().actions).toContainEqual({
       code: 'session-connect', enabled: true, reason: null,

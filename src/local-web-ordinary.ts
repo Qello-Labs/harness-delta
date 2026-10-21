@@ -1,7 +1,7 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { z } from 'zod';
-import { claudeBindingAdmission, getClaudeBindingAdmission } from './claude-binding-admission.js';
+import { defaultClaudeBindingVersion, getClaudeBindingAdmission } from './claude-binding-admission.js';
 import {
   installClaudeConnectInstallation, previewClaudeConnectInstallation,
   removeClaudeConnectInstallation, statusClaudeConnectInstallation,
@@ -34,7 +34,7 @@ function projectRoot(store: Store, projectId: string): string {
 export function ordinaryProjectDto(store: Store, projectId: string) {
   const root = projectRoot(store, projectId);
   const settings = ordinaryProjectSettings(store, projectId);
-  const productVersion = settings?.product_version ?? claudeBindingAdmission.productVersion;
+  const productVersion = settings?.product_version ?? defaultClaudeBindingVersion;
   const admission = getClaudeBindingAdmission(productVersion);
   if (!admission) throw new Error('claude_source_version_unsupported');
   return {
@@ -58,7 +58,7 @@ export function ordinaryProjectAction(store: Store, projectId: string, input: Or
       return { ...ordinaryProjectDto(store, projectId), installation: recoverClaudeConnectInstallationLock(root) };
     case 'configure': {
       const previous = ordinaryProjectSettings(store, projectId);
-      const productVersion = action.product_version ?? previous?.product_version ?? claudeBindingAdmission.productVersion;
+      const productVersion = action.product_version ?? previous?.product_version ?? defaultClaudeBindingVersion;
       if (!getClaudeBindingAdmission(productVersion)?.admitted)
         throw new Error('claude_source_version_unsupported');
       const installation = statusClaudeConnectInstallation(root);

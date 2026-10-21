@@ -15,8 +15,8 @@ Codex 0.163.0은 [제한된 qualification 절차](../validation/codex-ordinary-b
 Codex 실행 파일 옆에 같은 릴리스의 고정된 `codex-code-mode-host`가 필요하며,
 Codex 단독 아카이브만으로는 부족합니다. 준비와 실행 시 두 파일의 pin을 검사합니다.
 이후 별도의 `--route ordinary_admission` 시험도 qualification 수집 권한 없이 통과했습니다.
-프로젝트 연결 설정과 버전 선택기에서 Codex 0.162.1과 함께 Codex 0.163.0을 명시적으로 고를 수 있으며,
-저장된 버전과 기본 버전은 자동으로 올리지 않습니다. 새 정확한 binding profile만
+새 프로젝트 설정의 기본값은 이제 Codex 0.163.0이며 버전 선택기에는 Codex 0.162.1도 남아 있습니다.
+저장된 버전은 자동으로 올리지 않습니다. 새 정확한 binding profile만
 검증 provenance를 얻으며, 과거 미검증 관측은 그대로 유지합니다.
 
 [공유 스킬](../../skills/harness-connect/SKILL.md), receipt API, 연결 저장/수집 계층,
@@ -28,8 +28,8 @@ production source는 qualification 차단 상태입니다. Claude 호출 시
 세션 hook 등록·receipt 조회·평탄화된 family 멤버의 합성 통합도 구현했습니다. provider 설정이나 스킬 설치만으로 production 경로가 열리지
 않습니다. [설계와 실측 계획](../decisions/012-session-family-bindings.md)을 참고하세요.
 A/B 배정이 없는 작업을 위한 일반 Claude 관측은 설정된 profile의 정확한 버전과
-binary에서 [일반 사용](#일반-claude-관측-지원-검증-대기)이 허용됩니다. 기본값은
-Claude Code 2.1.296이고, Claude Code 2.1.301은 명시적으로 설정합니다.
+binary에서 [일반 사용](#일반-claude-관측-지원-검증-대기)이 허용됩니다. 새 프로젝트 설정은
+Claude Code 2.1.306을 사용하고, 저장된 Claude Code 2.1.296 또는 2.1.301 설정은 그대로 씁니다.
 
 먼저 UI에서 등록 프로젝트의 논리 작업과 A/B 배정을 준비합니다. 승인된 native
 instrumentation이 있으면 평소처럼 연 부모가 신뢰 가능한 receipt를 전달하고,
@@ -131,13 +131,17 @@ source 교체, ancestry, 세 번째·중첩 멤버, 다른 정확 버전은 차�
 
 ## 일반 Claude 관측
 
+새 프로젝트 설정의 기본값은 별도 exact profile `claude-binding-2-1-306-family-v1`입니다.
+Claude Code 2.1.306과 설치된 binary에서 root 하나와 flattened 멤버 둘까지 허용합니다.
 별도 exact profile `claude-binding-2-1-301-family-v1`은 명시적으로 설정한
-Claude Code 2.1.301에서 root 하나와 flattened 멤버 둘까지 허용합니다. 기존 Claude Code 2.1.296 기본값과
-저장·고정된 작업 설정은 유지됩니다. 프로젝트 설정 API는
+Claude Code 2.1.301에 같은 한도를 적용합니다. 이전 기본값 Claude Code 2.1.296을 포함한
+저장 설정과 고정된 작업은 유지됩니다. 프로젝트 설정 API는
 `{"operation":"configure","product_version":"2.1.301"}`을 받으며, 버전을 생략하면
-기존 저장값 또는 과거 기본값을 유지합니다. UI에 Claude 버전 선택기는 표시하지 않습니다.
+기존 저장값 또는 2.1.306 기본값을 사용합니다. UI에 Claude 버전 선택기는 표시하지 않습니다.
 binary, receipt, transcript는 같은 작업의 고정 버전과 일치해야 합니다.
-두 record 모두 `qualified: false`이며 새 profile의
+모든 record는 `qualified: false`입니다. 2.1.306의
+[print-mode 검증](../validation/claude-ordinary-binding-02196-qualification.md#2026-10-21-exact-21306-transcript-qualification)은
+2026-10-21의 제한된 실제 binary localhost 정상 완료/SIGINT 실행만 다룹니다. 2.1.301의
 [print-mode 검증](../validation/claude-ordinary-binding-02196-qualification.md#2026-10-16-exact-21301-transcript-qualification)은
 interactive 사용이나 완전한 사용량·비용을 검증하지 않습니다. 별도 일반 경로 검증은
 아직 미완료입니다. 2026-10-17
@@ -209,7 +213,7 @@ hook 등록, native receipt, 관측 중은 서로 다른 네 가지 사실입니
 - **Baseline 저장.** 제외 ID를 SQLite에 보관하므로 pilot 경로의 1,024개 한도가
   여기에는 적용되지 않습니다. pilot 경로의 한도는 그대로입니다.
 - **가족 한도.** Claude Code 2.1.296으로 고정된 작업은 root를 포함해 최대 8개이며 아홉 번째는
-  `binding_family_limit`을 반환합니다. Claude Code 2.1.301로 고정된 작업은 root를 포함해 최대
+  `binding_family_limit`을 반환합니다. Claude Code 2.1.301과 2.1.306으로 고정된 작업은 root를 포함해 최대
   3개이며 네 번째는 같은 코드를 반환합니다. 멤버는 root 아래로 평탄화하며,
   중첩 멤버의 직접 부모는 검증하지 않습니다.
 - **모델.** 모든 Claude 모델을 관측된 effort와 함께 받아들이며 모델 고정은 없습니다.
@@ -331,8 +335,8 @@ Claude는 SubagentStart/Stop hooks로 이후 멤버를 기록하고 각 transcri
 발견된 연결만 확인합니다. 중지된 family는 아래의 코드 소유 사용자 UI pilot
 권한으로 같은 살아 있는 부모를 재개할 수 있으면 UI 재개를 사용하고,
 그 외에는 부모에서 다시 연결해야 합니다. Native profile·counter·source 형식의
-interactive qualification은 아직 완료되지 않았습니다. Claude Code 2.1.296과 2.1.301 모두
-제한된 print-mode transcript qualification을 갖습니다. Claude Code 2.1.301은 localhost
+interactive qualification은 아직 완료되지 않았습니다. Claude Code 2.1.296, 2.1.301, 2.1.306 모두
+제한된 print-mode transcript qualification을 갖습니다. Claude Code 2.1.301과 2.1.306은 localhost
 정상 완료/SIGINT 적합성 검증을 포함하며 인증 ordinary 경로 검증은 아닙니다.
 Claude Code 2.1.291, 2.1.293, 2.1.294 transcript profile은 candidate 상태입니다.
 model이나 effort 설정은 강제하지 않습니다.
@@ -483,7 +487,7 @@ native 시험이 계속 필요합니다.
 ## Claude 사용자 조작 UI pilot
 
 로컬 운영자는 ordinary provider에 나열된 정확한 버전(현재 Claude Code 2.1.291,
-2.1.293, 2.1.294, 2.1.296 또는 2.1.301)과 `claude-ordinary-human-pilot` source profile을 사용한 준비된
+2.1.293, 2.1.294, 2.1.296, 2.1.301 또는 2.1.306)과 `claude-ordinary-human-pilot` source profile을 사용한 준비된
 `functional_pilot` 작업 하나를 선택할 수 있습니다. 기존 file·실행 workflow의
 버전 호환성은 일반 가족 원본의 지원 검증이 아닙니다. 설치·실제 관측 전에
 profile, binary 버전, 프로젝트 원본 디렉터리와 receipt 디렉터리를 검토하세요.
@@ -531,9 +535,10 @@ pilot 한 번으로 skill 로딩, receipt, 가족 구성원과 자체 counter를
 그 관측에서 skill 범위의 `SubagentStop` hook은 receipt를 남기지 않았고, 구성원 탐색은 여기에 의존하지 않습니다.
 별도 Claude Code 2.1.301 transcript profile은 제한된 localhost 정상 완료/SIGINT print-mode
 증거를 갖지만 interactive 또는 인증 ordinary 경로를 검증하지는 않습니다.
+별도 Claude Code 2.1.306 profile은 2026-10-21 기준 같은 제한 범위를 갖습니다.
 Claude Code 2.1.291, 2.1.293, 2.1.294 profile은 합성 증거만 갖습니다. 실제 Claude Code 2.1.291, 2.1.293 또는 2.1.294 skill 로딩, 가족 counter,
 pause/resume과 사용자 완료는 별도로 승인된 native 시험이 필요합니다.
-transcript-qualified인 Claude Code 2.1.296과 2.1.301을 포함한 모든 비교/pilot Claude profile에는
+transcript-qualified인 Claude Code 2.1.296, 2.1.301, 2.1.306을 포함한 모든 비교/pilot Claude profile에는
 `allowCandidateProfiles: true`가 필요합니다. pilot profile에 대한 기본 provider
 거부는 계속 유지됩니다. 현재 label인 `native_unverified_pilot`,
 `legacy_unverified`, `candidate_pilot`은 유지됩니다.

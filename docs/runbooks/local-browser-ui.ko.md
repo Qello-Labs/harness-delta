@@ -108,8 +108,8 @@ Claude에서 그 작업의 호출 문구를 실행하세요. 이 화면에 도�
 **상태 새로고침**은 설정을 다시 읽을 뿐 세션을 연결하지 않습니다. Codex에는
 배정 없는 일반 Claude 모드가 아닌 별도 배정 경로가 필요합니다.
 [Codex 0.162.1 제한 일반 profile](harness-connect.ko.md#codex-01621-제한-일반-profile) 또는
-명시적으로 선택한 [Codex 0.163.0 제한 일반 profile](harness-connect.ko.md#codex-01630-제한-일반-profile)입니다.
-버전 선택기에는 둘 다 있으며, 저장된 설정은 저장된 버전을 유지합니다.
+[Codex 0.163.0 제한 일반 profile](harness-connect.ko.md#codex-01630-제한-일반-profile)입니다.
+새 프로젝트 설정의 기본값은 Codex 0.163.0이며, 버전 선택기에는 둘 다 있고 저장된 설정은 저장된 버전을 유지합니다.
 
 ### 비교 파일 준비와 확인
 
@@ -349,10 +349,10 @@ JS
 아래 번호 단계는 정확한 Codex 0.160.0 티켓 경로입니다. 일반 터미널 세션과 가족 수집은
 [Harness Connect](harness-connect.ko.md)를 사용하세요.
 배정 없는 일반 Claude 관측은 설정된 profile의 정확한 원본 버전과 binary hash에서
-일반 사용이 허용됩니다. 기본값은 Claude Code 2.1.296이고, Claude Code 2.1.301은
-명시적으로 설정합니다. native 지원 검증은 대기 상태(`qualified: false`)입니다.
+일반 사용이 허용됩니다. 새 프로젝트 설정은 Claude Code 2.1.306을 사용하고, 저장된
+Claude Code 2.1.296 또는 2.1.301 설정은 그대로 둡니다. native 지원 검증은 대기 상태(`qualified: false`)입니다.
 pilot 플래그나 `allowCandidateProfiles: true`는 필요하지 않습니다.
-Codex 0.162.1과 명시적으로 선택한 Codex 0.163.0의 제한된 일반 수집은 여전히
+Codex 0.162.1과 Codex 0.163.0의 제한된 일반 수집은 여전히
 동결된 `functional_pilot` protocol과 배정을 사용하며, 둘 다 배정 없는 일반 작업
 모드가 아닙니다.
 별도 승인된 Codex root 전용·Claude 사용자 조작 pilot 경로는 자체 gate를 유지합니다.
