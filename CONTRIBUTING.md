@@ -298,6 +298,16 @@ Both are synthetic development commands under Node 24 or 26. Full confidence cal
 is opt-in, outside normal unit tests. Neither enables production inference or real
 experiments; preserve the fixed registries, failures and historical evidence.
 
+## Tool update discovery
+
+The [tool update pipeline guide](docs/development/tool-update-pipeline.md)
+([한국어](docs/development/tool-update-pipeline.ko.md)) covers maintainer-only
+release discovery and static assessment. Its records aren't support or admission.
+Changes to the workflow/binding scope files listed in
+`scripts/tool-update/lanes.mjs` require a fresh operation/topology review and
+matching scope digests. Tests fail closed on drift; do not update the hashes
+without reviewing the rules they protect.
+
 ## Observed-cost verification
 
 Starting with catalog v3, every price release follows the
