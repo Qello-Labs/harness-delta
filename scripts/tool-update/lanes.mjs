@@ -11,7 +11,7 @@ export const scopeSourceDigests = Object.freeze({
   'src/ordinary-session-binding.ts': '850b5144be17b0327b5f2c4cd04f348cd6cf90cc6ddbe54239de6c554bda0099',
   'src/session-binding-service.ts': 'b17352f8936406f76e45e8a9be028fd0f14b66055d4a3cb9813f56a16bd71c85',
   'src/claude-workflow-versions.ts': 'bfb41c173c161823ce8b851bf38807e0c27fb177023dac6b41838534d68c5239',
-  'src/session-binding-codex.ts': '9f3c955912b7b75b5d4bfaea453d84f004cc7090d9818b3bf180f930a764f8f8',
+  'src/session-binding-codex.ts': '6dcba085ad515b8e1ceb7023359f1f349439aae1032d1d8b68db44c8cab7ca6a',
   'src/session-binding-claude.ts': '5165b416cc6e58010b1cbbb39ff9d07fc7b5870418b1e7f8025e1ddea3898729',
 });
 export const retiredClaudeWorkflowVersions = ['2.1.288', '2.1.291'];

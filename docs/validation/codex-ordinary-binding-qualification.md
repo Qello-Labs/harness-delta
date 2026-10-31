@@ -509,6 +509,14 @@ Resume, deeper/additional descendants, incomplete-response completeness and
 tool-owned launch are not admitted. File/workflow compatibility windows, historical
 0.162.1 evidence/defaults, task/price pins and global installations are unchanged.
 
+The 2026-10-31 synthetic guard regression enforces this profile's existing
+paginated inherited-history exclusion, including a verifiable direct-child own
+suffix: no child usage is persisted, and `candidate_unsupported_history` is
+recorded at family enrollment, observer reconnect and every later read.
+Fresh-child collection and known partial usage after a compaction boundary with
+new runtime context retain their existing semantics. This is not a new native
+trial, history qualification or change to the shared 0.160.0 suffix parser.
+
 ## 2026-10-13 ordinary-route acceptance
 
 An explicitly approved fresh `ordinary_admission` intent passed on the pinned

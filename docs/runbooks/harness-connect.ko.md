@@ -86,6 +86,9 @@ read-only/on-request/no-daemon과 명시적으로 1회 승인된 network 전용 
 새 소스만 자체 정확한 provenance를 사용하며 파일·workflow 호환성과 기존 profile·pin은 유지합니다.
 
 비용은 부분 기준 추정값이며 완전 합계나 공급자 청구액이 아닙니다.
+페이지로 나뉜 상속 이력이 있는 자식은 자체 suffix를 검증할 수 있어도 자식 사용량을
+수집하지 않고 `candidate_unsupported_history`를 기록합니다. 이 검사는 family 등록,
+관측기 재연결 및 이후 모든 사용량 읽기에 적용합니다.
 resume, 더 깊거나 추가된 자식, 도구 소유 launch와 추론 채택은 이 profile로 허용하지 않습니다.
 종료·미완료 응답의 완전성도 검증하지 않았습니다.
 [native 검증 기록](../validation/codex-ordinary-binding-qualification.md#2026-10-16-ordinary-route-acceptance)을 확인하세요.
