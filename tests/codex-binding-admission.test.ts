@@ -37,11 +37,12 @@ function fixture(version = '0.162.1', profileId: string = codexBindingAdmission.
   const earlierChild = staleChild ? f.newRoot() : undefined;
   const root = f.newRoot();
   const turn = randomUUID();
-  function member(parent: string | null = null, existing?: ReturnType<typeof f.newRoot>) {
+  function member(parent: string | null = null, existing?: ReturnType<typeof f.newRoot>, history: Record<string, unknown> = {}) {
     const source = existing ?? (parent === null ? root : f.newRoot());
-    writeFileSync(source.path, JSON.stringify({ type: 'session_meta', payload: {
+    const ordinal = history.history_mode === 'paginated' ? 20 : undefined;
+    writeFileSync(source.path, JSON.stringify({ type: 'session_meta', ...(ordinal === undefined ? {} : { ordinal }), payload: {
       id: source.id, session_id: root.id, parent_thread_id: parent, cwd: f.project, cli_version: version,
-      source: parent === null ? 'cli' : { subagent: { thread_spawn: { parent_thread_id: parent, depth: 1 } } },
+      source: parent === null ? 'cli' : { subagent: { thread_spawn: { parent_thread_id: parent, depth: 1 } } }, ...history,
     } }) + '\n');
     const output: unknown = JSON.parse(execFileSync(process.execPath, [resolve('scripts/session-binding-codex-hook.mjs'),
       '--receipt-directory', journal, '--source-root', join(f.home, 'sessions'), '--product-version', version],
@@ -55,7 +56,7 @@ function fixture(version = '0.162.1', profileId: string = codexBindingAdmission.
     const path = join(journal, `${receipt}.json`);
     const metadata = z.record(z.string(), z.unknown()).parse(JSON.parse(readFileSync(path, 'utf8')));
     writeFileSync(path, JSON.stringify({ ...metadata, createdAt: now }));
-    return { ...source, receipt, parent };
+    return { ...source, receipt, parent, ordinal: ordinal === undefined ? undefined : ordinal + 1 };
   }
   function usage(source: ReturnType<typeof member>, model = 'gpt-6.1-sol', effort: string | null = 'high', contextAt?: string) {
     now = new Date(Date.parse(now) + 1).toISOString();
@@ -69,11 +70,14 @@ function fixture(version = '0.162.1', profileId: string = codexBindingAdmission.
       root_turn_id: turn, response_id: response,
       usage: { input_tokens: 100, cached_input_tokens: 10, output_tokens: 20, reasoning_output_tokens: 5, total_tokens: 120 },
     } };
-    appendFileSync(source.path, JSON.stringify(context) + '\n' + JSON.stringify(record) + '\n');
+    const ordinal = source.ordinal;
+    appendFileSync(source.path, JSON.stringify({ ...context, ...(ordinal === undefined ? {} : { ordinal }) }) + '\n' +
+      JSON.stringify({ ...record, ...(ordinal === undefined ? {} : { ordinal: ordinal + 1 }) }) + '\n');
+    if (ordinal !== undefined) source.ordinal = ordinal + 2;
     return response;
   }
   return { ...f, journal, setup, provider, service, member, usage, earlierChild, refresh: () => { now = new Date(Date.parse(now) + 1).toISOString(); },
-    id: setup.workflow.assignment.task_id };
+    id: setup.workflow.assignment.task_id, clock: () => now };
 }
 
 test.each([
@@ -98,6 +102,49 @@ test.each([
     state: z.literal(state), source: z.literal('codex_binding'), product_version: z.literal(version),
   }) }).safeParse(JSON.parse(event.payload)).success)).toBe(true);
 });
+
+test.each((['fresh', 'inherited_suffix', 'fork', 'malformed', 'nonparent'] as const).flatMap(history =>
+  (['collect', 'link', 'restart'] as const).map(operation => ({ history, operation }))))(
+  'ordinary 0.163.0 $history/$operation preserves the exact child history boundary', async ({ history, operation }) => {
+    const f = fixture('0.163.0', 'codex-binding-01630-direct-family-v1');
+    const root = f.member();
+    const parent = history === 'nonparent' ? 'foreign' : root.id;
+    const markers = history === 'fresh' ? {} : history === 'fork' ? { forked_from_id: root.id } : {
+      history_mode: 'paginated', forked_from_id: parent, forked_from_ordinal_exclusive: 20,
+      subagent_history_start_ordinal: 21,
+      history_base: history === 'malformed' ? {} : { thread_id: parent, end_ordinal_exclusive: 20, end_byte_offset: 123 },
+    };
+    let child = operation === 'link' ? f.member(root.id, undefined, markers) : undefined;
+    f.refresh();
+    await f.service.connect(f.id, 'codex', { receipt: root.receipt });
+    child ??= f.member(root.id, undefined, markers);
+    let service = f.service;
+    if (operation === 'link') {
+      await service.tick(f.id);
+      if (history !== 'fresh') expect(service.status(f.id).gaps).toContain('candidate_unsupported_history');
+    }
+    if (operation === 'restart') {
+      await service.tick(f.id);
+      service.pause(f.id);
+      f.usage(child); f.refresh();
+      const provider = new CodexSessionBindingProvider({ receiptDirectory: f.journal, sourceRoots: [join(f.home, 'sessions')],
+        projectRoot: f.project, productVersion: '0.163.0', ordinaryFamilyAdmission: true, maxDepth: 1, maxFamilyMembers: 3, clock: f.clock });
+      service = createSessionBindingService({ store: f.store, providers: [provider], setupFor: () => f.setup, clock: f.clock });
+      await service.connect(f.id, 'codex', { receipt: root.receipt });
+      if (history !== 'fresh') expect(service.status(f.id).gaps).toContain('candidate_unsupported_history');
+    }
+    f.usage(root); f.usage(child); f.refresh();
+
+    await service.tick(f.id);
+    await service.tick(f.id);
+
+    const expected = history === 'fresh' ? 1 : 0;
+    expect(f.store.all('SELECT id FROM events WHERE session_id=?', [child.id])).toHaveLength(expected);
+    expect(f.store.all('SELECT id FROM runtime_evidence WHERE session_id=?', [child.id])).toHaveLength(expected);
+    expect(service.status(f.id)).toMatchObject({ roots: 1, children: 1, requests: expected + 1, complete_cost: null, inference: false });
+    if (history === 'fresh') expect(service.status(f.id).gaps).not.toContain('candidate_unsupported_history');
+    else expect(service.status(f.id).gaps).toContain('candidate_unsupported_history');
+  });
 
 test.each([
   ['0.162.1', 'codex-binding-01630-direct-family-v1'],

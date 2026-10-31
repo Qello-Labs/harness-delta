@@ -21,6 +21,8 @@ const receiptSchema = z.strictObject({ schemaVersion: z.literal(1), receipt: z.u
 type Receipt = z.infer<typeof receiptSchema>;
 const headerSchema = z.object({ type: z.literal('session_meta'), payload: z.object({ id: IdSchema, session_id: IdSchema,
   agent_nickname: z.unknown().optional(), agent_role: z.unknown().optional(),
+  forked_from_id: z.unknown().optional(), forked_from_ordinal_exclusive: z.unknown().optional(),
+  history_base: z.unknown().optional(), subagent_history_start_ordinal: z.unknown().optional(),
   parent_thread_id: IdSchema.nullish(), cli_version: receiptVersionSchema, cwd: z.string(),
   source: z.union([z.enum(['cli', 'exec', 'vscode', 'mcp']), z.object({ subagent: z.object({ thread_spawn:
     z.object({ parent_thread_id: IdSchema, depth: z.number().int().positive() }) }) })]) }) });
@@ -462,7 +464,15 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
     scope = { ...scope, ...(this.ordinaryFamilyQualification ? { sessions: [...lineage].reverse() } : {}),
       allowedRootTurnIds: rootTurns.size ? [...rootTurns] : ['binding-observation'] };
     let snapshot: CodexCandidateSnapshot; let historyGap = false;
-    try { snapshot = parseCodexCandidateRollout(bytes.toString('utf8'), scope, mapping.sourceId, this.projectRoot, now, compatibility ?? undefined); }
+    try {
+      if(this.ordinaryFamilyAdmission&&this.productVersion==='0.163.0'&&record.parentSessionId!==null) {
+        const header=this.readHeader(record);
+        // Shared suffix parsing does not qualify inherited history for this ordinary profile.
+        if(header.forked_from_id!=null||header.forked_from_ordinal_exclusive!=null||
+          header.history_base!=null||header.subagent_history_start_ordinal!=null)throw new Error('candidate_unsupported_history');
+      }
+      snapshot = parseCodexCandidateRollout(bytes.toString('utf8'), scope, mapping.sourceId, this.projectRoot, now, compatibility ?? undefined);
+    }
     catch (error) {
       if (!(error instanceof Error) || error.message !== 'candidate_unsupported_history') throw error;
       snapshot = { records: [], hasGap: false }; historyGap = true;

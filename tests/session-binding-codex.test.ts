@@ -11,12 +11,13 @@ const cleanup: string[] = [];
 afterEach(() => { for (const dir of cleanup.splice(0)) rmSync(dir, { recursive: true, force: true }); });
 const at = (s: number) => `2026-10-06T00:00:${String(s).padStart(2, '0')}Z`;
 const jsonl = (rows: unknown[]) => rows.map(row => JSON.stringify(row)).join('\n') + '\n';
-function fixture(productVersion?: string) {
+function fixture(productVersion?: string, ordinaryFamilyAdmission = false) {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), 'binding-codex-synthetic-'))); cleanup.push(dir);
   const journal = join(dir, 'receipts'); mkdirSync(journal); chmodSync(journal, 0o700);
   let now = at(5);
   const provider = new CodexSessionBindingProvider({ receiptDirectory: journal, sourceRoots: [dir], projectRoot: dir, clock: () => now,
-    ...(productVersion === undefined ? {} : { productVersion }) });
+    ...(productVersion === undefined ? {} : { productVersion }),
+    ...(ordinaryFamilyAdmission ? { ordinaryFamilyAdmission: true, maxDepth: 1, maxFamilyMembers: 3 } : {}) });
   const path = (id: string) => join(dir, `${id}.jsonl`);
   const meta = (id: string, parent: string | null = null, depth = 0, extra = {}) => ({ type: 'session_meta', timestamp: at(0), payload: {
     id, session_id: 'root', parent_thread_id: parent, cli_version: productVersion ?? '0.160.0', cwd: dir,
@@ -229,6 +230,32 @@ test('paginated child own suffix excludes inherited requests and cumulative toke
   expect(batch.records.map(r => r.requestId)).toEqual(['own-child']);
   expect(batch.records[0]!.payload.cached_input.value).toBe(10);
   expect(batch.records[0]!.payload.reasoning_output.value).toBe(5);
+});
+
+test('ordinary 0.163.0 excludes inherited child suffixes on initial, later and restarted reads', async () => {
+  const f = fixture('0.163.0', true); const root = await f.provider.resolveCurrent({ receipt: f.receipt('root') });
+  const meta = { ...f.meta('child', 'root', 1, { history_mode: 'paginated', forked_from_id: 'root', forked_from_ordinal_exclusive: 20,
+    subagent_history_start_ordinal: 23, history_base: { thread_id: 'root', end_ordinal_exclusive: 20, end_byte_offset: 123 } }), ordinal: 20 };
+  f.write('child', [meta, { ...f.context('root', 1), ordinal: 21 }, { ...f.usage('root', 'inherited', 2), ordinal: 22 }]); f.receipt('child', 'root');
+  const child = (await f.provider.discoverChildren(root)).children[0]?.identity;
+  if (!child) throw new Error('missing_child_fixture');
+  const scope = f.scope([{ id: 'root', parent: null }, { id: 'child', parent: 'root' }]);
+  const baseline = await f.provider.readUsage(child, null, scope);
+  const context = f.context('child');
+  appendFileSync(f.path('child'), jsonl([{ ...context, payload: { ...context.payload, model: 'gpt-6.1-sol' }, ordinal: 23 },
+    { ...f.usage('child', 'own-child'), ordinal: 24 }])); f.set(8);
+
+  const batch = await f.provider.readUsage(child, baseline.cursor, scope);
+
+  expect(baseline).toMatchObject({ records: [], gaps: ['candidate_unsupported_history'] });
+  expect(batch).toMatchObject({ records: [], gaps: ['candidate_unsupported_history'] });
+  expect(await f.provider.readUsage(child, batch.cursor, scope)).toMatchObject({ records: [], gaps: ['candidate_unsupported_history'] });
+  const restarted = new CodexSessionBindingProvider({ receiptDirectory: f.journal, sourceRoots: [f.dir], projectRoot: f.dir,
+    productVersion: '0.163.0', ordinaryFamilyAdmission: true, maxDepth: 1, maxFamilyMembers: 3, clock: () => at(8) });
+  await expect(restarted.readUsage(child, batch.cursor, scope)).rejects.toThrow('binding_cursor_invalid');
+  expect(await restarted.readUsage(child, null, scope)).toMatchObject({ records: [], gaps: ['candidate_unsupported_history'] });
+  f.write('child', [meta]);
+  await expect(f.provider.readUsage(child, batch.cursor, scope)).rejects.toThrow('binding_source_changed');
 });
 
 test('partial trailing response waits for completion and malformed counters/native request conflicts fail closed', async () => {

@@ -91,6 +91,9 @@ The source now has its own exact provenance; file/workflow compatibility and
 historical profiles/pins remain unchanged.
 
 Costs remain partial reference estimates, never complete totals or vendor bills.
+Paginated inherited child history contributes no child usage and records
+`candidate_unsupported_history`, including a verifiable own suffix. This check
+applies at family enrollment, observer reconnect and every later usage read.
 Resume, deeper/additional descendants, tool-owned launch and inferential adoption
 are not admitted by this profile. Terminal/incomplete-response completeness is not
 qualified. See the [native acceptance record](../validation/codex-ordinary-binding-qualification.md#2026-10-16-ordinary-route-acceptance).
