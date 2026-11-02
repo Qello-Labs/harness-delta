@@ -43,6 +43,14 @@ URL 매개변수는 쓰지 않습니다.
 바뀌면 `source_scope_changed`로 멈추며, 유지보수자가 규칙을 다시 검토하기 전까지 과거 범위를
 조용히 재사용하지 않습니다.
 
+소스 다이제스트에는 `src/nested-candidate.ts`와 `src/codex-candidate-rollout.ts`도
+해시 전용 입력으로 포함됩니다. 평가는 이 두 파일을 트랜스파일하거나 로드·실행하지 않고,
+import도 따라가지 않습니다. 이 파일의 변경은 `source_scope_changed`가 아니라
+`baseline_source_changed` 또는 `review_source_changed`로 나타납니다.
+두 파일이 추가되면서 기존의 모든 기준선 행과 검토 레코드의 다이제스트가 오래된 값이 됩니다.
+기존 레코드는 계속 읽을 수 있으며 다시 쓰지 않습니다. 과거 다이제스트로는 현재 계약 검토
+게이트를 닫을 수 없습니다.
+
 ## 후보 탐색
 
 ```sh

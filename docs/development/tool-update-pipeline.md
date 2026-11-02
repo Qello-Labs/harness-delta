@@ -47,6 +47,14 @@ Imperative operation/topology rules are checked against reviewed source digests.
 If those source files change, `source_scope_changed` stops assessment until the
 maintainer reviews the rules again; it never silently keeps the old scope.
 
+The source digest also covers `src/nested-candidate.ts` and
+`src/codex-candidate-rollout.ts` as hash-only inputs. Assessment does not transpile,
+load, execute, or follow imports from these two files. Their changes appear as
+`baseline_source_changed` or `review_source_changed`, not `source_scope_changed`.
+Adding them makes the digest in every existing baseline row and review record
+stale. Those records remain readable and are not rewritten; their historical
+digests cannot close current contract review gates.
+
 ## Discover a candidate
 
 ```sh

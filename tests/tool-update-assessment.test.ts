@@ -4,8 +4,8 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, expect, test } from 'vitest';
-import { assessCandidate, assessmentSchema, validateBaselineForSource } from '../scripts/tool-update/assessment.mjs';
-import type { Assessment } from '../scripts/tool-update/assessment.mjs';
+import { assessCandidate, assessmentSchema, consumedContracts, validateBaselineForSource } from '../scripts/tool-update/assessment.mjs';
+import type { Assessment, ContractReview } from '../scripts/tool-update/assessment.mjs';
 import { digest } from '../scripts/tool-update/manifest.mjs';
 import type { Baseline } from '../scripts/tool-update/manifest.mjs';
 import type { Candidate, Observation, Product, Release } from '../scripts/tool-update/discovery.mjs';
@@ -13,6 +13,7 @@ import { laneSchema, sourceLanes } from '../scripts/tool-update/lanes.mjs';
 import { sourcePathAllowlist, withSourceSnapshot } from '../scripts/tool-update/source-snapshot.mjs';
 
 const root = realpathSync(fileURLToPath(new URL('..', import.meta.url)));
+const parserPaths = ['src/nested-candidate.ts', 'src/codex-candidate-rollout.ts'] as const;
 const temporary: string[] = [];
 afterEach(async () => { for (const path of temporary.splice(0)) await rm(path, { recursive: true, force: true }); });
 function fixture(product: Product = 'codex', versions = ['0.163.0']) {
@@ -197,6 +198,93 @@ test('rejects drift between compilation and projection completion', async () => 
     await writeFile(join(directory, 'src/codex-admissions.json'), '[]');
     return source.windows.length;
   })).rejects.toMatchObject({ code: 'source_drift' });
+});
+test.each(parserPaths)('a one-byte change in %s invalidates baseline and review digests', async parserPath => {
+  const directory = await sourceFixture();
+  const input = { ...fixture('codex', ['0.162.1', '0.163.0']), root: directory };
+  const snapshot = await withSourceSnapshot(directory, () => null);
+  const base = baseline();
+  const row = base.rows[0];
+  const from = input.observation.releases[0];
+  const to = input.observation.releases[1];
+  if (!row || !from || !to) throw new Error('fixture_review_required');
+  const currentBaseline = { ...base, rows: [{ ...row, source_digest: snapshot.source_digest }] };
+  const record: ContractReview = {
+    schema_version: 1, kind: 'contract_review', product: row.product, route: row.route,
+    profile_id: row.profile_id, operation: row.operation, topology: row.topology,
+    contract_revision: 'consumed-v1', from: { version: from.version, commit: from.commit },
+    to: { version: to.version, commit: to.commit },
+    contracts: consumedContracts.map(contract_id => ({ contract_id, judgment: 'unaffected' })),
+    evidence_ids: ['a'.repeat(64)], source_digest: snapshot.source_digest,
+  };
+  const before = await assessCandidate({ ...input, baseline: currentBaseline, reviews: [record] });
+  expect(before.schema_version).toBe(3);
+  expect(lane(before, row.profile_id).gates.contracts_reviewed).toBe('closed');
+  expect(lane(before, row.profile_id).reasons).not.toContain('baseline_source_changed');
+  expect(assessmentSchema.safeParse({ ...before,
+    source_paths: before.source_paths.filter(path => !parserPaths.some(parser => parser === path)),
+  }).success).toBe(true);
+  const path = join(directory, parserPath);
+  const bytes = await readFile(path);
+  const first = bytes[0];
+  if (first === undefined) throw new Error('fixture_source_required');
+  bytes[0] = first ^ 1;
+  await writeFile(path, bytes);
+  const after = await assessCandidate({ ...input, baseline: currentBaseline, reviews: [record] });
+  expect(after.source_digest).not.toBe(before.source_digest);
+  expect(lane(after, row.profile_id).reasons).toEqual(expect.arrayContaining([
+    'baseline_source_changed', 'review_source_changed',
+  ]));
+  expect(lane(after, row.profile_id).gates.contracts_reviewed).toBe('unknown');
+});
+test.each(parserPaths)('hashes %s without parsing, executing or following its imports', async parserPath => {
+  const directory = await sourceFixture();
+  await writeFile(join(directory, parserPath),
+    "import './must-not-follow.js';\nthrow new Error('must_not_execute');\nconst = ;\n");
+  const snapshot = await withSourceSnapshot(directory, () => 'projected');
+  expect(snapshot.source_paths).toContain(parserPath);
+  expect(snapshot.value).toBe('projected');
+});
+test.each(parserPaths)('rejects a registry import of hash-only input %s', async parserPath => {
+  const directory = await sourceFixture();
+  await writeFile(join(directory, parserPath), 'export const x = 1;\n');
+  const path = join(directory, 'src/source-compatibility.ts');
+  const specifier = `./${parserPath.slice(4).replace(/\.ts$/, '.js')}`;
+  await writeFile(path, `import '${specifier}';\n${await readFile(path, 'utf8')}`);
+  await expect(assessCandidate({ ...fixture(), root: directory }))
+    .rejects.toMatchObject({ code: 'source_snapshot_unavailable' });
+});
+test.each(parserPaths.flatMap(path => ['missing', 'symlink', 'oversized'].map(kind => ({ path, kind }))))(
+  'rejects a $kind hash-only input at $path', async ({ path, kind }) => {
+    const directory = await sourceFixture();
+    const full = join(directory, path);
+    if (kind === 'oversized') await writeFile(full, Buffer.alloc(8 * 1024 * 1024 + 1));
+    else {
+      await rm(full);
+      if (kind === 'symlink') await symlink(join(root, path), full);
+    }
+    await expect(assessCandidate({ ...fixture(), root: directory }))
+      .rejects.toMatchObject({ code: 'source_snapshot_unavailable' });
+  },
+);
+test.each(parserPaths)('rejects projection-time drift in hash-only input %s', async parserPath => {
+  const directory = await sourceFixture();
+  await expect(withSourceSnapshot(directory, async () => {
+    await writeFile(join(directory, parserPath), 'changed');
+  })).rejects.toMatchObject({ code: 'source_drift' });
+});
+test('the expanded snapshot includes 24 source paths', async () => {
+  const snapshot = await withSourceSnapshot(root, () => null);
+  expect(snapshot.source_paths).toHaveLength(24);
+});
+test('legacy schema 1 and 2 assessments parse without the hash-only parser paths', async () => {
+  const current = await assessCandidate(fixture());
+  if (current.schema_version !== 2) throw new Error('schema_2_required');
+  const legacy = { ...current, source_paths: current.source_paths.filter(path => !parserPaths.some(parser => parser === path)) };
+  expect(assessmentSchema.safeParse(legacy).success).toBe(true);
+  const { inventory_scope: scope, ...fields } = legacy;
+  expect(scope).toBe('legacy_full_inventory');
+  expect(assessmentSchema.safeParse({ ...fields, schema_version: 1 }).success).toBe(true);
 });
 test('rejects a runtime Store import without opening its body', async () => {
   const directory = await sourceFixture();
