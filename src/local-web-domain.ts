@@ -109,7 +109,7 @@ export interface LocalWebDomainOptions {
   /** Internal consumed, isolated qualification intent; never profile/browser input. */
   qualificationLease?: BindingQualificationLease;
   /** Trusted execution instrumentation; does not grant collection authority. */
-  bindingObservation?: BindingObservation;
+  bindingObservation?: BindingObservation & { maxFamilyMembers?: 1 | 3 };
   /** Local operator selection only; profiles and browser requests cannot activate it. */
   nativePilot?: { taskId: string; observe: boolean; untilExplicitStop?: boolean };
   /** Opt-in local pilot instrumentation only; never browser/profile input. */
@@ -250,7 +250,7 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
           ...(setupFor(record).workflow.assignment.metadata.product==='synthetic' ? {} : {productVersion:setupFor(record).workflow.product_version}),
           ...(options.qualificationLease ? {maxDepth:1,maxFamilyMembers:3,
              ...(['0.162.1','0.163.0'].includes(setupFor(record).workflow.product_version)?{ordinaryFamilyQualification:true}:{})} : options.nativePilot ? {maxDepth:1,maxFamilyMembers:codexRootPilotVersions.some(version=>version===setupFor(record).workflow.product_version)?1:3} : {}),
-          ...(ordinaryAdmission ? { ordinaryFamilyAdmission:true,maxDepth:ordinaryAdmission.maxDepth,maxFamilyMembers:ordinaryAdmission.maxFamilyMembers } : {}),
+          ...(ordinaryAdmission ? { ordinaryFamilyAdmission:true,maxDepth:ordinaryAdmission.maxDepth,maxFamilyMembers:options.bindingObservation?.maxFamilyMembers??ordinaryAdmission.maxFamilyMembers } : {}),
           ...(options.nativePilot?.observe && options.nativePilot.taskId===id && codexRootPilotVersions.some(version=>version===setupFor(record).workflow.product_version) ? {ordinaryRootPilot:true} : {}) })]
         : [new ClaudeSessionBindingProvider({ receiptDir: config.receipt_directory, claudeProjectsDir: config.claude_projects_directory, projectRoot, ...(options.nativePilot ? { allowCandidateProfiles: true, maxFamilyMembers: 3, authorizeSource: source => { if (!humanPilot || options.nativePilot?.taskId !== id) throw new Error('binding_source_unqualified'); assertClaudeHumanPilotSource(humanPilot, store, id, source); } } : {}) })];
       } catch (error) {

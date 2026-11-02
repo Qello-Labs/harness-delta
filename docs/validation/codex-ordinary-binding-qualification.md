@@ -1,5 +1,7 @@
 # Isolated ordinary Codex binding qualification
 
+[한국어](codex-ordinary-binding-qualification.ko.md)
+
 This checkout provides a bounded qualification runner for the ordinary interactive
 Codex CLI candidate, separate from production admission. Preparation runs no native
 product or model. Execution requires explicit consent for the frozen intent and an
@@ -95,6 +97,115 @@ This qualification pins root and both children to `gpt-6.1-sol` / `high`; it doe
 the portable skill's model policy or require contributors to install that version.
 A different binary/runtime needs separate qualification. Claude ordinary-session
 binding remains a separate candidate; this command does not qualify it.
+
+## 0.166.0 unqualified ordinary candidate
+
+Codex 0.166.0 is an **UNQUALIFIED CANDIDATE**, `qualified:false`, under the separate
+exact profile `codex-binding-01660-direct-family-v1`. Qualified support is pending.
+The record itself has no `evidenceId` or `evidenceIntentSha256` and contributes
+nothing to `productionSourceEvidence`. Separate native intents and bounded results
+are recorded in the [2026-11-03 candidate trials](#2026-11-03-candidate-trials);
+they do not qualify the candidate. Normal configuration exposes this ordinary candidate;
+that exposure is not qualification or native execution approval.
+New-project setup still defaults to 0.163.0; saved versions, frozen settings,
+historical qualification and historical observations remain unchanged.
+The qualification command's omitted-version default remains 0.160.0.
+
+The exact macOS arm64 image pins are:
+
+| Image | Bytes | SHA-256 |
+| --- | ---: | --- |
+| CLI `codex` | 268972064 | `39acf979729dd290f9a24ee38b2914e036c91b65952872e28ae2a6b88a7db7c1` |
+| Same-directory `codex-code-mode-host` | 69182864 | `fd37051bfdce0b65cf22a7077e265720a7bd6709d5e400dcbc26197f3041400a` |
+
+The same-release host is required and pinned independently of the 0.163.0 host.
+A missing or wrong host refuses preparation/execution. These image pins do not
+establish target runtime, hook, permission or counter conformance.
+
+Preparation for this candidate requires `--product-version 0.166.0`,
+`--route ordinary_admission` and an explicit `--scenario` from the table below.
+There is no 0.166.0 qualification-route, file/workflow fallback or native resume.
+Use Node 24 on macOS arm64 and a fresh disposable registered project/task.
+The trial pins the root and any children to `gpt-6.1-sol` / `high`; it does not
+change the normal GPT-family/observed-effort policy.
+
+| Required scenario | Frozen topology and normal completion |
+| --- | --- |
+| `root_normal_observer_restart` | One fresh CLI root, zero children, one exact source; link, active collect, observer pause/reconnect, a new post-baseline root context, normal quit and final reconciliation |
+| `family_normal_observer_restart` | One fresh CLI root and exactly two fresh direct ThreadSpawn children, depth 1, three exact sources; collect each session's own usage, observer pause/reconnect, a new root context, normal quit and final reconciliation; retain measured child usage without additional child work |
+
+For example, this prepares the root scenario only; it does not launch Codex:
+
+```sh
+node scripts/codex-session-binding-qualification-command.mjs prepare \
+  --directory /private/tmp/harness-delta-binding-01660-root-unique \
+  --product-version 0.166.0 \
+  --route ordinary_admission \
+  --scenario root_normal_observer_restart \
+  --binary /absolute/path/to/reviewed/codex \
+  --codex-home /absolute/path/to/existing/codex-home
+```
+
+The family scenario requires its own fresh directory and exact intent with
+`--scenario family_normal_observer_restart`. Restart means reconnecting the
+observer to the same live source, task, assignment, price/window pins and
+cumulative safety ledger with fresh baselines, not native resume or relaunch.
+Do not backfill pre-link, paused or offline usage or replay old requests.
+Each selected session must have measured own usage; final reconciliation follows
+the frozen one-source or three-source scenario, not a fixed two-child assumption.
+
+| Per-intent budget | Frozen bound |
+| --- | --- |
+| Owner duration from reservation, including startup, approval and pause | 900000 ms, no reset |
+| Observed own-request stops | Root 10; each child 1; total 12, including excluded setup/restart baselines |
+| Observed input-plus-output token stop | 300000; do not add cached input or reasoning twice |
+| Cleanup / TERM grace | 5000 ms shared total / at most 2000 ms within that budget |
+| Source reads | First header at most 64 KiB; each source at most 8 MiB; no fourth-source read |
+
+Across both separately approved scenarios the planned ceilings sum to 1800 seconds,
+24 observed requests and 600000 observed tokens, plus at most 10 seconds cleanup.
+These observed stop thresholds can overshoot; they are not account, billing,
+backend-cancellation or complete-request-universe guarantees. Stop rather than
+raise a limit if the interaction does not fit.
+
+Native execution requires separate human consent for each exact prepared intent,
+including the current one-command network-only connector permission screen.
+Implementation approval, image inventory and preparation are not execution consent.
+No consent witness or native intent is supplied by this candidate record.
+Normal quit requires active-scope exact-source reconciliation and positive
+known-owner cleanup; an emergency stop or SIGINT is not successful normal completion.
+H4 host-spawn/Detached children and H5 environment hooks with null transcript paths
+are excluded; stop instead of expanding the family claim if either appears.
+Inherited-history children, attached threads, deeper/additional descendants,
+native resume, complete cost and durable complete final flush remain unsupported.
+All dated acceptance sections below remain evidence only for their historical
+exact versions, not for this candidate.
+
+### 2026-11-03 candidate trials
+
+| Attempt | Intent SHA-256 | Result |
+| --- | --- | --- |
+| Root | `c53346157cc8b21a03dd87b72ec64279453d0af91d6553b4eab128cb4f42f472` | Completed. One source. 4 native-owned requests: 2 excluded baseline, 2 measured and matched. All observer-restart checks true. Ownership and termination verified. |
+| Family, first | `ce70a921d2bc3d4ae6efea22de1b26111dcd7d02b22aec4e3d517d37fa8f77c1` | Failed: `owned_cli_termination_unverified`, `ownershipVerified:false`, native exit 0. No final source reconciliation. |
+| Family, rerun | `668558e351a12a906093fe1950e1dbdb2413d3223cb041ef381caecbc28023e8` | Completed. Three sources. 11 native-owned requests: 3 excluded baseline, 8 measured and matched. All observer-restart checks true. Ownership and termination verified. |
+
+The first family attempt's cause is unknown and remains a known issue. The worker
+records only a pass or fail result. The rerun used identical code; it does not
+explain the failure or show that it cannot recur.
+
+The passing family run reached root 9 of 10 and total 11 of 12. Excluded baseline
+requests varied between runs (2 and 3).
+
+All three intents pinned implementation digest
+`ccaef08f431306ae39d142bcbf0d7570e698921257b17b6adc825dbbe5307060`.
+After the trials the only implementation change is the candidate notice text,
+so these results are not exact-byte evidence for the rebuilt UI.
+
+The runs used the operator's existing Codex home, with user-level MCP servers,
+plugins and a user SessionStart hook active. This is not evidence for MCP or IDE scope.
+
+These results do not qualify the candidate. `qualified:false`, the default and
+all windows are unchanged. The results say nothing about complete cost or billing.
 
 ## Prepare and review
 

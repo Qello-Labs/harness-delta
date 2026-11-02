@@ -2,6 +2,13 @@ import type { FlexibleProtocol } from './flexible-contracts.js';
 
 export const defaultCodexBindingVersion = '0.163.0';
 
+export type CodexBindingAdmission = {
+  readonly profileId: string; readonly productVersion: string;
+  readonly model: string; readonly effort: string;
+  readonly maxDepth: 1; readonly maxFamilyMembers: 3; readonly sourceRef: string;
+} & ({ readonly qualified: false; readonly evidenceId?: never; readonly evidenceIntentSha256?: never } |
+  { readonly qualified?: true; readonly evidenceId: string; readonly evidenceIntentSha256: string });
+
 export const codexBindingAdmission = Object.freeze({
   profileId: 'codex-binding-01621-direct-family-v1',
   productVersion: '0.162.1',
@@ -29,7 +36,17 @@ export const codexBindingAdmissions = Object.freeze([
     evidenceIntentSha256: 'a8add9d20b6c7c7845090c70b4896d0b6922acfdb916495b81ec71dc4281683e',
     qualified: true,
   } as const),
-]);
+  Object.freeze({
+    profileId: 'codex-binding-01660-direct-family-v1',
+    productVersion: '0.166.0',
+    model: 'gpt-6.1-sol',
+    effort: 'high',
+    maxDepth: 1,
+    maxFamilyMembers: 3,
+    sourceRef: '6ff1e1ca3b30fc8b914720681fcf5fe62e95f856',
+    qualified: false,
+  } as const),
+] as const satisfies readonly CodexBindingAdmission[]);
 
 export function getCodexBindingAdmission(version: string) {
   return codexBindingAdmissions.find(admission => admission.productVersion === version);

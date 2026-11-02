@@ -134,9 +134,13 @@ export function AgentConnectionSetup({ projectId, locale, busy, perform }: {
      <span>{t('Codex version', 'Codex 버전')}</span>
      <select className="native-select min-h-11" disabled={disabled} value={selectedVersion ?? status.product_version} onChange={event => { setSelectedVersion(event.target.value); setPreview(null); }}>
       {!status.available_versions.includes(status.product_version) && <option value={status.product_version} disabled>{status.product_version}</option>}
-      {status.available_versions.map(version => <option key={version} value={version}>{version}</option>)}
+      {status.available_versions.map(version => <option key={version} value={version}>{version}{status.unqualified_versions.includes(version) ? t(' (unqualified candidate)', ' (미검증 후보)') : ''}</option>)}
      </select>
     </label>
+    {status.unqualified_versions.includes(selectedVersion ?? status.product_version) && <p className="text-sm text-muted-foreground">{t(
+     'Unqualified candidate: qualified support is pending. Usage is labeled compatibility-unverified.',
+     '미검증 후보: 지원 검증이 아직 끝나지 않았습니다. 사용량은 호환성 미검증으로 표시됩니다.'
+    )}</p>}
 
     {status.readiness.reason && <p className="text-sm" role="status" data-readiness-reason={status.readiness.reason}>{readinessReason(status.readiness.reason, t)}</p>}
 

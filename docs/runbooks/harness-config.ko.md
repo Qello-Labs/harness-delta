@@ -231,6 +231,17 @@ snapshot 무결성은 네이티브 시작 순서, 지침 로딩, 도구 실제 �
    일반 Claude 관측은 배정이 없으며 새 프로젝트 설정에서는 Claude Code 2.1.306(Codex 기본값은
    0.163.0)을, 저장된 설정에서는 Claude Code 2.1.296 또는 2.1.301을 사용합니다.
    파일 적용이 그 버전을 선택하거나 올리지는 않습니다.
+   Codex 0.166.0은 별도로 선택 가능한 **UNQUALIFIED CANDIDATE**
+   (`qualified:false`), `codex-binding-01660-direct-family-v1`이며 검증된 지원은 대기 중입니다.
+   기록 자체에는 `evidenceId`나 `evidenceIntentSha256`가 없고 `productionSourceEvidence`에
+   기여하지 않습니다. 별도의 native intent와 결과는
+   [2026-11-03 후보 시험](../validation/codex-ordinary-binding-qualification.ko.md#2026-11-03-candidate-trials)에
+   기록되어 있으며 후보의 지원 검증을 완료하지는 않습니다. Codex 기본값은 0.163.0입니다.
+   [후보 절차](../validation/codex-ordinary-binding-qualification.ko.md#01660-unqualified-ordinary-candidate)는
+   `ordinary_admission`과 명시적인 `--scenario root_normal_observer_restart`(자식 없음) 또는
+   `--scenario family_normal_observer_restart`(직계 자식 두 개)가 필요합니다.
+   native 실행에는 정확한 intent별 별도 동의가 필요합니다. H4 host-spawn/Detached,
+   H5 env-null-transcript 경로, file/workflow fallback과 native resume은 제외됩니다.
    [Harness Connect](harness-connect.ko.md#현재-구현)를 참고하세요.
 
 적용 helper 동작은 `context`, `checkpoint`, `identity`, `report`, `status`입니다.

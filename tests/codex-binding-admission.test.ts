@@ -4,7 +4,8 @@ import { appendFileSync, mkdirSync, readFileSync, statSync, writeFileSync } from
 import { join, resolve } from 'node:path';
 import { afterEach, expect, test, vi } from 'vitest';
 import { z } from 'zod';
-import { codexBindingAdmission } from '../src/codex-binding-admission.js';
+import { codexBindingAdmission, defaultCodexBindingVersion, getCodexBindingAdmission, isQualifiedCodexBindingAdmission } from '../src/codex-binding-admission.js';
+import { productionSourceEvidence } from '../src/readiness.js';
 import { ExternalTaskSetupSchema, prepareExternalTask } from '../src/external-session-service.js';
 import { CodexSessionBindingProvider } from '../src/session-binding-codex.js';
 import { createSessionBindingService } from '../src/session-binding-service.js';
@@ -15,6 +16,29 @@ import { beginAssignedWorkflow, workflowStatus } from '../src/task-workflow.js';
 
 const cleanups: (() => void)[] = [];
 afterEach(() => { for (const cleanup of cleanups.splice(0)) cleanup(); });
+
+test('unqualified ordinary candidate has no native evidence or qualified readiness', () => {
+  const candidate = getCodexBindingAdmission('0.166.0');
+  expect(candidate).toMatchObject({ profileId: 'codex-binding-01660-direct-family-v1', qualified: false });
+  expect(candidate).not.toHaveProperty('evidenceId');
+  expect(candidate).not.toHaveProperty('evidenceIntentSha256');
+  expect(isQualifiedCodexBindingAdmission('0.166.0')).toBe(false);
+  expect(productionSourceEvidence.filter(row => row.product_version === '0.166.0')).toEqual([]);
+  expect(defaultCodexBindingVersion).toBe('0.163.0');
+  expect(resolveSourceCompatibility('codex', '0.166.0', 'codex_binding')).toMatchObject({
+    state: 'compatibility_unverified', profile_id: 'codex-binding-01660-direct-family-v1',
+  });
+  expect(resolveSourceCompatibility('codex', '0.166.0', 'file')).toBeNull();
+  expect(resolveSourceCompatibility('codex', '0.166.0', 'codex_workflow')).toBeNull();
+});
+
+test.each([
+  ['0.162.1', '99021406c46fe0f72194b14ea7cea29978f98f64e758c982336c14a80d0b85d5'],
+  ['0.163.0', '10f0e7209231d897546b3b3dee870713561adc5da0ac80dccad5542dc3b4cead'],
+])('historical %s native evidence retains its serialized admission digest', (version, digest) => {
+  expect(productionSourceEvidence.find(row => row.product === 'codex' && row.product_version === version &&
+    row.profile_id.startsWith('codex-binding-'))).toMatchObject({ semantics_digest: digest, validation_kind: 'real_operations' });
+});
 
 function fixture(version = '0.162.1', profileId: string = codexBindingAdmission.profileId, staleChild = false, initialModel: string | null = 'gpt-6.1-sol') {
   const f = localWebFixture(profileId, { product: 'codex', productVersion: version });
@@ -83,6 +107,7 @@ function fixture(version = '0.162.1', profileId: string = codexBindingAdmission.
 test.each([
   ['0.162.1', 'codex-binding-01621-direct-family-v1', 'verified'],
   ['0.163.0', 'codex-binding-01630-direct-family-v1', 'verified'],
+  ['0.166.0', 'codex-binding-01660-direct-family-v1', 'compatibility_unverified'],
 ] as const)('ordinary %s provider collects a bounded family without pilot or lease', async (version, profileId, state) => {
   const f = fixture(version, profileId);
   const root = f.member();
@@ -103,10 +128,11 @@ test.each([
   }) }).safeParse(JSON.parse(event.payload)).success)).toBe(true);
 });
 
-test.each((['fresh', 'inherited_suffix', 'fork', 'malformed', 'nonparent'] as const).flatMap(history =>
-  (['collect', 'link', 'restart'] as const).map(operation => ({ history, operation }))))(
-  'ordinary 0.163.0 $history/$operation preserves the exact child history boundary', async ({ history, operation }) => {
-    const f = fixture('0.163.0', 'codex-binding-01630-direct-family-v1');
+test.each((['0.163.0', '0.166.0'] as const).flatMap(version =>
+  (['fresh', 'inherited_suffix', 'fork', 'malformed', 'nonparent'] as const).flatMap(history =>
+    (['collect', 'link', 'restart'] as const).map(operation => ({ version, history, operation })))))(
+  'ordinary $version $history/$operation preserves the exact child history boundary', async ({ version, history, operation }) => {
+    const f = fixture(version, version === '0.163.0' ? 'codex-binding-01630-direct-family-v1' : 'codex-binding-01660-direct-family-v1');
     const root = f.member();
     const parent = history === 'nonparent' ? 'foreign' : root.id;
     const markers = history === 'fresh' ? {} : history === 'fork' ? { forked_from_id: root.id } : {
@@ -128,7 +154,7 @@ test.each((['fresh', 'inherited_suffix', 'fork', 'malformed', 'nonparent'] as co
       service.pause(f.id);
       f.usage(child); f.refresh();
       const provider = new CodexSessionBindingProvider({ receiptDirectory: f.journal, sourceRoots: [join(f.home, 'sessions')],
-        projectRoot: f.project, productVersion: '0.163.0', ordinaryFamilyAdmission: true, maxDepth: 1, maxFamilyMembers: 3, clock: f.clock });
+        projectRoot: f.project, productVersion: version, ordinaryFamilyAdmission: true, maxDepth: 1, maxFamilyMembers: 3, clock: f.clock });
       service = createSessionBindingService({ store: f.store, providers: [provider], setupFor: () => f.setup, clock: f.clock });
       await service.connect(f.id, 'codex', { receipt: root.receipt });
       if (history !== 'fresh') expect(service.status(f.id).gaps).toContain('candidate_unsupported_history');

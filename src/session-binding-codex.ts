@@ -13,7 +13,7 @@ import { bindingIdentityKey, CurrentIdentityRequestSchema, VerifiedSessionIdenti
 
 const hash = (bytes: string | Buffer) => createHash('sha256').update(bytes).digest('hex');
 export const codexRootPilotVersions = Object.freeze(['0.162.0', '0.162.1'] as const);
-const receiptVersionSchema = z.enum(['0.160.0', ...codexRootPilotVersions, '0.163.0']);
+const receiptVersionSchema = z.enum(['0.160.0', ...codexRootPilotVersions, '0.163.0', '0.166.0']);
 const receiptSchema = z.strictObject({ schemaVersion: z.literal(1), receipt: z.uuid(), productVersion: receiptVersionSchema,
   event: z.enum(['SessionStart', 'SubagentStart']), sessionId: IdSchema, parentSessionId: IdSchema.nullable(), turnId: IdSchema.nullable(),
   nativeRootSessionId: IdSchema.optional(),
@@ -110,7 +110,7 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
     if(this.ordinaryRootPilot&&(!codexRootPilotVersions.some(version=>version===this.productVersion)||this.maxDepth!==1||this.maxFamilyMembers!==1))throw new Error('binding_configuration_invalid');
     if(this.ordinaryFamilyQualification&&(!['0.162.1','0.163.0'].includes(this.productVersion)||this.ordinaryRootPilot||this.maxDepth!==1||this.maxFamilyMembers!==3))throw new Error('binding_configuration_invalid');
     const admission=getCodexBindingAdmission(this.productVersion);
-    if(this.ordinaryFamilyAdmission&&(!admission||this.ordinaryRootPilot||this.ordinaryFamilyQualification||this.maxDepth!==admission.maxDepth||this.maxFamilyMembers!==admission.maxFamilyMembers))throw new Error('binding_configuration_invalid');
+    if(this.ordinaryFamilyAdmission&&(!admission||this.ordinaryRootPilot||this.ordinaryFamilyQualification||this.maxDepth!==admission.maxDepth||this.maxFamilyMembers!==admission.maxFamilyMembers&&!(this.productVersion==='0.166.0'&&this.maxFamilyMembers===1)))throw new Error('binding_configuration_invalid');
     for (const [value, limit] of [[this.maxFamilyMembers, 32], [this.maxDepth, 31], [this.maxReceipts, 65536], [this.maxSourceBytes, 8 * 1024 * 1024]] as const) {
       if (!Number.isSafeInteger(value) || value < 1 || value > limit) throw new Error('binding_configuration_invalid');
     }
@@ -465,7 +465,7 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
       allowedRootTurnIds: rootTurns.size ? [...rootTurns] : ['binding-observation'] };
     let snapshot: CodexCandidateSnapshot; let historyGap = false;
     try {
-      if(this.ordinaryFamilyAdmission&&this.productVersion==='0.163.0'&&record.parentSessionId!==null) {
+      if(this.ordinaryFamilyAdmission&&(this.productVersion==='0.163.0'||this.productVersion==='0.166.0')&&record.parentSessionId!==null) {
         const header=this.readHeader(record);
         // Shared suffix parsing does not qualify inherited history for this ordinary profile.
         if(header.forked_from_id!=null||header.forked_from_ordinal_exclusive!=null||

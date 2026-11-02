@@ -4,7 +4,7 @@ import { IdSchema } from './contracts.js';
 import { parseComparison } from './comparison-contracts.js';
 import { FlexibleProtocolSchema,CostCoverageEvidenceSchema,CostCoverageDecisionSchema,type FlexibleProtocol,type CostCoverageEvidence,type CostCoverageDecision } from './flexible-contracts.js';
 import { evaluateCostCoverage } from './cost-coverage.js';
-import { codexBindingAdmissions, isQualifiedCodexBindingAdmission, isAdmittedCodexBindingProtocol } from './codex-binding-admission.js';
+import { codexBindingAdmissions, isAdmittedCodexBindingProtocol } from './codex-binding-admission.js';
 export interface ReadinessInput {protocol:FlexibleProtocol;source_evidence_ids:string[];coverage:{evidence:CostCoverageEvidence;decision:CostCoverageDecision}[];analysis_evidence_id:string|null;invalidated:boolean;followup_complete:boolean;}
 export interface SourceReadinessEvidence {id:string;product:'synthetic'|'codex'|'claude_code';product_version:string;profile_id:string;semantics_digest:string;validation_kind:'synthetic'|'real_operations';complete_cost:boolean;}
 // Registries are code-owned evidence, never writable protocol flags or imported claims.
@@ -26,11 +26,11 @@ export const productionSourceEvidence:readonly SourceReadinessEvidence[]=Object.
   // see validation/claude-workflow-02196-direct-child-source-readiness.md.
   id:'claude-workflow-02196-direct-child-native-v1',product:'claude_code',product_version:'2.1.296',profile_id:'claude-workflow-direct-child-v1',
   semantics_digest:'dfe01a0be5489858a2d60cf2dc0076073296e2f34d11ca62f5b184e4b37690d8',validation_kind:'real_operations',complete_cost:false,
-}),...codexBindingAdmissions.filter(admission=>isQualifiedCodexBindingAdmission(admission.productVersion)).map(admission=>Object.freeze({
+}),...codexBindingAdmissions.flatMap(admission=>'qualified' in admission && !admission.qualified ? [] : [Object.freeze({
   id:admission.evidenceId,product:'codex' as const,product_version:admission.productVersion,
   profile_id:admission.profileId,semantics_digest:createHash('sha256').update(JSON.stringify(admission)).digest('hex'),
   validation_kind:'real_operations' as const,complete_cost:false,
-}))]);
+})])]);
 export const productionAnalysisEvidence:readonly string[]=Object.freeze([]);
 export const syntheticSourceEvidence:readonly SourceReadinessEvidence[]=Object.freeze([Object.freeze({id:'synthetic-flexible-v1',product:'synthetic',product_version:'1.0.0',profile_id:'synthetic-flexible-v1',
   semantics_digest:createHash('sha256').update('synthetic-flexible-v1:disjoint-components:request-boundaries').digest('hex'),validation_kind:'synthetic',complete_cost:true})]);

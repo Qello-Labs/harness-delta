@@ -27,10 +27,21 @@ const sha=z.string().regex(/^[a-f0-9]{64}$/);
 const startModeSchema=z.enum(['automatic','manual']);
 const routeSchema=z.enum(['qualification','ordinary_admission']);
 const productVersionSchema=z.enum(codexBindingQualificationVersions);
+const scenarioSchema=z.enum(['root_normal_observer_restart','family_normal_observer_restart']);
 const postConnectInput='Spawn exactly two fresh direct children in parallel with gpt-6.1-sol/high and no inherited history. Each child must make no tool calls, return a short acknowledgement in one model request, and finish. Wait once for both children, then return a short acknowledgement. Do no other work, reconnect or spawn other children. Keep this root work turn within three model requests and stop.';
+const rootPostConnectInput='Return a short acknowledgement in a fresh root context, then stop this turn. Do not spawn children, make tool calls, reconnect or do other work. Keep this root work turn within three model requests.';
+function scenarioChildren(version:string,route:string,scenario:unknown):0|2{
+ if(version==='0.166.0'){
+  if(route!=='ordinary_admission'||!scenarioSchema.safeParse(scenario).success)throw new Error('binding_qualification_invalid_intent');
+  return scenario==='root_normal_observer_restart'?0:2;
+ }
+ if(scenario!==undefined)throw new Error('binding_qualification_invalid_intent');
+ return 2;
+}
 const intentSchema=z.strictObject({schema_version:z.literal(1),purpose:z.literal('codex_ordinary_binding_qualification'),
  route:routeSchema.default('qualification'),ordinary_snapshot_sha256:sha.nullable().default(null),
  product_version:productVersionSchema.default('0.160.0'),
+ scenario:scenarioSchema.optional(),
  start_mode:startModeSchema.default('automatic'),
  validation_kind:z.enum(['real_operations','synthetic']),directory:path,project:path,database:path,metadata:path,receipts:path,codex_home:path,
  binary:path,binary_sha256:sha,node:path,node_sha256:sha,python:path,python_sha256:sha,worker:path,worker_sha256:sha,recorder:path,recorder_sha256:sha,package_digest:sha,wrapper:path,wrapper_sha256:sha,implementation_digest:sha,
@@ -40,7 +51,7 @@ const intentSchema=z.strictObject({schema_version:z.literal(1),purpose:z.literal
  task_id:z.string(),project_id:z.literal('qualification-project'),port:z.literal(4319),profile:LocalWebProfileSchema,
  duration_ms:z.number().int().min(100).max(900000),fixture_script:path.nullable(),fixture_sha256:sha.nullable(),
  root_model:z.literal('gpt-6.1-sol'),child_model:z.literal('gpt-6.1-sol'),effort:z.literal('high'),
- planned_roots:z.literal(1),planned_children:z.literal(2),root_request_stop:z.union([z.literal(4),z.literal(5),z.literal(8)]),child_request_stop:z.literal(1),ui_preparation_required:z.boolean(),observed_request_stop:z.union([z.literal(6),z.literal(7),z.literal(10)]),observed_token_stop:z.union([z.literal(100000),z.literal(200000)]),
+  planned_roots:z.literal(1),planned_children:z.union([z.literal(0),z.literal(2)]),root_request_stop:z.union([z.literal(4),z.literal(5),z.literal(8),z.literal(10)]),child_request_stop:z.literal(1),ui_preparation_required:z.boolean(),observed_request_stop:z.union([z.literal(6),z.literal(7),z.literal(10),z.literal(12)]),observed_token_stop:z.union([z.literal(100000),z.literal(200000),z.literal(300000)]),
  helper_network_permission:z.enum(['none','single_command_network_only']).default('none'),
  hard_billing_bound:z.null(),product_gate_delta:z.literal(false)});
 type Intent=z.infer<typeof intentSchema>;
@@ -61,6 +72,11 @@ function implementationDigest(){
 function privateBytes(file:string,max:number):Buffer {
  if(realpathSync(file)!==file||!lstatSync(file).isFile()||lstatSync(file).size>max)throw new Error('binding_qualification_file_invalid');
  return readFileSync(file);
+}
+function binaryBytes(file:string,version:Intent['product_version'],synthetic:boolean):Buffer{
+ const bytes=privateBytes(file,version==='0.166.0'?268972064:256*1024*1024);
+ if(version==='0.166.0'&&!synthetic&&bytes.length!==268972064)throw new Error('binding_qualification_binary_mismatch');
+ return bytes;
 }
 function packageDigest(root:string):string{
  if(realpathSync(root)!==root||!lstatSync(root).isDirectory())throw new Error('binding_qualification_drift');
@@ -89,7 +105,8 @@ function assertOrdinarySnapshot(i:Intent,store:Store){
   store.get<{intent_hash:string}>('SELECT intent_hash FROM binding_qualification WHERE singleton=1')?.intent_hash!==hash(privateBytes(join(i.directory,'execution-intent.json'),65536))))throw new Error('binding_qualification_drift');
 }
 function verify(i:Intent,fixture?:BindingQualificationFixture){
- if(!isDeepStrictEqual(i.code_mode_host,!fixture&&i.product_version==='0.163.0'?codexBindingQualificationCodeModeHost(i.binary):null))
+ if(i.planned_children!==scenarioChildren(i.product_version,i.route,i.scenario))throw new Error('binding_qualification_invalid_intent');
+ if(!isDeepStrictEqual(i.code_mode_host,!fixture?codexBindingQualificationCodeModeHost(i.binary,i.product_version):null))
   throw new Error('binding_qualification_code_mode_host_invalid');
  if(i.route==='ordinary_admission'){
   const admission=getCodexBindingAdmission(i.product_version);
@@ -103,13 +120,13 @@ function verify(i:Intent,fixture?:BindingQualificationFixture){
  const policy=codexBindingQualificationPolicies[i.product_version];
  if(i.root_request_stop!==policy.rootRequestStop||i.observed_request_stop!==policy.totalRequestStop||i.observed_token_stop!==policy.tokenStop||i.duration_ms>policy.durationMs||i.profile.execution.timeout_ms!==policy.durationMs||i.helper_network_permission!==policy.helperNetworkPermission)throw new Error('binding_qualification_invalid_intent');
  if(networkQualification(i.product_version)){
-  if(i.post_connect_input!==postConnectInput)throw new Error('binding_qualification_invalid_intent');
+  if(i.post_connect_input!==(i.planned_children===0?rootPostConnectInput:postConnectInput))throw new Error('binding_qualification_invalid_intent');
   if(i.start_mode!=='automatic')throw new Error('binding_qualification_invalid_intent');
   if(i.connector!==join(i.directory,'connect-once.mjs')||i.connector_sha256!==hash(privateBytes(i.connector,65536)))throw new Error('binding_qualification_drift');
  }else if(i.connector!==null||i.connector_sha256!==null||i.post_connect_input!==null)throw new Error('binding_qualification_invalid_intent');
  const nodeMajor=Number(process.versions.node.split('.')[0]);
  if((nodeMajor!==24&&(nodeMajor!==26||i.validation_kind!=='synthetic'))||realpathSync(i.node)!==realpathSync(process.execPath)||
-  i.node_sha256!==hash(privateBytes(i.node,256*1024*1024))||i.binary_sha256!==hash(privateBytes(i.binary,256*1024*1024))||
+  i.node_sha256!==hash(privateBytes(i.node,256*1024*1024))||i.binary_sha256!==hash(binaryBytes(i.binary,i.product_version,!!fixture))||
   i.python_sha256!==hash(privateBytes(i.python,256*1024*1024))||i.python!==OwnedCliInvocation.pythonExecutable()||
   i.worker!==realpathSync(fileURLToPath(new URL('../scripts/owned-cli-pty.py',import.meta.url)))||i.worker_sha256!==hash(privateBytes(i.worker,65536))||
   i.recorder!==join(i.directory,'recorder.mjs')||i.recorder_sha256!==hash(privateBytes(i.recorder,65536))||
@@ -129,19 +146,20 @@ function verify(i:Intent,fixture?:BindingQualificationFixture){
 /** Preparation creates ONLY a fresh disposable project/store and reviewed package;
  * no product/auth execution, original project hook/trust or global config writes.
  */
-export async function prepareCodexSessionBindingQualification(directory:string,input:{binary:string;codexHome:string;startMode?:'automatic'|'manual';productVersion?:string;route?:'qualification'|'ordinary_admission'},fixture?:BindingQualificationFixture){
+export async function prepareCodexSessionBindingQualification(directory:string,input:{binary:string;codexHome:string;startMode?:'automatic'|'manual';productVersion?:string;route?:'qualification'|'ordinary_admission';scenario?:string},fixture?:BindingQualificationFixture){
  const nodeMajor=Number(process.versions.node.split('.')[0]);
  if(nodeMajor!==24&&(nodeMajor!==26||!fixture))throw new Error('node24_required');
  const route=routeSchema.parse(input.route??'qualification');
  const startMode=startModeSchema.parse(input.startMode??'automatic');
  const productVersion=productVersionSchema.parse(input.productVersion??'0.160.0');
+ const plannedChildren=scenarioChildren(productVersion,route,input.scenario);
  const admission=getCodexBindingAdmission(productVersion);
  if(route==='ordinary_admission'&&!admission)throw new Error('binding_qualification_invalid_intent');
  const policy=codexBindingQualificationPolicies[productVersion];
  if(networkQualification(productVersion)&&startMode!=='automatic')throw new Error('binding_qualification_invalid_intent');
- const binary=realpathSync(input.binary);const binarySha=hash(privateBytes(binary,256*1024*1024));
+ const binary=realpathSync(input.binary);const binarySha=hash(binaryBytes(binary,productVersion,!!fixture));
  if(fixture?binary!==realpathSync(process.execPath):binarySha!==codexBindingQualificationBinarySha[productVersion])throw new Error('binding_qualification_binary_mismatch');
- const codeModeHost=!fixture&&productVersion==='0.163.0'?codexBindingQualificationCodeModeHost(binary):null;
+ const codeModeHost=!fixture?codexBindingQualificationCodeModeHost(binary,productVersion):null;
  if(resolve(directory)!==directory||realpathSync(dirname(directory))!==dirname(directory))throw new Error('binding_qualification_layout_invalid');
  const home=realpathSync(input.codexHome);realpathSync(join(home,'sessions'));
  mkdirSync(directory,{mode:0o700});const project=join(directory,'project');mkdirSync(project,{mode:0o700});
@@ -160,7 +178,7 @@ export async function prepareCodexSessionBindingQualification(directory:string,i
  const metadata=join(directory,'ui.sqlite');let domain:ReturnType<typeof createLocalWebDomain>|undefined;
  try{
   new Lifecycle(store).registerProject('qualification-project',project);
-  const artifacts=['a','b'].map(arm=>{const file=join(directory,`harness-${arm}.md`);writeFileSync(file,'Qualification only: connect once, use two fresh direct children gpt-6.1-sol/high, then stop. No other work or children.');
+  const artifacts=['a','b'].map(arm=>{const file=join(directory,`harness-${arm}.md`);writeFileSync(file,plannedChildren===0?'Qualification only: connect once, use one fresh root gpt-6.1-sol/high, then stop. No other work or children.':'Qualification only: connect once, use two fresh direct children gpt-6.1-sol/high, then stop. No other work or children.');
    const snapshot=selectedArtifactSnapshot([{artifactId:'instruction',path:file}]);registerVariant(store,{schema_version:2,id:`variant-${arm}`,harness_version:`qualification-${arm}`,instruction_manifest_hash:snapshot.hash,policy_version:'qualification-v1',policy_status:'eligible',runtime_policy:'flexible'});
    return{variant_id:`variant-${arm}`,selected_artifacts:[{artifact_id:'instruction',path:file}]};});
   const now=Date.now();registerProtocolWithCatalogDefaults(store,{schema_version:2,id:'qualification-protocol',project_id:'qualification-project',team_id:'qualification',mode:'randomized_task',purpose:'functional_pilot',protocol_version:'qualification-v1',eligibility_version:'qualification-v1',classification_version:'qualification-v1',participants:['qualification-user'],environment_ids:['qualification-environment'],variant_ids:['variant-a','variant-b'],
@@ -174,6 +192,9 @@ export async function prepareCodexSessionBindingQualification(directory:string,i
   const i=intentSchema.parse({schema_version:1,purpose:'codex_ordinary_binding_qualification',product_version:productVersion,start_mode:startMode,validation_kind:fixture?'synthetic':'real_operations',directory,project,database,metadata,receipts,codex_home:home,binary,binary_sha256:binarySha,node,node_sha256:hash(privateBytes(node,256*1024*1024)),python,python_sha256:hash(privateBytes(python,256*1024*1024)),worker,worker_sha256:hash(privateBytes(worker,65536)),recorder,recorder_sha256:hash(privateBytes(recorder,65536)),package_digest:packageDigest(join(project,'.agents/skills/harness-connect')),wrapper,wrapper_sha256:hash(privateBytes(wrapper,4096)),implementation_digest:implementationDigest(),connector,connector_sha256:connector?hash(privateBytes(connector,65536)):null,post_connect_input:networkQualification(productVersion)?postConnectInput:null,task_id:task.id,project_id:'qualification-project',port:4319,profile,duration_ms:fixture?.durationMs??policy.durationMs,fixture_script:fixture?realpathSync(fixture.script):null,fixture_sha256:fixture?hash(privateBytes(fixture.script,65536)):null,root_model:'gpt-6.1-sol',child_model:'gpt-6.1-sol',effort:'high',planned_roots:1,planned_children:2,root_request_stop:policy.rootRequestStop,child_request_stop:1,ui_preparation_required:uiPreparation,observed_request_stop:policy.totalRequestStop,observed_token_stop:policy.tokenStop,helper_network_permission:policy.helperNetworkPermission,hard_billing_bound:null,product_gate_delta:false});
   store.execute('CREATE TABLE binding_qualification(singleton INTEGER PRIMARY KEY CHECK(singleton=1),task_id TEXT NOT NULL,intent_hash TEXT NOT NULL,reserved INTEGER NOT NULL DEFAULT 0,deadline INTEGER)',[]);
   i.code_mode_host=codeModeHost;
+  i.planned_children=plannedChildren;
+  if(input.scenario!==undefined)i.scenario=scenarioSchema.parse(input.scenario);
+  if(plannedChildren===0)i.post_connect_input=rootPostConnectInput;
   i.route=route;if(route==='ordinary_admission')i.ordinary_snapshot_sha256=ordinarySnapshot(i,store);
   const data=JSON.stringify(i);store.execute('INSERT INTO binding_qualification(singleton,task_id,intent_hash) VALUES(1,?,?)',[task.id,hash(data)]);
   writeFileSync(join(directory,'execution-intent.json'),data,{flag:'wx',mode:0o600});chmodSync(metadata,0o600);
@@ -251,14 +272,14 @@ export function codexBindingQualificationArgv(i:Intent):string[]{
 const taskSchema=z.object({binding:z.object({roots:z.number(),children:z.number(),requests:z.number(),gaps:z.array(z.string()),sessions:z.array(z.object({session_id:z.string()}))}),measurement:z.object({state:z.string()})});
 function qualificationTask(domain:ReturnType<typeof createLocalWebDomain>,id:string){return taskSchema.parse(domain.task(id));}
 async function independentSourceCheck(i:Intent,store:Store,lease:ReturnType<typeof issueCodexBindingLease>){
- // Active scope, exact three newly linked sources only; never scan native history.
+ // Active scope, exact frozen newly linked sources only; never scan native history.
  const initial = new Lifecycle(store).task(i.task_id);
  const active = () => { assertOrdinarySnapshot(i,store);if(i.route==='ordinary_admission')assertBindingQualification(lease,store,i.task_id);const current=new Lifecycle(store).task(i.task_id); if(current.state!=='active'||current.generation!==initial.generation)throw new Error('binding_qualification_scope_revoked'); }; active();
- const provider=new CodexSessionBindingProvider({receiptDirectory:i.receipts,sourceRoots:[join(i.codex_home,'sessions')],projectRoot:i.project,productVersion:i.product_version,maxDepth:1,maxFamilyMembers:3,
+ const provider=new CodexSessionBindingProvider({receiptDirectory:i.receipts,sourceRoots:[join(i.codex_home,'sessions')],projectRoot:i.project,productVersion:i.product_version,maxDepth:1,maxFamilyMembers:i.product_version==='0.166.0'&&i.planned_children===0?1:3,
   ...(i.route==='ordinary_admission'?{ordinaryFamilyAdmission:true}:networkQualification(i.product_version)?{ordinaryFamilyQualification:true}:{})});
  const identities=store.all<{identity:string}>('SELECT identity FROM session_bindings WHERE task_id=?',[i.task_id]).map(r=>JSON.parse(r.identity) as import('./session-binding-contract.js').VerifiedSessionIdentity);
  const root=identities.find(r=>r.parentSessionId===null);
- if(!root||identities.length!==3||identities.filter(r=>r.parentSessionId===root.sessionId).length!==2)throw new Error('binding_qualification_family_limit');
+ if(!root||identities.length!==1+i.planned_children||identities.filter(r=>r.parentSessionId===root.sessionId).length!==i.planned_children)throw new Error('binding_qualification_family_limit');
  const compatibility=i.route==='ordinary_admission'?resolveSourceCompatibility('codex',i.product_version,'codex_binding',getCodexBindingAdmission(i.product_version)?.profileId):bindingQualificationCompatibility(lease);
  if(compatibility)assertCompatibilityAllowed(store,compatibility);
  for(const identity of identities)if(!isDeepStrictEqual(sessionCompatibility(store,identity.sessionId),compatibility))throw new Error('binding_qualification_counter_mismatch');
@@ -312,6 +333,11 @@ export async function executeCodexSessionBindingQualification(file:string,consen
  let domain:ReturnType<typeof createLocalWebDomain>|undefined;let app:ReturnType<typeof createLocalWebServer>|undefined;let native:OwnedCliResult|undefined;let lease:ReturnType<typeof issueCodexBindingLease>|undefined;let reason:string|null=null;let state:unknown=null;let owned:Promise<OwnedCliResult>|undefined;let independent:unknown=null;let phase='reservation';
  let observerStopReason:'binding_qualification_deadline_reached'|'binding_qualification_observer_stopped'|'binding_qualification_observer_failed'|null=null;
  let stopWitness:QualificationStopWitness|null=null;
+ const observerRestart=i.scenario?{same_source:false,fresh_baseline:false,new_root_context_measured:false}:null;
+ let rootIdentity:import('./session-binding-contract.js').VerifiedSessionIdentity|null=null;
+ let pausedIdentity:string|null=null;let restartGeneration:number|null=null;let restartWindow:string|null=null;
+ let restartRequest:string|null=null;const previousRootTurns=new Set<string|null>();
+ const observationWindow=()=>JSON.stringify(store.get('SELECT started_at,ends_at FROM external_task_contracts WHERE task_id=?',[i.task_id]));
  const diagnosticCodes=['clock_regression','invalid_gap','binding_qualification_revoked','binding_qualification_scope_revoked','binding_qualification_scope_invalid','binding_qualification_already_reserved','ui_setup_conflict','binding_qualification_counter_mismatch','binding_qualification_source_changed','binding_qualification_family_limit','binding_qualification_final_gap','binding_qualification_runtime_invalid','binding_qualification_request_limit','binding_qualification_token_limit','binding_qualification_request_conflict','binding_qualification_final_unobserved_request','owned_cli_termination_unverified'] as const;
  type DiagnosticStage='reservation'|'lease'|'domain'|'receiver'|'owner_run'|'lease_assertion'|'task_snapshot'|'binding_check'|'safety_check'|'deadline'|'final_snapshot'|'source_check'|'termination'|'domain_close'|'receiver_close';
  let diagnosticStage:DiagnosticStage='reservation';
@@ -319,16 +345,45 @@ export async function executeCodexSessionBindingQualification(file:string,consen
  const noteDiagnostic=(stage:DiagnosticStage,error:unknown)=>{firstDiagnostic??={stage,code:diagnosticCodes.find(code=>error instanceof Error&&error.message===code)??'unknown_error'};};
  const noteCollectorDiagnostic=()=>{const code=qualificationCollectorError(lease);if(code)firstDiagnostic??={stage:'collector',code};};
  const stopObserver=(code:NonNullable<typeof observerStopReason>,predicate:QualificationStopWitness['predicate'])=>{stopWitness??=qualificationStopWitness(lease,predicate);observerStopReason??=code;reason??=code;firstDiagnostic??={stage:predicate==='deadline'?'deadline':predicate==='safety_limit'?'safety_check':'binding_check',code};owner.stop();};
- const interrupt=()=>{stopWitness??=qualificationStopWitness(lease,'interrupted');owner.stop();};process.once('SIGINT',interrupt);process.once('SIGTERM',interrupt);
+ const interrupt=()=>{stopWitness??=qualificationStopWitness(lease,'interrupted');if(i.scenario)reason??='binding_qualification_native_stopped';owner.stop();};process.once('SIGINT',interrupt);process.once('SIGTERM',interrupt);
  try{
   const row=store.get<{intent_hash:string;reserved:number}>('SELECT intent_hash,reserved FROM binding_qualification WHERE singleton=1');if(row?.intent_hash!==hash(data)||row.reserved!==0)throw new Error('binding_qualification_already_reserved');
-  store.execute('UPDATE binding_qualification SET reserved=1,deadline=? WHERE singleton=1',[deadline]);phase='lease';diagnosticStage='lease';lease=issueCodexBindingLease(store,i.task_id,owner,deadline);
+  store.execute('UPDATE binding_qualification SET reserved=1,deadline=? WHERE singleton=1',[deadline]);phase='lease';diagnosticStage='lease';lease=issueCodexBindingLease(store,i.task_id,owner,deadline,i.planned_children);
   const safetyLease=lease;
   phase='domain';diagnosticStage='domain';domain=createLocalWebDomain({store,metadataFile:i.metadata,profiles:[i.profile],
    ...(i.route==='ordinary_admission'?{bindingObservation:{
-    identity(taskId,identity){assertOrdinarySnapshot(i,store);checkBindingQualificationIdentity(safetyLease,store,taskId,identity,true);},
-    record(taskId,record,excluded){assertOrdinarySnapshot(i,store);checkBindingQualificationRecord(safetyLease,store,taskId,record,excluded);},
-    transition(taskId){assertOrdinarySnapshot(i,store);noteBindingQualificationTransition(safetyLease,store,taskId);},
+    ...(i.product_version==='0.166.0'&&i.planned_children===0?{maxFamilyMembers:1 as const}:{}),
+    identity(taskId,identity){
+     assertOrdinarySnapshot(i,store);checkBindingQualificationIdentity(safetyLease,store,taskId,identity,true);
+     if(observerRestart&&identity.parentSessionId===null){
+      if(restartGeneration!==null&&JSON.stringify(identity)===pausedIdentity&&observationWindow()===restartWindow)observerRestart.same_source=true;
+      rootIdentity=identity;
+     }
+    },
+    record(taskId,record,excluded){
+     assertOrdinarySnapshot(i,store);checkBindingQualificationRecord(safetyLease,store,taskId,record,excluded);
+     if(observerRestart?.same_source&&record.sessionId===rootIdentity?.sessionId&&new Lifecycle(store).task(taskId).generation===restartGeneration){
+      if(excluded)observerRestart.fresh_baseline=true;
+      else if(observerRestart.fresh_baseline&&record.turnId!==null&&!previousRootTurns.has(record.turnId)){
+       const boundary=store.get<{observed_since:string}>('SELECT observed_since FROM session_bindings WHERE session_id=?',[record.sessionId]);
+       if(boundary&&record.occurredAt>=boundary.observed_since)restartRequest=qualificationRequestKey(record);
+      }
+     }
+    },
+    transition(taskId){
+     assertOrdinarySnapshot(i,store);noteBindingQualificationTransition(safetyLease,store,taskId);
+     if(observerRestart&&owner.isAlive()){
+      const task=new Lifecycle(store).task(taskId);
+      if(task.state==='paused'){
+       observerRestart.same_source=false;observerRestart.fresh_baseline=false;observerRestart.new_root_context_measured=false;
+       restartGeneration=null;restartRequest=null;previousRootTurns.clear();
+       const measured=store.all<{session_id:string}>('SELECT DISTINCT e.session_id FROM binding_requests r JOIN events e ON e.id=r.event_id WHERE e.task_id=?',[taskId]);
+       pausedIdentity=rootIdentity&&measured.length===1+i.planned_children&&measured.some(r=>r.session_id===rootIdentity?.sessionId)?JSON.stringify(rootIdentity):null;
+       restartWindow=observationWindow();
+       for(const record of qualificationRecordedRequests(safetyLease).values())if(record.sessionId===rootIdentity?.sessionId)previousRootTurns.add(record.turnId);
+      }else if(task.state==='active'&&pausedIdentity!==null)restartGeneration=task.generation;
+     }
+    },
     error(error){noteQualificationCollectorError(safetyLease,error);owner.stop();},
    }}:{qualificationLease:safetyLease})});
   const ownedDomain=domain;
@@ -364,7 +419,7 @@ export async function executeCodexSessionBindingQualification(file:string,consen
     if(Date.now()>=deadline)stopObserver('binding_qualification_deadline_reached','deadline');
     else try{assertOrdinarySnapshot(i,store);assertBindingQualification(lease,store,i.task_id);monitorStage='task_snapshot';const task=qualificationTask(ownedDomain,i.task_id);monitorStage='binding_check';
      if(task.binding.gaps.some(g=>g!=='unobserved_interval'&&g!=='binding_unobserved_context'))stopObserver('binding_qualification_observer_stopped','binding_gap');
-     else if(task.binding.roots>1||task.binding.children>2)stopObserver('binding_qualification_observer_stopped','family_limit');
+     else if(task.binding.roots>1||task.binding.children>i.planned_children)stopObserver('binding_qualification_observer_stopped','family_limit');
      else{monitorStage='safety_check';if(qualificationStopReached(lease))stopObserver('binding_qualification_observer_stopped','safety_limit');}
     }catch(error){noteDiagnostic(monitorStage,error);stopObserver(Date.now()>=deadline?'binding_qualification_deadline_reached':'binding_qualification_observer_failed',Date.now()>=deadline?'deadline':'lease_invalid');}
    }
@@ -375,15 +430,19 @@ export async function executeCodexSessionBindingQualification(file:string,consen
   else if(native.status!=='completed'){reason??=native.terminationCause==='deadline'?'binding_qualification_deadline_reached':'binding_qualification_native_stopped';if(new Lifecycle(store).task(i.task_id).state==='paused')independent={safety_usage_verification:'unverified',reason:'task_paused_no_source_read',complete_cost:false};}
   else if(new Lifecycle(store).task(i.task_id).state==='paused'){reason='binding_qualification_safety_usage_unverified';independent={safety_usage_verification:'unverified',reason:'task_paused_no_source_read',complete_cost:false};}
   else{const binding=qualificationTask(domain,i.task_id).binding;const requests=store.all<{session_id:string}>('SELECT e.session_id FROM binding_requests r JOIN events e ON e.id=r.event_id WHERE e.task_id=?',[i.task_id]);
-   if(binding.roots!==1||binding.children!==2||binding.gaps.some(g=>g!=='unobserved_interval'&&g!=='binding_unobserved_context')||binding.sessions.some(s=>!requests.some(r=>r.session_id===s.session_id)))reason='binding_qualification_evidence_incomplete';
-   else{phase='source_check';diagnosticStage='source_check';fixture?.beforeFinalSourceCheck?.(native);independent=await independentSourceCheck(i,store,lease);}}
+   if(binding.roots!==1||binding.children!==i.planned_children||binding.gaps.some(g=>g!=='unobserved_interval'&&g!=='binding_unobserved_context')||binding.sessions.some(s=>!requests.some(r=>r.session_id===s.session_id)))reason='binding_qualification_evidence_incomplete';
+   else{
+    if(observerRestart)observerRestart.new_root_context_measured=restartRequest!==null&&!!store.get('SELECT 1 FROM binding_requests r JOIN events e ON e.id=r.event_id WHERE r.request_key=? AND e.task_id=?',[restartRequest,i.task_id]);
+    if(observerRestart&&(!observerRestart.same_source||!observerRestart.fresh_baseline||!observerRestart.new_root_context_measured||observationWindow()!==restartWindow))reason='binding_qualification_observer_restart_incomplete';
+    else{phase='source_check';diagnosticStage='source_check';fixture?.beforeFinalSourceCheck?.(native);independent=await independentSourceCheck(i,store,lease);}
+   }}
  }catch(error){noteCollectorDiagnostic();noteDiagnostic(diagnosticStage,error);const known=['binding_qualification_scope_revoked','binding_qualification_scope_invalid','binding_qualification_already_reserved','ui_setup_conflict','binding_qualification_counter_mismatch','binding_qualification_source_changed','binding_qualification_family_limit','binding_qualification_final_gap','binding_qualification_runtime_invalid','binding_qualification_request_limit','binding_qualification_token_limit','binding_qualification_request_conflict','binding_qualification_final_unobserved_request'];reason??=error instanceof Error&&known.includes(error.message)?error.message:'binding_qualification_execution_failed';owner.stop();}
  finally{owner.stop();noteCollectorDiagnostic();if(owned)try{native=await owned;}catch(error){noteCollectorDiagnostic();noteDiagnostic('termination',error);reason='owned_cli_termination_unverified';}noteCollectorDiagnostic();if(native&&!native.terminationVerified){firstDiagnostic??={stage:'termination',code:'owned_cli_termination_unverified'};reason='owned_cli_termination_unverified';}if(lease)revokeBindingQualification(lease);
   try{await domain?.close?.();}catch(error){noteDiagnostic('domain_close',error);reason??='binding_qualification_execution_failed';}
   try{await app?.close();}catch(error){noteDiagnostic('receiver_close',error);reason??='binding_qualification_execution_failed';}
   store.close();process.removeListener('SIGINT',interrupt);process.removeListener('SIGTERM',interrupt);}
  const result={route:i.route,ordinary_admission_verified:i.route==='ordinary_admission'&&reason===null&&independent!==null&&typeof independent==='object'&&'sources' in independent,safety_usage_verification:independent&&typeof independent==='object'&&'sources' in independent?'verified':'unverified',status:reason?'failed':'completed',reason,first_diagnostic:firstDiagnostic,observer_stop_reason:observerStopReason,stop_witness:stopWitness,collector_error:qualificationCollectorError(lease),phase,validation_kind:i.validation_kind,start_mode:i.start_mode,intent_sha256:hash(data),native:native??null,binding:state,independent_source_check:independent,product_gate_delta:false,complete_cost:null,hard_billing_bound:null};
- const outcome={...result,ordinary_path_verified:result.ordinary_admission_verified,
+ const outcome={...result,...(observerRestart?{scenario:i.scenario,observer_restart:observerRestart}:{}),ordinary_path_verified:result.ordinary_admission_verified,
   ordinary_admission_verified:result.ordinary_admission_verified&&i.validation_kind==='real_operations'};
  writeFileSync(join(i.directory,'evidence.json'),JSON.stringify(outcome),{flag:'wx',mode:0o600});return outcome;
 }

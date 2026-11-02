@@ -236,6 +236,17 @@ adapts project rules and scripts. Register both versions normally, then generate
    Claude Code 2.1.306 for new project setup (Codex defaults to 0.163.0), or a saved
    Claude Code 2.1.296 or 2.1.301 setting.
    File application does not select or upgrade those versions.
+   Codex 0.166.0 is separately selectable as an **UNQUALIFIED CANDIDATE**
+   (`qualified:false`), `codex-binding-01660-direct-family-v1`; qualified support is pending.
+   The record itself has no `evidenceId` or `evidenceIntentSha256` and adds nothing to
+   `productionSourceEvidence`. Separate native intents and results are recorded in the
+   [2026-11-03 candidate trials](../validation/codex-ordinary-binding-qualification.md#2026-11-03-candidate-trials);
+   they do not qualify the candidate. The Codex default remains 0.163.0.
+   Its [candidate procedure](../validation/codex-ordinary-binding-qualification.md#01660-unqualified-ordinary-candidate)
+   requires `ordinary_admission` and explicit `--scenario root_normal_observer_restart`
+   (zero children) or `--scenario family_normal_observer_restart` (two direct children).
+   Native execution requires separate exact-intent consent. H4 host-spawn/Detached
+   and H5 env-null-transcript paths, file/workflow fallback and native resume are excluded.
    See [Harness Connect](harness-connect.md#current-implementation).
 
 Application helper operations are `context`, `checkpoint`, `identity`, `report`

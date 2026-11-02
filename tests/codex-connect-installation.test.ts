@@ -108,7 +108,7 @@ test('install requires reviewed matching hashes before any mutation', () => {
   expect(() => install(f.project, f.options)).toThrow('codex_connect_installation_preview_required');
   expect(snapshot(f.project)).toBe(before);
 });
-test.each(['0.162.1', '0.163.0'])('install %s merges native entries and creates a real private empty receipt directory', productVersion => {
+test.each(['0.162.1', '0.163.0', '0.166.0'])('install %s merges native entries and creates a real private empty receipt directory', productVersion => {
   const f = fixture();
   const options = { ...f.options, productVersion };
   const result = install(f.project, reviewed(f.project, options));
@@ -331,7 +331,7 @@ test.each(['symlink parent', 'symlink hooks', 'hardlink hooks', 'hardlink owned'
     expect(snapshot(f.project)).toBe(before);
   },
 );
-test.each(['0.162.0', '0.162.2', '0.163.1', '0.163.0-beta.1', ''])('version %s cannot expand exact admission', productVersion => {
+test.each(['0.162.0', '0.162.2', '0.163.1', '0.163.0-beta.1', '0.165.0', '0.166.1', '0.166.0-beta.1', '0.167.0', ''])('version %s cannot expand exact admission', productVersion => {
   const f = fixture(), before = snapshot(f.project);
   expect(install(f.project, { ...f.options, productVersion }).blockers).toContain('codex_connect_product_version_unsupported');
   expect(snapshot(f.project)).toBe(before);

@@ -113,6 +113,8 @@ export function createCodexProjectSetupManager(store: Store, metadata: Database.
       project_id: projectId, configured: saved !== undefined, product: 'codex' as const,
       product_version: effective.product_version, source_roots: effective.source_roots, installation,
       available_versions: codexBindingAdmissions.map(version => version.productVersion),
+      unqualified_versions: codexBindingAdmissions.filter(version => !isQualifiedCodexBindingAdmission(version.productVersion))
+        .map(version => version.productVersion),
       readiness: {
         receipt_directory: receiptDirectory, provider: reason === null ? 'ready' as const : 'blocked' as const,
         reason, hook_trust: 'manual_confirmation_required' as const, requires_new_session: true as const,

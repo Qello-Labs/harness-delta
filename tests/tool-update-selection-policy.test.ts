@@ -81,15 +81,16 @@ test('reviewed schema 4 preserves every schema 3 lane field when selection polic
   // Then
   expect(result.schema_version).toBe(4);
   if (result.schema_version !== 4) throw new Error('schema_4_required');
-  expect(result.lanes).toHaveLength(28);
-  const previousLanes = result.lanes.map(row => {
+  expect(result.lanes).toHaveLength(36);
+  const previousLanes = result.lanes.filter(row => row.profile_id !== 'codex-binding-01660-direct-family-v1').map(row => {
     const { selection_policy, ...previous } = row;
     expect(selection_policy).toBeDefined();
     return previous;
   });
+  expect(previousLanes).toHaveLength(28);
   // Frozen from schema 3 before the descriptive field was implemented.
   expect(digest(previousLanes)).toBe('adcb1651d9942ea5a5e27298cd6fe5be0a43b4a3613d118c875f8af9d8634d90');
-  expect(digest(plain.lanes)).toBe('356ee379727d6dcdfd211428b62ea7ef21151134075979bf40a7a71c8271d228');
+  expect(digest(plain.lanes.filter(row => row.profile_id !== 'codex-binding-01660-direct-family-v1'))).toBe('356ee379727d6dcdfd211428b62ea7ef21151134075979bf40a7a71c8271d228');
   expect(plain.schema_version).toBe(2);
   expect(plain.lanes.every(row => !('selection_policy' in row))).toBe(true);
 });
@@ -224,7 +225,7 @@ test('all transition codes including null remain valid strict policy values', as
   expect(parsed.every(value => value.success)).toBe(true);
 });
 
-test('28-lane assessments fit the unchanged byte limit and oversized records are rejected', async () => {
+test('36-lane assessments fit the unchanged byte limit and oversized records are rejected', async () => {
   // Given
   const result = await reviewed();
   const release = fixture().observation.releases[0];
@@ -237,7 +238,7 @@ test('28-lane assessments fit the unchanged byte limit and oversized records are
   const parsed = assessmentSchema.safeParse(oversized);
 
   // Then
-  expect(result.lanes).toHaveLength(28);
+  expect(result.lanes).toHaveLength(36);
   expect(Buffer.byteLength(canonical(result))).toBeLessThanOrEqual(maxRecordBytes);
   expect(Buffer.byteLength(canonical(oversized))).toBeGreaterThan(maxRecordBytes);
   expect(parsed.success).toBe(false);

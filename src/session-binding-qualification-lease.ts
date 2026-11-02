@@ -14,7 +14,7 @@ export interface BindingQualificationLease { readonly qualificationOnly: true }
 const collectorErrors=['clock_regression','invalid_gap','binding_qualification_revoked','binding_qualification_scope_invalid','binding_qualification_identity_invalid','binding_qualification_family_limit','binding_qualification_runtime_invalid','binding_qualification_request_conflict','binding_qualification_request_limit','binding_qualification_token_limit','binding_scope_revoked','external_window_closed','binding_source_changed','binding_source_unavailable','binding_identity_unavailable','binding_ancestry_unverified','binding_usage_incomplete','candidate_invalid_metadata'] as const;
 export type QualificationCollectorError=typeof collectorErrors[number]|'unknown_collector_error';
 interface State { store: Store; taskId: string; root: string; productVersion: (typeof codexBindingQualificationVersions)[number]; owner: OwnedCliInvocation; deadline: number; issuedAt: number; generation: number; taskState: string;
- rootId: string|null; childIds: Set<string>; arm: string; pricePin: string; revoked: boolean; requests: Map<string,BindingUsageRecord>; baseline: Set<string>; collectorError:QualificationCollectorError|null; limitWitness:QualificationStopWitness|null }
+ rootId: string|null; childIds: Set<string>; plannedChildren:0|2; arm: string; pricePin: string; revoked: boolean; requests: Map<string,BindingUsageRecord>; baseline: Set<string>; collectorError:QualificationCollectorError|null; limitWitness:QualificationStopWitness|null }
 type LimitPredicate='root_request_limit'|'child_request_limit'|'total_request_limit'|'token_limit';
 export interface QualificationStopWitness {
  predicate:'safety_limit'|'collector_limit'|'binding_gap'|'family_limit'|'lease_invalid'|'deadline'|'interrupted';
@@ -25,7 +25,7 @@ const leases=new WeakMap<BindingQualificationLease,State>();
 /** Internal executor seam: only an isolated, consumed qualification intent may issue.
  * Native and synthetic control attempts use different fresh stores and reserved intents.
  */
-export function issueCodexBindingLease(store: Store, taskId: string, owner: OwnedCliInvocation, deadline: number): BindingQualificationLease {
+export function issueCodexBindingLease(store: Store, taskId: string, owner: OwnedCliInvocation, deadline: number, plannedChildren?:0|2): BindingQualificationLease {
  const task=new Lifecycle(store).task(taskId);
  const reservation=store.get<{task_id:string;deadline:number;reserved:number}>('SELECT task_id,deadline,reserved FROM binding_qualification WHERE singleton=1');
  const assignment=store.get<{variant_id:string;protocol_id:string}>('SELECT variant_id,protocol_id FROM comparison_assignments WHERE task_id=?',[taskId]);
@@ -36,9 +36,10 @@ export function issueCodexBindingLease(store: Store, taskId: string, owner: Owne
  const protocol=comparisonProtocol(store,protocolRow(store,assignment.protocol_id));
  if(protocol.schema_version!==2||protocol.source_profiles.length!==1||protocol.source_profiles[0]?.product!=='codex')throw new Error('binding_qualification_scope_invalid');
  const productVersion=protocol.source_profiles[0].product_version;
- if(productVersion!=='0.160.0'&&productVersion!=='0.162.1'&&productVersion!=='0.163.0')throw new Error('binding_qualification_scope_invalid');
+ if(productVersion!=='0.160.0'&&productVersion!=='0.162.1'&&productVersion!=='0.163.0'&&productVersion!=='0.166.0')throw new Error('binding_qualification_scope_invalid');
+ if(productVersion==='0.166.0'?(plannedChildren===undefined||protocol.source_profiles[0].profile_id!=='codex-binding-01660-direct-family-v1'):plannedChildren!==undefined&&plannedChildren!==2)throw new Error('binding_qualification_scope_invalid');
  const lease=Object.freeze({qualificationOnly:true as const});
- leases.set(lease,{store,taskId,root:realpathSync(root),productVersion,owner,deadline,issuedAt:Date.now(),generation:task.generation,taskState:task.state,rootId:null,childIds:new Set(),arm:assignment.variant_id,pricePin:protocol.price_table_id,revoked:false,requests:new Map(),baseline:new Set(),collectorError:null,limitWitness:null});
+ leases.set(lease,{store,taskId,root:realpathSync(root),productVersion,owner,deadline,issuedAt:Date.now(),generation:task.generation,taskState:task.state,rootId:null,childIds:new Set(),plannedChildren:plannedChildren??2,arm:assignment.variant_id,pricePin:protocol.price_table_id,revoked:false,requests:new Map(),baseline:new Set(),collectorError:null,limitWitness:null});
  return lease;
 }
 /** Private diagnostic only: first fixed code, never error text/stack/content. */
@@ -85,7 +86,7 @@ export function checkBindingQualificationIdentity(lease:BindingQualificationLeas
   statSync(value.sourceRef).birthtimeMs<s.issuedAt-5000)throw new Error('binding_qualification_identity_invalid');
  // Validate before a DB transaction; adopt family pins only after its commit.
  if(value.parentSessionId===null){if(s.rootId!==null&&s.rootId!==value.sessionId)throw new Error('binding_qualification_family_limit');if(commit)s.rootId=value.sessionId;}
- else{if(value.parentSessionId!==s.rootId||!s.childIds.has(value.sessionId)&&s.childIds.size>=2)throw new Error('binding_qualification_family_limit');if(commit)s.childIds.add(value.sessionId);}
+ else{if(value.parentSessionId!==s.rootId||!s.childIds.has(value.sessionId)&&s.childIds.size>=s.plannedChildren)throw new Error('binding_qualification_family_limit');if(commit)s.childIds.add(value.sessionId);}
 }
 export function qualificationRequestKey(record:BindingUsageRecord):string {return createHash('sha256').update(JSON.stringify(['binding-request-v1','codex',record.requestId])).digest('hex');}
 export function qualificationRecordedRequests(lease:BindingQualificationLease):ReadonlyMap<string,BindingUsageRecord>{return new Map(leases.get(lease)?.requests);}

@@ -112,7 +112,18 @@ Review native hook trust and start or resume Codex before connecting a task.
 a separate assigned route: the [Codex 0.162.1 bounded ordinary profile](harness-connect.md#codex-01621-bounded-ordinary-profile)
 or the [Codex 0.163.0 bounded ordinary profile](harness-connect.md#codex-01630-bounded-ordinary-profile).
 It is not the assignment-free ordinary Claude mode. New project setup defaults to
-Codex 0.163.0; the version selector lists both, and saved settings stay on the saved version.
+Codex 0.163.0; the version selector retains both and also exposes Codex 0.166.0 as an
+**UNQUALIFIED CANDIDATE** (`qualified:false`), not qualified support.
+The exact `codex-binding-01660-direct-family-v1` record itself has no `evidenceId`
+or `evidenceIntentSha256` and adds nothing to `productionSourceEvidence`.
+Separate native intents and results are recorded in the
+[2026-11-03 candidate trials](../validation/codex-ordinary-binding-qualification.md#2026-11-03-candidate-trials);
+they do not qualify the candidate. Saved settings stay on the saved version.
+Its [bounded candidate procedure](../validation/codex-ordinary-binding-qualification.md#01660-unqualified-ordinary-candidate)
+is `ordinary_admission` only, with required `--scenario root_normal_observer_restart`
+(zero children) or `--scenario family_normal_observer_restart` (two direct children).
+Native execution needs separate exact-intent consent; H4 host-spawn/Detached and
+H5 env-null-transcript paths are excluded, with no file/workflow fallback or native resume.
 
 ### Prepare and check a comparison file
 

@@ -2,7 +2,7 @@ import { isValidElement, useEffect, useRef, useState, type DependencyList, type 
 import { afterEach, expect, test, vi } from 'vitest';
 import { AgentConnectionSetup } from './AgentConnectionSetup';
 import { OrdinaryObservationSetup } from './OrdinaryObservationSetup';
-import type { CodexSetup } from './types';
+import type { CodexSetup, Locale } from './types';
 import * as api from './api';
 
 vi.mock('./api', async importOriginal => ({ ...await importOriginal<typeof import('./api')>(), mutate: vi.fn() }));
@@ -22,6 +22,7 @@ function codexSetup(overrides: Partial<CodexSetup> = {}): CodexSetup {
  return {
   project_id: 'project', configured: false, product: 'codex', product_version: '1.0.0',
   available_versions: ['1.0.0', '1.1.0'],
+  unqualified_versions: [],
   source_roots: ['/synthetic/root'],
   installation: { state: 'absent', source: 'available', packageHash: null, installedHash: null, destination: '/dest', receiptDirectory: '/receipt', hookRegistration: 'unverified', blockers: [] },
   readiness: { receipt_directory: 'missing', provider: 'blocked', reason: 'receipt_directory_missing', hook_trust: 'manual_confirmation_required', requires_new_session: true },
@@ -38,7 +39,7 @@ function controls(node: ReactNode): { type: unknown; props: Control }[] {
  return [node, ...controls(node.props.children)];
 }
 
-function harness(projectId = 'project') {
+function harness(projectId = 'project', locale: Locale = 'en') {
  let busy = false;
  let stateIndex = 0; let effectIndex = 0; let refIndex = 0;
  const refs: { current: unknown }[] = [];
@@ -68,7 +69,7 @@ function harness(projectId = 'project') {
    effects[index] = { callback, deps, cleanup: previous?.cleanup, pending: true };
  });
  vi.mocked(useRef).mockImplementation((initial: unknown) => refs[refIndex++] ??= { current: initial });
- function render() { stateIndex = 0; effectIndex = 0; refIndex = 0; return AgentConnectionSetup({ projectId, locale: 'en', busy, perform: api.mutate }); }
+ function render() { stateIndex = 0; effectIndex = 0; refIndex = 0; return AgentConnectionSetup({ projectId, locale, busy, perform: api.mutate }); }
  function nodes() { return controls(render()); }
  function flush() {
   render();
@@ -170,6 +171,66 @@ test.each([false, true])('version selector retains the returned version when con
  expect(h.nodes().filter(n => n.type === 'option').map(n => n.props.value)).toEqual(data.available_versions);
  expect(h.nodes().find(n => n.type === 'label')?.props.children).toContainEqual(expect.objectContaining({ type: 'select' }));
  expect(h.nodes().find(n => n.props['data-codex-action'] === 'configure')?.props.disabled).toBe(configured);
+ expect(h.perform).not.toHaveBeenCalled();
+});
+
+function text(node: ReactNode): string {
+ if (typeof node === 'string' || typeof node === 'number') return String(node);
+ if (Array.isArray(node)) return node.map(text).join('');
+ return isValidElement<Control>(node) ? text(node.props.children) : '';
+}
+
+test.each([
+ { locale: 'en' as const, suffix: 'unqualified candidate', notice: 'Unqualified candidate: qualified support is pending. Usage is labeled compatibility-unverified.' },
+ { locale: 'ko' as const, suffix: '미검증 후보', notice: '미검증 후보: 지원 검증이 아직 끝나지 않았습니다. 사용량은 호환성 미검증으로 표시됩니다.' },
+])('labels draft and saved unqualified versions in $locale while saving the bare version', async ({ locale, suffix, notice }) => {
+ const h = harness('project', locale);
+ const data = codexSetup({
+  configured: true, product_version: '0.163.0',
+  available_versions: ['0.162.1', '0.163.0', '0.166.0'], unqualified_versions: ['0.166.0'],
+ });
+ h.flush();
+ h.respondFetch(0, data);
+ await h.waitFor(() => h.nodes().some(n => n.type === 'select'));
+ expect(text(h.nodes().find(n => n.type === 'option' && n.props.value === '0.166.0')?.props.children)).toBe(`0.166.0 (${suffix})`);
+ for (const version of ['0.162.1', '0.163.0'])
+  expect(text(h.nodes().find(n => n.type === 'option' && n.props.value === version)?.props.children)).toBe(version);
+ expect(text(h.render())).not.toContain(notice);
+
+ h.selectVersion('0.166.0');
+ expect(h.nodes().find(n => n.type === 'select')?.props.value).toBe('0.166.0');
+ expect(h.nodes().filter(n => n.type === 'p' && text(n.props.children) === notice)).toHaveLength(1);
+ h.perform.mockResolvedValueOnce({ ...data, product_version: '0.166.0' });
+ h.click('data-codex-action', 'configure');
+ expect(h.perform).toHaveBeenLastCalledWith('/api/projects/project/codex-setup', {
+  operation: 'configure', product_version: '0.166.0', source_roots: data.source_roots,
+ });
+ await h.waitFor(() => h.nodes().find(n => n.props['data-codex-action'] === 'configure')?.props.disabled === true &&
+  h.nodes().find(n => n.type === 'select')?.props.disabled === false);
+ expect(h.nodes().find(n => n.type === 'select')?.props.value).toBe('0.166.0');
+ expect(h.nodes().filter(n => n.type === 'p' && text(n.props.children) === notice)).toHaveLength(1);
+
+ h.selectVersion('0.163.0');
+ expect(text(h.render())).not.toContain(notice);
+ h.click('data-codex-action', 'refresh');
+ h.respondFetch(1, { ...data, product_version: '0.166.0' });
+ await h.waitFor(() => h.nodes().find(n => n.type === 'select')?.props.disabled === false);
+ expect(h.nodes().find(n => n.type === 'select')?.props.value).toBe('0.163.0');
+ expect(text(h.render())).not.toContain(notice);
+});
+
+test.each(['en', 'ko'] as const)('shows an unqualified saved version on initial load in %s', async locale => {
+ const h = harness('project', locale);
+ h.flush();
+ h.respondFetch(0, codexSetup({
+  configured: true, product_version: '0.166.0',
+  available_versions: ['0.163.0', '0.166.0'], unqualified_versions: ['0.166.0'],
+ }));
+ await h.waitFor(() => h.nodes().some(n => n.type === 'select'));
+ expect(h.nodes().find(n => n.type === 'select')?.props.value).toBe('0.166.0');
+ expect(text(h.nodes().find(n => n.type === 'option' && n.props.value === '0.166.0')?.props.children))
+  .toBe(locale === 'en' ? '0.166.0 (unqualified candidate)' : '0.166.0 (미검증 후보)');
+ expect(h.nodes().filter(n => n.type === 'p' && text(n.props.children).startsWith(locale === 'en' ? 'Unqualified candidate:' : '미검증 후보:'))).toHaveLength(1);
  expect(h.perform).not.toHaveBeenCalled();
 });
 
