@@ -43,6 +43,14 @@ URL 매개변수는 쓰지 않습니다.
 바뀌면 `source_scope_changed`로 멈추며, 유지보수자가 규칙을 다시 검토하기 전까지 과거 범위를
 조용히 재사용하지 않습니다.
 
+소스 다이제스트에는 `src/nested-candidate.ts`와 `src/codex-candidate-rollout.ts`도
+해시 전용 입력으로 포함됩니다. 평가는 이 두 파일을 트랜스파일하거나 로드·실행하지 않고,
+import도 따라가지 않습니다. 이 파일의 변경은 `source_scope_changed`가 아니라
+`baseline_source_changed` 또는 `review_source_changed`로 나타납니다.
+두 파일이 추가되면서 기존의 모든 기준선 행과 검토 레코드의 다이제스트가 오래된 값이 됩니다.
+기존 레코드는 계속 읽을 수 있으며 다시 쓰지 않습니다. 과거 다이제스트로는 현재 계약 검토
+게이트를 닫을 수 없습니다.
+
 ## 후보 탐색
 
 ```sh
@@ -122,7 +130,7 @@ node scripts/tool-update.mjs assess \
 | `observations/` | 한 번의 조회: UTC 확인 시각, 출처 ID, 응답 다이제스트와 검증자, 완전성, 고정 결과 코드 | 시각을 포함하므로 실제 재조회마다 새 ID |
 | `candidates/` | 제품, 정확한 안정 버전, 태그와 커밋, npm 버전과 무결성 | 정규 릴리스 필드만 쓰므로 같은 릴리스는 같은 ID |
 | `reviews/` | 한 레인과 한 릴리스 간선에 대한 수동 계약 검토 하나: 고정 코드와 다이제스트만 포함 | 정규 레코드 필드만 쓰므로 같은 검토는 같은 ID |
-| `assessments/` | 후보 ID, 관측 ID, 기준선 다이제스트 또는 누락 상태, 소스 다이제스트, 규칙 개정판, 레인 결과, (schema 3) 제공된 검토 ID와 미사용 검토 ID | 이 입력 중 하나라도 바뀌면 달라짐 |
+| `assessments/` | 후보 ID, 관측 ID, 기준선 다이제스트 또는 누락 상태, 소스 다이제스트, 규칙 개정판, 레인 결과, (schema 3과 4) 제공된 검토 ID와 미사용 검토 ID | 이 입력 중 하나라도 바뀌면 달라짐 |
 
 각 파일 이름은 정규 JSON에 대한 `<sha256>.json`입니다. 레코드는 한 번만 씁니다. 같은 바이트를
 다시 쓰면 성공하고, 기존 ID에 다른 바이트를 쓰면 `record_conflict`로 실패합니다. 바뀌는 `latest`
@@ -153,6 +161,45 @@ node scripts/tool-update.mjs assess \
 아니라 검토할 항목입니다.
 이 소스 경로는 검토 시작점이며 업스트림에서 이동할 수 있습니다. 검토 증거로 사용하기 전에
 고정된 커밋에서 각 경로의 존재를 확인하세요.
+
+### 선택 정책
+
+검토 레코드가 있으면 schema 4는 모든 레인에 엄격한 `selection_policy` 객체를 추가합니다.
+
+```json
+{
+  "parser_base_transition": "none | minor | major | null",
+  "baseline_transition": "none | minor | major | null",
+  "next_step": "<code>"
+}
+```
+
+`parser_base_transition`은 파서 기준 버전과 대상을 비교하고, `baseline_transition`은 기준선 행의
+`last_reviewed_version`과 대상을 비교합니다. 주 버전 번호가 다르면 `major`, 부 버전 번호가
+다르면 `minor`, 패치 변경을 포함한 나머지는 `none`입니다. 파서 기준 버전이나 기준선 행이 없으면
+문자열 `"null"`이 아닌 JSON `null`을 씁니다. 두 비교를 분리해서 보여 주며 기존의 통합 전이 사유는
+그대로 유지합니다.
+
+`next_step`은 기존 선택 경로를 설명합니다. 처음 일치하는 행을 적용합니다.
+
+| 코드 | 조건 |
+| --- | --- |
+| `operation_unsupported` | 작업이 허용되지 않음 |
+| `retired` | `retired` 사유가 있음 |
+| `selected_exact` | 호환성이 결정되었고 파서 버전이 대상과 같음 |
+| `selected_window` | 창(window)을 통해 호환성이 결정됨 |
+| `exact_admission_required` | 아무것도 선택되지 않았고 `exact_only` 사유가 있음 |
+| `older_version_unsupported` | 아무것도 선택되지 않았고 대상이 기존 창의 기준 버전 이하임 |
+| `window_extension_required` | 창이 있고 대상이 상한 이상임 |
+| `window_rule_required` | 창이 없고 정확 버전 전용 레인이 아님 |
+
+어떤 `next_step` 값도 지원, 검증, 허용을 뜻하지 않습니다. `selected_*`는 파서 선택만 설명합니다.
+소스 검토만으로 `exact_only`나 `no_window`를 해제할 수 없습니다.
+[ADR 013](../decisions/013-forward-version-compatibility.md)에 따라 정확 프로필이 없는 이전 버전은
+계속 미지원이며 `older_version_unsupported`에는 승격 경로가 없습니다. 이 설명은 사유, 호환성,
+창, 검토 범위, 게이트, 실제 실행 검사를 바꾸지 않습니다.
+어느 상태에도 해당하지 않으면 경로를 추측하지 않고 `invalid_record`로 실패합니다.
+평가 레코드의 크기 제한은 256 KiB 그대로입니다.
 
 ## 계약 검토 레코드
 
@@ -211,9 +258,11 @@ node scripts/tool-update.mjs assess \
 
 ### assess가 레코드를 적용하는 방식
 
-`--review`가 하나 이상이면 평가는 `schema_version: 3`으로 쓰이며 정렬된 `review_ids`와
-`unused_review_ids`가 추가됩니다. `--review`가 없으면 출력은 `schema_version: 2` 그대로이며 바뀌지
-않습니다. schema 1과 2 평가도 계속 읽을 수 있습니다.
+`--review`가 하나 이상이면 평가는 `schema_version: 4`로 쓰이며 정렬된 `review_ids`,
+`unused_review_ids`와 각 레인의 `selection_policy`를 포함합니다.
+`--review`가 없으면 출력은 `schema_version: 2` 그대로이며 `selection_policy`가 없습니다.
+소스 다이제스트를 포함해 입력이 바뀌면 바이트와 ID도 함께 바뀝니다.
+schema 1, 2, 3 평가도 계속 읽을 수 있고 기존 레코드를 다시 쓰지 않습니다.
 
 - 레코드는 레인 키, `contract_revision`, `from`·`to`의 버전과 커밋이 모두 관측과 일치하고
   `source_digest`가 현재 스냅샷 다이제스트와 같을 때만 레인 간선에 적용됩니다. 아니면 그 간선은

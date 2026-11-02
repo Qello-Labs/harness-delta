@@ -14,8 +14,9 @@ const modules = [
   'codex-binding-admission', 'claude-binding-admission', 'claude-workflow-versions',
 ];
 const scopePaths = Object.keys(scopeSourceDigests);
+const hashOnlyPaths = ['src/nested-candidate.ts', 'src/codex-candidate-rollout.ts'];
 export const sourcePathAllowlist = Object.freeze([
-  ...new Set([...modules.map(name => `src/${name}.ts`), 'src/codex-admissions.json', ...scopePaths]),
+  ...new Set([...modules.map(name => `src/${name}.ts`), 'src/codex-admissions.json', ...scopePaths, ...hashOnlyPaths]),
   'package.json', 'package-lock.json',
 ].sort());
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -92,7 +93,7 @@ export async function withSourceSnapshot(root, project) {
           const specifier = node.moduleSpecifier.text;
           if (specifier.startsWith('./')) {
             const child = `src/${specifier.slice(2).replace(/\.js$/, '.ts')}`;
-            if (!sourcePathAllowlist.includes(child)) fail('source_snapshot_unavailable');
+            if (!sourcePathAllowlist.includes(child) || hashOnlyPaths.includes(child)) fail('source_snapshot_unavailable');
             pending.push(child);
           } else if (specifier === 'node:fs') {
             const bindings = node.importClause?.namedBindings;
@@ -106,6 +107,7 @@ export async function withSourceSnapshot(root, project) {
       visit(parsed);
       await writeFile(join(temporary, path.replace(/\.ts$/, '.js')), output, { mode: 0o600 });
     }
+    for (const path of hashOnlyPaths) await take(path);
     for (const path of scopePaths) {
       const text = await take(path);
       if (hash(Buffer.from(text)) !== scopeSourceDigests[path]) fail('source_scope_changed');

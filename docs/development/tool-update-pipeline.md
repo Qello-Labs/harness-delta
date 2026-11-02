@@ -47,6 +47,14 @@ Imperative operation/topology rules are checked against reviewed source digests.
 If those source files change, `source_scope_changed` stops assessment until the
 maintainer reviews the rules again; it never silently keeps the old scope.
 
+The source digest also covers `src/nested-candidate.ts` and
+`src/codex-candidate-rollout.ts` as hash-only inputs. Assessment does not transpile,
+load, execute, or follow imports from these two files. Their changes appear as
+`baseline_source_changed` or `review_source_changed`, not `source_scope_changed`.
+Adding them makes the digest in every existing baseline row and review record
+stale. Those records remain readable and are not rewritten; their historical
+digests cannot close current contract review gates.
+
 ## Discover a candidate
 
 ```sh
@@ -133,7 +141,7 @@ Pass the same `--baseline "$baseline_file"` you used for discovery, if any. Add
 | `observations/` | One retrieval: UTC check times, source IDs, response digests and validators, completeness, fixed result codes | Includes timestamps, so every real requery gets a new ID |
 | `candidates/` | Product, exact stable version, tag and commit, npm version and integrity | Only canonical release fields, so the same release keeps its ID |
 | `reviews/` | One manual contract review of one lane and one release edge: fixed codes and digests only | Canonical record fields; the same review keeps its ID |
-| `assessments/` | Candidate ID, observation ID, baseline digest or missing state, source digest, rule revision, lane results, and (schema 3) the supplied and unused review IDs | Changes when any of those inputs change |
+| `assessments/` | Candidate ID, observation ID, baseline digest or missing state, source digest, rule revision, lane results, and (schema 3 and 4) the supplied and unused review IDs | Changes when any of those inputs change |
 
 Each file is named `<sha256>.json` over canonical JSON. Records are write-once.
 Rewriting identical bytes succeeds, while different bytes under an existing ID fail
@@ -166,6 +174,47 @@ each release commit. Their availability is `not_assessed`: these are review
 requirements, not claims that the files were fetched or their contracts verified.
 These source locations are review starting points and can move upstream. Confirm
 each path at the pinned commit before treating it as available review evidence.
+
+### Selection policy
+
+With review records, schema 4 adds a strict `selection_policy` object to every lane:
+
+```json
+{
+  "parser_base_transition": "none | minor | major | null",
+  "baseline_transition": "none | minor | major | null",
+  "next_step": "<code>"
+}
+```
+
+`parser_base_transition` compares the parser base to the target;
+`baseline_transition` compares the baseline row's `last_reviewed_version` to the
+target. A major-number difference is `major`, a minor-number difference is `minor`,
+and otherwise the value is `none`, including patch changes. Missing parser bases
+or baseline rows produce JSON `null`, not the string `"null"`. These fields separate
+the two comparisons; the existing combined transition reasons remain unchanged.
+
+`next_step` describes the existing selection path. The first matching row wins:
+
+| Code | Condition |
+| --- | --- |
+| `operation_unsupported` | The operation is not allowed |
+| `retired` | The `retired` reason is present |
+| `selected_exact` | Compatibility resolved with parser version equal to the target |
+| `selected_window` | Compatibility resolved through a window |
+| `exact_admission_required` | Nothing resolved and the `exact_only` reason is present |
+| `older_version_unsupported` | Nothing resolved and the target is at or below an existing window's base |
+| `window_extension_required` | A window exists and the target is at or beyond its upper bound |
+| `window_rule_required` | No window exists and the lane is not exact-only |
+
+No `next_step` value means support, qualification, or admission. `selected_*`
+describes parser selection only. Source review alone cannot clear `exact_only`
+or `no_window`. Older versions without an exact profile remain unsupported under
+[ADR 013](../decisions/013-forward-version-compatibility.md);
+`older_version_unsupported` has no promotion path. These descriptions do not change
+reasons, compatibility, windows, review coverage, gates, or live checks.
+An unmatched state fails with `invalid_record` rather than guessing a path.
+The assessment record limit remains 256 KiB.
 
 ## Contract review records
 
@@ -228,9 +277,11 @@ whatever is supplied.
 
 ### How assess applies records
 
-With at least one `--review`, the assessment is written as `schema_version: 3` and adds
-the sorted `review_ids` and `unused_review_ids`. Without `--review`, output stays
-`schema_version: 2` and is unchanged. Schema 1 and 2 assessments remain readable.
+With at least one `--review`, the assessment is written as `schema_version: 4`, with
+the sorted `review_ids` and `unused_review_ids` and each lane's `selection_policy`.
+Without `--review`, output stays `schema_version: 2` with no `selection_policy`. Its
+bytes and ID still change whenever an input does, including the source digest.
+Schema 1, 2, and 3 assessments remain readable and are never rewritten.
 
 - A record applies to a lane edge only if the lane key, `contract_revision`, and the
   `from` and `to` versions and commits all match the observation, and `source_digest`
