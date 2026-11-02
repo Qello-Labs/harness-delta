@@ -278,7 +278,34 @@ or worktree must reconstruct context or receive an explicitly selected handoff.
 
 ## CI
 
-Pull requests and pushes to `main` run Node 24 checks on macOS. The workflow needs
+Pull requests and pushes to `main` run three independent Node 24 jobs on macOS,
+each with a 15-minute timeout: static checks (privacy, lint, types), process-budget
+tests, and default tests. All three start independently; a failed job does not
+cancel its siblings. Each test job runs `npm ci` and `npm run build` on its own
+runner before selecting its Vitest project. No `dist/`, UI assets or installed
+dependencies are shared between jobs. The existing npm download cache is retained.
+Process-budget file serialization is unchanged. Local `npm run check` still runs
+all phases and both test projects sequentially as described above.
+
+To run the test phases exactly as CI does, after installing and building:
+
+```sh
+HUSKY=0 node scripts/ci-phase.mjs process-budget tests npm test -- --project process-budget --reporter ./scripts/ci-reporter.mjs
+HUSKY=0 node scripts/ci-phase.mjs default tests npm test -- --project default --reporter ./scripts/ci-reporter.mjs
+```
+
+Each job uploads only its explicit phase/result JSONL files from the ignored
+`.harness-delta/ci-results/<job>/` directory, including after failure when possible.
+Phase starts and completions record statuses, durations, exit codes and runner
+Node/platform/architecture. The CI-only reporter appends test identities, statuses
+and durations plus file/run statuses. It omits assertion messages, source snippets,
+console output, response bodies and arbitrary metadata. A failed result still
+fails the job. The reporter replaces Vitest's normal diagnostic output in these
+CI test commands; use a normal focused `npm test -- <file>` locally for diagnostics
+with synthetic fixtures. Partial records are not complete test totals. Cancellation
+or runner loss can prevent completion records or artifact upload entirely.
+
+The workflow needs
 no private plans, session data, or agent credentials. It does not perform agent
 review or prove requirement completeness. Adding the workflow does not configure
 branch protection or mean a remote run has passed.
