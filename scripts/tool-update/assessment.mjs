@@ -1,5 +1,7 @@
 import { z } from 'zod';
-import { boundedParse, compareVersions, digest, fail, parseBaseline, shaSchema, versionSchema } from './manifest.mjs';
+import {
+  boundedParse, compareVersions, digest, fail, parseBaseline, shaSchema, ToolUpdateError, versionSchema,
+} from './manifest.mjs';
 import { candidateSchema, observationSchema } from './discovery.mjs';
 import { laneKey, laneSchema, sourceLanes, retiredClaudeWorkflowVersions } from './lanes.mjs';
 import { assessmentRuleRevision, sourcePathAllowlist, withSourceSnapshot } from './source-snapshot.mjs';
@@ -10,17 +12,29 @@ export const consumedContracts = [
   'invocation_permissions_config_model_effort', 'history_topology_resume_compaction',
   'finality_replay_conflict_stop_flush_sigint',
 ];
-const contractSchema = z.strictObject({ contract_id: z.enum(consumedContracts), judgment: z.literal('unknown') });
+const judgments = ['unaffected', 'affected', 'unknown'];
+const contractsSchema = reviewed => z.array(z.strictObject({
+  contract_id: z.enum(consumedContracts), judgment: reviewed ? z.enum(judgments) : z.literal('unknown'),
+})).length(consumedContracts.length);
 const checks = () => consumedContracts.map(contract_id => ({ contract_id, judgment: 'unknown' }));
+const commitSchema = z.string().regex(/^[a-f0-9]{40}$/);
+const ordered = (from, to) => versionSchema.safeParse(from).success && versionSchema.safeParse(to).success &&
+  compareVersions(from, to) < 0;
+const reviewRefSchema = z.strictObject({ version: versionSchema, commit: commitSchema });
+export const contractReviewSchema = laneSchema.extend({
+  schema_version: z.literal(1), kind: z.literal('contract_review'), contract_revision: z.literal('consumed-v1'),
+  from: reviewRefSchema, to: reviewRefSchema, contracts: contractsSchema(true),
+  evidence_ids: z.array(shaSchema).min(1).max(64), source_digest: shaSchema,
+}).refine(value => ordered(value.from.version, value.to.version) &&
+  value.contracts.every((row, index) => row.contract_id === consumedContracts[index]) &&
+  value.evidence_ids.every((id, index) => index === 0 || id > value.evidence_ids[index - 1]));
 const refSchema = z.strictObject({
   version: versionSchema, release_id: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
   tag: z.string().max(128).regex(/^(?:rust-v|v)?(?:0|[1-9][0-9]{0,8})\.(?:0|[1-9][0-9]{0,8})\.(?:0|[1-9][0-9]{0,8})$/),
-  commit: z.string().regex(/^[a-f0-9]{40}$/),
+  commit: commitSchema,
   npm_integrity: z.string().regex(/^sha512-[A-Za-z0-9+/]{86}==$/),
 }).refine(value => Buffer.from(value.npm_integrity.slice(7), 'base64').toString('base64') === value.npm_integrity.slice(7));
-const edgeSchema = z.strictObject({
-  from: refSchema, to: refSchema, contracts: z.array(contractSchema).length(consumedContracts.length),
-});
+const edgeSchema = reviewed => z.strictObject({ from: refSchema, to: refSchema, contracts: contractsSchema(reviewed) });
 const reviewSourceSchema = z.strictObject({
   version: versionSchema, commit: z.string().regex(/^[a-f0-9]{40}$/),
   path: z.enum(['codex-rs/core/src/session/mod.rs', 'codex-rs/protocol/src/protocol.rs', 'CHANGELOG.md']),
@@ -37,7 +51,10 @@ const reasons = [
   'no_window', 'out_of_window', 'upper_bound', 'major_transition', 'minor_transition',
   'baseline_source_changed', 'exact_qualification_required', 'retired',
 ];
-const laneAssessmentSchema = laneSchema.extend({
+const reviewReasons = [...reasons, 'contracts_affected', 'review_source_changed'];
+const gateOf = list => list.some(row => row.judgment === 'affected') ? 'affected'
+  : list.every(row => row.judgment === 'unaffected') ? 'closed' : 'unknown';
+const laneAssessment = reviewed => laneSchema.extend({
   static_selection: z.enum(['exact', 'inherited', 'unsupported']),
   compatibility: compatibilitySchema.nullable(), parser_base: versionSchema.nullable(),
   window: z.strictObject({ base: versionSchema, upper_exclusive: versionSchema }).nullable(),
@@ -47,22 +64,22 @@ const laneAssessmentSchema = laneSchema.extend({
     max_members: z.number().int().min(1).max(64).nullable(),
     read_only: z.boolean(), exact_only: z.boolean(),
   }),
-  reasons: z.array(z.enum(reasons)).min(1).max(reasons.length),
+  reasons: z.array(z.enum(reviewed ? reviewReasons : reasons)).min(reviewed ? 0 : 1).max((reviewed ? reviewReasons : reasons).length),
   review: z.strictObject({
     coverage: z.enum(['baseline_missing', 'review_required']),
     baseline_version: versionSchema.nullable(),
-    releases: z.array(refSchema).max(256), edges: z.array(edgeSchema).max(256),
+    releases: z.array(refSchema).max(256), edges: z.array(edgeSchema(reviewed)).max(256),
     parser_comparison: z.strictObject({
-      from_version: versionSchema, to: refSchema, contracts: z.array(contractSchema).length(consumedContracts.length),
+      from_version: versionSchema, to: refSchema, contracts: contractsSchema(reviewed),
     }).nullable(),
-    contracts: z.array(contractSchema).length(consumedContracts.length),
+    contracts: contractsSchema(reviewed),
   }),
   live: z.strictObject({
     invalidation: z.literal('not_assessed'), binary: z.literal('not_assessed'),
     permissions: z.literal('not_assessed'), config: z.literal('not_assessed'), authentication: z.literal('not_assessed'),
   }),
   gates: z.strictObject({
-    contracts_reviewed: z.literal('unknown'), conformance: z.literal('not_assessed'),
+    contracts_reviewed: reviewed ? z.enum(['unknown', 'closed', 'affected']) : z.literal('unknown'), conformance: z.literal('not_assessed'),
     regression: z.literal('not_assessed'), implementation_review: z.literal('not_assessed'),
     admission: z.literal('not_assessed'), default_promotion: z.literal('not_assessed'),
   }),
@@ -72,16 +89,24 @@ const assessmentFields = {
   candidate_id: shaSchema, observation_id: shaSchema, baseline_digest: shaSchema.nullable(),
   source_digest: shaSchema, source_paths: z.array(z.enum(sourcePathAllowlist)).min(1).max(32),
   review_sources: z.array(reviewSourceSchema).min(1).max(1024),
-  rule_revision: z.literal(assessmentRuleRevision), lanes: z.array(laneAssessmentSchema).min(1).max(128),
+  rule_revision: z.literal(assessmentRuleRevision), lanes: z.array(laneAssessment(false)).min(1).max(128),
 };
+const inventoryScope = z.enum(['legacy_full_inventory', 'latest_and_npm_review_range']);
+const sortedUnique = list => list.every((id, index) => index === 0 || id > list[index - 1]);
 export const assessmentSchema = z.discriminatedUnion('schema_version', [
   z.strictObject({ schema_version: z.literal(1), ...assessmentFields }),
-  z.strictObject({ schema_version: z.literal(2), inventory_scope: z.enum([
-    'legacy_full_inventory', 'latest_and_npm_review_range',
-  ]), ...assessmentFields }),
+  z.strictObject({ schema_version: z.literal(2), inventory_scope: inventoryScope, ...assessmentFields }),
+  z.strictObject({
+    schema_version: z.literal(3), inventory_scope: inventoryScope,
+    review_ids: z.array(shaSchema).min(1).max(256), unused_review_ids: z.array(shaSchema).max(256),
+    ...assessmentFields, lanes: z.array(laneAssessment(true)).min(1).max(128),
+  }),
 ]).superRefine((value, context) => {
   if (new Set(value.lanes.map(laneKey)).size !== value.lanes.length ||
-      new Set(value.source_paths).size !== value.source_paths.length)
+      new Set(value.source_paths).size !== value.source_paths.length ||
+      value.schema_version === 3 && (!sortedUnique(value.review_ids) || !sortedUnique(value.unused_review_ids) ||
+        value.unused_review_ids.some(id => !value.review_ids.includes(id)) ||
+        value.lanes.some(row => row.gates.contracts_reviewed !== gateOf(row.review.contracts))))
     context.addIssue({ code: 'custom', message: 'invalid_assessment' });
 }).refine(value => Buffer.byteLength(JSON.stringify(value)) <= 256 * 1024);
 function validateSourceKeys(baseline, source) {
@@ -161,7 +186,83 @@ function projectLane(lane, source, candidate, observation, baseline) {
       implementation_review: 'not_assessed', admission: 'not_assessed', default_promotion: 'not_assessed' },
   };
 }
-export async function assessCandidate({ candidate: input, observation: observed, baseline: baselineInput = null, root }) {
+const rank = { unaffected: 0, unknown: 1, affected: 2 };
+const worst = sets => consumedContracts.map((contract_id, index) => ({ contract_id,
+  judgment: sets.reduce((found, set) => rank[set[index].judgment] > rank[found] ? set[index].judgment : found, 'unaffected') }));
+const sameRef = (a, b) => a.version === b.version && a.commit === b.commit;
+function prepareReviews(inputs, candidate, releases) {
+  const byId = new Map();
+  for (const input of inputs) {
+    let review;
+    try { review = boundedParse(input, contractReviewSchema); }
+    catch (error) {
+      if (error instanceof ToolUpdateError && error.code === 'invalid_record') fail('invalid_review');
+      throw error;
+    }
+    byId.set(digest(review), review);
+  }
+  const rows = [...byId].map(([id, review]) => ({ id, review })).sort((a, b) => a.id < b.id ? -1 : 1);
+  const edges = new Set();
+  for (const { review } of rows) {
+    const edge = [laneKey(review), review.from.version, review.to.version].join(':');
+    if (edges.has(edge)) fail('review_conflict');
+    edges.add(edge);
+    if (review.product === candidate.product && [review.from, review.to].some(ref =>
+      releases.some(release => release.version === ref.version && release.commit !== ref.commit)))
+      fail('review_commit_conflict');
+  }
+  return rows;
+}
+function parserChain(records, base, releases) {
+  const start = releases.findIndex(release => release.version === base);
+  if (start < 0) return [];
+  const chain = [];
+  for (let index = start + 1; index < releases.length; index++) {
+    const item = records.find(({ review }) => sameRef(review.from, releases[index - 1]) &&
+      sameRef(review.to, releases[index]));
+    if (!item) return [];
+    chain.push(item);
+  }
+  return chain;
+}
+function applyReviews(lane, baselineRow, rows, sourceDigest, releases, used) {
+  if (!baselineRow) return;
+  const target = releases.at(-1);
+  const mine = rows.filter(item => laneKey(item.review) === laneKey(lane));
+  let changed = false;
+  const read = item => {
+    used.add(item.id);
+    if (item.review.source_digest === sourceDigest) return item.review.contracts;
+    changed = true;
+    return null;
+  };
+  for (const edge of lane.review.edges) {
+    const item = mine.find(({ review }) => sameRef(review.from, edge.from) && sameRef(review.to, edge.to));
+    const contracts = item && read(item);
+    if (contracts) edge.contracts = contracts;
+  }
+  if (lane.review.edges.length) lane.review.contracts = worst(lane.review.edges.map(edge => edge.contracts));
+  else {
+    const settled = mine.filter(({ id, review }) => baselineRow.evidence_ids.includes(id) && sameRef(review.to, target))
+      .map(read).filter(Boolean);
+    if (settled.length) lane.review.contracts = worst(settled);
+  }
+  const comparison = lane.review.parser_comparison;
+  if (comparison) {
+    for (const item of parserChain(mine, comparison.from_version, releases)) read(item);
+    const chain = parserChain(mine.filter(item => item.review.source_digest === sourceDigest),
+      comparison.from_version, releases);
+    if (chain.length) comparison.contracts = worst(chain.map(item => item.review.contracts));
+  }
+  const gate = gateOf(lane.review.contracts);
+  lane.gates.contracts_reviewed = gate;
+  if (gate === 'closed') lane.reasons = lane.reasons.filter(reason => reason !== 'contracts_unknown');
+  if (gate === 'affected') lane.reasons.push('contracts_affected');
+  if (changed) lane.reasons.push('review_source_changed');
+}
+export async function assessCandidate({
+  candidate: input, observation: observed, baseline: baselineInput = null, reviews: reviewInputs = null, root,
+}) {
   const candidate = boundedParse(input, candidateSchema);
   const observation = boundedParse(observed, observationSchema);
   const baseline = baselineInput === null ? null : parseBaseline(baselineInput);
@@ -178,6 +279,8 @@ export async function assessCandidate({ candidate: input, observation: observed,
       releases.some(row => compareVersions(row.version, candidate.target) > 0)) fail('discovery_incomplete');
   const reviewedVersions = baseline?.rows.filter(row => row.product === candidate.product).map(row => row.last_reviewed_version) ?? [];
   if (reviewedVersions.length === 0 && releases.length !== 1) fail('discovery_incomplete');
+  const rows = reviewInputs?.length ? prepareReviews(reviewInputs, candidate, releases) : null;
+  const used = new Set();
   const snapshot = await withSourceSnapshot(root, source => {
     const lanes = sourceLanes(source);
     if (baseline) validateSourceKeys(baseline, source);
@@ -189,10 +292,11 @@ export async function assessCandidate({ candidate: input, observation: observed,
   for (const lane of snapshot.value) {
     const row = baseline?.rows.find(row => laneKey(row) === laneKey(lane));
     if (row && row.source_digest !== snapshot.source_digest) lane.reasons.push('baseline_source_changed');
+    if (rows) applyReviews(lane, row, rows, snapshot.source_digest, releases, used);
     lane.reasons.sort();
   }
   return boundedParse({
-    schema_version: 2, kind: 'assessment',
+    schema_version: rows ? 3 : 2, kind: 'assessment',
     inventory_scope: observation.schema_version === 2 ? observation.inventory_scope : 'legacy_full_inventory',
     candidate_id: digest(candidate), observation_id: digest(observation),
     baseline_digest: baseline ? digest(baseline) : null, source_digest: snapshot.source_digest,
@@ -200,5 +304,6 @@ export async function assessCandidate({ candidate: input, observation: observed,
       ? ['codex-rs/core/src/session/mod.rs', 'codex-rs/protocol/src/protocol.rs'] : ['CHANGELOG.md'])
       .map(path => ({ version: release.version, commit: release.commit, path, availability: 'not_assessed' }))),
     source_paths: snapshot.source_paths, rule_revision: assessmentRuleRevision, lanes: snapshot.value,
+    ...rows ? { review_ids: rows.map(item => item.id), unused_review_ids: rows.map(item => item.id).filter(id => !used.has(id)) } : {},
   }, assessmentSchema);
 }

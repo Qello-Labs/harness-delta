@@ -13,9 +13,11 @@ these records changes a default.
 - `discover` reads official GitHub release and npm package metadata for one product.
   It writes an immutable observation record and, on success, an immutable candidate
   record.
-- `assess` reads a candidate, the observation that produced it, and an optional
-  review baseline. It projects the current repository source and writes an immutable
-  assessment record.
+- `assess` reads a candidate, the observation that produced it, an optional
+  review baseline, and any number of optional contract review records. It projects
+  the current repository source and writes an immutable assessment record.
+- `record-review` validates a hand-authored contract review record and publishes it.
+  It never generates a judgment.
 
 It won't install anything or run a vendor binary. It also doesn't read sessions,
 the user database, or tool configuration, and it never changes admission, defaults,
@@ -23,7 +25,8 @@ CI, or tracked files. Only `discover` makes network requests. It sends fixed rea
 requests to official GitHub and npm endpoints, with no secrets and no caller-supplied
 URL parameters.
 
-Contract review, conformance, regression, admission, and default promotion are
+The tool never performs a contract review. It only records and reads a maintainer's
+manual judgments. Conformance, regression, admission, and default promotion are
 separate stages. They aren't part of this increment. The repository-owned
 [admitted Claude runner](tool-update-conformance.md) has synthetic coverage;
 its actual-binary acceptance and execution approval remain separate.
@@ -98,7 +101,7 @@ On 2026-10-29, the former all-history mode hit HTTP 422 beyond Codex's first
 the first 1000 as a complete history.
 
 New observations use `schema_version: 2` and
-`inventory_scope: "latest_and_npm_review_range"`. New assessments use schema 2 and
+`inventory_scope: "latest_and_npm_review_range"`. Assessments without review records use schema 2 and
 carry the observation's scope (`legacy_full_inventory` for schema-1 inputs).
 Legacy schema-1 observations and assessments remain readable without rewriting
 them. The legacy scope label reflects the old record format, not authenticated
@@ -118,9 +121,10 @@ node scripts/tool-update.mjs assess \
 
 Replace the quoted placeholders with the IDs printed by `discover`. If you leave out
 `--out`, the assessment goes in the record root two levels above the manifest file.
-Pass the same `--baseline "$baseline_file"` you used for discovery, if any. On
-success the command prints `{"status":"assessment_created","assessment_id":"..."}`
-and exits 0.
+Pass the same `--baseline "$baseline_file"` you used for discovery, if any. Add
+`--review "$review_file"` once per contract review record (see
+[Contract review records](#contract-review-records)). On success the command prints
+`{"status":"assessment_created","assessment_id":"..."}` and exits 0.
 
 ## Records and identities
 
@@ -128,7 +132,8 @@ and exits 0.
 | --- | --- | --- |
 | `observations/` | One retrieval: UTC check times, source IDs, response digests and validators, completeness, fixed result codes | Includes timestamps, so every real requery gets a new ID |
 | `candidates/` | Product, exact stable version, tag and commit, npm version and integrity | Only canonical release fields, so the same release keeps its ID |
-| `assessments/` | Candidate ID, observation ID, baseline digest or missing state, source digest, rule revision, lane results | Changes when any of those inputs change |
+| `reviews/` | One manual contract review of one lane and one release edge: fixed codes and digests only | Canonical record fields; the same review keeps its ID |
+| `assessments/` | Candidate ID, observation ID, baseline digest or missing state, source digest, rule revision, lane results, and (schema 3) the supplied and unused review IDs | Changes when any of those inputs change |
 
 Each file is named `<sha256>.json` over canonical JSON. Records are write-once.
 Rewriting identical bytes succeeds, while different bytes under an existing ID fail
@@ -148,9 +153,11 @@ Every lane is static:
 
 - Live dimensions (invalidation, binary, permissions, config, authentication) are
   `not_assessed`.
-- The consumed-contract checklist starts with every contract `unknown`.
-- `contracts_reviewed` is `unknown`. Conformance, regression, implementation review,
-  admission, and default promotion are `not_assessed`.
+- The consumed-contract checklist starts with every contract `unknown`. Only matching
+  review records change it.
+- `contracts_reviewed` is `unknown` unless review records settle it (see below).
+  Conformance, regression, implementation review, admission, and default promotion
+  are always `not_assessed`.
 
 Coverage is `review_required` when a baseline row exists for the lane and
 `baseline_missing` otherwise. Neither value means the release works.
@@ -159,6 +166,91 @@ each release commit. Their availability is `not_assessed`: these are review
 requirements, not claims that the files were fetched or their contracts verified.
 These source locations are review starting points and can move upstream. Confirm
 each path at the pinned commit before treating it as available review evidence.
+
+## Contract review records
+
+A contract review record is a manual claim by a maintainer: "for this lane and this
+release edge, these consumed contracts are unaffected, affected, or unknown." The tool
+checks its shape and whether it matches the observed releases and current source. It
+does not check that the review was done or that the judgments are right. A `closed`
+lane means the supplied claims judge every contract `unaffected`.
+It is not support: conformance, regression, implementation review, admission, and
+default promotion stay `not_assessed`.
+
+The record is a strict object. It has no free text, names, timestamps, or paths:
+
+```json
+{
+  "schema_version": 1,
+  "kind": "contract_review",
+  "product": "codex",
+  "route": "<route>",
+  "profile_id": "<profile_id>",
+  "operation": "<operation>",
+  "topology": "<topology>",
+  "contract_revision": "consumed-v1",
+  "from": { "version": "<version>", "commit": "<40 hex>" },
+  "to": { "version": "<version>", "commit": "<40 hex>" },
+  "contracts": [
+    { "contract_id": "identity_source_mapping", "judgment": "unaffected | affected | unknown" }
+  ],
+  "evidence_ids": ["<64 hex>"],
+  "source_digest": "<64 hex>"
+}
+```
+
+This shows the shape only. `contracts` must list all eight consumed contracts once each,
+in the order of `consumedContracts`; the example shows one entry. `evidence_ids` is a
+nonempty, sorted list of unique 64-character hex IDs. `from.version` must be lower than
+`to.version`. `source_digest` is the source digest of the assessment the review was
+done against.
+
+### Workflow
+
+1. Review the release edge by hand and write the record file.
+2. Publish it:
+
+   ```sh
+   node scripts/tool-update.mjs record-review --input "$review_file" --out "$out"
+   ```
+
+   It prints `{"status":"review_recorded","review_id":"<64 hex>"}`. The file lands at
+   `reviews/<review_id>.json`.
+3. Run `assess` with one `--review "$out/reviews/<review_id>.json"` per record. The order of
+   the options doesn't change the result.
+
+When the baseline already covers the target version (no release edges), a lane is
+closed only if a supplied record has `to.version` equal to the target, matches the
+current source digest, judges all eight contracts `unaffected`, and its review ID is
+listed in that baseline row's `evidence_ids`. A record alone never closes a lane the
+human-approved baseline doesn't bind. Lanes with `baseline_missing` stay unknown
+whatever is supplied.
+
+### How assess applies records
+
+With at least one `--review`, the assessment is written as `schema_version: 3` and adds
+the sorted `review_ids` and `unused_review_ids`. Without `--review`, output stays
+`schema_version: 2` and is unchanged. Schema 1 and 2 assessments remain readable.
+
+- A record applies to a lane edge only if the lane key, `contract_revision`, and the
+  `from` and `to` versions and commits all match the observation, and `source_digest`
+  equals the current snapshot digest. Otherwise that edge stays `unknown`.
+- If everything matches except `source_digest`, the edge stays `unknown` and the lane
+  gets the reason `review_source_changed`. This isn't an error.
+- `unused_review_ids` lists records no assessment reader used. A parser-comparison
+  chain also counts as use: if it reads an unbound record on a zero-edge lane,
+  that record is not listed, but `contracts_reviewed` stays `unknown` without
+  baseline binding.
+- `review.contracts` is the per-contract worst case across the interval: `affected`,
+  then `unknown`, then `unaffected`. `contracts_reviewed` is `closed` only when every
+  contract is `unaffected`, `affected` when any is (with the reason `contracts_affected`),
+  and `unknown` otherwise. `contracts_unknown` is removed only when closed. Every other
+  reason, such as `exact_only`, `no_window`, and `minor_transition`, stays, and live
+  fields, other gates, and `review_sources` don't change.
+- `parser_comparison` stays `unknown` unless a contiguous chain of matching records runs
+  from the parser base version to the target, with every adjacent release and endpoint
+  commit pinned in the observation. A missing parser base, a skipped observed release,
+  or a commit gap leaves the comparison `unknown`.
 
 ## Review baseline
 
@@ -193,7 +285,7 @@ real, manually reviewed record: the release you actually reviewed, the evidence 
 for that review, and the digest of the source you reviewed. `evidence_ids` must be a
 nonempty list of unique 64-character hex IDs. Duplicate keys, unknown keys, and
 malformed rows are rejected with `invalid_baseline`. A version newer than the target
-fails as `baseline_ahead`. Neither command updates a baseline.
+fails as `baseline_ahead`. No command updates a baseline.
 
 ## Status codes and exit behavior
 
@@ -205,12 +297,16 @@ local paths are never printed.
 | --- | --- | --- |
 | 0 | `metadata_reconciled` | Discovery finished and wrote a candidate |
 | 0 | `assessment_created` | Static assessment written |
+| 0 | `review_recorded` | Contract review record published |
 | 2 | `release_mismatch` | GitHub and npm stable heads, or npm `latest` and the stable maximum, disagree |
 | 2 | `discovery_incomplete` | Missing selected release, budget exhaustion, or drift on revalidation |
 | 2 | `metadata_conflict` | Conflicting release identity, tag resolution, or integrity |
 | 2 | `invalid_arguments` | Unknown command or missing option |
 | 2 | `invalid_record`, `record_too_large`, `record_conflict`, `record_read_failed`, `record_write_failed`, `unsafe_output` | Local record input or storage failure |
 | 2 | `invalid_baseline`, `baseline_ahead` | Baseline rejected |
+| 2 | `invalid_review` | A review record is malformed or breaks a fixed rule |
+| 2 | `review_conflict` | Two different records cover the same lane and release edge |
+| 2 | `review_commit_conflict` | A record's commit differs from the observed commit for that version |
 | 2 | `source_snapshot_unavailable`, `source_scope_changed`, `source_drift`, `observation_mismatch` | Source projection failed, reviewed scope changed, or inputs don't belong together |
 | 2 | `internal_error` | Unexpected local failure; no raw exception is printed |
 

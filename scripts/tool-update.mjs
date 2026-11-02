@@ -3,7 +3,9 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { baselineSchema, loadRecord, parseBaseline, publishRecord, ToolUpdateError } from './tool-update/manifest.mjs';
 import { discover, candidateSchema, observationSchema } from './tool-update/discovery.mjs';
-import { assessCandidate, assessmentSchema, validateBaselineForSource } from './tool-update/assessment.mjs';
+import {
+  assessCandidate, assessmentSchema, contractReviewSchema, validateBaselineForSource,
+} from './tool-update/assessment.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const errorCodes = new Set([
@@ -11,14 +13,24 @@ const errorCodes = new Set([
   'record_too_large', 'record_conflict', 'record_read_failed', 'record_write_failed',
   'unsafe_output', 'source_snapshot_unavailable', 'source_scope_changed', 'source_drift', 'observation_mismatch',
   'discovery_incomplete', 'metadata_conflict', 'release_mismatch',
+  'invalid_review', 'review_conflict', 'review_commit_conflict',
 ]);
+async function loadReview(path) {
+  try { return await loadRecord(path, contractReviewSchema); }
+  catch (error) {
+    if (error instanceof ToolUpdateError && error.code === 'invalid_record') throw new ToolUpdateError('invalid_review');
+    throw error;
+  }
+}
 export async function runToolUpdate(argv, options = {}) {
   const command = new Command().name('tool-update').exitOverride()
     .configureOutput({ writeOut: () => {}, writeErr: () => {} });
   command.command('discover').requiredOption('--product <product>')
     .requiredOption('--out <directory>').option('--baseline <file>');
   command.command('assess').requiredOption('--manifest <file>')
-    .requiredOption('--observation <file>').option('--baseline <file>').option('--out <directory>');
+    .requiredOption('--observation <file>').option('--baseline <file>').option('--out <directory>')
+    .option('--review <file>', 'contract review record', (value, previous) => [...previous, value], []);
+  command.command('record-review').requiredOption('--input <file>').requiredOption('--out <directory>');
   try {
     command.parse(argv, { from: 'user' });
     const selected = command.commands.find(row => row.name() === command.args[0]);
@@ -50,9 +62,15 @@ export async function runToolUpdate(argv, options = {}) {
         heads: result.observation.heads,
       } };
     }
+    if (selected.name() === 'record-review') {
+      const reviewId = await publishRecord(flags.out, await loadReview(flags.input), contractReviewSchema);
+      return { exitCode: 0, output: { status: 'review_recorded', review_id: reviewId } };
+    }
     const candidate = await loadRecord(flags.manifest, candidateSchema);
     const observation = await loadRecord(flags.observation, observationSchema);
-    const assessment = await assessCandidate({ candidate, observation, baseline, root: sourceRoot });
+    const reviews = [];
+    for (const path of [...flags.review].sort()) reviews.push(await loadReview(path));
+    const assessment = await assessCandidate({ candidate, observation, baseline, reviews, root: sourceRoot });
     const assessmentId = await publishRecord(
       flags.out ?? dirname(dirname(resolve(flags.manifest))), assessment, assessmentSchema);
     return { exitCode: 0, output: { status: 'assessment_created', assessment_id: assessmentId } };

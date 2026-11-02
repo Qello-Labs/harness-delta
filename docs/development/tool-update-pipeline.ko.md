@@ -12,15 +12,18 @@ Codex CLI 또는 Claude Code의 현재 안정 릴리스를 찾고, 그 후보를
 - `discover`는 한 제품의 공식 GitHub 릴리스와 npm 패키지 메타데이터를 읽습니다.
   변경 불가능한 관측(observation) 레코드를 쓰고, 성공하면 변경 불가능한 후보(candidate)
   레코드도 씁니다.
-- `assess`는 후보, 그 후보를 만든 관측, 선택적 검토 기준선을 읽습니다. 현재 저장소 소스를
-  투영해 변경 불가능한 평가(assessment) 레코드를 씁니다.
+- `assess`는 후보, 그 후보를 만든 관측, 선택적 검토 기준선, 선택적 계약 검토 레코드를 몇 개든
+  읽습니다. 현재 저장소 소스를 투영해 변경 불가능한 평가(assessment) 레코드를 씁니다.
+- `record-review`는 사람이 작성한 계약 검토 레코드를 검증하고 게시합니다. 판단을 직접 만들어
+  내지는 않습니다.
 
 아무것도 설치하지 않고 벤더 바이너리도 실행하지 않습니다. 세션, 사용자 데이터베이스, 도구
 설정을 읽지 않으며 허용, 기본값, CI, 추적 파일도 바꾸지 않습니다. 네트워크 요청은 `discover`만
 보냅니다. 공식 GitHub와 npm 엔드포인트에 고정된 읽기 요청만 보내고, 비밀값이나 호출자가 지정한
 URL 매개변수는 쓰지 않습니다.
 
-계약 검토, 적합성, 회귀, 허용, 기본값 승격은 별도 단계이며 이번 단계에 포함되지 않습니다.
+도구는 계약 검토를 직접 수행하지 않습니다. 유지보수자가 수동으로 내린 판단을 기록하고 읽을 뿐입니다.
+적합성, 회귀, 허용, 기본값 승격은 별도 단계이며 이번 단계에 포함되지 않습니다.
 저장소 소유 [admitted Claude runner](tool-update-conformance.ko.md)는 합성 테스트 범위가
 있지만 실제 바이너리 합격 검증과 실행 승인은 별개입니다.
 
@@ -87,7 +90,7 @@ GitHub와 npm에 걸친 원자적 스냅샷이 아니므로 그렇게 설명하�
 새 방식은 전체 목록 조회를 피하며, 처음 1000개를 완전한 이력으로 재해석하지 않습니다.
 
 새 관측은 `schema_version: 2`와 `inventory_scope: "latest_and_npm_review_range"`를 씁니다.
-새 평가는 schema 2로 관측의 범위를 전달하며, schema-1 입력에는 `legacy_full_inventory`를
+검토 레코드가 없는 평가는 schema 2로 관측의 범위를 전달하며, schema-1 입력에는 `legacy_full_inventory`를
 표시합니다. 기존 schema-1 관측과 평가는 다시 쓰지 않고 계속 읽을 수 있습니다. legacy 범위 표시는
 과거 레코드 형식을 나타낼 뿐 검증 범위에 대한 인증된 증거는 아닙니다. 후보의
 schema와 식별자는 바뀌지 않습니다. `metadata_reconciled`는 표시된 범위만 증명하며 전체
@@ -104,6 +107,9 @@ node scripts/tool-update.mjs assess \
   --out "$out"
 ```
 
+계약 검토 레코드마다 `--review "$review_file"`을 하나씩 추가할 수 있습니다([계약 검토 레코드](#계약-검토-레코드)
+참고).
+
 따옴표 안의 자리표시자는 `discover`가 출력한 ID로 바꿉니다. `--out`을 빼면 평가는 manifest
 파일에서 두 단계 위인 레코드 루트에 저장됩니다. 탐색에 기준선을 썼다면 같은
 `--baseline "$baseline_file"`을 넘깁니다. 성공하면
@@ -115,7 +121,8 @@ node scripts/tool-update.mjs assess \
 | --- | --- | --- |
 | `observations/` | 한 번의 조회: UTC 확인 시각, 출처 ID, 응답 다이제스트와 검증자, 완전성, 고정 결과 코드 | 시각을 포함하므로 실제 재조회마다 새 ID |
 | `candidates/` | 제품, 정확한 안정 버전, 태그와 커밋, npm 버전과 무결성 | 정규 릴리스 필드만 쓰므로 같은 릴리스는 같은 ID |
-| `assessments/` | 후보 ID, 관측 ID, 기준선 다이제스트 또는 누락 상태, 소스 다이제스트, 규칙 개정판, 레인 결과 | 이 입력 중 하나라도 바뀌면 달라짐 |
+| `reviews/` | 한 레인과 한 릴리스 간선에 대한 수동 계약 검토 하나: 고정 코드와 다이제스트만 포함 | 정규 레코드 필드만 쓰므로 같은 검토는 같은 ID |
+| `assessments/` | 후보 ID, 관측 ID, 기준선 다이제스트 또는 누락 상태, 소스 다이제스트, 규칙 개정판, 레인 결과, (schema 3) 제공된 검토 ID와 미사용 검토 ID | 이 입력 중 하나라도 바뀌면 달라짐 |
 
 각 파일 이름은 정규 JSON에 대한 `<sha256>.json`입니다. 레코드는 한 번만 씁니다. 같은 바이트를
 다시 쓰면 성공하고, 기존 ID에 다른 바이트를 쓰면 `record_conflict`로 실패합니다. 바뀌는 `latest`
@@ -134,9 +141,10 @@ node scripts/tool-update.mjs assess \
 
 - 실제 실행 차원(invalidation, binary, permissions, config, authentication)은
   `not_assessed`입니다.
-- 소비 계약 체크리스트는 모든 계약이 `unknown`인 상태로 시작합니다.
-- `contracts_reviewed`는 `unknown`입니다. 적합성, 회귀, 구현 검토, 허용, 기본값 승격은
-  `not_assessed`입니다.
+- 소비 계약 체크리스트는 모든 계약이 `unknown`인 상태로 시작합니다. 일치하는 검토 레코드만
+  이를 바꿉니다.
+- `contracts_reviewed`는 검토 레코드로 확정되지 않으면 `unknown`입니다(아래 참고). 적합성, 회귀,
+  구현 검토, 허용, 기본값 승격은 항상 `not_assessed`입니다.
 
 레인에 기준선 행이 있으면 범위는 `review_required`, 없으면 `baseline_missing`입니다. 어느 값도
 릴리스가 동작한다는 뜻은 아닙니다.
@@ -145,6 +153,84 @@ node scripts/tool-update.mjs assess \
 아니라 검토할 항목입니다.
 이 소스 경로는 검토 시작점이며 업스트림에서 이동할 수 있습니다. 검토 증거로 사용하기 전에
 고정된 커밋에서 각 경로의 존재를 확인하세요.
+
+## 계약 검토 레코드
+
+계약 검토 레코드는 유지보수자의 수동 주장입니다. "이 레인과 이 릴리스 간선에서 소비하는 계약은
+영향 없음(unaffected), 영향 있음(affected), 알 수 없음(unknown)이다"라는 내용입니다. 도구는
+레코드의 형태와 관측된 릴리스 및 현재 소스와의 일치만 확인합니다. 검토가 실제로 이루어졌는지,
+판단이 옳은지는 확인하지 않습니다. 레인이 `closed`라는 것은 제공된 주장이 모든 계약을
+`unaffected`로 판단했다는 뜻일 뿐 지원이 아닙니다. 적합성, 회귀, 구현 검토, 허용, 기본값 승격은
+`not_assessed`로 남습니다.
+
+레코드는 엄격한 객체입니다. 자유 텍스트, 이름, 타임스탬프, 경로는 없습니다.
+
+```json
+{
+  "schema_version": 1,
+  "kind": "contract_review",
+  "product": "codex",
+  "route": "<route>",
+  "profile_id": "<profile_id>",
+  "operation": "<operation>",
+  "topology": "<topology>",
+  "contract_revision": "consumed-v1",
+  "from": { "version": "<version>", "commit": "<40 hex>" },
+  "to": { "version": "<version>", "commit": "<40 hex>" },
+  "contracts": [
+    { "contract_id": "identity_source_mapping", "judgment": "unaffected | affected | unknown" }
+  ],
+  "evidence_ids": ["<64 hex>"],
+  "source_digest": "<64 hex>"
+}
+```
+
+형태만 보여 주는 예입니다. `contracts`에는 소비 계약 여덟 개를 `consumedContracts` 순서대로 한 번씩
+모두 적어야 하며, 예시는 항목 하나만 보여 줍니다. `evidence_ids`는 중복 없는 64자 16진수 ID를 정렬한
+비어 있지 않은 목록입니다. `from.version`은 `to.version`보다 낮아야 합니다. `source_digest`는 검토한
+기준이 된 평가의 소스 다이제스트입니다.
+
+### 작업 순서
+
+1. 릴리스 간선을 직접 검토하고 레코드 파일을 작성합니다.
+2. 게시합니다.
+
+   ```sh
+   node scripts/tool-update.mjs record-review --input "$review_file" --out "$out"
+   ```
+
+   `{"status":"review_recorded","review_id":"<64 hex>"}`를 출력하며 파일은
+   `reviews/<review_id>.json`에 저장됩니다.
+3. 레코드마다 `--review "$out/reviews/<review_id>.json"`을 하나씩 붙여 `assess`를 실행합니다.
+   옵션 순서는 결과에 영향을 주지 않습니다.
+
+기준선이 이미 대상 버전을 다루는 경우(릴리스 간선이 없음)에는, 제공된 레코드가 `to.version`이 대상과
+같고 현재 소스 다이제스트와 일치하며 여덟 계약을 모두 `unaffected`로 판단하고 그 검토 ID가 해당 기준선
+행의 `evidence_ids`에 있을 때만 레인이 닫힙니다. 사람이 승인한 기준선이 묶지 않은 레인은 레코드
+하나만으로 닫히지 않습니다. `baseline_missing` 레인은 무엇을 제공해도 `unknown`으로 남습니다.
+
+### assess가 레코드를 적용하는 방식
+
+`--review`가 하나 이상이면 평가는 `schema_version: 3`으로 쓰이며 정렬된 `review_ids`와
+`unused_review_ids`가 추가됩니다. `--review`가 없으면 출력은 `schema_version: 2` 그대로이며 바뀌지
+않습니다. schema 1과 2 평가도 계속 읽을 수 있습니다.
+
+- 레코드는 레인 키, `contract_revision`, `from`·`to`의 버전과 커밋이 모두 관측과 일치하고
+  `source_digest`가 현재 스냅샷 다이제스트와 같을 때만 레인 간선에 적용됩니다. 아니면 그 간선은
+  `unknown`으로 남습니다.
+- `source_digest`만 다르고 나머지가 모두 일치하면 간선은 `unknown`으로 남고 레인에
+  `review_source_changed` 사유가 붙습니다. 오류가 아닙니다.
+- `unused_review_ids`에는 평가에서 읽지 않은 레코드만 나열됩니다. 파서 비교 체인이 읽은 것도
+  사용으로 셉니다. 간선이 없는 레인에서 기준선에 묶이지 않은 레코드라도 체인이 읽으면 이 목록에
+  들어가지 않지만, 기준선 연결 없이는 `contracts_reviewed`가 `unknown`으로 남습니다.
+- `review.contracts`는 구간 전체에서 계약별 최악값이며 우선순위는 `affected`, `unknown`,
+  `unaffected` 순입니다. `contracts_reviewed`는 모든 계약이 `unaffected`일 때만 `closed`, 하나라도
+  `affected`이면 `affected`(사유 `contracts_affected`), 그 밖에는 `unknown`입니다.
+  `contracts_unknown`은 `closed`일 때만 제거합니다. `exact_only`, `no_window`, `minor_transition` 같은
+  다른 사유는 모두 유지되며 실제 실행 필드, 다른 게이트, `review_sources`는 바뀌지 않습니다.
+- `parser_comparison`은 파서 기준 버전에서 대상까지 일치하는 레코드가 끊김 없이 이어질 때만 `unknown`을
+  벗어납니다. 모든 인접 릴리스와 양 끝 커밋이 관측에 고정되어 있어야 합니다. 파서 기준 버전이
+  없거나 관측된 릴리스를 건너뛰거나 커밋 연결이 끊기면 비교는 `unknown`으로 남습니다.
 
 ## 검토 기준선
 
@@ -189,12 +275,16 @@ node scripts/tool-update.mjs assess \
 | --- | --- | --- |
 | 0 | `metadata_reconciled` | 탐색이 끝나고 후보를 씀 |
 | 0 | `assessment_created` | 정적 평가를 씀 |
+| 0 | `review_recorded` | 계약 검토 레코드를 게시함 |
 | 2 | `release_mismatch` | GitHub와 npm 안정 헤드, 또는 npm `latest`와 안정 최댓값이 다름 |
 | 2 | `discovery_incomplete` | 선택한 릴리스 누락, 예산 소진, 재검증 중 변경 |
 | 2 | `metadata_conflict` | 릴리스 식별, 태그 해석, 무결성이 서로 충돌 |
 | 2 | `invalid_arguments` | 알 수 없는 명령 또는 누락된 옵션 |
 | 2 | `invalid_record`, `record_too_large`, `record_conflict`, `record_read_failed`, `record_write_failed`, `unsafe_output` | 로컬 레코드 입력 또는 저장 실패 |
 | 2 | `invalid_baseline`, `baseline_ahead` | 기준선 거부 |
+| 2 | `invalid_review` | 검토 레코드가 잘못되었거나 고정 규칙을 어김 |
+| 2 | `review_conflict` | 서로 다른 두 레코드가 같은 레인과 릴리스 간선을 다룸 |
+| 2 | `review_commit_conflict` | 레코드의 커밋이 해당 버전의 관측 커밋과 다름 |
 | 2 | `source_snapshot_unavailable`, `source_scope_changed`, `source_drift`, `observation_mismatch` | 소스 투영 실패, 검토된 범위 변경, 또는 입력이 서로 맞지 않음 |
 | 2 | `internal_error` | 예기치 않은 로컬 실패이며 원문 예외는 출력하지 않음 |
 
