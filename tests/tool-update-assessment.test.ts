@@ -218,10 +218,15 @@ test.each(parserPaths)('a one-byte change in %s invalidates baseline and review 
     evidence_ids: ['a'.repeat(64)], source_digest: snapshot.source_digest,
   };
   const before = await assessCandidate({ ...input, baseline: currentBaseline, reviews: [record] });
-  expect(before.schema_version).toBe(3);
+  if (before.schema_version !== 4) throw new Error('schema_4_required');
   expect(lane(before, row.profile_id).gates.contracts_reviewed).toBe('closed');
   expect(lane(before, row.profile_id).reasons).not.toContain('baseline_source_changed');
-  expect(assessmentSchema.safeParse({ ...before,
+  expect(assessmentSchema.safeParse({ ...before, schema_version: 3,
+    lanes: before.lanes.map(current => {
+      const { selection_policy, ...previous } = current;
+      expect(selection_policy).toBeDefined();
+      return previous;
+    }),
     source_paths: before.source_paths.filter(path => !parserPaths.some(parser => parser === path)),
   }).success).toBe(true);
   const path = join(directory, parserPath);

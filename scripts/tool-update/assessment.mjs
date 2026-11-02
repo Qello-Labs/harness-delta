@@ -92,19 +92,34 @@ const assessmentFields = {
   rule_revision: z.literal(assessmentRuleRevision), lanes: z.array(laneAssessment(false)).min(1).max(128),
 };
 const inventoryScope = z.enum(['legacy_full_inventory', 'latest_and_npm_review_range']);
+const transitionSchema = z.enum(['none', 'minor', 'major']).nullable();
+const selectionPolicySchema = z.strictObject({
+  parser_base_transition: transitionSchema, baseline_transition: transitionSchema,
+  next_step: z.enum([
+    'operation_unsupported', 'retired', 'selected_exact', 'selected_window',
+    'exact_admission_required', 'older_version_unsupported', 'window_extension_required', 'window_rule_required',
+  ]),
+});
+const reviewFields = {
+  inventory_scope: inventoryScope,
+  review_ids: z.array(shaSchema).min(1).max(256), unused_review_ids: z.array(shaSchema).max(256),
+};
 const sortedUnique = list => list.every((id, index) => index === 0 || id > list[index - 1]);
 export const assessmentSchema = z.discriminatedUnion('schema_version', [
   z.strictObject({ schema_version: z.literal(1), ...assessmentFields }),
   z.strictObject({ schema_version: z.literal(2), inventory_scope: inventoryScope, ...assessmentFields }),
   z.strictObject({
-    schema_version: z.literal(3), inventory_scope: inventoryScope,
-    review_ids: z.array(shaSchema).min(1).max(256), unused_review_ids: z.array(shaSchema).max(256),
+    schema_version: z.literal(3), ...reviewFields,
     ...assessmentFields, lanes: z.array(laneAssessment(true)).min(1).max(128),
+  }),
+  z.strictObject({
+    schema_version: z.literal(4), ...reviewFields, ...assessmentFields,
+    lanes: z.array(laneAssessment(true).extend({ selection_policy: selectionPolicySchema })).min(1).max(128),
   }),
 ]).superRefine((value, context) => {
   if (new Set(value.lanes.map(laneKey)).size !== value.lanes.length ||
       new Set(value.source_paths).size !== value.source_paths.length ||
-      value.schema_version === 3 && (!sortedUnique(value.review_ids) || !sortedUnique(value.unused_review_ids) ||
+      (value.schema_version === 3 || value.schema_version === 4) && (!sortedUnique(value.review_ids) || !sortedUnique(value.unused_review_ids) ||
         value.unused_review_ids.some(id => !value.review_ids.includes(id)) ||
         value.lanes.some(row => row.gates.contracts_reviewed !== gateOf(row.review.contracts))))
     context.addIssue({ code: 'custom', message: 'invalid_assessment' });
@@ -121,9 +136,9 @@ export async function validateBaselineForSource(input, root) {
 function transition(from, to) {
   const [a, b] = from.split('.');
   const [x, y] = to.split('.');
-  return a !== x ? ['major_transition'] : b !== y ? ['minor_transition'] : [];
+  return a !== x ? 'major' : b !== y ? 'minor' : 'none';
 }
-function projectLane(lane, source, candidate, observation, baseline) {
+function projectLane(lane, source, candidate, observation, baseline, reviewed) {
   const row = baseline?.rows.find(row => laneKey(row) === laneKey(lane));
   const window = source.windows.find(row => row.product === lane.product && row.source === lane.route && row.profile_id === lane.profile_id);
   const compatibility = source.resolve(lane.product, candidate.target, lane.route, lane.profile_id);
@@ -151,8 +166,24 @@ function projectLane(lane, source, candidate, observation, baseline) {
     else required.push(compareVersions(candidate.target, window.upper_exclusive) === 0 ? 'upper_bound' : 'out_of_window');
   }
   if (compatibility?.state === 'compatibility_unverified') required.push('exact_qualification_required');
-  if (parserBase) required.push(...transition(parserBase, candidate.target));
-  if (row) required.push(...transition(row.last_reviewed_version, candidate.target));
+  const parserTransition = parserBase ? transition(parserBase, candidate.target) : null;
+  const baselineTransition = row ? transition(row.last_reviewed_version, candidate.target) : null;
+  if (parserTransition && parserTransition !== 'none') required.push(`${parserTransition}_transition`);
+  if (baselineTransition && baselineTransition !== 'none') required.push(`${baselineTransition}_transition`);
+  let policy;
+  if (reviewed) {
+    const nextStep = !operationAllowed ? 'operation_unsupported'
+      : required.includes('retired') ? 'retired'
+      : exact ? 'selected_exact'
+      : compatibility ? 'selected_window'
+      : required.includes('exact_only') ? 'exact_admission_required'
+      : window && compareVersions(candidate.target, window.base) <= 0 ? 'older_version_unsupported'
+      : window && compareVersions(candidate.target, window.upper_exclusive) >= 0 ? 'window_extension_required'
+      : !window ? 'window_rule_required' : fail('invalid_record');
+    policy = {
+      parser_base_transition: parserTransition, baseline_transition: baselineTransition, next_step: nextStep,
+    };
+  }
   const target = observation.releases.find(row => row.version === candidate.target);
   let interval = [];
   const edges = [];
@@ -184,6 +215,7 @@ function projectLane(lane, source, candidate, observation, baseline) {
     live: { invalidation: 'not_assessed', binary: 'not_assessed', permissions: 'not_assessed', config: 'not_assessed', authentication: 'not_assessed' },
     gates: { contracts_reviewed: 'unknown', conformance: 'not_assessed', regression: 'not_assessed',
       implementation_review: 'not_assessed', admission: 'not_assessed', default_promotion: 'not_assessed' },
+    ...reviewed ? { selection_policy: policy } : {},
   };
 }
 const rank = { unaffected: 0, unknown: 1, affected: 2 };
@@ -287,7 +319,7 @@ export async function assessCandidate({
     if (baseline?.rows.some(row => row.product === candidate.product && compareVersions(row.last_reviewed_version, candidate.target) > 0))
       fail('baseline_ahead');
     return lanes.filter(row => row.product === candidate.product)
-      .map(row => projectLane(row, source, candidate, { ...observation, releases }, baseline));
+      .map(row => projectLane(row, source, candidate, { ...observation, releases }, baseline, rows !== null));
   });
   for (const lane of snapshot.value) {
     const row = baseline?.rows.find(row => laneKey(row) === laneKey(lane));
@@ -296,7 +328,7 @@ export async function assessCandidate({
     lane.reasons.sort();
   }
   return boundedParse({
-    schema_version: rows ? 3 : 2, kind: 'assessment',
+    schema_version: rows ? 4 : 2, kind: 'assessment',
     inventory_scope: observation.schema_version === 2 ? observation.inventory_scope : 'legacy_full_inventory',
     candidate_id: digest(candidate), observation_id: digest(observation),
     baseline_digest: baseline ? digest(baseline) : null, source_digest: snapshot.source_digest,

@@ -56,6 +56,12 @@ export interface AssessmentLane extends Lane {
     readonly implementation_review: 'not_assessed'; readonly admission: 'not_assessed'; readonly default_promotion: 'not_assessed';
   };
 }
+export interface SelectionPolicy {
+  readonly parser_base_transition: 'none' | 'minor' | 'major' | null;
+  readonly baseline_transition: 'none' | 'minor' | 'major' | null;
+  readonly next_step: 'operation_unsupported' | 'retired' | 'selected_exact' | 'selected_window' |
+    'exact_admission_required' | 'older_version_unsupported' | 'window_extension_required' | 'window_rule_required';
+}
 interface AssessmentFields {
   readonly kind: 'assessment';
   readonly candidate_id: string;
@@ -69,14 +75,20 @@ interface AssessmentFields {
     readonly availability: 'not_assessed';
   }[];
   readonly rule_revision: 'static-assessment-v1';
-  readonly lanes: readonly AssessmentLane[];
 }
 export type Assessment = AssessmentFields & (
+  { readonly lanes: readonly AssessmentLane[] } & (
   { readonly schema_version: 1 } |
   { readonly schema_version: 2; readonly inventory_scope: 'legacy_full_inventory' | 'latest_and_npm_review_range' } |
   {
     readonly schema_version: 3; readonly inventory_scope: 'legacy_full_inventory' | 'latest_and_npm_review_range';
     readonly review_ids: readonly string[]; readonly unused_review_ids: readonly string[];
+  }
+  ) |
+  {
+    readonly schema_version: 4; readonly inventory_scope: 'legacy_full_inventory' | 'latest_and_npm_review_range';
+    readonly review_ids: readonly string[]; readonly unused_review_ids: readonly string[];
+    readonly lanes: readonly (AssessmentLane & { readonly selection_policy: SelectionPolicy })[];
   }
 );
 export const assessmentSchema: z.ZodType<Assessment>;
