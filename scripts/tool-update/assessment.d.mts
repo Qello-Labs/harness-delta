@@ -10,8 +10,19 @@ export const consumedContracts: readonly [
 ];
 export interface ContractCheck {
   readonly contract_id: typeof consumedContracts[number];
-  readonly judgment: 'unknown';
+  readonly judgment: 'unaffected' | 'affected' | 'unknown';
 }
+export interface ContractReview extends Lane {
+  readonly schema_version: 1;
+  readonly kind: 'contract_review';
+  readonly contract_revision: 'consumed-v1';
+  readonly from: { readonly version: string; readonly commit: string };
+  readonly to: { readonly version: string; readonly commit: string };
+  readonly contracts: readonly ContractCheck[];
+  readonly evidence_ids: readonly string[];
+  readonly source_digest: string;
+}
+export const contractReviewSchema: z.ZodType<ContractReview>;
 export interface AssessmentLane extends Lane {
   readonly static_selection: 'exact' | 'inherited' | 'unsupported';
   readonly compatibility: Compatibility | null;
@@ -25,7 +36,8 @@ export interface AssessmentLane extends Lane {
   readonly reasons: readonly (
     'baseline_missing' | 'contracts_unknown' | 'unsupported_operation' | 'exact_only' |
     'no_window' | 'out_of_window' | 'upper_bound' | 'major_transition' | 'minor_transition' |
-    'baseline_source_changed' | 'exact_qualification_required' | 'retired'
+    'baseline_source_changed' | 'exact_qualification_required' | 'retired' |
+    'contracts_affected' | 'review_source_changed'
   )[];
   readonly review: {
     readonly coverage: 'baseline_missing' | 'review_required';
@@ -40,7 +52,7 @@ export interface AssessmentLane extends Lane {
     readonly config: 'not_assessed'; readonly authentication: 'not_assessed';
   };
   readonly gates: {
-    readonly contracts_reviewed: 'unknown'; readonly conformance: 'not_assessed'; readonly regression: 'not_assessed';
+    readonly contracts_reviewed: 'unknown' | 'closed' | 'affected'; readonly conformance: 'not_assessed'; readonly regression: 'not_assessed';
     readonly implementation_review: 'not_assessed'; readonly admission: 'not_assessed'; readonly default_promotion: 'not_assessed';
   };
 }
@@ -61,10 +73,15 @@ interface AssessmentFields {
 }
 export type Assessment = AssessmentFields & (
   { readonly schema_version: 1 } |
-  { readonly schema_version: 2; readonly inventory_scope: 'legacy_full_inventory' | 'latest_and_npm_review_range' }
+  { readonly schema_version: 2; readonly inventory_scope: 'legacy_full_inventory' | 'latest_and_npm_review_range' } |
+  {
+    readonly schema_version: 3; readonly inventory_scope: 'legacy_full_inventory' | 'latest_and_npm_review_range';
+    readonly review_ids: readonly string[]; readonly unused_review_ids: readonly string[];
+  }
 );
 export const assessmentSchema: z.ZodType<Assessment>;
 export function assessCandidate(input: {
-  readonly candidate: unknown; readonly observation: unknown; readonly baseline?: unknown; readonly root: string;
+  readonly candidate: unknown; readonly observation: unknown; readonly baseline?: unknown;
+  readonly reviews?: readonly unknown[] | null; readonly root: string;
 }): Promise<Assessment>;
 export function validateBaselineForSource(baseline: unknown, root: string): Promise<void>;
