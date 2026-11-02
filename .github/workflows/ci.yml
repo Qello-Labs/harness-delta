@@ -12,8 +12,8 @@ env:
   HUSKY: '0'
 
 jobs:
-  check:
-    name: Node 24 / macOS
+  static:
+    name: Node 24 / macOS / Static checks
     runs-on: macos-latest
     timeout-minutes: 15
     steps:
@@ -27,6 +27,81 @@ jobs:
           node-version: '24'
           cache: npm
       - name: Install dependencies
-        run: npm ci
-      - name: Check local-record exclusion, lint, types, tests, and build
-        run: npm run check
+        run: node scripts/ci-phase.mjs static install npm ci
+      - name: Check local-record exclusion
+        run: node scripts/ci-phase.mjs static privacy npm run check:privacy
+      - name: Lint
+        run: node scripts/ci-phase.mjs static lint npm run lint
+      - name: Check types
+        run: node scripts/ci-phase.mjs static typecheck npm run typecheck
+      - name: Upload sanitized CI evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ci-static
+          path: |
+            .harness-delta/ci-results/static/phases.jsonl
+          include-hidden-files: true
+          if-no-files-found: warn
+
+  process-budget:
+    name: Node 24 / macOS / Process-budget tests
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install dependencies
+        run: node scripts/ci-phase.mjs process-budget install npm ci
+      - name: Build fresh package and UI
+        run: node scripts/ci-phase.mjs process-budget build npm run build
+      - name: Run tests
+        run: node scripts/ci-phase.mjs process-budget tests npm test -- --project process-budget --reporter ./scripts/ci-reporter.mjs
+      - name: Upload sanitized CI evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ci-process-budget
+          path: |
+            .harness-delta/ci-results/process-budget/phases.jsonl
+            .harness-delta/ci-results/process-budget/tests.jsonl
+          include-hidden-files: true
+          if-no-files-found: warn
+
+  default:
+    name: Node 24 / macOS / Default tests
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install dependencies
+        run: node scripts/ci-phase.mjs default install npm ci
+      - name: Build fresh package and UI
+        run: node scripts/ci-phase.mjs default build npm run build
+      - name: Run tests
+        run: node scripts/ci-phase.mjs default tests npm test -- --project default --reporter ./scripts/ci-reporter.mjs
+      - name: Upload sanitized CI evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ci-default
+          path: |
+            .harness-delta/ci-results/default/phases.jsonl
+            .harness-delta/ci-results/default/tests.jsonl
+          include-hidden-files: true
+          if-no-files-found: warn
