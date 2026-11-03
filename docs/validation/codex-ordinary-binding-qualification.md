@@ -153,6 +153,11 @@ cumulative safety ledger with fresh baselines, not native resume or relaunch.
 Do not backfill pre-link, paused or offline usage or replay old requests.
 Each selected session must have measured own usage; final reconciliation follows
 the frozen one-source or three-source scenario, not a fixed two-child assumption.
+The restart witness turn counts only if every root-source row naming that turn
+has a usable timestamp strictly after the restart boundary, including context-only
+rows. Final reconciliation rejects root requests, total requests or input-plus-output
+tokens at or above their stops even if the owner has already exited; each child
+still permits at most one request.
 
 | Per-intent budget | Frozen bound |
 | --- | --- |
@@ -198,8 +203,11 @@ requests varied between runs (2 and 3).
 
 All three intents pinned implementation digest
 `ccaef08f431306ae39d142bcbf0d7570e698921257b17b6adc825dbbe5307060`.
-After the trials the only implementation change is the candidate notice text,
-so these results are not exact-byte evidence for the rebuilt UI.
+Later implementation changes are the candidate notice text, a stricter
+observer-restart check, a stricter final stop check and the rebase onto `main`, so these results are not
+exact-byte evidence for this build. The operator submitted nothing while paused,
+and each post-restart request was a new turn. The trials therefore did not use
+the path closed by the stricter check.
 
 The runs used the operator's existing Codex home, with user-level MCP servers,
 plugins and a user SessionStart hook active. This is not evidence for MCP or IDE scope.

@@ -11,6 +11,7 @@ import { OwnedCliInvocation } from '../src/owned-cli-invocation.js';
 import { prepareCodexSessionBindingQualification, executeCodexSessionBindingQualification, codexBindingQualificationArgv, serveCodexSessionBindingQualificationUiPreparation, serveCodexSessionBindingQualificationResults } from '../src/codex-session-binding-qualification.js';
 import { createLocalWebDomain } from '../src/local-web-domain.js';
 import { assertBindingQualification, issueCodexBindingLease, noteQualificationCollectorError, qualificationCollectorError } from '../src/session-binding-qualification-lease.js';
+import * as qualificationLease from '../src/session-binding-qualification-lease.js';
 import { Store } from '../src/store.js';
 import { EventSchema, SourceCompatibilitySchema } from '../src/contracts.js';
 import { z } from 'zod';
@@ -116,12 +117,12 @@ function fixture(mode='normal'){
  ${mode.includes('missing-restart')?'':`
  await action('pause');
  syntheticNow=(await stimulus({operation:'advance'})).now;
- appendFileSync(file(root),usage(root,'root-offline'));
+ appendFileSync(file(root),${mode.includes('context-only')?"usage(root,'root-offline').split('\\n')[0]+'\\n'":"usage(root,'root-offline')"});
  await action('resume-binding');
  `}
  const completed=signal('collector-complete');
  syntheticNow=(await stimulus({operation:'advance'})).now;
- appendFileSync(file(root),usage(root,${mode.includes('stale-context')?"'root-offline'":"'root-after'"},'gpt-6.1-sol',${mode==='scenario-budget-family-token-stop'?299880:10}));
+ appendFileSync(file(root),usage(root,${mode.includes('stale-context')||mode.includes('context-only')?"'root-offline'":"'root-after'"},'gpt-6.1-sol',${mode==='scenario-budget-family-token-stop'?299880:10}));
  ${mode==='scenario-budget-root-stop'||mode==='scenario-budget-family-total-stop'?"for(let n=0;n<2;n++)appendFileSync(file(root),usage(root,'stop-'+n));":''}
  ${mode==='scenario-budget-family-child-stop'?"appendFileSync(file(children[0]),usage(children[0],'second-child'));":''}
  writeFileSync(join(i.directory,'scenario-final-ready'),'');
@@ -161,7 +162,7 @@ function fixture(mode='normal'){
      if(!beforeRestartObserved&&binding.requests===(budgetMode?4:1)+scenarioChildren){
       beforeRestartObserved=true;writeFileSync(join(root,'attempt','collector-before-restart'),'');
      }
-     if(!completionObserved&&!mode.endsWith('-stop')&&(binding.requests===(budgetMode?5:2)+scenarioChildren||mode.includes('stale-context')&&beforeRestartObserved&&statSync(join(root,'attempt','scenario-final-ready'),{throwIfNoEntry:false}))){
+     if(!completionObserved&&!mode.endsWith('-stop')&&binding.requests===(budgetMode?5:2)+scenarioChildren){
       completionObserved=true;writeFileSync(join(root,'attempt','collector-complete'),'');
      }
     }
@@ -214,6 +215,8 @@ test.each([
  ['root_normal_observer_restart','scenario-root-missing-restart',0,'binding_qualification_observer_restart_incomplete'],
  ['family_normal_observer_restart','scenario-family-missing-restart',2,'binding_qualification_observer_restart_incomplete'],
  ['root_normal_observer_restart','scenario-root-stale-context',0,'binding_qualification_observer_restart_incomplete'],
+ ['root_normal_observer_restart','scenario-root-context-only',0,'binding_qualification_observer_restart_incomplete'],
+ ['family_normal_observer_restart','scenario-family-context-only',2,'binding_qualification_observer_restart_incomplete'],
 ] as const)('0.166 scenario %s with %s requires frozen topology and observed restart',async(scenario,mode,plannedChildren,reason)=>{
  const f=fixture(mode);const sourceOpens=vi.mocked(fs.openSync);sourceOpens.mockClear();try{
   const input={binary:realpathSync(process.execPath),codexHome:f.home,productVersion:'0.166.0',route:'ordinary_admission' as const,scenario};
@@ -221,6 +224,10 @@ test.each([
   expect(p.intent).toMatchObject({scenario,planned_children:plannedChildren,root_request_stop:10,observed_request_stop:12,observed_token_stop:300000});
   const result=await executeCodexSessionBindingQualification(p.intentPath,{...consent(p.sha256),network_command_permission:true},f.dependency);
   expect(result,JSON.stringify(result)).toMatchObject({status:reason?'failed':'completed',reason,ordinary_admission_verified:false,native:{terminationVerified:true}});
+  if(mode==='scenario-root-stale-context')expect(result).toMatchObject({status:'failed',reason:'binding_qualification_observer_restart_incomplete',binding:{requests:2},
+   observer_restart:{new_root_context_measured:false},native:{terminationVerified:true}});
+  if(mode.includes('context-only'))expect(result).toMatchObject({binding:{requests:2+plannedChildren},
+   observer_restart:{new_root_context_measured:false},native:{status:'completed',terminationVerified:true}});
   if(mode==='scenario-family'&&plannedChildren===0)expect(result).toMatchObject({collector_error:'unknown_collector_error',binding:{children:0}});
   if(mode==='scenario-family'&&plannedChildren===0){
    const receipts=readdirSync(p.intent.receipts).filter(name=>name.endsWith('.json')).map(name=>z.object({event:z.enum(['SessionStart','SubagentStart']),sourceRef:z.string()}).parse(JSON.parse(readFileSync(join(p.intent.receipts,name),'utf8'))));
@@ -234,6 +241,69 @@ test.each([
    observer_restart:{same_source:true,fresh_baseline:true,new_root_context_measured:true},
    independent_source_check:{sources:1+plannedChildren,observed_request_matches:2+plannedChildren,native_owned_requests:3+plannedChildren,excluded_baseline_requests:1}});
  }finally{sourceOpens.mockClear();f.cleanup();}
+},20000);
+
+test.each([
+ ['0.166.0','root','scenario-root',10,10,130,['root_request_limit'],'binding_qualification_request_limit'],
+ ['0.166.0','total','scenario-family',10,12,156,['root_request_limit','total_request_limit'],'binding_qualification_request_limit'],
+ ['0.166.0','tokens','scenario-root',4,4,300000,['token_limit'],'binding_qualification_token_limit'],
+ ['0.163.0','tokens','six-requests',5,7,200000,['token_limit'],null],
+] as const)('%s final %s stop equality after owned exit',async(productVersion,stop,mode,rootRequests,totalRequests,tokens,reached,reason)=>{
+ const f=fixture(mode);
+ const bindingFactory=bindingService.createSessionBindingService;
+ let service:ReturnType<typeof createSessionBindingService>|undefined;
+ const binding=vi.spyOn(bindingService,'createSessionBindingService').mockImplementation(options=>{
+  service=bindingFactory(options);return service;
+ });
+ const issue=qualificationLease.issueCodexBindingLease;
+ let lease:ReturnType<typeof issueCodexBindingLease>|undefined;
+ const issued=vi.spyOn(qualificationLease,'issueCodexBindingLease').mockImplementation((...args)=>{
+  lease=issue(...args);return lease;
+ });
+ // eslint-disable-next-line @typescript-eslint/unbound-method -- Called only with the original owning instance.
+ const run=OwnedCliInvocation.prototype.run;
+ let collectedAfterExit=false;
+ const owned=vi.spyOn(OwnedCliInvocation.prototype,'run').mockImplementation(async function(this:OwnedCliInvocation,signal){
+  const native=await run.call(this,signal);
+  expect(native).toMatchObject({status:'completed',terminationVerified:true});
+  expect(this.isAlive()).toBe(false);
+  if(!lease||!service)throw new Error('synthetic_collector_missing');
+  const intent=z.object({database:z.string(),task_id:z.string(),project:z.string(),root_request_stop:z.number(),observed_token_stop:z.number()})
+   .parse(JSON.parse(readFileSync(join(f.dir,'execution-intent.json'),'utf8')));
+  const db=new Store(intent.database);
+  try{
+   const root=z.object({identity:z.string()}).parse(db.get('SELECT identity FROM session_bindings WHERE session_id=root_id'));
+   const identity=z.object({sessionId:z.string(),sourceRef:z.string()}).parse(JSON.parse(root.identity));
+   const before=[...qualificationLease.qualificationRecordedRequests(lease).values()];
+   const count=stop==='tokens'?1:intent.root_request_stop-before.filter(record=>record.sessionId===identity.sessionId).length;
+   const beforeTokens=before.reduce((n,record)=>n+(record.payload.input_total.value??0)+(record.payload.output_total.value??0),0);
+   const input=stop==='tokens'?intent.observed_token_stop-beforeTokens-3:10;
+   for(let n=0;n<count;n++){
+    const turn='final-stop-'+n;const timestamp=new Date().toISOString();
+    appendFileSync(identity.sourceRef,JSON.stringify({timestamp,type:'turn_context',payload:{cwd:intent.project,turn_id:turn,root_turn_id:turn,model:'gpt-6.1-sol',effort:'high'}})+'\n'
+     +JSON.stringify({timestamp,type:'token_usage_record',payload:{thread_id:identity.sessionId,session_id:identity.sessionId,turn_id:turn,root_turn_id:turn,response_id:randomUUID(),usage:{input_tokens:input,cached_input_tokens:2,output_tokens:3,reasoning_output_tokens:1,total_tokens:input+3}}})+'\n');
+   }
+   await service.tick(intent.task_id);
+   expect(this.isAlive()).toBe(false);
+   expect(qualificationLease.qualificationStopWitness(lease,'safety_limit')).toMatchObject({safety:{root_requests:rootRequests,total_requests:totalRequests,input_output_tokens:tokens,reached}});
+   const observed=db.all<{request_key:string}>('SELECT request_key FROM binding_requests');
+   const covered=new Set([...qualificationLease.qualificationBaselineKeys(lease),...observed.map(row=>row.request_key)]);
+   expect(new Set(qualificationLease.qualificationRecordedRequests(lease).keys())).toEqual(covered);
+   expect(observed).toHaveLength(totalRequests-(productVersion==='0.166.0'?1:0));
+   collectedAfterExit=true;
+  }finally{db.close();}
+  return native;
+ });
+ try{
+  const p=await prepareCodexSessionBindingQualification(f.dir,{binary:realpathSync(process.execPath),codexHome:f.home,productVersion,route:'ordinary_admission',
+   ...(productVersion==='0.166.0'?{scenario:mode==='scenario-family'?'family_normal_observer_restart' as const:'root_normal_observer_restart' as const}:{})},f.dependency);
+  const result=await executeCodexSessionBindingQualification(p.intentPath,{...consent(p.sha256),network_command_permission:true},f.dependency);
+  expect(collectedAfterExit,JSON.stringify(result)).toBe(true);
+  expect(result,JSON.stringify(result)).toMatchObject({status:reason?'failed':'completed',reason,phase:'source_check',observer_stop_reason:null,collector_error:null,
+   ordinary_path_verified:reason===null,native:{status:'completed',exitCode:0,terminationVerified:true},binding:{requests:totalRequests-(productVersion==='0.166.0'?1:0)}});
+  if(reason)expect(result).toMatchObject({first_diagnostic:{stage:'source_check',code:reason}});
+  else expect(result).toMatchObject({independent_source_check:{native_owned_requests:totalRequests,observed_request_matches:totalRequests,excluded_baseline_requests:0}});
+ }finally{owned.mockRestore();issued.mockRestore();binding.mockRestore();f.cleanup();}
 },20000);
 
 test('0.166 budget permits historical-shaped family counts through normal observer restart',async()=>{

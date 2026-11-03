@@ -20,6 +20,7 @@ import { assertBindingQualification, bindingQualificationCompatibility, issueCod
 import { assertCompatibilityAllowed, resolveSourceCompatibility, sessionCompatibility } from './source-compatibility.js';
 import { getCodexBindingAdmission, isAdmittedCodexBindingProtocol } from './codex-binding-admission.js';
 import { setTimeout as delay } from 'node:timers/promises';
+import { TimestampSchema } from './contracts.js';
 
 const hash=(value:string|Buffer)=>createHash('sha256').update(value).digest('hex');
 const path=z.string().startsWith('/').max(4096).refine(v=>!/[\0\r\n]/.test(v));
@@ -271,7 +272,7 @@ export function codexBindingQualificationArgv(i:Intent):string[]{
 
 const taskSchema=z.object({binding:z.object({roots:z.number(),children:z.number(),requests:z.number(),gaps:z.array(z.string()),sessions:z.array(z.object({session_id:z.string()}))}),measurement:z.object({state:z.string()})});
 function qualificationTask(domain:ReturnType<typeof createLocalWebDomain>,id:string){return taskSchema.parse(domain.task(id));}
-async function independentSourceCheck(i:Intent,store:Store,lease:ReturnType<typeof issueCodexBindingLease>){
+async function independentSourceCheck(i:Intent,store:Store,lease:ReturnType<typeof issueCodexBindingLease>,restartWitness:{turnId:string;boundary:string}|null){
  // Active scope, exact frozen newly linked sources only; never scan native history.
  const initial = new Lifecycle(store).task(i.task_id);
  const active = () => { assertOrdinarySnapshot(i,store);if(i.route==='ordinary_admission')assertBindingQualification(lease,store,i.task_id);const current=new Lifecycle(store).task(i.task_id); if(current.state!=='active'||current.generation!==initial.generation)throw new Error('binding_qualification_scope_revoked'); }; active();
@@ -290,6 +291,23 @@ async function independentSourceCheck(i:Intent,store:Store,lease:ReturnType<type
   active(); const family=await provider.discoverChildren(identity);
   active();
   if(family.gaps.length||family.children.some(c=>!identities.some(v=>JSON.stringify(v)===JSON.stringify(c.identity))))throw new Error('binding_qualification_family_limit');
+  active();
+  if(i.product_version==='0.166.0'&&i.scenario&&identity.sessionId===root.sessionId){
+   let fresh:boolean;
+   try{
+    const bytes=privateBytes(identity.sourceRef,8*1024*1024);
+    const lines=bytes.toString('utf8').split('\n');const partial=lines.pop();
+    const rowSchema=z.object({type:z.string(),timestamp:z.unknown().optional(),payload:z.object({turn_id:z.string().nullish()})});
+    fresh=restartWitness!==null&&bytes.length<=8*1024*1024&&partial===''&&lines.length>0&&lines.length<=65536&&lines.every(line=>{
+     const row=rowSchema.safeParse(JSON.parse(line) as unknown);
+     if(!row.success)return false;
+     if(row.data.payload.turn_id!==restartWitness.turnId)return true;
+     const timestamp=TimestampSchema.safeParse(row.data.timestamp);
+     return timestamp.success&&Date.parse(timestamp.data)>Date.parse(restartWitness.boundary);
+    });
+   }catch{fresh=false;}
+   if(!fresh)throw new Error('binding_qualification_observer_restart_incomplete');
+  }
   active(); const batch=await provider.readUsage(identity,null,scope,{baseline:false});
   active(); if(batch.gaps.length)throw new Error('binding_qualification_final_gap');records.push(...batch.records);
  }
@@ -298,8 +316,9 @@ async function independentSourceCheck(i:Intent,store:Store,lease:ReturnType<type
   if(record.payload.model!==i.root_model||record.effort!==i.effort||record.payload.input_total.status!=='observed'||record.payload.output_total.status!=='observed')throw new Error('binding_qualification_runtime_invalid');
   const key=qualificationRequestKey(record);if(byKey.has(key))throw new Error('binding_qualification_request_conflict');byKey.set(key,record);
  }
- if(records.length>i.observed_request_stop||records.filter(r=>r.sessionId===root.sessionId).length>i.root_request_stop||identities.filter(v=>v.parentSessionId!==null).some(v=>records.filter(r=>r.sessionId===v.sessionId).length>1))throw new Error('binding_qualification_request_limit');
- if(records.reduce((n,r)=>n+(r.payload.input_total.value??0)+(r.payload.output_total.value??0),0)>i.observed_token_stop)throw new Error('binding_qualification_token_limit');
+ const finalStopReached=(value:number,stop:number)=>i.product_version==='0.166.0'?value>=stop:value>stop;
+ if(finalStopReached(records.length,i.observed_request_stop)||finalStopReached(records.filter(r=>r.sessionId===root.sessionId).length,i.root_request_stop)||identities.filter(v=>v.parentSessionId!==null).some(v=>records.filter(r=>r.sessionId===v.sessionId).length>1))throw new Error('binding_qualification_request_limit');
+ if(finalStopReached(records.reduce((n,r)=>n+(r.payload.input_total.value??0)+(r.payload.output_total.value??0),0),i.observed_token_stop))throw new Error('binding_qualification_token_limit');
  const observed=store.all<{request_key:string;payload:string}>('SELECT r.request_key,e.payload FROM binding_requests r JOIN events e ON e.id=r.event_id WHERE e.task_id=?',[i.task_id]);
  const baseline=qualificationBaselineKeys(lease);
  for(const [key,record] of qualificationRecordedRequests(lease)){if(!isDeepStrictEqual(byKey.get(key),record))throw new Error('binding_qualification_counter_mismatch');}
@@ -337,8 +356,9 @@ export async function executeCodexSessionBindingQualification(file:string,consen
  let rootIdentity:import('./session-binding-contract.js').VerifiedSessionIdentity|null=null;
  let pausedIdentity:string|null=null;let restartGeneration:number|null=null;let restartWindow:string|null=null;
  let restartRequest:string|null=null;const previousRootTurns=new Set<string|null>();
+ let restartWitness:{turnId:string;boundary:string}|null=null;
  const observationWindow=()=>JSON.stringify(store.get('SELECT started_at,ends_at FROM external_task_contracts WHERE task_id=?',[i.task_id]));
- const diagnosticCodes=['clock_regression','invalid_gap','binding_qualification_revoked','binding_qualification_scope_revoked','binding_qualification_scope_invalid','binding_qualification_already_reserved','ui_setup_conflict','binding_qualification_counter_mismatch','binding_qualification_source_changed','binding_qualification_family_limit','binding_qualification_final_gap','binding_qualification_runtime_invalid','binding_qualification_request_limit','binding_qualification_token_limit','binding_qualification_request_conflict','binding_qualification_final_unobserved_request','owned_cli_termination_unverified'] as const;
+ const diagnosticCodes=['clock_regression','invalid_gap','binding_qualification_revoked','binding_qualification_scope_revoked','binding_qualification_scope_invalid','binding_qualification_already_reserved','ui_setup_conflict','binding_qualification_counter_mismatch','binding_qualification_source_changed','binding_qualification_family_limit','binding_qualification_final_gap','binding_qualification_runtime_invalid','binding_qualification_request_limit','binding_qualification_token_limit','binding_qualification_request_conflict','binding_qualification_final_unobserved_request','binding_qualification_observer_restart_incomplete','owned_cli_termination_unverified'] as const;
  type DiagnosticStage='reservation'|'lease'|'domain'|'receiver'|'owner_run'|'lease_assertion'|'task_snapshot'|'binding_check'|'safety_check'|'deadline'|'final_snapshot'|'source_check'|'termination'|'domain_close'|'receiver_close';
  let diagnosticStage:DiagnosticStage='reservation';
  let firstDiagnostic:{stage:DiagnosticStage|'collector';code:string}|null=null;
@@ -362,11 +382,14 @@ export async function executeCodexSessionBindingQualification(file:string,consen
     },
     record(taskId,record,excluded){
      assertOrdinarySnapshot(i,store);checkBindingQualificationRecord(safetyLease,store,taskId,record,excluded);
+     if(observerRestart&&excluded&&record.sessionId===rootIdentity?.sessionId)previousRootTurns.add(record.turnId);
      if(observerRestart?.same_source&&record.sessionId===rootIdentity?.sessionId&&new Lifecycle(store).task(taskId).generation===restartGeneration){
       if(excluded)observerRestart.fresh_baseline=true;
       else if(observerRestart.fresh_baseline&&record.turnId!==null&&!previousRootTurns.has(record.turnId)){
        const boundary=store.get<{observed_since:string}>('SELECT observed_since FROM session_bindings WHERE session_id=?',[record.sessionId]);
-       if(boundary&&record.occurredAt>=boundary.observed_since)restartRequest=qualificationRequestKey(record);
+       if(boundary&&record.occurredAt>=boundary.observed_since){
+        restartRequest=qualificationRequestKey(record);restartWitness={turnId:record.turnId,boundary:boundary.observed_since};
+       }
       }
      }
     },
@@ -376,7 +399,7 @@ export async function executeCodexSessionBindingQualification(file:string,consen
       const task=new Lifecycle(store).task(taskId);
       if(task.state==='paused'){
        observerRestart.same_source=false;observerRestart.fresh_baseline=false;observerRestart.new_root_context_measured=false;
-       restartGeneration=null;restartRequest=null;previousRootTurns.clear();
+       restartGeneration=null;restartRequest=null;restartWitness=null;previousRootTurns.clear();
        const measured=store.all<{session_id:string}>('SELECT DISTINCT e.session_id FROM binding_requests r JOIN events e ON e.id=r.event_id WHERE e.task_id=?',[taskId]);
        pausedIdentity=rootIdentity&&measured.length===1+i.planned_children&&measured.some(r=>r.session_id===rootIdentity?.sessionId)?JSON.stringify(rootIdentity):null;
        restartWindow=observationWindow();
@@ -434,9 +457,9 @@ export async function executeCodexSessionBindingQualification(file:string,consen
    else{
     if(observerRestart)observerRestart.new_root_context_measured=restartRequest!==null&&!!store.get('SELECT 1 FROM binding_requests r JOIN events e ON e.id=r.event_id WHERE r.request_key=? AND e.task_id=?',[restartRequest,i.task_id]);
     if(observerRestart&&(!observerRestart.same_source||!observerRestart.fresh_baseline||!observerRestart.new_root_context_measured||observationWindow()!==restartWindow))reason='binding_qualification_observer_restart_incomplete';
-    else{phase='source_check';diagnosticStage='source_check';fixture?.beforeFinalSourceCheck?.(native);independent=await independentSourceCheck(i,store,lease);}
+    else{phase='source_check';diagnosticStage='source_check';fixture?.beforeFinalSourceCheck?.(native);independent=await independentSourceCheck(i,store,lease,restartWitness);}
    }}
- }catch(error){noteCollectorDiagnostic();noteDiagnostic(diagnosticStage,error);const known=['binding_qualification_scope_revoked','binding_qualification_scope_invalid','binding_qualification_already_reserved','ui_setup_conflict','binding_qualification_counter_mismatch','binding_qualification_source_changed','binding_qualification_family_limit','binding_qualification_final_gap','binding_qualification_runtime_invalid','binding_qualification_request_limit','binding_qualification_token_limit','binding_qualification_request_conflict','binding_qualification_final_unobserved_request'];reason??=error instanceof Error&&known.includes(error.message)?error.message:'binding_qualification_execution_failed';owner.stop();}
+ }catch(error){noteCollectorDiagnostic();noteDiagnostic(diagnosticStage,error);const known=['binding_qualification_scope_revoked','binding_qualification_scope_invalid','binding_qualification_already_reserved','ui_setup_conflict','binding_qualification_counter_mismatch','binding_qualification_source_changed','binding_qualification_family_limit','binding_qualification_final_gap','binding_qualification_runtime_invalid','binding_qualification_request_limit','binding_qualification_token_limit','binding_qualification_request_conflict','binding_qualification_final_unobserved_request','binding_qualification_observer_restart_incomplete'];reason??=error instanceof Error&&known.includes(error.message)?error.message:'binding_qualification_execution_failed';if(observerRestart&&reason==='binding_qualification_observer_restart_incomplete')observerRestart.new_root_context_measured=false;owner.stop();}
  finally{owner.stop();noteCollectorDiagnostic();if(owned)try{native=await owned;}catch(error){noteCollectorDiagnostic();noteDiagnostic('termination',error);reason='owned_cli_termination_unverified';}noteCollectorDiagnostic();if(native&&!native.terminationVerified){firstDiagnostic??={stage:'termination',code:'owned_cli_termination_unverified'};reason='owned_cli_termination_unverified';}if(lease)revokeBindingQualification(lease);
   try{await domain?.close?.();}catch(error){noteDiagnostic('domain_close',error);reason??='binding_qualification_execution_failed';}
   try{await app?.close();}catch(error){noteDiagnostic('receiver_close',error);reason??='binding_qualification_execution_failed';}
