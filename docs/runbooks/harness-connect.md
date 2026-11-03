@@ -19,6 +19,20 @@ collection authority. New project setup now defaults to Codex 0.163.0, and the v
 selector still lists Codex 0.162.1; existing saved versions are not upgraded automatically. Only the new
 exact binding profile gains verified provenance; past unverified observations stay unchanged.
 
+The version selector also exposes exact Codex 0.166.0 as an **UNQUALIFIED CANDIDATE**
+(`qualified:false`), profile `codex-binding-01660-direct-family-v1`; qualified
+support is pending. The record itself has no `evidenceId` or `evidenceIntentSha256`
+and adds nothing to `productionSourceEvidence`. Separate native intents and results
+are recorded in the [2026-11-03 candidate trials](../validation/codex-ordinary-binding-qualification.md#2026-11-03-candidate-trials);
+they do not qualify the candidate. The default remains 0.163.0.
+Its [candidate procedure](../validation/codex-ordinary-binding-qualification.md#01660-unqualified-ordinary-candidate)
+requires `--route ordinary_admission` and explicit
+`--scenario root_normal_observer_restart` (zero children) or
+`--scenario family_normal_observer_restart` (two fresh direct children).
+Native execution needs separate exact-intent consent. H4 host-spawn/Detached and
+H5 environment-hook null-transcript paths are excluded; no file/workflow fallback
+or native resume is available.
+
 The [shared skill](../../skills/harness-connect/SKILL.md), receipt API, binding
 store/coordinator, Codex and Claude metadata hooks/providers and UI family display are implemented.
 Isolated synthetic end-to-end tests exercise one parent connection, automatic

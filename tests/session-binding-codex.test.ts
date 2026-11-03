@@ -232,8 +232,8 @@ test('paginated child own suffix excludes inherited requests and cumulative toke
   expect(batch.records[0]!.payload.reasoning_output.value).toBe(5);
 });
 
-test('ordinary 0.163.0 excludes inherited child suffixes on initial, later and restarted reads', async () => {
-  const f = fixture('0.163.0', true); const root = await f.provider.resolveCurrent({ receipt: f.receipt('root') });
+test.each(['0.163.0', '0.166.0'])('ordinary %s excludes inherited child suffixes on initial, later and restarted reads', async version => {
+  const f = fixture(version, true); const root = await f.provider.resolveCurrent({ receipt: f.receipt('root') });
   const meta = { ...f.meta('child', 'root', 1, { history_mode: 'paginated', forked_from_id: 'root', forked_from_ordinal_exclusive: 20,
     subagent_history_start_ordinal: 23, history_base: { thread_id: 'root', end_ordinal_exclusive: 20, end_byte_offset: 123 } }), ordinal: 20 };
   f.write('child', [meta, { ...f.context('root', 1), ordinal: 21 }, { ...f.usage('root', 'inherited', 2), ordinal: 22 }]); f.receipt('child', 'root');
@@ -251,7 +251,7 @@ test('ordinary 0.163.0 excludes inherited child suffixes on initial, later and r
   expect(batch).toMatchObject({ records: [], gaps: ['candidate_unsupported_history'] });
   expect(await f.provider.readUsage(child, batch.cursor, scope)).toMatchObject({ records: [], gaps: ['candidate_unsupported_history'] });
   const restarted = new CodexSessionBindingProvider({ receiptDirectory: f.journal, sourceRoots: [f.dir], projectRoot: f.dir,
-    productVersion: '0.163.0', ordinaryFamilyAdmission: true, maxDepth: 1, maxFamilyMembers: 3, clock: () => at(8) });
+    productVersion: version, ordinaryFamilyAdmission: true, maxDepth: 1, maxFamilyMembers: 3, clock: () => at(8) });
   await expect(restarted.readUsage(child, batch.cursor, scope)).rejects.toThrow('binding_cursor_invalid');
   expect(await restarted.readUsage(child, null, scope)).toMatchObject({ records: [], gaps: ['candidate_unsupported_history'] });
   f.write('child', [meta]);

@@ -290,8 +290,8 @@ test.each([108256, 199999, 200000, 200001])('target collector enforces the raise
   }
 });
 
-test('target eighth root request reaches both stops and a ninth cannot enter the ledger', async () => {
-  const f = await family();
+test.each(['0.162.1', '0.163.0'])('target %s eighth root request reaches both stops and a ninth cannot enter the ledger', async productVersion => {
+  const f = await family(productVersion);
   for (let n = 0; n < 7; n++) appendFileSync(f.source(f.rootId), f.row('token_usage_record', {
     thread_id: f.rootId, session_id: f.rootId, turn_id: `${f.rootId}-turn`, root_turn_id: `${f.rootId}-turn`,
     response_id: randomUUID(),

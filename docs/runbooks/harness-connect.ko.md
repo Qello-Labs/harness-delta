@@ -10,7 +10,7 @@ Claude Code 2.1.301은 제한된 print-mode transcript 적합성 검증을 통�
 `compatibility_unverified`로 선택하며 일반 연결 근거로 다른 소스를 승격하지 않습니다.
 일반 연결에는 아래의 정확한 admission 버전을 사용하세요.
 
-Codex 0.163.0은 [제한된 qualification 절차](../validation/codex-ordinary-binding-qualification.md)에서
+Codex 0.163.0은 [제한된 qualification 절차](../validation/codex-ordinary-binding-qualification.ko.md)에서
 `--product-version 0.163.0 --route qualification`으로 별도 준비할 수 있습니다.
 Codex 실행 파일 옆에 같은 릴리스의 고정된 `codex-code-mode-host`가 필요하며,
 Codex 단독 아카이브만으로는 부족합니다. 준비와 실행 시 두 파일의 pin을 검사합니다.
@@ -18,6 +18,20 @@ Codex 단독 아카이브만으로는 부족합니다. 준비와 실행 시 두 
 새 프로젝트 설정의 기본값은 이제 Codex 0.163.0이며 버전 선택기에는 Codex 0.162.1도 남아 있습니다.
 저장된 버전은 자동으로 올리지 않습니다. 새 정확한 binding profile만
 검증 provenance를 얻으며, 과거 미검증 관측은 그대로 유지합니다.
+
+버전 선택기에는 정확한 Codex 0.166.0도 **UNQUALIFIED CANDIDATE**
+(`qualified:false`), profile `codex-binding-01660-direct-family-v1`로 표시됩니다.
+검증된 지원은 대기 중입니다. 기록 자체에는 `evidenceId`나 `evidenceIntentSha256`가 없고
+`productionSourceEvidence`에 기여하지 않습니다. 별도의 native intent와 결과는
+[2026-11-03 후보 시험](../validation/codex-ordinary-binding-qualification.ko.md#2026-11-03-candidate-trials)에
+기록되어 있으며 후보의 지원 검증을 완료하지는 않습니다. 기본값은 0.163.0을 유지합니다.
+[후보 절차](../validation/codex-ordinary-binding-qualification.ko.md#01660-unqualified-ordinary-candidate)는
+`--route ordinary_admission`과 명시적인
+`--scenario root_normal_observer_restart`(자식 없음) 또는
+`--scenario family_normal_observer_restart`(새 직계 자식 두 개)가 필요합니다.
+native 실행에는 정확한 intent별 별도 동의가 필요합니다.
+H4 host-spawn/Detached와 H5 environment-hook null-transcript 경로는 제외되며,
+file/workflow fallback과 native resume은 제공하지 않습니다.
 
 [공유 스킬](../../skills/harness-connect/SKILL.md), receipt API, 연결 저장/수집 계층,
 Codex/Claude 메타데이터 hook/provider, UI 가족 표시가 구현되어 있습니다. 격리 synthetic
@@ -91,12 +105,12 @@ read-only/on-request/no-daemon과 명시적으로 1회 승인된 network 전용 
 관측기 재연결 및 이후 모든 사용량 읽기에 적용합니다.
 resume, 더 깊거나 추가된 자식, 도구 소유 launch와 추론 채택은 이 profile로 허용하지 않습니다.
 종료·미완료 응답의 완전성도 검증하지 않았습니다.
-[native 검증 기록](../validation/codex-ordinary-binding-qualification.md#2026-10-16-ordinary-route-acceptance)을 확인하세요.
+[native 검증 기록](../validation/codex-ordinary-binding-qualification.ko.md#2026-10-16-ordinary-route-acceptance)을 확인하세요.
 
 ## Codex 0.162.1 제한 일반 profile
 
 새 `ordinary_admission` 실행과 독립 검토로 이 정확한 제한 경로를 검증했습니다.
-[날짜별 승인 증거](../validation/codex-ordinary-binding-qualification.md#2026-10-13-ordinary-route-acceptance)를 참고하세요.
+[날짜별 승인 증거](../validation/codex-ordinary-binding-qualification.ko.md#2026-10-13-ordinary-route-acceptance)를 참고하세요.
 기존 lease 기반 관측과 synthetic fixture는 별도 증거이며,
 다른 일반 경로를 검증한 것은 아닙니다.
 
@@ -392,7 +406,7 @@ Claude 기준선의 제외 own request ID는 실시간 replay 목록과 별도�
 이미 관측한 요청의 counter 충돌도 수집을 중단합니다. 일반 관측 경로는 제외 ID를
 SQLite에 보관하며 이 한도가 없습니다.
 
-격리된 일반 Codex CLI qualification 실행기와 실제 호출 승인 범위는 [qualification 절차](../validation/codex-ordinary-binding-qualification.md)를 참고하세요. 준비와 Node fixture 검증만으로 production 지원이 열리지는 않습니다.
+격리된 일반 Codex CLI qualification 실행기와 실제 호출 승인 범위는 [qualification 절차](../validation/codex-ordinary-binding-qualification.ko.md)를 참고하세요. 준비와 Node fixture 검증만으로 production 지원이 열리지는 않습니다.
 실행기에 별도 정확 버전 Codex 0.162.1 후보가 있으며 `--product-version 0.162.1`로
 선택합니다. 일반 `--no-daemon` TUI에서 기존 부모 하나·새 직접 자식 둘의 topology를
 유지합니다. 정확한 실행 파일 고정, intent별 승인과 소유 실행의 안전 검증은
@@ -448,7 +462,7 @@ qualification은 각 정확한 source를 검증된 자체 조상 관계로만 �
 전체 가족 한도를 제한합니다. 형제 thread를 가리키는 row는 차단하며 일반 경로의
 더 넓은 topology를 지원한다는 뜻이 아닙니다.
 
-격리 qualification UI는 부모·자식별 자체 요청, 입력·출력, 부분 비용과 관측 합계를 표시합니다. 같은 살아 있는 부모의 측정 재개와 소유 AI 긴급 중단을 분리하며, 기존 기한·안전 카운터는 초기화하지 않습니다. pause 중 원본 카운터는 미확인입니다. [제한된 실행 절차](../validation/codex-ordinary-binding-qualification.md)를 참조하세요.
+격리 qualification UI는 부모·자식별 자체 요청, 입력·출력, 부분 비용과 관측 합계를 표시합니다. 같은 살아 있는 부모의 측정 재개와 소유 AI 긴급 중단을 분리하며, 기존 기한·안전 카운터는 초기화하지 않습니다. pause 중 원본 카운터는 미확인입니다. [제한된 실행 절차](../validation/codex-ordinary-binding-qualification.ko.md)를 참조하세요.
 
 ## Codex 0.162.0 일반 root 로컬 pilot
 

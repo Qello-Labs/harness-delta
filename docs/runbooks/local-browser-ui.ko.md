@@ -109,7 +109,18 @@ Claude에서 그 작업의 호출 문구를 실행하세요. 이 화면에 도�
 배정 없는 일반 Claude 모드가 아닌 별도 배정 경로가 필요합니다.
 [Codex 0.162.1 제한 일반 profile](harness-connect.ko.md#codex-01621-제한-일반-profile) 또는
 [Codex 0.163.0 제한 일반 profile](harness-connect.ko.md#codex-01630-제한-일반-profile)입니다.
-새 프로젝트 설정의 기본값은 Codex 0.163.0이며, 버전 선택기에는 둘 다 있고 저장된 설정은 저장된 버전을 유지합니다.
+새 프로젝트 설정의 기본값은 Codex 0.163.0이며, 버전 선택기는 두 버전을 유지하면서
+Codex 0.166.0을 **UNQUALIFIED CANDIDATE**(`qualified:false`)로도 표시합니다.
+검증된 지원이 아니며, 정확한 `codex-binding-01660-direct-family-v1` 기록 자체에는
+`evidenceId`나 `evidenceIntentSha256`가 없고 `productionSourceEvidence`에 기여하지 않습니다.
+별도의 native intent와 결과는
+[2026-11-03 후보 시험](../validation/codex-ordinary-binding-qualification.ko.md#2026-11-03-candidate-trials)에
+기록되어 있으며 후보의 지원 검증을 완료하지는 않습니다. 저장된 설정은 저장된 버전을 유지합니다.
+[제한된 후보 절차](../validation/codex-ordinary-binding-qualification.ko.md#01660-unqualified-ordinary-candidate)는
+`ordinary_admission` 전용이며 `--scenario root_normal_observer_restart`(자식 없음) 또는
+`--scenario family_normal_observer_restart`(직계 자식 두 개)가 필수입니다.
+native 실행에는 정확한 intent별 별도 동의가 필요하며, H4 host-spawn/Detached와
+H5 env-null-transcript 경로는 제외됩니다. file/workflow fallback과 native resume은 없습니다.
 
 ### 비교 파일 준비와 확인
 

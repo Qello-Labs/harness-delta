@@ -69,6 +69,7 @@ describe('project Codex connection setup HTTP', () => {
     expect(preview.statusCode, preview.body).toBe(200);
     expect(inspected.json()).toMatchObject({
       configured: false, product: 'codex', product_version: '0.163.0',
+      unqualified_versions: ['0.166.0'],
       admission: {
         profile_id: 'codex-binding-01630-direct-family-v1', qualified: true,
         max_family_members: 3,
@@ -106,7 +107,7 @@ describe('project Codex connection setup HTTP', () => {
     });
   });
 
-  it.each(['0.162.1', '0.163.0'])('preserves saved version %s when later configuration omits it', async productVersion => {
+  it.each(['0.162.1', '0.163.0', '0.166.0'])('preserves saved version %s when later configuration omits it', async productVersion => {
     const initial = await post({ operation: 'configure', product_version: productVersion, source_roots: [sources] });
     expect(initial.statusCode, initial.body).toBe(200);
     const saved = await post({ operation: 'configure', source_roots: [project] });
@@ -117,7 +118,7 @@ describe('project Codex connection setup HTTP', () => {
     expect(existsSync(join(project, '.codex'))).toBe(false);
   });
 
-  it.each(['0.162.0', '0.162.2', '0.163.1', '0.163.0-beta.1', ''])(
+  it.each(['0.162.0', '0.162.2', '0.163.1', '0.163.0-beta.1', '0.165.0', '0.166.1', '0.166.0-beta.1', '0.167.0', ''])(
     'refuses unknown setup version %s without changing saved settings', async productVersion => {
       await configure();
       const before = (await inspect()).json<Setup>();
@@ -139,6 +140,7 @@ describe('project Codex connection setup HTTP', () => {
   it.each([
     { productVersion: '0.162.1', profileId: 'codex-binding-01621-direct-family-v1', qualified: true },
     { productVersion: '0.163.0', profileId: 'codex-binding-01630-direct-family-v1', qualified: true },
+    { productVersion: '0.166.0', profileId: 'codex-binding-01660-direct-family-v1', qualified: false },
   ])('installs $productVersion prepared files without granting native trust or creating receipts and sessions', async ({ productVersion, profileId, qualified }) => {
     const configured = await post({ operation: 'configure', product_version: productVersion, source_roots: [sources] });
     expect(configured.statusCode, configured.body).toBe(200);
