@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { buildMeasurementRequest, buildSetupRequest, GuidedSetup, measurementSettingIdentifier } from './GuidedSetup';
 import { setupReviewFixture } from '../../tests/helpers/setup-review-fixture.js';
 import { MeasurementReview } from './MeasurementReview';
+import { expandUi } from './test-helpers/expand-ui';
 
 vi.mock('react', async importOriginal => {
   const react = await importOriginal<typeof import('react')>();
@@ -116,9 +117,12 @@ test('a review response cannot restore an invalidated review after a profile fil
     onClick?: () => void;
   };
   function controls(node: ReactNode): { type: unknown; props: Control }[] {
-    if (Array.isArray(node)) return node.flatMap(controls);
-    if (!isValidElement<Control>(node)) return [];
-    return [node, ...controls(node.props.children)];
+    function visit(value: ReactNode): { type: unknown; props: Control }[] {
+      if (Array.isArray(value)) return value.flatMap(visit);
+      if (!isValidElement<Control>(value)) return [];
+      return [value, ...visit(value.props.children)];
+    }
+    return visit(expandUi(node));
   }
   function render(busy = false) {
     stateIndex = 0;
@@ -230,9 +234,12 @@ type GuidedControl = {
   onChange?: (event: { target: { value: string; checked?: boolean; files?: { name?: string; text: () => Promise<string> }[] } }) => void;
 };
 function guidedControls(node: ReactNode): { type: unknown; props: GuidedControl }[] {
-  if (Array.isArray(node)) return node.flatMap(guidedControls);
-  if (!isValidElement<GuidedControl>(node)) return [];
-  return [node, ...guidedControls(node.props.children)];
+  function visit(value: ReactNode): { type: unknown; props: GuidedControl }[] {
+    if (Array.isArray(value)) return value.flatMap(visit);
+    if (!isValidElement<GuidedControl>(value)) return [];
+    return [value, ...visit(value.props.children)];
+  }
+  return visit(expandUi(node));
 }
 function guidedHarness(perform: <T>(route: string, input: unknown) => Promise<T | null>, onSaved = vi.fn(), project = syntheticProject) {
   const states: unknown[] = [];

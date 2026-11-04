@@ -1,19 +1,20 @@
-import { createElement, isValidElement, useEffect, useRef, useState, type ReactNode } from 'react';
+import { createElement, isValidElement, type ReactNode, useEffect, useRef, useState } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { expect, test, vi } from 'vitest';
 import { App, defaultSetupProjectId } from './App';
 import { GuidedSetup } from './GuidedSetup';
 import { SavedSetups } from './SavedSetups';
 import { SetupSummary } from './SetupSummary';
-import { SharedSetupPreview, type SharedSetupImport } from './SharedSetupPreview';
+import { type SharedSetupImport, SharedSetupPreview } from './SharedSetupPreview';
 import { AgentConnectionSetup } from './AgentConnectionSetup';
 import { HarnessApplication } from './HarnessApplication';
 import { ClaudeConnection } from './ClaudeConnection';
 import { OrdinaryCriteria } from './OrdinaryObservationSetup';
-import type { Setup, Snapshot, SupportDetails, Task } from './types';
+import type { Locale, Setup, Snapshot, SupportDetails, Task } from './types';
 import { connectionRoute } from './AssignedHarness';
 import { SupportGuidance } from './SupportGuidance';
 import * as api from './api';
+import { expandUi } from './test-helpers/expand-ui';
 
 vi.mock('react', async importOriginal => {
   const react = await importOriginal<typeof import('react')>();
@@ -95,39 +96,117 @@ type AppControl = {
   checked?: boolean;
   disabled?: boolean;
   'aria-expanded'?: boolean;
+  'data-bootstrap'?: string;
   'data-action-blocked'?: string;
   'data-task-action'?: string;
   onChange?: () => void;
   onClick?: () => void;
 };
 function appControls(node: ReactNode): { type: unknown; key: string | null; props: AppControl }[] {
-  if (Array.isArray(node)) return node.flatMap(appControls);
-  if (!isValidElement<AppControl>(node)) return [];
-  return [node, ...appControls(node.props.children)];
+  function visit(value: ReactNode): { type: unknown; key: string | null; props: AppControl }[] {
+    if (Array.isArray(value)) return value.flatMap(visit);
+    if (!isValidElement<AppControl>(value)) return [];
+    return [value, ...visit(value.props.children)];
+  }
+  return visit(expandUi(node));
 }
-function appHarness(data: Snapshot = snapshot, initial: [number, unknown][] = []) {
+type AppScreen = 'tasks' | 'detail' | 'new' | 'setup' | 'intro';
+type AppFixture = { screen?: AppScreen; task?: Task; locale?: Locale };
+
+async function appOwner() {
+  const react = await vi.importActual<typeof import('react')>('react');
   const states: unknown[] = [];
   const refs: { current: unknown }[] = [];
   let stateIndex = 0;
   let refIndex = 0;
-  const overrides = new Map<number, unknown>([[1, data], [2, false], [3, 'setup'], [6, true], ...initial]);
-  vi.mocked(useState).mockImplementation((initial?: unknown) => {
-    const index = stateIndex++;
-    if (index === states.length) states.push(overrides.has(index) ? overrides.get(index) : initial);
-    return [
-      states[index],
-      (value: unknown) => {
-        states[index] = typeof value === 'function' ? Reflect.apply(value, undefined, [states[index]]) : value;
-      }
-    ];
+  let rendering = false;
+  let loadingCount = 0;
+  let screenCount = 0;
+  let changeScreen: ((value: AppScreen) => void) | undefined;
+  let completeLoading: () => void = () => {
+    throw new Error('Loading completion not initialized');
+  };
+  const loaded = new Promise<void>(resolve => {
+    completeLoading = resolve;
   });
-  vi.mocked(useRef).mockImplementation((initial: unknown) => (refs[refIndex++] ??= { current: initial }));
-  vi.mocked(useEffect).mockImplementation(() => undefined);
-  vi.mocked(api.bootstrap).mockResolvedValue(data);
+  vi.mocked(useState).mockImplementation((initial?: unknown) => {
+    if (!rendering) return react.useState(initial);
+    const index = stateIndex++;
+    if (initial === true) loadingCount++;
+    if (initial === 'tasks') screenCount++;
+    if (index === states.length) {
+      states.push(initial === true ? false : typeof initial === 'function' ? Reflect.apply(initial, undefined, []) : initial);
+    }
+    const setValue = (value: unknown) => {
+      states[index] = typeof value === 'function' ? Reflect.apply(value, undefined, [states[index]]) : value;
+      if (initial === true && states[index] === false) completeLoading();
+    };
+    if (initial === 'tasks') changeScreen = setValue;
+    return [states[index], setValue];
+  });
+  vi.mocked(useRef).mockImplementation((initial: unknown) => {
+    if (!rendering) return react.useRef(initial);
+    return (refs[refIndex++] ??= { current: initial });
+  });
+  vi.mocked(useEffect).mockImplementation((effect, dependencies) => {
+    if (!rendering) react.useEffect(effect, dependencies);
+  });
   function render() {
     stateIndex = 0;
     refIndex = 0;
-    return App();
+    loadingCount = 0;
+    screenCount = 0;
+    rendering = true;
+    let tree: ReactNode;
+    try {
+      tree = App();
+    } finally {
+      rendering = false;
+    }
+    if (loadingCount !== 1 || screenCount !== 1) {
+      throw new Error('App requires unique loading=true and screen=tasks fixture slots');
+    }
+    return expandUi(tree);
+  }
+  return {
+    render,
+    loaded,
+    screen: (value: AppScreen) => {
+      if (!changeScreen) throw new Error('Missing navigation slot');
+      changeScreen(value);
+    },
+    restore: () => {
+      vi.mocked(useState).mockImplementation(react.useState);
+      vi.mocked(useRef).mockImplementation(react.useRef);
+      vi.mocked(useEffect).mockImplementation(react.useEffect);
+    }
+  };
+}
+
+function selectFixtureTask(tree: ReactNode, task: Task) {
+  const row = appControls(tree).find(node => node.type === 'tr' && node.key === task.id);
+  const details = appControls(row?.props.children).find(node => node.props.onClick);
+  if (!details?.props.onClick) throw new Error('Missing task details action');
+  const previous = Object.getOwnPropertyDescriptor(globalThis, 'location');
+  Object.defineProperty(globalThis, 'location', { configurable: true, writable: true, value: { hash: '' } });
+  try {
+    details.props.onClick();
+  } finally {
+    if (previous) Object.defineProperty(globalThis, 'location', previous);
+    else Reflect.deleteProperty(globalThis, 'location');
+  }
+}
+
+async function appHarness(data: Snapshot = snapshot, initial: AppFixture = {}) {
+  const owner = await appOwner();
+  vi.mocked(api.bootstrap).mockResolvedValue(data);
+  if (initial.task) vi.mocked(api.task).mockResolvedValue(initial.task);
+  const render = owner.render;
+  function restore() {
+    owner.restore();
+    vi.mocked(api.bootstrap).mockReset();
+    vi.mocked(api.mutate).mockReset();
+    vi.mocked(api.task).mockReset();
   }
   function choose(id: string) {
     const radio = appControls(render()).find(node => node.props.name === 'setup-project' && node.props.value === id);
@@ -162,23 +241,30 @@ function appHarness(data: Snapshot = snapshot, initial: [number, unknown][] = []
     }
     throw new Error('Missing saved settings');
   }
-  return {
-    render,
-    choose,
-    guided,
-    savedSetups,
-    restore: () => {
-      vi.mocked(useState).mockReset();
-      vi.mocked(useRef).mockReset();
-      vi.mocked(useEffect).mockReset();
-      vi.mocked(api.bootstrap).mockReset();
-      vi.mocked(api.mutate).mockReset();
+  try {
+    const unavailable = appControls(render()).find(node => node.props['data-bootstrap'] === 'unavailable');
+    const reconnect = appControls(unavailable?.props.children).find(node => node.props.onClick);
+    if (!reconnect?.props.onClick) {
+      throw new Error('Missing reconnect action');
     }
-  };
+    reconnect.props.onClick();
+    await owner.loaded;
+    const language = appControls(render()).find(node => node.props.children === (initial.locale ?? 'en').toUpperCase());
+    if (!language?.props.onClick) {
+      throw new Error('Missing language action');
+    }
+    language.props.onClick();
+    if (initial.task) selectFixtureTask(render(), initial.task);
+    owner.screen(initial.screen ?? 'setup');
+    return { render, choose, guided, savedSetups, restore };
+  } catch (error) {
+    restore();
+    throw error;
+  }
 }
 
-test('saved settings are scoped to the explicitly selected project and empty state', () => {
-  const harness = appHarness({ ...snapshot, setups: saved });
+test('saved settings are scoped to the explicitly selected project and empty state', async () => {
+  const harness = await appHarness({ ...snapshot, setups: saved });
   try {
     const unselected = harness.savedSetups().props;
     expect(renderToStaticMarkup(createElement(SavedSetups, unselected))).not.toContain('data-setup-id');
@@ -202,7 +288,7 @@ test('saved settings are scoped to the explicitly selected project and empty sta
   }
 });
 
-test('one connected comparison hides only its own template in saved cards and task choices', () => {
+test('one connected comparison hides only its own template in saved cards and task choices', async () => {
   const template = saved[0];
   if (!template) throw new Error('Missing template');
   const connected = {
@@ -211,7 +297,7 @@ test('one connected comparison hides only its own template in saved cards and ta
     shared: { revision_id: 'revision-one', template_id: template.id, template_name: template.name, runtime: { model: null, effort: null } }
   };
   const data = { ...snapshot, setups: [template, connected, ...saved.slice(1)] };
-  const harness = appHarness(data);
+  const harness = await appHarness(data);
   vi.stubGlobal('location', { hash: 'setup' });
   try {
     harness.choose('one');
@@ -232,8 +318,8 @@ test('one connected comparison hides only its own template in saved cards and ta
   }
 });
 
-test('saved setting opens a new task with its project, setting, type and size selected', () => {
-  const harness = appHarness({ ...snapshot, setups: saved });
+test('saved setting opens a new task with its project, setting, type and size selected', async () => {
+  const harness = await appHarness({ ...snapshot, setups: saved });
   vi.stubGlobal('location', { hash: 'setup' });
   try {
     harness.choose('one');
@@ -258,8 +344,8 @@ test('saved setting opens a new task with its project, setting, type and size se
   }
 });
 
-test('a new task without comparison settings defaults to ordinary criteria and can switch explicitly', () => {
-  const harness = appHarness(snapshot, [[3, 'new']]);
+test('a new task without comparison settings defaults to ordinary criteria and can switch explicitly', async () => {
+  const harness = await appHarness(snapshot, { screen: 'new' });
   try {
     const controls = appControls(harness.render());
     const mode = controls.find(node => node.type === 'select' && node.props.id === 'task-mode');
@@ -278,11 +364,11 @@ test('a new task without comparison settings defaults to ordinary criteria and c
   }
 });
 
-test('new-task selection explains the server recruitment window before submitting a task', () => {
+test('new-task selection explains the server recruitment window before submitting a task', async () => {
   const original = saved[0];
   if (!original) throw new Error('Missing saved fixture');
   const setup = { ...original, recruitment: { starts_at: '2099-01-01T00:00:00Z', ends_at: '2099-02-01T00:00:00Z', state: 'before_start' as const } };
-  const harness = appHarness({ ...snapshot, setups: [setup] });
+  const harness = await appHarness({ ...snapshot, setups: [setup] });
   vi.stubGlobal('location', { hash: 'setup' });
   try {
     harness.choose('one');
@@ -313,8 +399,8 @@ test('support status remains visible before the saved conditions disclosure', ()
   expect(markup.indexOf('data-support-context="synthetic_validation_only"')).toBeLessThan(markup.indexOf('<details class="text-sm"'));
 });
 
-test('setup shows title and project registration before a form with no automatic project selection', () => {
-  const harness = appHarness();
+test('setup shows title and project registration before a form with no automatic project selection', async () => {
+  const harness = await appHarness();
   try {
     const controls = appControls(harness.render());
     expect(controls.findIndex(node => node.type === 'h1')).toBeLessThan(controls.findIndex(node => node.props.id === 'directory'));
@@ -326,8 +412,8 @@ test('setup shows title and project registration before a form with no automatic
   }
 });
 
-test('ordinary setup is absent until a project is selected from multiple projects', () => {
-  const harness = appHarness();
+test('ordinary setup is absent until a project is selected from multiple projects', async () => {
+  const harness = await appHarness();
   try {
     expect(appControls(harness.render()).filter(node => node.type === AgentConnectionSetup)).toHaveLength(0);
   } finally {
@@ -335,8 +421,8 @@ test('ordinary setup is absent until a project is selected from multiple project
   }
 });
 
-test.each(['one', 'two'])('ordinary setup renders only the selected project: %s', projectId => {
-  const harness = appHarness();
+test.each(['one', 'two'])('ordinary setup renders only the selected project: %s', async projectId => {
+  const harness = await appHarness();
   try {
     harness.choose(projectId);
     const cards = appControls(harness.render()).filter(node => node.type === AgentConnectionSetup);
@@ -348,10 +434,10 @@ test.each(['one', 'two'])('ordinary setup renders only the selected project: %s'
   }
 });
 
-test('a sole registered project is selected for comparison review without another click', () => {
+test('a sole registered project is selected for comparison review without another click', async () => {
   const onlyProject = projects[0];
   if (!onlyProject) throw new Error('Missing project fixture');
-  const harness = appHarness({ ...snapshot, projects: [onlyProject] });
+  const harness = await appHarness({ ...snapshot, projects: [onlyProject] });
   try {
     const first = harness.guided();
     expect(first.props.project).toEqual(onlyProject);
@@ -375,14 +461,13 @@ test('the implicitly selected project remains selected when another project appe
 test('project registration reload keeps the original comparison form selected', async () => {
   const onlyProject = projects[0];
   const nextProject = projects[1];
-  if (!onlyProject || !nextProject) throw new Error('Missing project fixtures');
-  const harness = appHarness({ ...snapshot, projects: [onlyProject] });
+  if (!onlyProject || !nextProject) {
+    throw new Error('Missing project fixtures');
+  }
+  const harness = await appHarness({ ...snapshot, projects: [onlyProject] });
   try {
     vi.mocked(api.mutate).mockResolvedValue({ ready: false, issues: [] });
-    await harness.guided().props.perform('/api/setup-review', {
-      project_id: onlyProject.id,
-      comparison_path: '/synthetic/comparison.json'
-    });
+    await harness.guided().props.perform('/api/setup-review', { project_id: onlyProject.id, comparison_path: '/synthetic/comparison.json' });
     vi.mocked(api.bootstrap).mockResolvedValue({ ...snapshot, projects });
     vi.mocked(api.mutate).mockResolvedValue(nextProject);
     const before = harness.guided();
@@ -406,8 +491,8 @@ test('project registration reload keeps the original comparison form selected', 
   }
 });
 
-test('completed setup saving needs no second connection and stale saves cannot restore its UI', () => {
-  const harness = appHarness();
+test('completed setup saving needs no second connection and stale saves cannot restore its UI', async () => {
+  const harness = await appHarness();
   try {
     harness.choose('one');
     const first = harness.guided();
@@ -428,7 +513,7 @@ test('completed setup saving needs no second connection and stale saves cannot r
 });
 
 test('a pending setup operation stays stale even after switching away and back', async () => {
-  const harness = appHarness();
+  const harness = await appHarness();
   let complete: (value: SharedSetupImport) => void;
   const response = {
     promise: new Promise<SharedSetupImport>(resolve => {
@@ -453,7 +538,7 @@ test('a pending setup operation stays stale even after switching away and back',
 });
 
 test.each([false, true])('setup failure is visible only for its original selection: switched=%s', async switched => {
-  const harness = appHarness();
+  const harness = await appHarness();
   let rejectResponse: (error: Error) => void = () => {
     throw new Error('Response not initialized');
   };
@@ -518,7 +603,7 @@ const waitingTask: Task = {
   reason: null
 };
 
-test.each([3, 8])('ordinary task renders its configured family limit %s without a Claude version label', limit => {
+test.each([3, 8])('ordinary task renders its configured family limit %s without a Claude version label', async limit => {
   const version = limit === 3 ? '2.1.301' : '2.1.296';
   const missing = { status: 'missing' as const, value: null, statuses: [], reasons: [] };
   const task: Task = {
@@ -549,10 +634,7 @@ test.each([3, 8])('ordinary task renders its configured family limit %s without 
     }
   };
   delete task.support_details;
-  const harness = appHarness({ ...snapshot, tasks: [task] }, [
-    [3, 'detail'],
-    [4, task]
-  ]);
+  const harness = await appHarness({ ...snapshot, tasks: [task] }, { screen: 'detail', task: task });
   vi.stubGlobal('location', { hash: '', origin: 'http://127.0.0.1:4318' });
   try {
     const html = renderToStaticMarkup(harness.render());
@@ -565,7 +647,7 @@ test.each([3, 8])('ordinary task renders its configured family limit %s without 
   }
 });
 
-test.each(['0.162.1', '0.163.0'])('task family guidance renders the frozen Codex version %s', productVersion => {
+test.each(['0.162.1', '0.163.0'])('task family guidance renders the frozen Codex version %s', async productVersion => {
   const missing = { status: 'missing' as const, value: null, statuses: [], reasons: [] };
   const support: SupportDetails = { ...familySupport, family: 'verified_bounded_family', product_version: productVersion };
   const task: Task = {
@@ -593,11 +675,7 @@ test.each(['0.162.1', '0.163.0'])('task family guidance renders the frozen Codex
     }
   };
   for (const locale of ['ko', 'en'] as const) {
-    const harness = appHarness({ ...snapshot, tasks: [task] }, [
-      [0, locale],
-      [3, 'detail'],
-      [4, task]
-    ]);
+    const harness = await appHarness({ ...snapshot, tasks: [task] }, { locale: locale, screen: 'detail', task: task });
     vi.stubGlobal('location', { hash: '', origin: 'http://127.0.0.1:4318' });
     try {
       const html = renderToStaticMarkup(harness.render()) + renderToStaticMarkup(createElement(SupportGuidance, { support, locale }));
@@ -616,7 +694,7 @@ test.each([
   [true, false],
   [true, true],
   [false, false]
-])('outcome menu honors independent failed=%s and abandoned=%s permissions', (failed, abandoned) => {
+])('outcome menu honors independent failed=%s and abandoned=%s permissions', async (failed, abandoned) => {
   const task: Task = {
     ...waitingTask,
     mode: 'ordinary',
@@ -625,10 +703,7 @@ test.each([
       { code: 'finish-abandoned', enabled: abandoned, reason: abandoned ? null : 'binding_scope_revoked' }
     ]
   };
-  const harness = appHarness({ ...snapshot, tasks: [task] }, [
-    [3, 'detail'],
-    [4, task]
-  ]);
+  const harness = await appHarness({ ...snapshot, tasks: [task] }, { screen: 'detail', task: task });
   vi.stubGlobal('location', { hash: '', origin: 'http://127.0.0.1:4318' });
   try {
     const menu = appControls(harness.render()).find(node => node.props['aria-expanded'] !== undefined);
@@ -668,22 +743,21 @@ test.each(['rejected', 'prepared'])('preparation retry keeps distinct applicatio
     },
     actions: [{ code: 'prepare', enabled: true, reason: null }]
   };
-  const harness = appHarness({ ...snapshot, tasks: [blocked] }, [
-    [3, 'detail'],
-    [4, blocked]
-  ]);
+  const harness = await appHarness({ ...snapshot, tasks: [blocked] }, { screen: 'detail', task: blocked });
   vi.stubGlobal('location', { hash: '', origin: 'http://127.0.0.1:4318' });
   try {
     const application = appControls(harness.render()).find(node => node.type === HarnessApplication);
     if (!isValidElement<Parameters<typeof HarnessApplication>[0]>(application)) throw new Error('Missing application card');
-    if (result === 'rejected') vi.mocked(api.mutate).mockRejectedValue(new api.LocalApiError('outside_recruitment'));
-    else
+    if (result === 'rejected') {
+      vi.mocked(api.mutate).mockRejectedValue(new api.LocalApiError('outside_recruitment'));
+    } else {
       vi.mocked(api.mutate).mockResolvedValue({
         ...blocked,
         version: '"v2"',
         reason: null,
         application: { ...blocked.application, state: 'awaiting_application' }
       });
+    }
 
     await application.props.onAction('prepare');
 
@@ -714,11 +788,8 @@ test.each([
   expect(connectionRoute(task)).toBe(route);
 });
 
-test('an instruction-only task on the family route still shows its assignment and how to connect', () => {
-  const harness = appHarness({ ...snapshot, tasks: [waitingTask] }, [
-    [3, 'detail'],
-    [4, waitingTask]
-  ]);
+test('an instruction-only task on the family route still shows its assignment and how to connect', async () => {
+  const harness = await appHarness({ ...snapshot, tasks: [waitingTask] }, { screen: 'detail', task: waitingTask });
   vi.stubGlobal('location', { hash: '', origin: 'http://127.0.0.1:4318' });
   try {
     const html = renderToStaticMarkup(harness.render());
