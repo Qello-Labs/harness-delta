@@ -18,6 +18,7 @@ const implementation = staged.filter(path =>
 );
 
 run("npm", ["run", "check:privacy"]);
+run("npm", ["run", "format:check"]);
 run("npm", ["run", "lint"]);
 run("npm", ["run", "typecheck"]);
 

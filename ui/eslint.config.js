@@ -9,6 +9,18 @@ const complexityLimits = {
   'src/GuidedSetup.tsx': 98,
   'src/HarnessApplication.tsx': 85
 };
+// Keep existing functions bounded while new files use 150 normalized lines.
+const functionLineLimits = {
+  'src/AgentConnectionSetup.tsx': 320,
+  'src/App.tsx': 1612,
+  'src/ClaudeConnection.tsx': 310,
+  'src/GettingStarted.tsx': 350,
+  'src/GuidedSetup.tsx': 798,
+  'src/HarnessApplication.tsx': 563,
+  'src/MeasurementReview.tsx': 171,
+  'src/OrdinaryObservationSetup.tsx': 233,
+  'src/SupportGuidance.tsx': 210
+};
 export default tseslint.config(
   { ignores: ['node_modules/**', '../dist/**'] },
   js.configs.recommended,
@@ -49,12 +61,22 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'error'
     }
   },
-  { rules: { complexity: ['error', 30] } },
+  {
+    rules: {
+      complexity: ['error', 30],
+      'max-lines-per-function': ['error', { max: 150, skipBlankLines: true, skipComments: true, IIFEs: true }]
+    }
+  },
   ...Object.entries(complexityLimits).map(([file, maximum]) => ({ files: [file], rules: { complexity: ['error', maximum] } })),
+  ...Object.entries(functionLineLimits).map(([file, maximum]) => ({
+    files: [file],
+    rules: { 'max-lines-per-function': ['error', { max: maximum, skipBlankLines: true, skipComments: true, IIFEs: true }] }
+  })),
   {
     files: ['src/components/ui/**'],
     rules: {
       complexity: 'off',
+      'max-lines-per-function': 'off',
       'shadcn/no-arbitrary-values': 'off',
       'shadcn/no-raw-colors': 'off',
       'shadcn/no-restyle': 'off',

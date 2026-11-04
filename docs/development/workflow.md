@@ -41,7 +41,7 @@ into a public PR as a substitute for a public requirements summary.
    command, time, and tested revision or working-tree state. The existing runtime
    probes do not prove product acceptance. Distinguish local and remote results.
 
-After dependency installation, Husky runs the privacy guard, lint, type checks,
+After dependency installation, Husky runs the privacy guard, formatting check, lint, type checks,
 and Vitest tests related to staged files before local commits. It builds the
 package and UI before tests, even for test-only changes, to refresh subprocess
 entry points and frozen UI inputs. Root and `docs/` Markdown-only changes skip
