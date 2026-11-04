@@ -3,8 +3,12 @@ import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
-import { hashInstrumentedBinary, readInstrumentedBuildIdentity, resolveInstrumentedBuildIdentity } from '../src/instrumented-codex-build-identity.js';
-import { instrumentedFixtureProfile, makeInstrumentedCostFixture } from './helpers/instrumented-codex-fixture.js';
+import {
+  hashInstrumentedBinary,
+  readInstrumentedBuildIdentity,
+  resolveInstrumentedBuildIdentity
+} from '../../src/instrumented-codex/instrumented-codex-build-identity.js';
+import { instrumentedFixtureProfile, makeInstrumentedCostFixture } from '../helpers/instrumented-codex-fixture.js';
 
 test('binary identity is computed from a non-symlink file rather than caller metadata', () => {
   const root = mkdtempSync(join(tmpdir(), 'harness-build-identity-'));

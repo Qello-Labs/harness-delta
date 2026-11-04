@@ -1,10 +1,14 @@
 import { expect, test } from 'vitest';
-import { Deletion } from '../src/deletion.js';
-import { instrumentedMetadataHash } from '../src/instrumented-codex-accounting.js';
-import { InstrumentedBuildIdentitySchema, InstrumentedLaunchReceiptSchema } from '../src/instrumented-codex-contracts.js';
-import { captureInstrumentedCostSnapshot, createInstrumentedValuation, readInstrumentedValuation } from '../src/instrumented-codex-cost.js';
-import { registerPriceTable } from '../src/pricing.js';
-import { instrumentedFixtureProfile, makeInstrumentedCostFixture } from './helpers/instrumented-codex-fixture.js';
+import { Deletion } from '../../src/deletion.js';
+import { instrumentedMetadataHash } from '../../src/instrumented-codex/instrumented-codex-accounting.js';
+import { InstrumentedBuildIdentitySchema, InstrumentedLaunchReceiptSchema } from '../../src/instrumented-codex/instrumented-codex-contracts.js';
+import {
+  captureInstrumentedCostSnapshot,
+  createInstrumentedValuation,
+  readInstrumentedValuation
+} from '../../src/instrumented-codex/instrumented-codex-cost.js';
+import { registerPriceTable } from '../../src/pricing.js';
+import { instrumentedFixtureProfile, makeInstrumentedCostFixture } from '../helpers/instrumented-codex-fixture.js';
 
 function storedQualifiedFixture() {
   const f = makeInstrumentedCostFixture(':memory:', false);

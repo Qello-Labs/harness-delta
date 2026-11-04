@@ -11,7 +11,7 @@ const processBudgetTests = [
   "tests/harness-application-restoration.test.ts",
   "tests/harness-application-restoration-cli.test.ts",
   "tests/harness-application-restoration-safety.test.ts",
-  "tests/instrumented-codex-qualification.test.ts",
+  "tests/instrumented-codex/instrumented-codex-qualification.test.ts",
   "tests/tool-update-conformance.test.ts",
   "tests/tool-update-conformance-lifecycle.test.ts"
 ];

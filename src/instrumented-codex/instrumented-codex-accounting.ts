@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { canonicalJson } from './canonical-json.js';
+import { canonicalJson } from '../canonical-json.js';
 import {
   InstrumentedGateReceiptSchema,
   InstrumentedProducerProfileSchema,
@@ -13,15 +13,15 @@ import {
   type InstrumentedRunControl,
   type InstrumentedWindowSeal
 } from './instrumented-codex-contracts.js';
-import { TimestampSchema } from './contracts.js';
-import type { Store } from './store.js';
-import { readPriceTable } from './pricing.js';
-import { readPriceBasis } from './price-catalog-store.js';
+import { TimestampSchema } from '../contracts.js';
+import type { Store } from '../store.js';
+import { readPriceTable } from '../pricing.js';
+import { readPriceBasis } from '../price-catalog-store.js';
 import { ChildProcess } from 'node:child_process';
 import { resolveInstrumentedBuildIdentity } from './instrumented-codex-build-identity.js';
 import { InstrumentedLaunchReceiptSchema, InstrumentedRetirementReceiptSchema } from './instrumented-codex-contracts.js';
-import { Lifecycle } from './lifecycle.js';
-import { parseProtocol } from './flexible-contracts.js';
+import { Lifecycle } from '../lifecycle.js';
+import { parseProtocol } from '../flexible-contracts.js';
 
 type PreparationInput = {
   readonly control: InstrumentedRunControl;

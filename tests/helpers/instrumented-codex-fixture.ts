@@ -1,6 +1,6 @@
-import { InstrumentedProducerProfileSchema } from '../../src/instrumented-codex-contracts.js';
-import { InstrumentedRunControlSchema, type InstrumentedProducerRecord } from '../../src/instrumented-codex-contracts.js';
-import { InstrumentedAccounting, instrumentedMetadataHash } from '../../src/instrumented-codex-accounting.js';
+import { InstrumentedProducerProfileSchema } from '../../src/instrumented-codex/instrumented-codex-contracts.js';
+import { InstrumentedRunControlSchema, type InstrumentedProducerRecord } from '../../src/instrumented-codex/instrumented-codex-contracts.js';
+import { InstrumentedAccounting, instrumentedMetadataHash } from '../../src/instrumented-codex/instrumented-codex-accounting.js';
 import { Lifecycle } from '../../src/lifecycle.js';
 import { Store } from '../../src/store.js';
 import { PriceTableSchema } from '../../src/flexible-contracts.js';

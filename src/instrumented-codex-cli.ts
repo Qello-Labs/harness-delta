@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs';
 import type { Command } from 'commander';
-import { launchInstrumentedCodex } from './instrumented-codex-launcher.js';
+import { launchInstrumentedCodex } from './instrumented-codex/instrumented-codex-launcher.js';
 import type { Store } from './store.js';
-import { qualifyInstrumentedCodexBuild } from './instrumented-codex-qualification.js';
+import { qualifyInstrumentedCodexBuild } from './instrumented-codex/instrumented-codex-qualification.js';
 import { z } from 'zod';
 
 export function registerInstrumentedCodexCommands(program: Command, store: () => Store, print: (value: unknown) => void) {

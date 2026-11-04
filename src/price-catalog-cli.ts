@@ -7,7 +7,7 @@ import { preparePriceBasis, refreshPriceCatalog } from './price-catalog-store.js
 import { readOnlinePriceCatalogStatus, refreshOnlinePriceCatalog } from './price-catalog-online.js';
 import { selectTaskPriceTable } from './price-catalog-selection.js';
 import { captureComparisonCostSnapshot, captureTaskCostSnapshot, createPriceRevaluation, readPriceRevaluation } from './price-revaluation.js';
-import { captureInstrumentedCostSnapshot, createInstrumentedValuation, readInstrumentedValuation } from './instrumented-codex-cost.js';
+import { captureInstrumentedCostSnapshot, createInstrumentedValuation, readInstrumentedValuation } from './instrumented-codex/instrumented-codex-cost.js';
 import type { LegacyInputBasis } from './pricing.js';
 import type { Store } from './store.js';
 

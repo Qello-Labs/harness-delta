@@ -6,7 +6,7 @@ const areas: readonly (readonly [string, RegExp])[] = [
   ],
   ['entry', /^src\/(cli|cli-errors|index|.*-cli|.*-main)\.ts$/],
   ['web', /^src\/local-web-/],
-  ['instrumented', /^src\/instrumented-codex-/],
+  ['instrumented', /^src\/(?:instrumented-codex\/)?instrumented-codex-/],
   [
     'qualification',
     /^src\/(codex-qualification|codex-session-binding-qualification|codex-binding-qualification-versions|codex-workflow-qualification|claude-native-probe|claude-probe-|claude-minimal-run|claude-trace-candidate|binding-readiness-probe|codex-failure-diagnostics|external-session-claude-candidate)/

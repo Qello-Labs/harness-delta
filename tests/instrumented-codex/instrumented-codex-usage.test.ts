@@ -1,9 +1,9 @@
 import { expect, test } from 'vitest';
-import { InstrumentedProducerRecordSchema } from '../src/instrumented-codex-contracts.js';
-import { projectInstrumentedTerminal } from '../src/instrumented-codex-usage.js';
-import { priceUsage } from '../src/pricing.js';
-import { PriceTableSchema } from '../src/flexible-contracts.js';
-import { instrumentedFixtureProfile } from './helpers/instrumented-codex-fixture.js';
+import { InstrumentedProducerRecordSchema } from '../../src/instrumented-codex/instrumented-codex-contracts.js';
+import { projectInstrumentedTerminal } from '../../src/instrumented-codex/instrumented-codex-usage.js';
+import { priceUsage } from '../../src/pricing.js';
+import { PriceTableSchema } from '../../src/flexible-contracts.js';
+import { instrumentedFixtureProfile } from '../helpers/instrumented-codex-fixture.js';
 
 const at = '2026-10-06T15:00:00Z';
 const table = PriceTableSchema.parse({

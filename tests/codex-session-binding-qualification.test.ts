@@ -29,7 +29,7 @@ import { z } from 'zod';
 import * as priceSelection from '../src/price-catalog-selection.js';
 import * as localWeb from '../src/local-web-domain.js';
 import * as localServer from '../src/local-web-server.js';
-import { command as runFixtureCommand } from '../src/instrumented-codex-qualification.js';
+import { command as runFixtureCommand } from '../src/instrumented-codex/instrumented-codex-qualification.js';
 import { createSessionBindingService } from '../src/session-binding-service.js';
 import { CodexSessionBindingProvider } from '../src/session-binding-codex.js';
 import { comparisonProtocol, protocolRow } from '../src/protocol-store.js';

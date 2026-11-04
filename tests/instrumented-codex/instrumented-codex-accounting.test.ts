@@ -4,17 +4,17 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Duplex } from 'node:stream';
 import { afterEach, expect, test } from 'vitest';
-import { InstrumentedAccounting, instrumentedMetadataHash } from '../src/instrumented-codex-accounting.js';
-import { connectInstrumentedDescriptor } from '../src/instrumented-codex-descriptor.js';
-import { InstrumentedRunControlSchema, type InstrumentedProducerRecord } from '../src/instrumented-codex-contracts.js';
-import { Lifecycle } from '../src/lifecycle.js';
-import { Store } from '../src/store.js';
-import { instrumentedFixtureProfile as profile } from './helpers/instrumented-codex-fixture.js';
-import { PriceTableSchema } from '../src/flexible-contracts.js';
-import { registerPriceTable } from '../src/pricing.js';
-import { registerProtocol, registerVariant } from '../src/comparison.js';
-import { makeFlexibleFixture } from './helpers/flexible-fixture.js';
-import { Deletion } from '../src/deletion.js';
+import { InstrumentedAccounting, instrumentedMetadataHash } from '../../src/instrumented-codex/instrumented-codex-accounting.js';
+import { connectInstrumentedDescriptor } from '../../src/instrumented-codex/instrumented-codex-descriptor.js';
+import { InstrumentedRunControlSchema, type InstrumentedProducerRecord } from '../../src/instrumented-codex/instrumented-codex-contracts.js';
+import { Lifecycle } from '../../src/lifecycle.js';
+import { Store } from '../../src/store.js';
+import { instrumentedFixtureProfile as profile } from '../helpers/instrumented-codex-fixture.js';
+import { PriceTableSchema } from '../../src/flexible-contracts.js';
+import { registerPriceTable } from '../../src/pricing.js';
+import { registerProtocol, registerVariant } from '../../src/comparison.js';
+import { makeFlexibleFixture } from '../helpers/flexible-fixture.js';
+import { Deletion } from '../../src/deletion.js';
 
 const cleanups: (() => void)[] = [];
 afterEach(() => {

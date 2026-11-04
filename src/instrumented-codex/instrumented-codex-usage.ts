@@ -1,6 +1,6 @@
-import { EventV2Schema, RuntimeEvidenceSchema } from './flexible-contracts.js';
-import type { BillingComponent } from './flexible-contracts.js';
-import type { Reading } from './contracts.js';
+import { EventV2Schema, RuntimeEvidenceSchema } from '../flexible-contracts.js';
+import type { BillingComponent } from '../flexible-contracts.js';
+import type { Reading } from '../contracts.js';
 import type { InstrumentedProducerProfile, InstrumentedProducerRecord } from './instrumented-codex-contracts.js';
 import { InstrumentedAccountingError } from './instrumented-codex-accounting.js';
 

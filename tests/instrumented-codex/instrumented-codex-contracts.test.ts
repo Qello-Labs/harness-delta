@@ -1,5 +1,9 @@
 import { expect, test } from 'vitest';
-import { InstrumentedProducerRecordSchema, InstrumentedTokenReadingsSchema, InstrumentedWindowSealSchema } from '../src/instrumented-codex-contracts.js';
+import {
+  InstrumentedProducerRecordSchema,
+  InstrumentedTokenReadingsSchema,
+  InstrumentedWindowSealSchema
+} from '../../src/instrumented-codex/instrumented-codex-contracts.js';
 
 const observed = (value: number) => ({ status: 'observed' as const, value, reason: null });
 const readings = {

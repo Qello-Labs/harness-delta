@@ -5,13 +5,13 @@ import { readFileSync } from 'node:fs';
 import { cp, lstat, mkdir, mkdtemp, readFile, readdir, readlink, realpath, rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { z } from 'zod';
-import type { Store } from './store.js';
+import type { Store } from '../store.js';
 import { instrumentedMetadataHash } from './instrumented-codex-accounting.js';
 import { hashInstrumentedBinary } from './instrumented-codex-build-identity.js';
 import { InstrumentedBuildIdentitySchema, InstrumentedProducerProfileSchema } from './instrumented-codex-contracts.js';
 import { runInstrumentedCodexConformance } from './instrumented-codex-conformance.js';
-import { IdSchema } from './contracts.js';
-import { implementationExtension, implementationPath, packagePath } from './package-paths.js';
+import { IdSchema } from '../contracts.js';
+import { implementationExtension, implementationPath, packagePath } from '../package-paths.js';
 
 const upstreamCommit = '092d3acd6bec3e3a14bdc7e7a2810ab628ab759d';
 const target = 'aarch64-apple-darwin';
@@ -56,14 +56,14 @@ function sha(bytes: string | Buffer): string {
 }
 
 const ownModules = [
-  'instrumented-codex-qualification',
-  'instrumented-codex-conformance',
-  'instrumented-codex-accounting',
-  'instrumented-codex-contracts',
-  'instrumented-codex-descriptor',
-  'instrumented-codex-build-identity',
-  'instrumented-codex-cost',
-  'instrumented-codex-usage',
+  'instrumented-codex/instrumented-codex-qualification',
+  'instrumented-codex/instrumented-codex-conformance',
+  'instrumented-codex/instrumented-codex-accounting',
+  'instrumented-codex/instrumented-codex-contracts',
+  'instrumented-codex/instrumented-codex-descriptor',
+  'instrumented-codex/instrumented-codex-build-identity',
+  'instrumented-codex/instrumented-codex-cost',
+  'instrumented-codex/instrumented-codex-usage',
   'package-paths'
 ];
 // Cached modules must never be fingerprinted as a package update that occurs during Cargo.

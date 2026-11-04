@@ -1,6 +1,6 @@
 import type { Duplex } from 'node:stream';
 import { z } from 'zod';
-import { IdSchema, TokenSchema } from './contracts.js';
+import { IdSchema, TokenSchema } from '../contracts.js';
 import { InstrumentedAccounting, InstrumentedAccountingError } from './instrumented-codex-accounting.js';
 
 export const InstrumentedBootstrapSchema = z.strictObject({

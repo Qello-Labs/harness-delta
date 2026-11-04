@@ -5,8 +5,8 @@ import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { Store } from '../src/store.js';
-import { runInstrumentedCodexConformance } from '../src/instrumented-codex-conformance.js';
+import { Store } from '../../src/store.js';
+import { runInstrumentedCodexConformance } from '../../src/instrumented-codex/instrumented-codex-conformance.js';
 import {
   inspectInstrumentedCodexSource,
   inspectInstrumentedCodexToolchain,
@@ -15,10 +15,10 @@ import {
   assertInstrumentedReceiverUnchanged,
   rejectInheritedCargoConfiguration,
   command as runQualificationCommand
-} from '../src/instrumented-codex-qualification.js';
-import { hashInstrumentedBinary } from '../src/instrumented-codex-build-identity.js';
-import { instrumentedFixtureProfile } from './helpers/instrumented-codex-fixture.js';
-import { main } from '../src/cli.js';
+} from '../../src/instrumented-codex/instrumented-codex-qualification.js';
+import { hashInstrumentedBinary } from '../../src/instrumented-codex/instrumented-codex-build-identity.js';
+import { instrumentedFixtureProfile } from '../helpers/instrumented-codex-fixture.js';
+import { main } from '../../src/cli.js';
 
 const directories: string[] = [];
 const gitEnvironment = {
@@ -195,7 +195,7 @@ test('compilation cancellation closes the owned parent and descendant process gr
   });
   const pending = runQualificationCommand(
     process.execPath,
-    [new URL('./helpers/instrumented-qualification-process.mjs', import.meta.url).pathname],
+    [new URL('../helpers/instrumented-qualification-process.mjs', import.meta.url).pathname],
     root,
     { PATH: process.env.PATH },
     undefined,
@@ -228,7 +228,7 @@ test.runIf(process.platform === 'darwin')('conformance cancellation closes desce
   const root = mkdtempSync(join(tmpdir(), 'hd-conformance-cancel-'));
   directories.push(root);
   const binary = join(root, 'synthetic-codex');
-  writeFileSync(binary, `#!${process.execPath}\n` + readFileSync(new URL('./helpers/instrumented-qualification-process.mjs', import.meta.url), 'utf8'), {
+  writeFileSync(binary, `#!${process.execPath}\n` + readFileSync(new URL('../helpers/instrumented-qualification-process.mjs', import.meta.url), 'utf8'), {
     mode: 0o755
   });
   const controller = new AbortController();

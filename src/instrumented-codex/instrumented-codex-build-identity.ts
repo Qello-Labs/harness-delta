@@ -1,8 +1,8 @@
 import { constants, closeSync, fstatSync, openSync, readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { canonicalJson } from './canonical-json.js';
+import { canonicalJson } from '../canonical-json.js';
 import { InstrumentedBuildIdentitySchema, type InstrumentedBuildIdentity, type InstrumentedProducerProfile } from './instrumented-codex-contracts.js';
-import type { Store } from './store.js';
+import type { Store } from '../store.js';
 
 export class InstrumentedBuildIdentityError extends Error {
   readonly name = 'InstrumentedBuildIdentityError';

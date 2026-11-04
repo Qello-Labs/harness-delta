@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { IdSchema, MonetaryAmountSchema, ProductVersionSchema, ReadingSchema, TimestampSchema, TokenSchema } from './contracts.js';
-import { CostFactsSchema, CostReasonSchema, PriceTableSchema } from './flexible-contracts.js';
+import { IdSchema, MonetaryAmountSchema, ProductVersionSchema, ReadingSchema, TimestampSchema, TokenSchema } from '../contracts.js';
+import { CostFactsSchema, CostReasonSchema, PriceTableSchema } from '../flexible-contracts.js';
 
 export const InstrumentedHashSchema = z.string().regex(/^[a-f0-9]{64}$/);
 const SequenceSchema = TokenSchema.min(1);

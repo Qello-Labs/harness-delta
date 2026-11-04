@@ -4,17 +4,17 @@ import { realpathSync, statSync } from 'node:fs';
 import { isAbsolute } from 'node:path';
 import { Duplex } from 'node:stream';
 import { z } from 'zod';
-import { IdSchema, TokenSchema } from './contracts.js';
-import { requireConfigurationConfirmation } from './configuration-evidence.js';
-import { Lifecycle, utcNow } from './lifecycle.js';
+import { IdSchema, TokenSchema } from '../contracts.js';
+import { requireConfigurationConfirmation } from '../configuration-evidence.js';
+import { Lifecycle, utcNow } from '../lifecycle.js';
 import { InstrumentedAccounting, InstrumentedAccountingError, instrumentedMetadataHash } from './instrumented-codex-accounting.js';
 import { InstrumentedBuildIdentityError, resolveInstrumentedBuildIdentity } from './instrumented-codex-build-identity.js';
 import { InstrumentedBuildIdentitySchema, InstrumentedWindowSealSchema, type InstrumentedWindowSeal } from './instrumented-codex-contracts.js';
 import { connectInstrumentedDescriptor } from './instrumented-codex-descriptor.js';
 import { captureInstrumentedCostSnapshot, createInstrumentedValuation } from './instrumented-codex-cost.js';
-import { readPriceTable } from './pricing.js';
-import { readPriceBasis } from './price-catalog-store.js';
-import type { Store } from './store.js';
+import { readPriceTable } from '../pricing.js';
+import { readPriceBasis } from '../price-catalog-store.js';
+import type { Store } from '../store.js';
 
 export const InstrumentedLaunchInputSchema = z.strictObject({
   schema_version: z.literal(1),

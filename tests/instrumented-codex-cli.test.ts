@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { z } from 'zod';
-import { InstrumentedCostResultSchema } from '../src/instrumented-codex-contracts.js';
+import { InstrumentedCostResultSchema } from '../src/instrumented-codex/instrumented-codex-contracts.js';
 import { makeInstrumentedCostFixture } from './helpers/instrumented-codex-fixture.js';
 
 test('the built CLI captures a sealed window without promoting caller-created metadata', async () => {
