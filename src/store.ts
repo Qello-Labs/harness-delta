@@ -3,7 +3,7 @@ import Database from 'better-sqlite3';
 import type { Event } from './contracts.js';
 import { EventSchema, TimestampSchema } from './contracts.js';
 import { assertCompatibilityAllowed, sessionCompatibility } from './source-compatibility.js';
-import { flushWebMetadataCleanup } from './local-web-metadata.js';
+import { flushWebMetadataCleanup } from './store-metadata-cleanup.js';
 import { implementationPath } from './package-paths.js';
 
 type EventRow = Omit<Event, 'payload'> & { payload: string };

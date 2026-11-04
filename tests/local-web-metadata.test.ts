@@ -1,3 +1,5 @@
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import Database from 'better-sqlite3';
 import { mkdtempSync, realpathSync, renameSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -174,4 +176,54 @@ test('Codex private configuration holds the Store writer lock before its INSERT'
     if (competing.inTransaction) competing.exec('ROLLBACK');
     competing.close();
   }
+});
+
+test.each(['task', 'project'] as const)('a Store-only Node process retries pending %s cleanup before returning from open', async kind => {
+  const f = fixture();
+  f.metadata.exec("CREATE TRIGGER refuse_cleanup BEFORE DELETE ON web_tasks BEGIN SELECT RAISE(ABORT,'synthetic_failure'); END");
+  expect(() => {
+    const deletion = new Deletion(f.store);
+    if (kind === 'task') deletion.deleteTask('t1');
+    else deletion.deleteProject('p1');
+  }).toThrow('ui_metadata_cleanup_pending');
+  expect(f.store.all('SELECT * FROM local_web_metadata_cleanup')).toHaveLength(kind === 'task' ? 1 : 2);
+  f.metadata.exec('DROP TRIGGER refuse_cleanup');
+
+  const { stdout } = await promisify(execFile)(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      `
+        import assert from 'node:assert/strict';
+        import { registerHooks } from 'node:module';
+        registerHooks({
+          load(url, context, nextLoad) {
+            assert.doesNotMatch(url, /\\/local-web-[^/]+\\.js$/);
+            return nextLoad(url, context);
+          }
+        });
+        const { Store } = await import(process.argv[1]);
+        const store = new Store(process.argv[2]);
+        try {
+          assert.equal(store.all('SELECT * FROM local_web_metadata_cleanup').length, 0);
+          process.stdout.write('cleanup-complete');
+        } finally {
+          store.close();
+        }
+      `,
+      new URL('../dist/store.js', import.meta.url).href,
+      f.path
+    ],
+    { timeout: 10000 }
+  );
+
+  expect(stdout).toBe('cleanup-complete');
+  expect(f.metadata.prepare('SELECT id FROM web_tasks ORDER BY id').all()).toEqual([{ id: 't2' }]);
+  expect(f.metadata.prepare('SELECT * FROM web_sources').all()).toEqual([]);
+  expect(f.metadata.prepare("SELECT state,request_hash,response FROM web_actions WHERE id='legacy-key'").get()).toEqual({
+    state: 'deleted',
+    request_hash: '',
+    response: null
+  });
 });
