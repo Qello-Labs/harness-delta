@@ -7,13 +7,13 @@ import { Lifecycle } from './lifecycle.js';
 import { Store } from './store.js';
 import { prepareClaudeProbeSupervisor } from './claude-probe-supervisor.js';
 import { claudeProbeProductVersion } from './claude-workflow-versions.js';
+import { implementationExtension, implementationPath } from './package-paths.js';
 
 const digest = (bytes: string | Buffer) => createHash('sha256').update(bytes).digest('hex');
 function implementationDigest():string {
-  const extension=import.meta.url.endsWith('.ts')?'.ts':'.js';
-  const names=['claude-minimal-run','claude-probe-supervisor','claude-native-probe','claude-probe-coordinator','claude-probe-gateway','claude-probe-hook-mediator','claude-trace-candidate','claude-workflow-versions','nested-candidate','otel-projection','otel-launch-settings','runtime-history','contracts','flexible-contracts','lifecycle','store'];
-  const files=names.map(name=>({name,sha256:digest(readFileSync(new URL(name+extension,import.meta.url)))}));
-  for(const name of readdirSync(new URL('migrations/',import.meta.url)).filter(n=>n.endsWith('.sql')).sort())files.push({name,sha256:digest(readFileSync(new URL('migrations/'+name,import.meta.url)))});
+  const names=['claude-minimal-run','claude-probe-supervisor','claude-native-probe','claude-probe-coordinator','claude-probe-gateway','claude-probe-hook-mediator','claude-trace-candidate','claude-workflow-versions','nested-candidate','otel-projection','otel-launch-settings','runtime-history','contracts','flexible-contracts','lifecycle','store','package-paths'];
+  const files=names.map(name=>({name,sha256:digest(readFileSync(implementationPath(name+implementationExtension)))}));
+  for(const name of readdirSync(implementationPath('migrations')).filter(n=>n.endsWith('.sql')).sort())files.push({name,sha256:digest(readFileSync(implementationPath('migrations',name)))});
   return digest(JSON.stringify(files));
 }
 const binarySchema = z.strictObject({ path: z.string().startsWith('/'), version: z.literal(claudeProbeProductVersion), sha256: z.string().regex(/^[a-f0-9]{64}$/) });

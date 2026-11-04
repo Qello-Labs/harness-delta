@@ -11,7 +11,7 @@ import { hashInstrumentedBinary } from './instrumented-codex-build-identity.js';
 import { InstrumentedBuildIdentitySchema, InstrumentedProducerProfileSchema } from './instrumented-codex-contracts.js';
 import { runInstrumentedCodexConformance } from './instrumented-codex-conformance.js';
 import { IdSchema } from './contracts.js';
-import { packagePath } from './package-paths.js';
+import { implementationExtension, implementationPath, packagePath } from './package-paths.js';
 
 const upstreamCommit = '092d3acd6bec3e3a14bdc7e7a2810ab628ab759d';
 const target = 'aarch64-apple-darwin';
@@ -50,17 +50,16 @@ const ownModules = [
   'instrumented-codex-qualification', 'instrumented-codex-conformance',
   'instrumented-codex-accounting', 'instrumented-codex-contracts',
   'instrumented-codex-descriptor', 'instrumented-codex-build-identity',
-  'instrumented-codex-cost', 'instrumented-codex-usage',
+  'instrumented-codex-cost', 'instrumented-codex-usage', 'package-paths',
 ];
-const extension = import.meta.url.endsWith('.ts') ? 'ts' : 'js';
 // Cached modules must never be fingerprinted as a package update that occurs during Cargo.
 const loadedReceiverDigests = ownModules.map(name => ({
-  name, digest: sha(readFileSync(new URL(`./${name}.${extension}`, import.meta.url))),
+  name, digest: sha(readFileSync(implementationPath(name + implementationExtension))),
 }));
 
 export async function assertInstrumentedReceiverUnchanged(): Promise<void> {
   for (const { name, digest } of loadedReceiverDigests) {
-    if (digest !== sha(await readFile(new URL(`./${name}.${extension}`, import.meta.url)))) {
+    if (digest !== sha(await readFile(implementationPath(name + implementationExtension)))) {
       throw new InstrumentedQualificationError('input_changed');
     }
   }

@@ -9,6 +9,7 @@ import {Lifecycle} from './lifecycle.js';
 import {Store} from './store.js';
 import {pinnedCodexWorkflowBinarySha,runCodexQualificationPhase,verifyCodexWorkflowStartupContract} from './codex-workflow-adapter.js';
 import type {WorkflowAdapterResult,WorkflowExecutionContext} from './task-workflow.js';
+import {implementationExtension,implementationPath} from './package-paths.js';
 
 const hash=(data:string|Buffer)=>createHash('sha256').update(data).digest('hex');
 const sha=z.string().regex(/^[a-f0-9]{64}$/);const path=z.string().startsWith('/').max(4096).refine(v=>!/[\0\r\n]/.test(v));
@@ -35,9 +36,8 @@ function bytes(file:string,max=2*1024*1024){
 function durable(file:string,value:unknown){const fd=openSync(file,constants.O_WRONLY|constants.O_CREAT|constants.O_EXCL|constants.O_NOFOLLOW,0o600);
   try{writeFileSync(fd,JSON.stringify(value));fsyncSync(fd);}finally{closeSync(fd);}const parent=openSync(dirname(file),constants.O_RDONLY);try{fsyncSync(parent);}finally{closeSync(parent);}}
 function implementationDigest(){
-  const extension=import.meta.url.endsWith('.ts')?'.ts':'.js';
-  const names=['codex-workflow-qualification','codex-workflow-adapter','codex-workflow-journal','codex-candidate-rollout','codex-candidate-permissions','nested-candidate','runtime-history','collection','source-errors','contracts','flexible-contracts','lifecycle','store','config-confirmation'];
-  return hash(JSON.stringify(names.map(name=>({name,sha256:hash(readFileSync(new URL(name+extension,import.meta.url)))})).concat([{name:'migration014',sha256:hash(readFileSync(new URL('migrations/014_codex_workflow.sql',import.meta.url)))},{name:'migration015',sha256:hash(readFileSync(new URL('migrations/015_codex_workflow_child.sql',import.meta.url)))},{name:'migration016',sha256:hash(readFileSync(new URL('migrations/016_claude_workflow.sql',import.meta.url)))}])));
+  const names=['codex-workflow-qualification','codex-workflow-adapter','codex-workflow-journal','codex-candidate-rollout','codex-candidate-permissions','nested-candidate','runtime-history','collection','source-errors','contracts','flexible-contracts','lifecycle','store','config-confirmation','package-paths'];
+  return hash(JSON.stringify(names.map(name=>({name,sha256:hash(readFileSync(implementationPath(name+implementationExtension)))})).concat([{name:'migration014',sha256:hash(readFileSync(implementationPath('migrations','014_codex_workflow.sql')))},{name:'migration015',sha256:hash(readFileSync(implementationPath('migrations','015_codex_workflow_child.sql')))},{name:'migration016',sha256:hash(readFileSync(implementationPath('migrations','016_claude_workflow.sql')))}])));
 }
 function verifyIdentity(i:Intent,dependency?:CodexQualificationTestDependency){
   if(i.planned_native_invocations!==(i.topology==='root_direct_child'?1:2)||i.planned_own_responses!==(i.topology==='root_direct_child'?4:2))throw new Error('codex_qualification_invalid_intent');

@@ -2,7 +2,6 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { chmodSync, copyFileSync, cpSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import Database from 'better-sqlite3';
 import { isDeepStrictEqual } from 'node:util';
@@ -21,7 +20,7 @@ import { assertCompatibilityAllowed, resolveSourceCompatibility, sessionCompatib
 import { getCodexBindingAdmission, isAdmittedCodexBindingProtocol } from './codex-binding-admission.js';
 import { setTimeout as delay } from 'node:timers/promises';
 import { TimestampSchema } from './contracts.js';
-import { packagePath } from './package-paths.js';
+import { implementationPath, packagePath } from './package-paths.js';
 
 const hash=(value:string|Buffer)=>createHash('sha256').update(value).digest('hex');
 const path=z.string().startsWith('/').max(4096).refine(v=>!/[\0\r\n]/.test(v));
@@ -68,8 +67,8 @@ export interface BindingQualificationFixture {script:string;durationMs?:number;u
 function implementationDigest(){
  // Freeze all transitive local implementation bytes and the actual built UI.
  // Source-fixture execution freezes src; the public built CLI freezes dist.
- return hash(JSON.stringify([packageDigest(dirname(fileURLToPath(import.meta.url))),
-  packageDigest(realpathSync(fileURLToPath(new URL('../dist/local-ui/',import.meta.url))))]));
+ return hash(JSON.stringify([packageDigest(implementationPath()),
+  packageDigest(realpathSync(packagePath('dist','local-ui')))]));
 }
 function privateBytes(file:string,max:number):Buffer {
  if(realpathSync(file)!==file||!lstatSync(file).isFile()||lstatSync(file).size>max)throw new Error('binding_qualification_file_invalid');
