@@ -95,8 +95,16 @@ bypass incompatible peer dependencies with force-install flags.
 ## Git hooks
 
 `npm ci` or `npm install` runs `prepare` to install Husky for this checkout.
-The pre-commit hook runs `npm run check`: it rejects indexed local records, runs
-lint and type checks, builds, and executes tests. A failed command stops the commit. Generated Husky
+The pre-commit hook rejects indexed local records, runs lint and type checks,
+then runs Vitest tests related to staged files. Before any test run it rebuilds
+the package and UI, including for test-only changes, because focused tests may
+spawn built output or freeze UI bytes. Root and `docs/` Markdown-only changes
+skip the build and tests; no related tests is also a successful result.
+Source changes additionally select tests and helpers that use filesystem reads,
+subprocesses, or built-output paths, whose dependencies the import graph can miss.
+Deletions and global or opaque inputs (including scripts, test helpers, UI,
+configuration, manifests, and assets) conservatively run the full suite instead.
+A failed command stops the commit. Generated Husky
 files under `.husky/_/` are ignored; `.husky/pre-commit` and `.husky/commit-msg`
 are shared in Git. The commit-msg hook validates the proposed message with commitlint.
 
@@ -108,8 +116,11 @@ Checks run against the working tree; the privacy guard checks the Git index.
 With partially staged changes, also inspect the staged diff because the tested
 working tree can differ from the commit. Hooks do not stage or modify source files.
 They do not enforce commit-message language or replace independent review.
-CI disables hook installation with `HUSKY=0` and runs checks explicitly. Hooks can
-be bypassed locally, so CI and review remain required verification layers.
+Implementation changes still require the full `npm run check` before completion;
+a successful related run is not that completion gate. CI disables hook installation
+with `HUSKY=0` and runs the full checks explicitly, on Node 24 only, not Node 26.
+Hooks can be bypassed locally, so CI and independent review remain required
+verification layers; a passing hook is not proof that the staged snapshot passed.
 
 ## Changes and review
 
