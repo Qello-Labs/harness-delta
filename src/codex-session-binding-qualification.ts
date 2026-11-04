@@ -7,9 +7,10 @@ import Database from 'better-sqlite3';
 import { isDeepStrictEqual } from 'node:util';
 import { Store } from './store.js';
 import { Lifecycle } from './lifecycle.js';
-import { registerVariant, freezeProtocol, comparisonProtocol, protocolRow } from './comparison.js';
+import { registerVariant, freezeProtocol } from './comparison.js';
+import { comparisonProtocol, protocolRow } from './protocol-store.js';
 import { registerProtocolWithCatalogDefaults } from './price-catalog-selection.js';
-import { selectedArtifactSnapshot } from './config-confirmation.js';
+import { selectedArtifactSnapshot } from './configuration-evidence.js';
 import { createLocalWebDomain, LocalWebProfileSchema } from './local-web-domain.js';
 import { createLocalWebServer } from './local-web-server.js';
 import {

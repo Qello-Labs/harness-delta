@@ -1,7 +1,7 @@
 import { registerPriceTable } from '../pricing.js';
 import type { Store } from '../store.js';
 import { type Clock, utcNow } from '../lifecycle.js';
-import { canonicalJson } from '../reports/comparison-snapshot.js';
+import { canonicalJson } from '../canonical-json.js';
 import { parseExchangePackage, parseExchange, time, digest } from './contracts.js';
 import { readMapping, registeredDestination } from './mapping.js';
 import { validateDataAuthority, validateDataPackage, existingConflict } from './identity.js';

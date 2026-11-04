@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { Store } from '../src/store.js';
 import { assignTask } from '../src/allocation.js';
-import { confirmConfiguration } from '../src/config-confirmation.js';
+import { confirmConfiguration } from '../src/config-confirmation-write.js';
 import { Lifecycle } from '../src/lifecycle.js';
 import { recordRuntimeEvidence, readRuntimeHistory } from '../src/runtime-history.js';
 import { FlexibleProtocolSchema } from '../src/flexible-contracts.js';
@@ -36,7 +36,7 @@ test('model_and_effort_change_do_not_pause', async () => {
     const next = { ...first, id: 'runtime-2', model: 'other-model', effort: 'high', occurred_at: '2026-01-01T00:00:04Z', recorded_at: '2026-01-01T00:00:05Z' };
     recordRuntimeEvidence(store, first);
     recordRuntimeEvidence(store, next);
-    const { classifyFlexibleConfirmation } = await import('../src/config-confirmation.js');
+    const { classifyFlexibleConfirmation } = await import('../src/configuration-evidence.js');
     expect(classifyFlexibleConfirmation(receipt.assigned_variant_id, next, first, receipt.assigned_variant_id)).toEqual({
       runtime_change: true,
       harness_deviation: 'none'

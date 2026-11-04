@@ -194,7 +194,8 @@ import { registerVariant, registerProtocol, freezeProtocol } from '../src/compar
 import { registerPriceTable } from '../src/pricing.js';
 import { assignTask } from '../src/allocation.js';
 import { assignmentInput } from './helpers/comparison-fixture.js';
-import { createComparisonSnapshot, readComparisonSnapshot, canonicalJson } from '../src/reports/comparison-snapshot.js';
+import { createComparisonSnapshot, readComparisonSnapshot } from '../src/reports/comparison-snapshot.js';
+import { canonicalJson } from '../src/canonical-json.js';
 import { FlexibleSnapshotInputSchema, projectFlexibleComparison } from '../src/reports/flexible-comparison.js';
 
 function nativeComparisonFixture(version = '0.161.0') {

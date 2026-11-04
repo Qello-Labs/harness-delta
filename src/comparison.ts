@@ -1,22 +1,14 @@
 import { z } from 'zod';
-import { FlexibleVariantSchema, FlexibleProtocolDraftSchema, FlexibleProtocolSchema, PriceTableSchema, parseProtocol } from './flexible-contracts.js';
+import { FlexibleVariantSchema, FlexibleProtocolDraftSchema, FlexibleProtocolSchema, PriceTableSchema } from './flexible-contracts.js';
 import { lookupFileProfile } from './adapter-profiles.js';
-import { IdSchema } from './contracts.js';
 import { comparisonTimestamp, parseComparison, ProtocolDraftSchema, ProtocolSchema, VariantSchema } from './comparison-contracts.js';
-import type { Protocol, Variant } from './comparison-contracts.js';
+import { comparisonProtocol, comparisonVariant, protocolRow } from './protocol-store.js';
+import type { ProtocolRow } from './protocol-store.js';
+
+export { comparisonProtocol, protocolRow };
 import type { Store } from './store.js';
 import { requireLatestClaudeWorkflowProfile } from './claude-workflow-versions.js';
 import { comparisonReadiness } from './readiness-store.js';
-
-export interface ProtocolRow {
-  id: string;
-  project_id: string;
-  settings: string;
-  status: 'draft' | 'frozen' | 'invalidated_by_deletion' | 'identity_conflict';
-  frozen_at: string | null;
-  data_revision: number;
-  invalidated_reason: string | null;
-}
 
 export function registerVariant(store: Store, input: unknown): void {
   const config = parseComparison(z.union([VariantSchema, FlexibleVariantSchema]), input);
@@ -48,33 +40,6 @@ export function registerProtocol(store: Store, input: unknown): void {
       requireLatestClaudeWorkflowProfile(config.source_profiles ?? [], undefined, config.purpose === 'functional_pilot');
     store.execute('INSERT INTO comparison_protocols(id,project_id,settings) VALUES (?,?,?)', [config.id, config.project_id, serialized]);
   });
-}
-
-export function protocolRow(store: Store, id: string): ProtocolRow {
-  const row = store.get<ProtocolRow>('SELECT * FROM comparison_protocols WHERE id = ?', [parseComparison(IdSchema, id)]);
-  if (!row) throw new Error('unknown_protocol');
-  return row;
-}
-
-export function variantConfiguration(store: Store, id: string): Variant {
-  const row = store.get<{ configuration: string }>('SELECT configuration FROM comparison_variants WHERE id = ?', [parseComparison(IdSchema, id)]);
-  if (!row) throw new Error('unknown_variant');
-  return parseComparison(VariantSchema, JSON.parse(row.configuration) as unknown);
-}
-
-export function comparisonVariant(store: Store, id: string) {
-  const row = store.get<{ configuration: string }>('SELECT configuration FROM comparison_variants WHERE id=?', [parseComparison(IdSchema, id)]);
-  if (!row) throw new Error('unknown_variant');
-  return parseComparison(z.union([VariantSchema, FlexibleVariantSchema]), JSON.parse(row.configuration) as unknown);
-}
-export function comparisonProtocol(store: Store, row: ProtocolRow) {
-  if (row.status !== 'frozen') throw new Error('protocol_not_active');
-  return parseProtocol(JSON.parse(row.settings) as unknown);
-}
-
-export function frozenProtocol(store: Store, row: ProtocolRow): Protocol {
-  if (row.status !== 'frozen') throw new Error('protocol_not_active');
-  return parseComparison(ProtocolSchema, JSON.parse(row.settings) as unknown, 'incomplete_protocol');
 }
 
 export function freezeProtocol(store: Store, id: string, timestamp: string): void {

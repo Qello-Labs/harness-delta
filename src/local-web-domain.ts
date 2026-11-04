@@ -4,7 +4,9 @@ import { ApplicationSelectionSchema, ApplicationCheckpointSchema, ApplicationRep
 import { getApplicationLaunchCapability } from './harness-application-launch.js';
 import { ApplicationCoordinator, applicationRequired, effectiveTaskWorkspace } from './harness-application.js';
 
-import { SharedBindingSchema, assertSharedTask } from './local-web-shared-guard.js';
+import { assertSharedTask } from './local-web-shared-guard.js';
+import { LocalWebProfileSchema, LocalWebManifestSchema, type LocalWebProfile } from './local-web-profile.js';
+export { LocalWebProfileSchema, LocalWebManifestSchema, type LocalWebProfile } from './local-web-profile.js';
 import { createSharedSetupManager } from './local-web-shared.js';
 import { createSetupReviewManager } from './local-web-setup-review.js';
 import { localWebRecruitment } from './local-web-recruitment.js';
@@ -20,7 +22,7 @@ import { z } from 'zod';
 import { Lifecycle } from './lifecycle.js';
 import { Store } from './store.js';
 import { registerWebMetadata, withLiveWebMetadataScope } from './local-web-metadata.js';
-import { comparisonProtocol, comparisonVariant, protocolRow } from './comparison.js';
+import { comparisonProtocol, comparisonVariant, protocolRow } from './protocol-store.js';
 import { CodexWorkflowExecutionSchema } from './codex-workflow-adapter.js';
 import { recoverCodexWorkflow } from './codex-workflow-journal.js';
 import {
@@ -81,35 +83,6 @@ import { inspectClaudeProjectSkill, inspectOrdinaryClaudeProjectSkill } from './
 import { codexReceiptDirectoryState, createCodexProjectSetupManager } from './local-web-codex.js';
 
 const identifier = z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,199}$/);
-const executionFields = CodexWorkflowExecutionSchema.shape;
-/** Existing reviewed inputs only. No protocol, pricing or criterion defaults are invented here. */
-export const LocalWebProfileSchema = z.strictObject({
-  id: identifier,
-  name: z.string().trim().min(1).max(200),
-  setup: ExternalTaskSetupSchema,
-  execution: z.strictObject({
-    binary: executionFields.binary,
-    codex_home: executionFields.codex_home,
-    hook_recorder: executionFields.hook_recorder,
-    sandbox: executionFields.sandbox,
-    timeout_ms: executionFields.timeout_ms,
-    poll_ms: executionFields.poll_ms
-  }),
-  shared_binding: SharedBindingSchema.optional(),
-  session_binding: z
-    .discriminatedUnion('product', [
-      z.strictObject({
-        product: z.literal('codex'),
-        receipt_directory: z.string().min(1),
-        source_roots: z.array(z.string().min(1)).min(1).max(16),
-        project_root: z.string().min(1)
-      }),
-      z.strictObject({ product: z.literal('claude_code'), receipt_directory: z.string().min(1), claude_projects_directory: z.string().min(1) })
-    ])
-    .optional()
-});
-export const LocalWebManifestSchema = z.strictObject({ schema_version: z.literal(1), profiles: z.array(LocalWebProfileSchema).max(64) });
-export type LocalWebProfile = z.infer<typeof LocalWebProfileSchema>;
 export function localWebSupport(store: Store, profile: LocalWebProfile) {
   const workflow = profile.setup.workflow;
   const protocolRecord = protocolRow(store, workflow.assignment.protocol_id);

@@ -5,7 +5,7 @@ import { expect, test } from 'vitest';
 import Database from 'better-sqlite3';
 import { localWebFixture } from './helpers/local-web-fixture.js';
 import { registerHarness, generateComparison } from '../src/harness-config.js';
-import { comparisonVariant } from '../src/comparison.js';
+import { comparisonVariant } from '../src/protocol-store.js';
 import { createLocalWebDomain } from '../src/local-web-domain.js';
 import { createLocalWebServer } from '../src/local-web-server.js';
 

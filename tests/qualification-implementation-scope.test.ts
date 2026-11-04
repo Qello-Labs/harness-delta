@@ -78,3 +78,45 @@ process.stdout.write(JSON.stringify({ before: before.intent.implementation_diges
     rmSync(temporary, { recursive: true, force: true });
   }
 }, 30000);
+
+test.each(['configuration-evidence', 'config-confirmation-write'])(
+  'workflow qualification freezes extracted %s implementation bytes',
+  name => {
+    const temporary = realpathSync(mkdtempSync(join(tmpdir(), 'workflow-scope-')));
+    try {
+      cpSync(join(root, 'dist'), join(temporary, 'dist'), { recursive: true });
+      copyFileSync(join(root, 'package.json'), join(temporary, 'package.json'));
+      symlinkSync(join(root, 'node_modules'), join(temporary, 'node_modules'), 'dir');
+      mkdirSync(join(temporary, 'home'));
+      mkdirSync(join(temporary, 'home', 'sessions'));
+      writeFileSync(join(temporary, 'fixture.mjs'), 'process.exit(0);\n');
+      const driver = join(temporary, 'probe.mjs');
+      writeFileSync(
+        driver,
+        `
+import { createHash } from 'node:crypto';
+import { appendFileSync, readFileSync, realpathSync } from 'node:fs';
+import { join } from 'node:path';
+import { prepareCodexWorkflowQualification } from './dist/codex-workflow-qualification.js';
+const root = ${JSON.stringify(temporary)};
+const input = {
+  binary: { path: realpathSync(process.execPath), sha256: createHash('sha256').update(readFileSync(process.execPath)).digest('hex') },
+  codex_home: join(root, 'home'),
+  hook_recorder: ${JSON.stringify(join(root, 'scripts', 'conformance', 'candidate-start-recorder.mjs'))}
+};
+const fixture = { fixtureScript: join(root, 'fixture.mjs'), durationMs: 5000 };
+const before = prepareCodexWorkflowQualification(join(root, 'before'), input, fixture);
+appendFileSync(join(root, 'dist', ${JSON.stringify(name + '.js')}), '\\n');
+const after = prepareCodexWorkflowQualification(join(root, 'after'), input, fixture);
+process.stdout.write(JSON.stringify({ before: before.intent.implementation_digest, after: after.intent.implementation_digest }));
+`
+      );
+      const output: unknown = JSON.parse(execFileSync(realpathSync(process.execPath), [driver], { encoding: 'utf8', timeout: 30000 }));
+      const digests = z.object({ before: z.string().regex(/^[a-f0-9]{64}$/), after: z.string().regex(/^[a-f0-9]{64}$/) }).parse(output);
+      expect(digests.after).not.toBe(digests.before);
+    } finally {
+      rmSync(temporary, { recursive: true, force: true });
+    }
+  },
+  30000
+);

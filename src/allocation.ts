@@ -1,3 +1,5 @@
+import type { AssignmentRow } from './assignment-contract.js';
+export type { AssignmentRow } from './assignment-contract.js';
 import { comparisonReadiness, functionalWorkflowEligible } from './readiness-store.js';
 import { FlexibleAssignmentInputSchema, type FlexibleAssignmentInput, type FlexibleProtocol } from './flexible-contracts.js';
 import { retireSource, assertUnsealedIdentity } from './exchange/deletion.js';
@@ -7,7 +9,7 @@ import { IdSchema } from './contracts.js';
 import { randomInt, randomUUID } from 'node:crypto';
 import { AssignmentInputSchema, comparisonTimestamp, parseComparison } from './comparison-contracts.js';
 import type { AssignmentInput, Protocol } from './comparison-contracts.js';
-import { comparisonProtocol, comparisonVariant, protocolRow } from './comparison.js';
+import { comparisonProtocol, comparisonVariant, protocolRow } from './protocol-store.js';
 import { Lifecycle } from './lifecycle.js';
 import type { TaskRow } from './lifecycle.js';
 import type { Store } from './store.js';
@@ -19,20 +21,6 @@ export interface AllocationDependencies {
   shuffle?: (values: readonly string[]) => readonly string[];
   discloseReports?: (ids: readonly string[]) => void;
   pilotPreparation?: boolean;
-}
-export interface AssignmentRow {
-  id: string;
-  task_id: string;
-  project_id: string;
-  protocol_id: string;
-  variant_id: string;
-  assigned_at: string;
-  recorded_at: string;
-  followup_ends_at: string;
-  stratum_id: string;
-  block_id: string;
-  allocation_index: number;
-  allocator_id: string;
 }
 export interface AssignmentReceipt {
   schema_version: 1;

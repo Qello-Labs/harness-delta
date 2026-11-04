@@ -7,7 +7,8 @@ import { Store } from '../src/store.js';
 import { Lifecycle } from '../src/lifecycle.js';
 import { assignTask } from '../src/allocation.js';
 import { freezeProtocol, registerProtocol, registerVariant } from '../src/comparison.js';
-import { confirmConfiguration, configurationHistory, bindConfigurationToSession } from '../src/config-confirmation.js';
+import { configurationHistory, bindConfigurationToSession } from '../src/configuration-evidence.js';
+import { confirmConfiguration } from '../src/config-confirmation-write.js';
 import { assignmentInput, assignmentTime, beforeRecruitment, metadata, protocol, seedProject, variantA, variantB } from './helpers/comparison-fixture.js';
 
 const confirmation = {

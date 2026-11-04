@@ -30,7 +30,6 @@ const complexityLimits = {
   "src/codex-workflow-qualification.ts": 58,
   "src/collection.ts": 72,
   "src/comparison.ts": 31,
-  "src/config-confirmation.ts": 45,
   "src/exchange/identity.ts": 67,
   "src/exchange/import.ts": 42,
   "src/instrumented-codex-accounting.ts": 60,

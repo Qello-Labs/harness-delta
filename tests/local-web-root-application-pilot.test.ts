@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { localWebFixture } from './helpers/local-web-fixture.js';
 import { createLocalWebDomain, LocalWebProfileSchema } from '../src/local-web-domain.js';
 import { registerHarness, generateComparison } from '../src/harness-config.js';
-import { comparisonVariant } from '../src/comparison.js';
+import { comparisonVariant } from '../src/protocol-store.js';
 import { codexRootHumanPilotProfileId } from '../src/session-binding-human-pilot.js';
 import { createHash } from 'node:crypto';
 

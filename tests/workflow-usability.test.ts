@@ -299,7 +299,8 @@ test('begin also accepts --confirmation', async () => {
 test('a stored version 1 flexible snapshot still reads back unchanged', async () => {
   const f = codexWorkflowFixture();
   try {
-    const { createComparisonSnapshot, readComparisonSnapshot, canonicalJson } = await import('../src/reports/comparison-snapshot.js');
+    const { createComparisonSnapshot, readComparisonSnapshot } = await import('../src/reports/comparison-snapshot.js');
+    const { canonicalJson } = await import('../src/canonical-json.js');
     const { projectFlexibleComparison, FlexibleSnapshotInputSchema } = await import('../src/reports/flexible-comparison.js');
     const first = await runAssignedWorkflow(f.store, f.input, stub(), runtime);
     const cutoff = new Date(Date.parse(first.followup_ends_at) + 60000).toISOString();

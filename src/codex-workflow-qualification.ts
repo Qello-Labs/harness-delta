@@ -17,7 +17,7 @@ import { dirname, join } from 'node:path';
 import { z } from 'zod';
 import { IdSchema, TaskMetadataSchema } from './contracts.js';
 import { RuntimeEvidenceSchema, UsageV2Schema } from './flexible-contracts.js';
-import { selectedArtifactSnapshot } from './config-confirmation.js';
+import { selectedArtifactSnapshot } from './configuration-evidence.js';
 import { Lifecycle } from './lifecycle.js';
 import { Store } from './store.js';
 import { pinnedCodexWorkflowBinarySha, runCodexQualificationPhase, verifyCodexWorkflowStartupContract } from './codex-workflow-adapter.js';
@@ -139,6 +139,8 @@ function implementationDigest() {
     'lifecycle',
     'store',
     'config-confirmation',
+    'configuration-evidence',
+    'config-confirmation-write',
     'package-paths'
   ];
   return hash(

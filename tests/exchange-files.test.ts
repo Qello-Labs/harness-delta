@@ -57,7 +57,7 @@ test('publication rejects semantically identical but byte-different or publicly 
 });
 
 test('a package at the exact byte limit is readable after publication', async () => {
-  const { canonicalJson } = await import('../src/reports/comparison-snapshot.js');
+  const { canonicalJson } = await import('../src/canonical-json.js');
   const { MAX_BYTES } = await import('../src/exchange/contracts.js');
   const dir = mkdtempSync(join(tmpdir(), 'exchange-limit-'));
   const path = join(dir, 'out.json');

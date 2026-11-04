@@ -7,7 +7,7 @@ import { createSyntheticCodexWorkflowAdapter } from '../src/codex-workflow-adapt
 import { stopCodexWorkflow } from '../src/codex-workflow-journal.js';
 import { Lifecycle } from '../src/lifecycle.js';
 import { Deletion } from '../src/deletion.js';
-import { selectedArtifactSnapshot } from '../src/config-confirmation.js';
+import { selectedArtifactSnapshot } from '../src/configuration-evidence.js';
 import { codexWorkflowFixture } from './helpers/codex-workflow-fixture.js';
 
 const runtime = { model: null, effort: null };

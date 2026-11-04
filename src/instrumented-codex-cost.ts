@@ -16,7 +16,7 @@ import {
 import { instrumentedMetadataHash } from './instrumented-codex-accounting.js';
 import { projectInstrumentedTerminal } from './instrumented-codex-usage.js';
 import { costFormulaVersion, priceUsage, readPriceTable, sumAmounts } from './pricing.js';
-import { canonicalJson } from './reports/comparison-snapshot.js';
+import { canonicalJson } from './canonical-json.js';
 import type { Store } from './store.js';
 import { readInstrumentedBuildIdentity } from './instrumented-codex-build-identity.js';
 

@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { Store } from '../src/store.js';
 import { assignTask } from '../src/allocation.js';
-import { confirmConfiguration } from '../src/config-confirmation.js';
+import { confirmConfiguration } from '../src/config-confirmation-write.js';
 import { createComparisonSnapshot, readComparisonSnapshot } from '../src/reports/comparison-snapshot.js';
 import { registerExchangeSource, buildExchangePackage } from '../src/exchange/source.js';
 import { registerExchangeMapping } from '../src/exchange/mapping.js';

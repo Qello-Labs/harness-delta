@@ -1,4 +1,4 @@
-import { comparisonProtocol, protocolRow } from './comparison.js';
+import { comparisonProtocol, protocolRow } from './protocol-store.js';
 import { IdSchema, TimestampSchema } from './contracts.js';
 import { utcNow, type Clock } from './lifecycle.js';
 import type { Store } from './store.js';

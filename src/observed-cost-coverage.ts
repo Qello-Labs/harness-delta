@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { codexWorkflowCostFacts, type CodexWorkflowRun } from './codex-workflow-journal.js';
 import { evaluateCostCoverage } from './cost-coverage.js';
 import { CostCoverageEvidenceSchema, type PriceTable, type UsageEvent, type RuntimeEvidence } from './flexible-contracts.js';
-import { canonicalJson } from './reports/comparison-snapshot.js';
+import { canonicalJson } from './canonical-json.js';
 import { priceUsage, type LegacyInputBasis } from './pricing.js';
 import type { Store } from './store.js';
 

@@ -17,7 +17,7 @@ import {
 import { join } from 'node:path';
 import { z } from 'zod';
 import { IdSchema } from './contracts.js';
-import { selectedArtifactSnapshot } from './config-confirmation.js';
+import { selectedArtifactSnapshot } from './configuration-evidence.js';
 
 const digest = z.string().regex(/^[a-f0-9]{64}$/);
 export const ExternalPreparationSpecSchema = z

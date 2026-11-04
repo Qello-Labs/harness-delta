@@ -1,5 +1,5 @@
 import type { Store } from '../store.js';
-import { canonicalJson } from '../reports/comparison-snapshot.js';
+import { canonicalJson } from '../canonical-json.js';
 import type { AnyDataPackage, AnySharedAssignment } from './contracts.js';
 import { protocolDigest } from './contracts.js';
 import type { Mapping } from './mapping.js';

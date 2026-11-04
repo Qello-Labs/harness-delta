@@ -6,8 +6,9 @@ export { VariantSchema, ProtocolDraftSchema, ProtocolSchema, AssignmentInputSche
 export { registerVariant, registerProtocol, freezeProtocol, showVariant, showProtocol } from './comparison.js';
 export { assignTask } from './allocation.js';
 export type { AllocationDependencies, AssignmentReceipt } from './allocation.js';
-export { confirmConfiguration, configurationHistory, bindConfigurationToSession } from './config-confirmation.js';
-export type { SelectedArtifact, ConfigurationRecord } from './config-confirmation.js';
+export { configurationHistory, bindConfigurationToSession } from './configuration-evidence.js';
+export { confirmConfiguration } from './config-confirmation-write.js';
+export type { SelectedArtifact, ConfigurationRecord } from './configuration-evidence.js';
 
 export * from './flexible-contracts.js';
 export { recordRuntimeEvidence, readRuntimeHistory, putUsageWithEvidence, recordObservationGap } from './runtime-history.js';

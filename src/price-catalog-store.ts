@@ -1,4 +1,4 @@
-import { canonicalJson } from './reports/comparison-snapshot.js';
+import { canonicalJson } from './canonical-json.js';
 import { TimestampSchema } from './contracts.js';
 import { registerPriceTable } from './pricing.js';
 import {

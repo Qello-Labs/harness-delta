@@ -1,10 +1,11 @@
+import { canonicalJson } from '../canonical-json.js';
 import { overlayEventCompatibility } from '../source-compatibility.js';
 import { captureFlexibleInput, FlexibleSnapshotInputSchema, projectFlexibleComparison, type FlexibleComparisonReport } from './flexible-comparison.js';
 import { parseProtocol } from '../flexible-contracts.js';
 import { createHash } from 'node:crypto';
 import { EventSchema, IdSchema, TaskMetadataSchema } from '../contracts.js';
 import { comparisonTimestamp, ConfigurationRecordSchema, parseComparison } from '../comparison-contracts.js';
-import { frozenProtocol, protocolRow, variantConfiguration } from '../comparison.js';
+import { frozenProtocol, protocolRow, variantConfiguration } from '../protocol-store.js';
 import type { AssignmentRow } from '../allocation.js';
 import type { Clock, TaskRow } from '../lifecycle.js';
 import { utcNow } from '../lifecycle.js';
@@ -23,20 +24,6 @@ interface SnapshotRow {
 }
 interface Tombstone {
   reason_code: 'deletion' | 'identity_conflict';
-}
-/** Object keys use code-point order; input arrays are sorted by their semantic identity on capture. */
-export function canonicalJson(value: unknown): string {
-  const canonical = (item: unknown): unknown => {
-    if (Array.isArray(item)) return item.map(canonical);
-    if (item !== null && typeof item === 'object')
-      return Object.fromEntries(
-        Object.entries(item)
-          .sort(([a], [b]) => codePointOrder(a, b))
-          .map(([key, val]) => [key, canonical(val)])
-      );
-    return item;
-  };
-  return JSON.stringify(canonical(value));
 }
 function invalidated(reportId: string, reason: Tombstone['reason_code']): InvalidatedReport {
   return {
