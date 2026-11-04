@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { afterEach, expect, test, vi } from 'vitest';
 import { ordinaryBindingFixture } from './helpers/ordinary-session-binding-fixture.js';
 import { ordinaryTask, ordinaryTaskSettings, revokeOrdinaryObservation, saveOrdinaryProjectSettings } from '../src/ordinary-observation.js';
-import { bundledPriceCatalog, digest } from '../src/price-catalog.js';
+import { bundledPriceCatalog, digest } from '../src/pricing/price-catalog.js';
 import { refreshPriceCatalog } from '../src/price-catalog-store.js';
 import { BindingUsageRecordSchema, type BindingReadBoundary } from '../src/session-binding-contract.js';
 import { createOrdinarySessionBindingService } from '../src/ordinary-session-binding.js';

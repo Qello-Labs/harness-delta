@@ -23,7 +23,7 @@ import type { CandidateScope } from '../src/nested-candidate.js';
 import type { BindingBaselineLedger, BindingUsageRecord, VerifiedSessionIdentity } from '../src/session-binding-contract.js';
 import { ClaudeSessionBindingProvider, claudeBindingProfiles, claudeProjectDirName, type ClaudeBindingOptions } from '../src/session-binding-claude.js';
 import { EventV2Schema, RuntimeEvidenceSchema } from '../src/flexible-contracts.js';
-import { compilePriceBasis, parsePriceCatalog } from '../src/price-catalog.js';
+import { compilePriceBasis, parsePriceCatalog } from '../src/pricing/price-catalog.js';
 import { projectCatalogCost } from '../src/catalog-cost-report.js';
 
 // Synthetic fixtures only: no native Claude process, model call, user transcript or settings.

@@ -1,10 +1,10 @@
 import { expect, test, vi } from 'vitest';
-import { Store } from '../src/store.js';
-import { compilePriceBasis, bundledPriceCatalog, digest } from '../src/price-catalog.js';
-import { ensureBundledCatalog, preparePriceBasis, readPriceBasis, readPriceCatalogStatus, refreshPriceCatalog } from '../src/price-catalog-store.js';
-import { registerProtocol, registerVariant, freezeProtocol, showProtocol } from '../src/comparison.js';
-import { makeFlexibleFixture } from './helpers/flexible-fixture.js';
-import { seedProject, beforeRecruitment } from './helpers/comparison-fixture.js';
+import { Store } from '../../src/store.js';
+import { compilePriceBasis, bundledPriceCatalog, digest } from '../../src/pricing/price-catalog.js';
+import { ensureBundledCatalog, preparePriceBasis, readPriceBasis, readPriceCatalogStatus, refreshPriceCatalog } from '../../src/price-catalog-store.js';
+import { registerProtocol, registerVariant, freezeProtocol, showProtocol } from '../../src/comparison.js';
+import { makeFlexibleFixture } from '../helpers/flexible-fixture.js';
+import { seedProject, beforeRecruitment } from '../helpers/comparison-fixture.js';
 
 const now = '2026-10-06T15:00:00Z';
 const artifact = (version: number) => Buffer.from(JSON.stringify({ ...bundledPriceCatalog(), catalog_id: `catalog-${version}`, catalog_version: version }));

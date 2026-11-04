@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { IdSchema, TimestampSchema } from './contracts.js';
+import { IdSchema, TimestampSchema } from '../contracts.js';
 import { catalogByteLimit, digest, parsePriceCatalog, referencePolicyId, requestTierPolicyId, observedCacheTtlPolicyId } from './price-catalog.js';
 
 export const CatalogReleaseManifestSchema = z

@@ -12,7 +12,7 @@ import { ExternalPreparationSpecSchema, managedHarnessContent, sha256 } from './
 import { assertExternalPrepared, prepareExternalWorkflow, runExternalWorkflow, externalWorkflowState } from './external-session-workflow.js';
 import { externalContract, registerExternalContract, bindingCollectionControl } from './external-session-contract.js';
 import { externalInstructionFragment, type ExternalContextEvidence } from './external-session-context.js';
-import { readReferenceTaskCostReport } from './price-catalog-task-report.js';
+import { readReferenceTaskCostReport } from './pricing/price-catalog-task-report.js';
 import type { Store } from './store.js';
 import { comparisonProtocol, protocolRow } from './protocol-store.js';
 

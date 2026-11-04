@@ -9,8 +9,8 @@ import type { Store } from './store.js';
 import { partitionCost } from './report-source-trust.js';
 import { overlayEventCompatibility } from './source-compatibility.js';
 import { readRuntimeHistory } from './runtime-history.js';
-import { linkedRequestPriceEvidence } from './request-price-evidence.js';
-import { observedCostCoverage } from './observed-cost-coverage.js';
+import { linkedRequestPriceEvidence } from './pricing/request-price-evidence.js';
+import { observedCostCoverage } from './pricing/observed-cost-coverage.js';
 
 /** Metadata-only descriptive projection; no coverage or source admission implied. */
 export function projectObservedCost(

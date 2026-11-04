@@ -1,11 +1,11 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { z } from 'zod';
-import { IdSchema, ModelSchema, MonetaryAmountSchema, TimestampSchema } from './contracts.js';
-import { PriceTableSchema, type BillingComponent, type PriceTable, type UsageEvent, type RuntimeEvidence } from './flexible-contracts.js';
+import { IdSchema, ModelSchema, MonetaryAmountSchema, TimestampSchema } from '../contracts.js';
+import { PriceTableSchema, type BillingComponent, type PriceTable, type UsageEvent, type RuntimeEvidence } from '../flexible-contracts.js';
 import { verifiedRequestPromptTokens } from './request-price-evidence.js';
-import { canonicalJson } from './canonical-json.js';
-import { implementationPath, packagePath } from './package-paths.js';
+import { canonicalJson } from '../canonical-json.js';
+import { implementationPath, packagePath } from '../package-paths.js';
 
 export const referencePolicyId = 'reference-standard-v1';
 export const catalogMatchingVersion = 'exact-catalog-v1';

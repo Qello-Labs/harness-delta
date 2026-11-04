@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
-import { bundledCatalogBytes, compilePriceBasis, digest, matchCatalogComponent, parsePriceCatalog } from '../src/price-catalog.js';
-import { preparePriceCatalogRelease } from '../src/price-catalog-release.js';
+import { bundledCatalogBytes, compilePriceBasis, digest, matchCatalogComponent, parsePriceCatalog } from '../src/pricing/price-catalog.js';
+import { preparePriceCatalogRelease } from '../src/pricing/price-catalog-release.js';
 import { preparePriceBasis, readPriceBasis, readPriceCatalogStatus, refreshPriceCatalog } from '../src/price-catalog-store.js';
 import { registerProtocolWithCatalogDefaults, selectTaskPriceTable } from '../src/price-catalog-selection.js';
 import { freezeProtocol, registerVariant, showProtocol } from '../src/comparison.js';

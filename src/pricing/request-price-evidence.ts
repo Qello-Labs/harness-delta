@@ -1,5 +1,5 @@
-import { addTokens } from './contracts.js';
-import { RuntimeEvidenceSchema, type RuntimeEvidence, type UsageEvent } from './flexible-contracts.js';
+import { addTokens } from '../contracts.js';
+import { RuntimeEvidenceSchema, type RuntimeEvidence, type UsageEvent } from '../flexible-contracts.js';
 
 /** Keep linked metadata and conflicting aliases so freezing cannot make an ambiguous request priceable. */
 export function linkedRequestPriceEvidence(events: readonly UsageEvent[], evidence: readonly RuntimeEvidence[]): RuntimeEvidence[] {

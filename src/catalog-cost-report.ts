@@ -2,7 +2,7 @@ import { partitionCost, reportSourceTrust } from './report-source-trust.js';
 import { EventSchema } from './contracts.js';
 import type { UsageEvent } from './flexible-contracts.js';
 import { projectObservedCost } from './observed-cost-report.js';
-import { matchCatalogComponent, type MatchContext, type PriceBasis } from './price-catalog.js';
+import { matchCatalogComponent, type MatchContext, type PriceBasis } from './pricing/price-catalog.js';
 import { priceUsage, sumAmounts, type LegacyInputBasis } from './pricing.js';
 import { pricingComponents, type PriceableComponent } from './cache-write-ttl.js';
 

@@ -10,7 +10,7 @@ import {
   parsePriceCatalog,
   type PriceBasis,
   type PriceCatalog
-} from './price-catalog.js';
+} from './pricing/price-catalog.js';
 import type { Store } from './store.js';
 
 function registerCatalog(store: Store, catalog: PriceCatalog, artifactHash: string): void {

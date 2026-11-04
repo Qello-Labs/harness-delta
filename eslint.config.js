@@ -44,7 +44,7 @@ const complexityLimits = {
   "src/ordinary-session-binding.ts": 48,
   "src/otel-journal.ts": 37,
   "src/otel-projection.ts": 33,
-  "src/price-catalog.ts": 50,
+  "src/pricing/price-catalog.ts": 50,
   "src/pricing.ts": 55,
   "src/reports/comparison-task.ts": 33,
   "src/reports/flexible-comparison.ts": 41,

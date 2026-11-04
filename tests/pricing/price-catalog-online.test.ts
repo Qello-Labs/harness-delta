@@ -1,14 +1,14 @@
 import { expect, test, vi } from 'vitest';
-import { Store } from '../src/store.js';
-import { bundledCatalogBytes, bundledPriceCatalog, digest } from '../src/price-catalog.js';
-import { preparePriceBasis, readPriceBasis, readPriceCatalogStatus } from '../src/price-catalog-store.js';
-import { preparePriceCatalogRelease } from '../src/price-catalog-release.js';
+import { Store } from '../../src/store.js';
+import { bundledCatalogBytes, bundledPriceCatalog, digest } from '../../src/pricing/price-catalog.js';
+import { preparePriceBasis, readPriceBasis, readPriceCatalogStatus } from '../../src/price-catalog-store.js';
+import { preparePriceCatalogRelease } from '../../src/pricing/price-catalog-release.js';
 import {
   defaultPriceCatalogSource,
   readOnlinePriceCatalogStatus,
   refreshOnlinePriceCatalog,
   type TrustedPriceCatalogSource
-} from '../src/price-catalog-online.js';
+} from '../../src/pricing/price-catalog-online.js';
 
 const now = '2026-10-06T16:00:00Z';
 const source: TrustedPriceCatalogSource = { publisherId: 'harness-delta', manifestUrl: 'https://catalog.example.invalid/prices/manifest.json' };

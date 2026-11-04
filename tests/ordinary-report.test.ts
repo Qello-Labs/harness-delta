@@ -8,7 +8,7 @@ import { createOrdinaryTask, ordinaryTask, saveOrdinaryProjectSettings } from '.
 import { Store } from '../src/store.js';
 import { aggregateOrdinaryTaskReport } from '../src/reports/ordinary-task.js';
 import { ordinaryBindingFixture } from './helpers/ordinary-session-binding-fixture.js';
-import { bundledPriceCatalog, digest } from '../src/price-catalog.js';
+import { bundledPriceCatalog, digest } from '../src/pricing/price-catalog.js';
 import { refreshPriceCatalog } from '../src/price-catalog-store.js';
 import { recordObservationGap } from '../src/runtime-history.js';
 

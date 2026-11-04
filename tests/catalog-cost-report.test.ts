@@ -1,6 +1,6 @@
 import { resolveSourceCompatibility } from '../src/source-compatibility.js';
 import { expect, test } from 'vitest';
-import { bundledPriceCatalog, compilePriceBasis, matchCatalogComponent } from '../src/price-catalog.js';
+import { bundledPriceCatalog, compilePriceBasis, matchCatalogComponent } from '../src/pricing/price-catalog.js';
 import { projectCatalogCost } from '../src/catalog-cost-report.js';
 import { makeFlexibleFixture } from './helpers/flexible-fixture.js';
 

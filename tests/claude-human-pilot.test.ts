@@ -1,4 +1,4 @@
-import { bundledPriceCatalog, compilePriceBasis } from '../src/price-catalog.js';
+import { bundledPriceCatalog, compilePriceBasis } from '../src/pricing/price-catalog.js';
 import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';

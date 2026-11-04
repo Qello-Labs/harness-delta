@@ -1,10 +1,10 @@
 import { expect, test } from 'vitest';
-import { Store } from '../src/store.js';
-import { Lifecycle } from '../src/lifecycle.js';
-import { Deletion } from '../src/deletion.js';
-import { bundledPriceCatalog, digest } from '../src/price-catalog.js';
-import { preparePriceBasis, refreshPriceCatalog } from '../src/price-catalog-store.js';
-import { captureTaskCostSnapshot, createPriceRevaluation, readPriceRevaluation } from '../src/price-revaluation.js';
+import { Store } from '../../src/store.js';
+import { Lifecycle } from '../../src/lifecycle.js';
+import { Deletion } from '../../src/deletion.js';
+import { bundledPriceCatalog, digest } from '../../src/pricing/price-catalog.js';
+import { preparePriceBasis, refreshPriceCatalog } from '../../src/price-catalog-store.js';
+import { captureTaskCostSnapshot, createPriceRevaluation, readPriceRevaluation } from '../../src/pricing/price-revaluation.js';
 
 const now = '2026-10-06T15:00:00Z';
 function fixture(model = 'gpt-6.1-sol') {
@@ -96,10 +96,10 @@ for (const target of ['task', 'project'] as const)
   });
 
 test('both original arms reprice together from one comparison snapshot and base invalidation purges them', async () => {
-  const { seedFlexibleComparison } = await import('./helpers/flexible-store.js');
-  const { assignTask } = await import('../src/allocation.js');
-  const { createComparisonSnapshot, readComparisonSnapshot } = await import('../src/reports/comparison-snapshot.js');
-  const { captureComparisonCostSnapshot } = await import('../src/price-revaluation.js');
+  const { seedFlexibleComparison } = await import('../helpers/flexible-store.js');
+  const { assignTask } = await import('../../src/allocation.js');
+  const { createComparisonSnapshot, readComparisonSnapshot } = await import('../../src/reports/comparison-snapshot.js');
+  const { captureComparisonCostSnapshot } = await import('../../src/pricing/price-revaluation.js');
   const store = new Store(':memory:');
   try {
     const f = seedFlexibleComparison(store);

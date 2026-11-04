@@ -1,13 +1,13 @@
 import { expect, test } from 'vitest';
-import { Store } from '../src/store.js';
-import { registerProtocolWithCatalogDefaults, selectTaskPriceTable } from '../src/price-catalog-selection.js';
-import { preparePriceBasis, refreshPriceCatalog } from '../src/price-catalog-store.js';
-import { bundledPriceCatalog, digest } from '../src/price-catalog.js';
-import { registerVariant, freezeProtocol, showProtocol } from '../src/comparison.js';
-import { makeFlexibleFixture } from './helpers/flexible-fixture.js';
-import { seedProject, beforeRecruitment, assignmentInput } from './helpers/comparison-fixture.js';
-import { assignTask } from '../src/allocation.js';
-import { readReferenceTaskCostReport } from '../src/price-catalog-task-report.js';
+import { Store } from '../../src/store.js';
+import { registerProtocolWithCatalogDefaults, selectTaskPriceTable } from '../../src/price-catalog-selection.js';
+import { preparePriceBasis, refreshPriceCatalog } from '../../src/price-catalog-store.js';
+import { bundledPriceCatalog, digest } from '../../src/pricing/price-catalog.js';
+import { registerVariant, freezeProtocol, showProtocol } from '../../src/comparison.js';
+import { makeFlexibleFixture } from '../helpers/flexible-fixture.js';
+import { seedProject, beforeRecruitment, assignmentInput } from '../helpers/comparison-fixture.js';
+import { assignTask } from '../../src/allocation.js';
+import { readReferenceTaskCostReport } from '../../src/pricing/price-catalog-task-report.js';
 
 const now = '2026-10-06T15:00:00Z';
 test('omitted protocol price binds once and assigned tasks retain that pin after refresh', async () => {

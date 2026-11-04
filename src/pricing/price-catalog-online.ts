@@ -1,9 +1,9 @@
 import { z } from 'zod';
-import { IdSchema, TimestampSchema } from './contracts.js';
+import { IdSchema, TimestampSchema } from '../contracts.js';
 import { catalogByteLimit, digest, parsePriceCatalog } from './price-catalog.js';
 import { CatalogReleaseManifestSchema } from './price-catalog-release.js';
-import { ensureBundledCatalog, readPriceCatalogStatus, refreshPriceCatalog } from './price-catalog-store.js';
-import type { Store } from './store.js';
+import { ensureBundledCatalog, readPriceCatalogStatus, refreshPriceCatalog } from '../price-catalog-store.js';
+import type { Store } from '../store.js';
 
 export interface TrustedPriceCatalogSource {
   publisherId: string;

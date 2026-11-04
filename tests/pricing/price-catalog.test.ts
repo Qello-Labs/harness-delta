@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
-import { PriceTableSchema } from '../src/flexible-contracts.js';
-import { bundledPriceCatalog, compilePriceBasis, parsePriceCatalog } from '../src/price-catalog.js';
+import { PriceTableSchema } from '../../src/flexible-contracts.js';
+import { bundledPriceCatalog, compilePriceBasis, parsePriceCatalog } from '../../src/pricing/price-catalog.js';
 
 test('bundle supplies verified literal models and reference conditions', () => {
   const catalog = bundledPriceCatalog();

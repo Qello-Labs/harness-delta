@@ -22,7 +22,7 @@ test('legacy native usage without provenance is a separate reference, never sile
 });
 
 import { projectCatalogCost } from '../src/catalog-cost-report.js';
-import { bundledPriceCatalog, compilePriceBasis } from '../src/price-catalog.js';
+import { bundledPriceCatalog, compilePriceBasis } from '../src/pricing/price-catalog.js';
 const compatibility = (state: 'verified' | 'compatibility_unverified' | 'invalidated') => ({
   state,
   product: 'codex' as const,
@@ -91,7 +91,7 @@ import { aggregateTask } from '../src/metrics.js';
 import { freezePeriod, periodReport } from '../src/reports/period.js';
 import { invalidateCompatibility, pinSessionCompatibility, resolveSourceCompatibility } from '../src/source-compatibility.js';
 import { preparePriceBasis } from '../src/price-catalog-store.js';
-import { captureTaskCostSnapshot, createPriceRevaluation, readPriceRevaluation } from '../src/price-revaluation.js';
+import { captureTaskCostSnapshot, createPriceRevaluation, readPriceRevaluation } from '../src/pricing/price-revaluation.js';
 
 test('task, period and retained repricing honor later invalidation without rewriting event or snapshot bytes', () => {
   const store = new Store(':memory:');

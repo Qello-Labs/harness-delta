@@ -2,7 +2,7 @@ import { Decimal } from 'decimal.js';
 import { addTokens, EventSchema, IdSchema, MonetaryAmountSchema } from './contracts.js';
 import { parseComparison } from './comparison-contracts.js';
 import { PriceTableSchema, type BillingComponent, type UsageEvent, type PriceTable, type PricedUsage, type RuntimeEvidence } from './flexible-contracts.js';
-import { verifiedRequestPromptTokens } from './request-price-evidence.js';
+import { verifiedRequestPromptTokens } from './pricing/request-price-evidence.js';
 import { pricingComponents, type PriceableComponent } from './cache-write-ttl.js';
 import type { Store } from './store.js';
 // Prices: <=60 digits, counters/units: <=16 digits, <=4096 entries.

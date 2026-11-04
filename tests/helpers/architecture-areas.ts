@@ -14,7 +14,7 @@ const areas: readonly (readonly [string, RegExp])[] = [
   ['harness', /^src\/(?:harness\/)?harness-/],
   ['workflow', /^src\/config-confirmation-write\.ts$/],
   ['comparison', /^src\/(comparison|allocation|config-confirmation|reports\/|exchange\/)/],
-  ['pricing', /^src\/(price|pricing|cost-coverage|catalog-cost|observed-cost|request-price|report-source-trust|metrics)/],
+  ['pricing', /^src\/(?:pricing\/)?(price|pricing|cost-coverage|catalog-cost|observed-cost|request-price|report-source-trust|metrics)/],
   ['connect', /^src\/(codex-connect|claude-connect|claude-process-binary|owned-cli-invocation)/],
   [
     'workflow',

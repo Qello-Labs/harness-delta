@@ -47,7 +47,7 @@ import type { ExternalTaskSetup } from './external-session-service.js';
 import type { WorkflowAdapter } from './task-workflow.js';
 import { bindingCollectionControl, registerBindingCollectionControl, revokeBindingCollectionControl } from './external-session-contract.js';
 import { releaseExternalWorkflow } from './external-session-workflow.js';
-import { readOnlinePriceCatalogStatus, refreshOnlinePriceCatalog } from './price-catalog-online.js';
+import { readOnlinePriceCatalogStatus, refreshOnlinePriceCatalog } from './pricing/price-catalog-online.js';
 import { localWebError, type LocalWebDomain } from './local-web-server.js';
 import { createSessionBindingService, type BindingObservation } from './session-binding-service.js';
 import { ClaudeSessionBindingProvider, type ClaudeBindingOptions } from './session-binding-claude.js';

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
-import { compilePriceBasis, digest, parsePriceCatalog } from '../src/price-catalog.js';
+import { compilePriceBasis, digest, parsePriceCatalog } from '../src/pricing/price-catalog.js';
 import { projectCatalogCost } from '../src/catalog-cost-report.js';
 import { projectObservedCost } from '../src/observed-cost-report.js';
 import { RuntimeEvidenceSchema, EventV2Schema, PriceTableSchema } from '../src/flexible-contracts.js';
@@ -8,8 +8,8 @@ import { Lifecycle } from '../src/lifecycle.js';
 import { Store } from '../src/store.js';
 import { putUsageWithEvidence, recordRuntimeEvidence } from '../src/runtime-history.js';
 import { preparePriceBasis, refreshPriceCatalog } from '../src/price-catalog-store.js';
-import { readReferenceTaskCostReport } from '../src/price-catalog-task-report.js';
-import { captureTaskCostSnapshot, createPriceRevaluation, readPriceRevaluation } from '../src/price-revaluation.js';
+import { readReferenceTaskCostReport } from '../src/pricing/price-catalog-task-report.js';
+import { captureTaskCostSnapshot, createPriceRevaluation, readPriceRevaluation } from '../src/pricing/price-revaluation.js';
 import { FlexibleSnapshotInputSchema, projectFlexibleComparison } from '../src/reports/flexible-comparison.js';
 import { canonicalJson } from '../src/canonical-json.js';
 import { resolveSourceCompatibility } from '../src/source-compatibility.js';

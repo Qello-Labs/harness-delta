@@ -6,7 +6,7 @@ import { resolve,join } from 'node:path';
 try {
   const [catalogPath,outputPath,...extra]=process.argv.slice(2);
   if(!catalogPath||!outputPath||extra.length)throw new Error('usage_catalog_file_output_directory');
-  const {preparePriceCatalogRelease}=await import('../dist/price-catalog-release.js');
+  const {preparePriceCatalogRelease}=await import('../dist/pricing/price-catalog-release.js');
   const file=await open(catalogPath,constants.O_RDONLY|constants.O_NONBLOCK);
   let bytes;
   try {
