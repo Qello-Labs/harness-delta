@@ -38,8 +38,12 @@ export function buildImportGraph(modules: readonly SourceModule[]): readonly Imp
         add(node.moduleSpecifier, node.importClause?.isTypeOnly ?? false);
       } else if (ts.isExportDeclaration(node)) {
         add(node.moduleSpecifier, node.isTypeOnly);
-      } else if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
-        add(node.arguments[0], false);
+      } else if (ts.isCallExpression(node) && (node.expression.kind === ts.SyntaxKind.ImportKeyword ||
+        (ts.isIdentifier(node.expression) && node.expression.text === 'require'))) {
+        const specifier = node.arguments[0];
+        if (!specifier || !ts.isStringLiteralLike(specifier))
+          throw new Error(`Unresolved module dependency in ${module.path}`);
+        add(specifier, false);
       } else if (ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument)) {
         add(node.argument.literal, true);
       } else if (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference)) {

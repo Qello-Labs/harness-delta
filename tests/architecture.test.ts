@@ -95,3 +95,57 @@ test('mixed imports, side effects, dynamic imports and repeated targets retain r
     ['core/b.ts', false], ['core/c.ts', false], ['core/d.ts', false], ['core/e.ts', false],
   ]);
 });
+
+test.each([
+  "import('./local-web-domain.js')",
+  'import(`./local-web-domain.js`)',
+  "require('./local-web-domain.js')",
+  'require(`./local-web-domain.js`)',
+])('literal dynamic dependency %s retains cycle and area checks', expression => {
+  const modules = [
+    { path: 'src/coverage.ts', text: `void ${expression};` },
+    { path: 'src/local-web-domain.ts', text: "import './coverage.js';" },
+  ];
+  expect(checkArchitecture(buildImportGraph(modules), { ...policy, cycles: [], edges: [] })).toEqual([
+    'New runtime cycle: src/coverage.ts -> src/local-web-domain.ts -> src/coverage.ts',
+    'New area edge: runtime src/coverage.ts -> src/local-web-domain.ts',
+  ]);
+});
+
+test.each([
+  'import(target)',
+  'import(`./${target}.js`)',
+  "import(import.meta.resolve('./local-web-domain.js'))",
+  'require(target)',
+  "require(import.meta.resolve('./local-web-domain.js'))",
+])('unresolved dynamic dependency %s fails with its source file', expression => {
+  const modules = [
+    { path: 'src/coverage.ts', text: `const target = './local-web-domain.js'; void ${expression};` },
+    { path: 'src/local-web-domain.ts', text: "import './coverage.js';" },
+  ];
+  expect(() => checkArchitecture(buildImportGraph(modules), { ...policy, cycles: [], edges: [] }))
+    .toThrow('Unresolved module dependency in src/coverage.ts');
+});
+
+test.each([
+  "export * from './local-web-domain.js';",
+  "export { value } from './local-web-domain.js';",
+  "import dependency = require('./local-web-domain.js');",
+])('static dependency %s retains cycle and area checks', text => {
+  const modules = [
+    { path: 'src/coverage.ts', text },
+    { path: 'src/local-web-domain.ts', text: "import './coverage.js';" },
+  ];
+  expect(checkArchitecture(buildImportGraph(modules), { ...policy, cycles: [], edges: [] })).toEqual([
+    'New runtime cycle: src/coverage.ts -> src/local-web-domain.ts -> src/coverage.ts',
+    'New area edge: runtime src/coverage.ts -> src/local-web-domain.ts',
+  ]);
+});
+
+test('import.meta.resolve alone does not load a runtime dependency', () => {
+  const graph = buildImportGraph([
+    { path: 'src/coverage.ts', text: "import.meta.resolve('./local-web-domain.js');" },
+    { path: 'src/local-web-domain.ts', text: "import './coverage.js';" },
+  ]);
+  expect(graph).toEqual([runtime('src/local-web-domain.ts', 'src/coverage.ts')]);
+});
