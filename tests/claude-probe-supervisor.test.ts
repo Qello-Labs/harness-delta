@@ -122,7 +122,7 @@ test.each(['artifact', 'binary', 'credential'] as const)(
       const module = (name: string) => JSON.stringify(pathToFileURL(join(compiled, name)).href);
       const script =
         kind === 'artifact'
-          ? `import {selectedArtifactSnapshot} from ${module('configuration-evidence.js')}; try {selectedArtifactSnapshot([{artifactId:'instruction',path:${JSON.stringify(fifo)}}]);process.exitCode=1;}catch {console.log('rejected');}`
+          ? `import {selectedArtifactSnapshot} from ${module('core/configuration-evidence.js')}; try {selectedArtifactSnapshot([{artifactId:'instruction',path:${JSON.stringify(fifo)}}]);process.exitCode=1;}catch {console.log('rejected');}`
           : kind === 'binary'
             ? `import {prepareClaudeProbeSupervisor} from ${module('claude-probe-supervisor.js')};try {await prepareClaudeProbeSupervisor({binary:{version:'2.1.288',sha256:'0'.repeat(64),path:${JSON.stringify(fifo)}}});process.exitCode=1;}catch {console.log('rejected');}`
             : `import {runClaudeProbeHookMediator} from ${module('qualification/claude-probe-hook-mediator.js')}; const code=await runClaudeProbeHookMediator(['http://127.0.0.1:1',${JSON.stringify(fifo)}]);if(code===2)console.log('rejected');else process.exitCode=1;`;

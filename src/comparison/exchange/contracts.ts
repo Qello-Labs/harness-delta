@@ -6,7 +6,7 @@ import { FlexibleProtocolSchema, FlexibleVariantSchema, FlexibleTaskMetadataSche
 import { FlexibleTaskReportSchema } from '../reports/flexible-comparison.js';
 import { costFormulaVersion } from '../../pricing.js';
 import { codePointOrder } from '../reports/comparison-task.js';
-import { canonicalJson } from '../../canonical-json.js';
+import { canonicalJson } from '../../core/canonical-json.js';
 
 export const MAX_BYTES = 16 * 1024 * 1024;
 export const time = TimestampSchema.transform(v => new Date(v).toISOString());

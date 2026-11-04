@@ -195,7 +195,7 @@ import { registerPriceTable } from '../src/pricing.js';
 import { assignTask } from '../src/comparison/allocation.js';
 import { assignmentInput } from './helpers/comparison-fixture.js';
 import { createComparisonSnapshot, readComparisonSnapshot } from '../src/comparison/reports/comparison-snapshot.js';
-import { canonicalJson } from '../src/canonical-json.js';
+import { canonicalJson } from '../src/core/canonical-json.js';
 import { FlexibleSnapshotInputSchema, projectFlexibleComparison } from '../src/comparison/reports/flexible-comparison.js';
 
 function nativeComparisonFixture(version = '0.161.0') {

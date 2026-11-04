@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { realpathSync, statSync } from 'node:fs';
-import { comparisonProtocol, protocolRow } from './protocol-store.js';
+import { comparisonProtocol, protocolRow } from './core/protocol-store.js';
 import { parseTaskMetadata } from './flexible-contracts.js';
 import { Lifecycle } from './lifecycle.js';
 import type { Store } from './store.js';

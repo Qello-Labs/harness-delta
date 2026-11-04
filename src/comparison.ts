@@ -2,8 +2,8 @@ import { z } from 'zod';
 import { FlexibleVariantSchema, FlexibleProtocolDraftSchema, FlexibleProtocolSchema, PriceTableSchema } from './flexible-contracts.js';
 import { lookupFileProfile } from './adapter-profiles.js';
 import { comparisonTimestamp, parseComparison, ProtocolDraftSchema, ProtocolSchema, VariantSchema } from './comparison-contracts.js';
-import { comparisonProtocol, comparisonVariant, protocolRow } from './protocol-store.js';
-import type { ProtocolRow } from './protocol-store.js';
+import { comparisonProtocol, comparisonVariant, protocolRow } from './core/protocol-store.js';
+import type { ProtocolRow } from './core/protocol-store.js';
 
 export { comparisonProtocol, protocolRow };
 import type { Store } from './store.js';

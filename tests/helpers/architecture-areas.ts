@@ -2,7 +2,7 @@ const areas: readonly (readonly [string, RegExp])[] = [
   ['ops', /^src\/(deletion|readiness|readiness-store)\.ts$/],
   [
     'core',
-    /^src\/(canonical-json|protocol-store|assignment-contract|configuration-evidence|comparison-contracts|report-source-trust-contracts|external-session-contract|session-binding-contract|source-errors|source-compatibility|runtime-history|coverage|package-paths)\.ts$/
+    /^src\/(?:core\/)?(canonical-json|protocol-store|assignment-contract|configuration-evidence|comparison-contracts|report-source-trust-contracts|external-session-contract|session-binding-contract|source-errors|source-compatibility|runtime-history|coverage|package-paths)\.ts$/
   ],
   ['entry', /^src\/(?:cli\/)?(cli|cli-errors|index|.*-cli|.*-main)\.ts$/],
   ['web', /^src\/(?:web\/)?local-web-/],
@@ -25,7 +25,7 @@ const areas: readonly (readonly [string, RegExp])[] = [
     'sources',
     /^src\/(?:sources\/)?(adapters|adapter-profiles|collection|codex-rollout-policy|otel-|managed-|source-compatibility|agent-metadata|cache-write-ttl)/
   ],
-  ['core', /^src\/(contracts|flexible-contracts|lifecycle|runtime-history|deletion|source-errors|readiness|store)/]
+  ['core', /^src\/(?:core\/)?(contracts|flexible-contracts|lifecycle|runtime-history|deletion|source-errors|readiness|store)/]
 ];
 
 export const ranks: Readonly<Record<string, number>> = {

@@ -1,7 +1,7 @@
 import { lstatSync, realpathSync } from 'node:fs';
 import Database from 'better-sqlite3';
 import { z } from 'zod';
-import type { Store } from './store.js';
+import type { Store } from '../store.js';
 
 export const columns = z.array(z.object({ name: z.string() }));
 

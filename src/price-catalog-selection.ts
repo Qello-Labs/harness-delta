@@ -1,5 +1,5 @@
 import { registerProtocol } from './comparison.js';
-import { protocolRow } from './protocol-store.js';
+import { protocolRow } from './core/protocol-store.js';
 import { IdSchema } from './contracts.js';
 import { parseProtocol } from './flexible-contracts.js';
 import { preparePriceBasis } from './price-catalog-store.js';

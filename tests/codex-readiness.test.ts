@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { lookupFileProfile } from '../src/adapter-profiles.js';
 import { Collector } from '../src/collection.js';
-import { evaluateCoverage, mergeCoverageFacts, type CoverageEvidence } from '../src/coverage.js';
+import { evaluateCoverage, mergeCoverageFacts, type CoverageEvidence } from '../src/core/coverage.js';
 import { Lifecycle } from '../src/lifecycle.js';
 import { aggregateTask } from '../src/metrics.js';
 import { Store } from '../src/store.js';

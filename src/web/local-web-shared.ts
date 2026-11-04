@@ -4,7 +4,7 @@ import { basename, dirname, join } from 'node:path';
 import type Database from 'better-sqlite3';
 import { z } from 'zod';
 import { LocalWebProfileSchema, type LocalWebProfile } from './local-web-profile.js';
-import { comparisonProtocol, comparisonVariant, protocolRow } from '../protocol-store.js';
+import { comparisonProtocol, comparisonVariant, protocolRow } from '../core/protocol-store.js';
 import { buildExternalTaskSetup } from '../external-session-service.js';
 import type { Store } from '../store.js';
 import {

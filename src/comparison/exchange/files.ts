@@ -1,7 +1,7 @@
 import { closeSync, lstatSync, readFileSync, openSync, readSync, fstatSync, writeFileSync, fsyncSync, linkSync, unlinkSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { canonicalJson } from '../../canonical-json.js';
+import { canonicalJson } from '../../core/canonical-json.js';
 import { MAX_BYTES, parseExchangePackage } from './contracts.js';
 import type { ExchangePackage } from './contracts.js';
 

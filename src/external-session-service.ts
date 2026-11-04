@@ -14,7 +14,7 @@ import { externalContract, registerExternalContract, bindingCollectionControl } 
 import { externalInstructionFragment, type ExternalContextEvidence } from './external-session-context.js';
 import { readReferenceTaskCostReport } from './pricing/price-catalog-task-report.js';
 import type { Store } from './store.js';
-import { comparisonProtocol, protocolRow } from './protocol-store.js';
+import { comparisonProtocol, protocolRow } from './core/protocol-store.js';
 
 export const ExternalTaskSetupSchema = z.strictObject({
   workflow: AssignedWorkflowInputSchema,

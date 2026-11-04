@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { IdSchema, TimestampSchema } from '../contracts.js';
 import { FlexibleProtocolSchema, FlexibleVariantSchema, PriceTableSchema } from '../flexible-contracts.js';
 import { freezeProtocol, registerProtocol, registerVariant } from '../comparison.js';
-import { comparisonProtocol, protocolRow } from '../protocol-store.js';
+import { comparisonProtocol, protocolRow } from '../core/protocol-store.js';
 import { readPriceTable, registerPriceTable } from '../pricing.js';
 import { LocalWebProfileSchema, type LocalWebProfile } from './local-web-profile.js';
 import type { createSharedSetupManager } from './local-web-shared.js';

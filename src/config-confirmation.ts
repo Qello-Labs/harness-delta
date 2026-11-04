@@ -1,1 +1,1 @@
-export { requireConfigurationConfirmation, bindConfigurationToSession } from './configuration-evidence.js';
+export { requireConfigurationConfirmation, bindConfigurationToSession } from './core/configuration-evidence.js';

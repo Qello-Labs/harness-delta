@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { EventSchema, IdSchema, TimestampSchema } from './contracts.js';
-import { canonicalJson } from './canonical-json.js';
+import { canonicalJson } from './core/canonical-json.js';
 import { parseComparison } from './comparison-contracts.js';
 import { PriceTableSchema, type PriceTable, type UsageEvent, type RuntimeEvidence } from './flexible-contracts.js';
 import { Lifecycle } from './lifecycle.js';

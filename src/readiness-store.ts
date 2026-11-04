@@ -1,7 +1,7 @@
 import { resolveSourceCompatibility, assertCompatibilityAllowed } from './source-compatibility.js';
 import type { FlexibleProtocol } from './flexible-contracts.js';
 import type { Store } from './store.js';
-import { protocolRow } from './protocol-store.js';
+import { protocolRow } from './core/protocol-store.js';
 import { parseProtocol, type CostCoverageEvidence } from './flexible-contracts.js';
 import { codexWorkflowCostFacts } from './codex-workflow-journal.js';
 import { evaluateCostCoverage } from './cost-coverage.js';

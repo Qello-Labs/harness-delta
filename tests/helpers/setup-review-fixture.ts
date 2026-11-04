@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { localWebFixture } from './local-web-fixture.js';
-import { comparisonProtocol, comparisonVariant, protocolRow } from '../../src/protocol-store.js';
+import { comparisonProtocol, comparisonVariant, protocolRow } from '../../src/core/protocol-store.js';
 import { readPriceTable } from '../../src/pricing.js';
 import { registerHarness, generateComparison } from '../../src/harness/harness-config.js';
 import { Store } from '../../src/store.js';

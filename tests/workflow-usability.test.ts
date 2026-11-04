@@ -300,7 +300,7 @@ test('a stored version 1 flexible snapshot still reads back unchanged', async ()
   const f = codexWorkflowFixture();
   try {
     const { createComparisonSnapshot, readComparisonSnapshot } = await import('../src/comparison/reports/comparison-snapshot.js');
-    const { canonicalJson } = await import('../src/canonical-json.js');
+    const { canonicalJson } = await import('../src/core/canonical-json.js');
     const { projectFlexibleComparison, FlexibleSnapshotInputSchema } = await import('../src/comparison/reports/flexible-comparison.js');
     const first = await runAssignedWorkflow(f.store, f.input, stub(), runtime);
     const cutoff = new Date(Date.parse(first.followup_ends_at) + 60000).toISOString();

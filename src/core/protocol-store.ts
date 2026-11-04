@@ -1,9 +1,9 @@
 import { z } from 'zod';
-import { IdSchema } from './contracts.js';
-import { FlexibleVariantSchema, parseProtocol } from './flexible-contracts.js';
-import { parseComparison, ProtocolSchema, VariantSchema } from './comparison-contracts.js';
-import type { Protocol, Variant } from './comparison-contracts.js';
-import type { Store } from './store.js';
+import { IdSchema } from '../contracts.js';
+import { FlexibleVariantSchema, parseProtocol } from '../flexible-contracts.js';
+import { parseComparison, ProtocolSchema, VariantSchema } from '../comparison-contracts.js';
+import type { Protocol, Variant } from '../comparison-contracts.js';
+import type { Store } from '../store.js';
 
 export interface ProtocolRow {
   id: string;

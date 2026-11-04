@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { comparisonTimestamp, ConfirmationInputSchema, ConfigurationRecordSchema, parseComparison } from '../comparison-contracts.js';
 import { parseProtocol } from '../flexible-contracts.js';
-import { comparisonVariant, protocolRow } from '../protocol-store.js';
+import { comparisonVariant, protocolRow } from '../core/protocol-store.js';
 import { Lifecycle } from '../lifecycle.js';
 import {
   assignedTask,
@@ -10,9 +10,9 @@ import {
   selectedArtifactSnapshot,
   type ConfirmationRow,
   type SelectedArtifact
-} from '../configuration-evidence.js';
+} from '../core/configuration-evidence.js';
 import type { Store } from '../store.js';
-import type { AssignmentRow } from '../assignment-contract.js';
+import type { AssignmentRow } from '../core/assignment-contract.js';
 import type { z } from 'zod';
 
 export function confirmConfiguration(store: Store, input: unknown, timestamp: string, artifacts?: readonly SelectedArtifact[]): void {

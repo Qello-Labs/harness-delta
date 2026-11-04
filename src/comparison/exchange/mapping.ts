@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { IdSchema } from '../../contracts.js';
 import type { Store } from '../../store.js';
-import { canonicalJson } from '../../canonical-json.js';
+import { canonicalJson } from '../../core/canonical-json.js';
 import { uuid, parseExchange } from './contracts.js';
 export const MappingSchema = z
   .strictObject({

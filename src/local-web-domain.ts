@@ -27,7 +27,7 @@ import { z } from 'zod';
 import { Lifecycle } from './lifecycle.js';
 import { Store } from './store.js';
 import { registerWebMetadata, withLiveWebMetadataScope } from './web/local-web-metadata.js';
-import { comparisonProtocol, comparisonVariant, protocolRow } from './protocol-store.js';
+import { comparisonProtocol, comparisonVariant, protocolRow } from './core/protocol-store.js';
 import { CodexWorkflowExecutionSchema } from './codex-workflow-adapter.js';
 import { recoverCodexWorkflow } from './codex-workflow-journal.js';
 import {

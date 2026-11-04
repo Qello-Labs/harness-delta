@@ -1,11 +1,11 @@
-import { canonicalJson } from '../../canonical-json.js';
+import { canonicalJson } from '../../core/canonical-json.js';
 import { overlayEventCompatibility } from '../../source-compatibility.js';
 import { captureFlexibleInput, FlexibleSnapshotInputSchema, projectFlexibleComparison, type FlexibleComparisonReport } from './flexible-comparison.js';
 import { parseProtocol } from '../../flexible-contracts.js';
 import { createHash } from 'node:crypto';
 import { EventSchema, IdSchema, TaskMetadataSchema } from '../../contracts.js';
 import { comparisonTimestamp, ConfigurationRecordSchema, parseComparison } from '../../comparison-contracts.js';
-import { frozenProtocol, protocolRow, variantConfiguration } from '../../protocol-store.js';
+import { frozenProtocol, protocolRow, variantConfiguration } from '../../core/protocol-store.js';
 import type { AssignmentRow } from '../allocation.js';
 import type { Clock, TaskRow } from '../../lifecycle.js';
 import { utcNow } from '../../lifecycle.js';

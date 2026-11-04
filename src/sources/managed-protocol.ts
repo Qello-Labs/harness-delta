@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { IdSchema, TimestampSchema, UsageSchema } from '../contracts.js';
-import type { CoverageEvidence } from '../coverage.js';
+import type { CoverageEvidence } from '../core/coverage.js';
 
 /** Internal offline transport. prepare must install an observer without reading or releasing work.
  * read is bounded, synchronous and NON-DESTRUCTIVE; acknowledge removes only committed envelopes.

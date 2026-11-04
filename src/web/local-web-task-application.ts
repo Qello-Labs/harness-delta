@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { comparisonVariant } from '../protocol-store.js';
+import { comparisonVariant } from '../core/protocol-store.js';
 import { bindingCollectionControl } from '../external-session-contract.js';
 import { applicationRequired, requireApplication } from '../harness-application.js';
 import { durablePrivateBytes } from '../harness/harness-application-files.js';

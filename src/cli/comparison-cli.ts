@@ -13,9 +13,9 @@ import { assignTask } from '../comparison/allocation.js';
 import { freezeProtocol, registerVariant, showProtocol, showVariant } from '../comparison.js';
 import { registerProtocolWithCatalogDefaults } from '../price-catalog-selection.js';
 import { registerPriceCatalogCommands } from './price-catalog-cli.js';
-import { configurationHistory } from '../configuration-evidence.js';
+import { configurationHistory } from '../core/configuration-evidence.js';
 import { confirmConfiguration } from '../comparison/config-confirmation-write.js';
-import type { SelectedArtifact } from '../configuration-evidence.js';
+import type { SelectedArtifact } from '../core/configuration-evidence.js';
 import type { Store } from '../store.js';
 
 const readConfig = (path: string): unknown => JSON.parse(readFileSync(path, 'utf8')) as unknown;

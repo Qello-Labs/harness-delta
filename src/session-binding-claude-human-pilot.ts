@@ -1,5 +1,5 @@
 import { familyProviderError } from './binding-family-diagnostics.js';
-import { comparisonProtocol, protocolRow } from './protocol-store.js';
+import { comparisonProtocol, protocolRow } from './core/protocol-store.js';
 import { Lifecycle } from './lifecycle.js';
 import { parseTaskMetadata, type FlexibleProtocol } from './flexible-contracts.js';
 import { claudeBindingProfiles, ClaudeSessionBindingProvider } from './session-binding-claude.js';

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { IdSchema, TaskMetadataSchema, TimestampSchema } from './contracts.js';
-import { mergeCoverageFacts, type CoverageEvidence, type CoverageMetric, type EvidenceState } from './coverage.js';
+import { mergeCoverageFacts, type CoverageEvidence, type CoverageMetric, type EvidenceState } from './core/coverage.js';
 import type { Clock, TaskRow } from './lifecycle.js';
 import type { Store } from './store.js';
 import {

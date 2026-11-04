@@ -32,7 +32,7 @@ import * as localServer from '../../src/local-web-server.js';
 import { command as runFixtureCommand } from '../../src/instrumented-codex/instrumented-codex-qualification.js';
 import { createSessionBindingService } from '../../src/session-binding-service.js';
 import { CodexSessionBindingProvider } from '../../src/session-binding-codex.js';
-import { comparisonProtocol, protocolRow } from '../../src/protocol-store.js';
+import { comparisonProtocol, protocolRow } from '../../src/core/protocol-store.js';
 import * as bindingService from '../../src/session-binding-service.js';
 import Database from 'better-sqlite3';
 import { codexBindingAdmission } from '../../src/codex-binding-admission.js';

@@ -9,7 +9,7 @@ import { digest } from './price-catalog.js';
 import { readPriceBasis } from '../price-catalog-store.js';
 import { costFormulaVersion, type LegacyInputBasis } from '../pricing.js';
 import { readComparisonSnapshot } from '../comparison/reports/comparison-snapshot.js';
-import { canonicalJson } from '../canonical-json.js';
+import { canonicalJson } from '../core/canonical-json.js';
 import { FlexibleSnapshotInputSchema } from '../comparison/reports/flexible-comparison.js';
 import { linkedRequestPriceEvidence } from './request-price-evidence.js';
 import type { Store } from '../store.js';

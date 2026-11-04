@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { canonicalJson } from '../canonical-json.js';
+import { canonicalJson } from '../core/canonical-json.js';
 import {
   InstrumentedGateReceiptSchema,
   InstrumentedProducerProfileSchema,

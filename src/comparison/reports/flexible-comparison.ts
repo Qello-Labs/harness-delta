@@ -15,13 +15,13 @@ import {
   TaskCostSchema
 } from '../../flexible-contracts.js';
 import { comparisonTimestamp, parseComparison, ConfigurationRecordSchema } from '../../comparison-contracts.js';
-import { comparisonProtocol, comparisonVariant, protocolRow } from '../../protocol-store.js';
+import { comparisonProtocol, comparisonVariant, protocolRow } from '../../core/protocol-store.js';
 import { aggregateTaskCost } from '../../metrics.js';
 import { costFormulaVersion, readPriceTable } from '../../pricing.js';
 import type { AssignmentRow } from '../allocation.js';
 import type { TaskRow } from '../../lifecycle.js';
 import type { Store } from '../../store.js';
-import { canonicalJson } from '../../canonical-json.js';
+import { canonicalJson } from '../../core/canonical-json.js';
 import { assertLegacyComparisonTiming } from '../../external-session-contract.js';
 import { ComparisonSnapshotInputSchema, SnapshotAssignmentSchema, RevisionReasonSchema } from './comparison-contracts.js';
 /** Version 2 adds the late outcome disclosure; version 1 snapshots stay readable. */

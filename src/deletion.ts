@@ -6,7 +6,7 @@ import { affectedComparisonProtocols, invalidateComparisonSnapshots } from './co
 import { IdSchema, TimestampSchema } from './contracts.js';
 import { utcNow, type Clock } from './lifecycle.js';
 import type { Store } from './store.js';
-import { assertWebMetadataCleanupDone, flushWebMetadataCleanup, queueWebMetadataCleanup } from './store-metadata-cleanup.js';
+import { assertWebMetadataCleanupDone, flushWebMetadataCleanup, queueWebMetadataCleanup } from './core/store-metadata-cleanup.js';
 
 export class Deletion {
   private deletionDepth = 0;

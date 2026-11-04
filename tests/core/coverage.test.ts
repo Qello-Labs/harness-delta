@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { evaluateCoverage, mergeCoverageFacts, type CoverageEvidence, type CoverageFact } from '../src/coverage.js';
+import { evaluateCoverage, mergeCoverageFacts, type CoverageEvidence, type CoverageFact } from '../../src/core/coverage.js';
 
 // Independent fixture: omitting any gate in the evaluator must fail its negative case.
 const facts = {

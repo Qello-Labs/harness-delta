@@ -1,11 +1,11 @@
-import { parseProtocol, RuntimeEvidenceSchema, type RuntimeEvidence } from './flexible-contracts.js';
+import { parseProtocol, RuntimeEvidenceSchema, type RuntimeEvidence } from '../flexible-contracts.js';
 import { createHash } from 'node:crypto';
 import { closeSync, constants, fstatSync, openSync, readSync } from 'node:fs';
-import { ConfigurationRecordSchema, parseComparison } from './comparison-contracts.js';
+import { ConfigurationRecordSchema, parseComparison } from '../comparison-contracts.js';
 import { protocolRow } from './protocol-store.js';
-import { IdSchema } from './contracts.js';
+import { IdSchema } from '../contracts.js';
 import type { AssignmentRow } from './assignment-contract.js';
-import type { Store } from './store.js';
+import type { Store } from '../store.js';
 import type { z } from 'zod';
 
 export interface SelectedArtifact {

@@ -5,7 +5,7 @@ import { expect, test, vi } from 'vitest';
 import { Store } from '../src/store.js';
 import { Lifecycle } from '../src/lifecycle.js';
 import { assignTask } from '../src/comparison/allocation.js';
-import { bindConfigurationToSession, configurationHistory } from '../src/configuration-evidence.js';
+import { bindConfigurationToSession, configurationHistory } from '../src/core/configuration-evidence.js';
 import { confirmConfiguration } from '../src/comparison/config-confirmation-write.js';
 import { Collector, readSource } from '../src/collection.js';
 import { parseFlexibleSnapshot } from '../src/adapters-flexible.js';

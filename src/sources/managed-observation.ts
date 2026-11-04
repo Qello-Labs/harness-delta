@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { CoverageEvidence, CoverageMetric } from '../coverage.js';
+import type { CoverageEvidence, CoverageMetric } from '../core/coverage.js';
 import { utcNow, type Clock } from '../lifecycle.js';
 import type { Store } from '../store.js';
 import { assertScope, beginRun, interruptRun, lockTask, managedNow, patchFacts, putUsage, runEvidence, runRow } from '../managed-journal.js';

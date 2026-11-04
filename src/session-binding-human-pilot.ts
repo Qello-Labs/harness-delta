@@ -1,5 +1,5 @@
 import { Lifecycle } from './lifecycle.js';
-import { comparisonProtocol, protocolRow } from './protocol-store.js';
+import { comparisonProtocol, protocolRow } from './core/protocol-store.js';
 import { parseTaskMetadata } from './flexible-contracts.js';
 import { CodexSessionBindingProvider, codexRootPilotVersions } from './session-binding-codex.js';
 import { bindingIdentityKey, VerifiedSessionIdentitySchema, type SessionBindingProvider, type VerifiedSessionIdentity } from './session-binding-contract.js';

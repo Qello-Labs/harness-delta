@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { FlexibleDataPackageSchema, digest } from '../exchange/contracts.js';
 import { TeamInputSchema, TeamRequestSchema } from './team-contracts.js';
-import { canonicalJson } from '../../canonical-json.js';
+import { canonicalJson } from '../../core/canonical-json.js';
 import { codePointOrder } from './comparison-task.js';
 import { validateDataPackage } from '../exchange/identity.js';
 import { Decimal } from 'decimal.js';

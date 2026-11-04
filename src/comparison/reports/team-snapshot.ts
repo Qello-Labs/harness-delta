@@ -8,7 +8,7 @@ import { parseExchangePackage, digest, time } from '../exchange/contracts.js';
 import { readMapping, registeredDestination } from '../exchange/mapping.js';
 import { assertNotRetired } from '../exchange/invalidation.js';
 import { validateDataPackage } from '../exchange/identity.js';
-import { canonicalJson } from '../../canonical-json.js';
+import { canonicalJson } from '../../core/canonical-json.js';
 import { codePointOrder } from './comparison-task.js';
 import { summarizeComparisonTasks } from './comparison-summary.js';
 import { TeamInputSchema, TeamRequestSchema, type TeamInput } from './team-contracts.js';

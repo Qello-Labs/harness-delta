@@ -2,7 +2,7 @@ import { Store } from '../../src/store.js';
 import { Lifecycle } from '../../src/lifecycle.js';
 import { registerVariant, registerProtocol, freezeProtocol } from '../../src/comparison.js';
 import { assignTask } from '../../src/comparison/allocation.js';
-import { bindConfigurationToSession } from '../../src/configuration-evidence.js';
+import { bindConfigurationToSession } from '../../src/core/configuration-evidence.js';
 import { confirmConfiguration } from '../../src/comparison/config-confirmation-write.js';
 import { createComparisonSnapshot } from '../../src/comparison/reports/comparison-snapshot.js';
 import { buildExchangePackage } from './legacy-exchange.js';

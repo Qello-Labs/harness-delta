@@ -1,5 +1,5 @@
-import type { AssignmentRow } from '../assignment-contract.js';
-export type { AssignmentRow } from '../assignment-contract.js';
+import type { AssignmentRow } from '../core/assignment-contract.js';
+export type { AssignmentRow } from '../core/assignment-contract.js';
 import { comparisonReadiness, functionalWorkflowEligible } from '../readiness-store.js';
 import { FlexibleAssignmentInputSchema, type FlexibleAssignmentInput, type FlexibleProtocol } from '../flexible-contracts.js';
 import { retireSource, assertUnsealedIdentity } from './exchange/deletion.js';
@@ -9,7 +9,7 @@ import { IdSchema } from '../contracts.js';
 import { randomInt, randomUUID } from 'node:crypto';
 import { AssignmentInputSchema, comparisonTimestamp, parseComparison } from '../comparison-contracts.js';
 import type { AssignmentInput, Protocol } from '../comparison-contracts.js';
-import { comparisonProtocol, comparisonVariant, protocolRow } from '../protocol-store.js';
+import { comparisonProtocol, comparisonVariant, protocolRow } from '../core/protocol-store.js';
 import { Lifecycle } from '../lifecycle.js';
 import type { TaskRow } from '../lifecycle.js';
 import type { Store } from '../store.js';

@@ -11,7 +11,7 @@ import { preparePriceBasis, refreshPriceCatalog } from '../src/price-catalog-sto
 import { readReferenceTaskCostReport } from '../src/pricing/price-catalog-task-report.js';
 import { captureTaskCostSnapshot, createPriceRevaluation, readPriceRevaluation } from '../src/pricing/price-revaluation.js';
 import { FlexibleSnapshotInputSchema, projectFlexibleComparison } from '../src/comparison/reports/flexible-comparison.js';
-import { canonicalJson } from '../src/canonical-json.js';
+import { canonicalJson } from '../src/core/canonical-json.js';
 import { resolveSourceCompatibility } from '../src/source-compatibility.js';
 import { makeFlexibleFixture } from './helpers/flexible-fixture.js';
 

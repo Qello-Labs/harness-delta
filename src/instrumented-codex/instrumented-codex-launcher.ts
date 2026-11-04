@@ -5,7 +5,7 @@ import { isAbsolute } from 'node:path';
 import { Duplex } from 'node:stream';
 import { z } from 'zod';
 import { IdSchema, TokenSchema } from '../contracts.js';
-import { requireConfigurationConfirmation } from '../configuration-evidence.js';
+import { requireConfigurationConfirmation } from '../core/configuration-evidence.js';
 import { Lifecycle, utcNow } from '../lifecycle.js';
 import { InstrumentedAccounting, InstrumentedAccountingError, instrumentedMetadataHash } from './instrumented-codex-accounting.js';
 import { InstrumentedBuildIdentityError, resolveInstrumentedBuildIdentity } from './instrumented-codex-build-identity.js';

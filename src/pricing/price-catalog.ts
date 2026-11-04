@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { IdSchema, ModelSchema, MonetaryAmountSchema, TimestampSchema } from '../contracts.js';
 import { PriceTableSchema, type BillingComponent, type PriceTable, type UsageEvent, type RuntimeEvidence } from '../flexible-contracts.js';
 import { verifiedRequestPromptTokens } from './request-price-evidence.js';
-import { canonicalJson } from '../canonical-json.js';
+import { canonicalJson } from '../core/canonical-json.js';
 import { implementationPath, packagePath } from '../package-paths.js';
 
 export const referencePolicyId = 'reference-standard-v1';
