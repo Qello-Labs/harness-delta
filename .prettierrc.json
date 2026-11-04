@@ -12,14 +12,13 @@
   "overrides": [
     {
       "files": [
-        "commitlint.config.js",
-        "eslint.config.js",
+        "./commitlint.config.js",
+        "./eslint.config.js",
         "tests/helpers/architecture-baseline.ts",
         "tests/private-records.test.ts",
         "tests/runtime.test.ts",
-        "vitest.config.ts"
+        "./vitest.config.ts"
       ],
-      "excludeFiles": "ui/**",
       "options": {
         "singleQuote": false
       }
