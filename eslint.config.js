@@ -78,7 +78,7 @@ const functionLineLimits = {
   "src/instrumented-codex/instrumented-codex-launcher.ts": 252,
   "src/instrumented-codex/instrumented-codex-qualification.ts": 164,
   "src/web/local-web-codex.ts": 165,
-  "src/web/local-web-domain.ts": 872,
+  "src/web/local-web-domain.ts": 845,
   "src/web/local-web-server.ts": 276,
   "src/web/local-web-setup-review.ts": 208,
   "src/web/local-web-shared.ts": 237,

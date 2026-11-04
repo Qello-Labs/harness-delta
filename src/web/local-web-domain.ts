@@ -1,5 +1,5 @@
 import { createLocalWebTaskReader } from './local-web-task-read.js';
-import type { PrivateTask, Source } from './local-web-task-projection.js';
+import { createLocalWebMetadata, type PrivateTask, type Source } from './local-web-metadata-store.js';
 import type { ChildReadinessObservation } from '../binding-child-readiness.js';
 import { appendFamilyDiagnostic, takeFamilyDiagnostic } from '../binding-family-diagnostics.js';
 import {
@@ -11,7 +11,7 @@ import {
 import { ApplicationCoordinator, applicationRequired, effectiveTaskWorkspace } from '../harness-application.js';
 
 import { assertSharedTask } from './local-web-shared-guard.js';
-import { LocalWebProfileSchema, LocalWebManifestSchema, type LocalWebProfile } from './local-web-profile.js';
+import { LocalWebManifestSchema, type LocalWebProfile } from './local-web-profile.js';
 export { LocalWebProfileSchema, LocalWebManifestSchema, type LocalWebProfile } from './local-web-profile.js';
 import { createSharedSetupManager } from './local-web-shared.js';
 import { createSetupReviewManager } from './local-web-setup-review.js';
@@ -19,14 +19,13 @@ import { localWebRecruitment } from './local-web-recruitment.js';
 import { convertTaskToAgentApplication } from './local-web-task-application.js';
 import { randomUUID } from 'node:crypto';
 import { execFile, execFileSync } from 'node:child_process';
-import { constants, closeSync, fstatSync, mkdirSync, openSync, readFileSync, realpathSync } from 'node:fs';
-import { basename, dirname, resolve } from 'node:path';
+import { constants, closeSync, fstatSync, openSync, readFileSync, realpathSync } from 'node:fs';
+import { basename, resolve } from 'node:path';
 import { promisify } from 'node:util';
-import Database from 'better-sqlite3';
 import { z } from 'zod';
 import { Lifecycle } from '../lifecycle.js';
 import { Store } from '../store.js';
-import { registerWebMetadata, withLiveWebMetadataScope } from './local-web-metadata.js';
+import { withLiveWebMetadataScope } from './local-web-metadata.js';
 import { comparisonProtocol, protocolRow } from '../core/protocol-store.js';
 import { CodexWorkflowExecutionSchema } from '../codex-workflow-adapter.js';
 import { recoverCodexWorkflow } from '../codex-workflow-journal.js';
@@ -219,40 +218,14 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
     throw new Error('binding_pilot_scope_invalid');
   const store = options.store;
   const life = new Lifecycle(store);
-  mkdirSync(dirname(options.metadataFile), { recursive: true, mode: 0o700 });
-  const privateDb = new Database(options.metadataFile);
-  privateDb.pragma('busy_timeout = 5000');
+  const metadata = createLocalWebMetadata(store, options.metadataFile);
+  const privateDb = metadata.database;
   const codexProjects = createCodexProjectSetupManager(store, privateDb);
-  privateDb.exec(`CREATE TABLE IF NOT EXISTS web_profiles(id TEXT PRIMARY KEY, payload TEXT NOT NULL);
-    CREATE TABLE IF NOT EXISTS web_tasks(id TEXT PRIMARY KEY,name TEXT NOT NULL,profile_id TEXT NOT NULL,setup TEXT NOT NULL,startup TEXT,source TEXT,reason TEXT);
-    CREATE TABLE IF NOT EXISTS web_sources(handle TEXT PRIMARY KEY,task_id TEXT NOT NULL,payload TEXT NOT NULL)`);
-  registerWebMetadata(store, privateDb);
+  metadata.initialize();
   const jobs = new Map<string, Job>();
   const picker = options.picker ?? nativeLocalPicker;
-  const saveProfiles = (inputs: LocalWebProfile[]) =>
-    store.immediateTransaction(() =>
-      privateDb.transaction(() => {
-        let addedCount = 0;
-        let existingCount = 0;
-        for (const input of inputs) {
-          const profile = LocalWebProfileSchema.parse(input);
-          withLiveWebMetadataScope(store, { projectId: profile.setup.workflow.assignment.project_id }, () => {
-            // Replacing an existing definition would silently change a user's setup.
-            const old = privateDb.prepare('SELECT payload FROM web_profiles WHERE id=?').get(profile.id) as { payload: string } | undefined;
-            if (old && old.payload !== JSON.stringify(profile)) throw new Error('ui_setup_conflict');
-            const saved = privateDb.prepare('INSERT OR IGNORE INTO web_profiles(id,payload) VALUES (?,?)').run(profile.id, JSON.stringify(profile));
-            addedCount += saved.changes;
-            if (saved.changes === 0) existingCount++;
-          });
-        }
-        return { addedCount, existingCount };
-      })()
-    );
+  const { saveProfiles, profiles } = metadata;
   saveProfiles(options.profiles ?? []);
-  const profiles = () =>
-    (privateDb.prepare('SELECT payload FROM web_profiles ORDER BY rowid').all() as { payload: string }[]).map(p =>
-      LocalWebProfileSchema.parse(JSON.parse(p.payload) as unknown)
-    );
   const applications = new ApplicationCoordinator(store, () => [
     options.metadataFile,
     ...profiles().flatMap(profile => [
@@ -267,7 +240,7 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
   const sharedSetups = createSharedSetupManager(store, privateDb, profiles, saveProfiles);
   const setupReviews = createSetupReviewManager(store, privateDb, profiles, saveProfiles, sharedSetups);
   const row = (id: string) => {
-    const result = privateDb.prepare('SELECT * FROM web_tasks WHERE id=?').get(id) as PrivateTask | undefined;
+    const result = metadata.task(id);
     if (!result) throw new Error('unknown_task');
     if (store.get("SELECT 1 FROM tombstones WHERE kind='task' AND id=?", [id])) throw new Error('unknown_task');
     if (!store.get('SELECT id FROM tasks WHERE id=?', [id])) {
@@ -294,7 +267,7 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
     });
   const running = (id: string) =>
     store.all<{ id: string; stop_requested: number }>("SELECT id,stop_requested FROM codex_workflow_runs WHERE task_id=? AND state='running'", [id]);
-  for (const record of privateDb.prepare('SELECT * FROM web_tasks').all() as PrivateTask[]) {
+  for (const record of metadata.tasks()) {
     if (store.get("SELECT 1 FROM tombstones WHERE kind='task' AND id=?", [record.id])) continue;
     if (record.profile_id === 'ordinary-claude') continue;
     const profile = profileFor(record.profile_id);
@@ -308,7 +281,7 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
         pins.setupHash
       ]);
     } catch {
-      privateDb.prepare('UPDATE web_tasks SET reason=? WHERE id=?').run('shared_binding_changed', record.id);
+      metadata.setReason(record.id, 'shared_binding_changed');
     }
   }
   const providers = new Map<string, SessionBindingProvider[]>();
@@ -328,7 +301,7 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
       providers.set(id, result);
       return result;
     }
-    const record = privateDb.prepare('SELECT * FROM web_tasks WHERE id=?').get(id) as PrivateTask | undefined;
+    const record = metadata.task(id);
     if (!record) return [];
     if (record.profile_id === 'ordinary-claude') {
       const config = ordinaryTask(store, id) ? ordinaryTaskSettings(store, id) : OrdinaryProjectSettingsSchema.parse(JSON.parse(record.setup));
@@ -505,7 +478,7 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
         if (store.get('SELECT id FROM tasks WHERE id=?', [id])) {
           const diagnostic =
             familyDiagnosticsEnabled && options.nativePilot?.taskId === id && !job.pauseRequested ? takeFamilyDiagnostic(error, id, store) : null;
-          privateDb.prepare('UPDATE web_tasks SET reason=? WHERE id=?').run(expectedPause ? 'measurement_paused' : localWebError(error), id);
+          metadata.setReason(id, expectedPause ? 'measurement_paused' : localWebError(error));
           if (!expectedPause && options.qualificationLease) {
             noteQualificationCollectorError(options.qualificationLease, error);
             revokeBindingQualification(options.qualificationLease);
@@ -600,7 +573,7 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
           support_details: localWebSupport(store, p)
         };
       });
-      const tasks = (privateDb.prepare('SELECT id FROM web_tasks ORDER BY rowid DESC').all() as { id: string }[]).flatMap(t => {
+      const tasks = metadata.taskIds().flatMap(t => {
         try {
           return [taskDto(t.id)];
         } catch {
@@ -649,9 +622,7 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
           ...(input.assignee ? { assignee: input.assignee } : {})
         });
         withLiveWebMetadataScope(store, { taskId: id, projectId: input.project_id }, () => {
-          privateDb
-            .prepare('INSERT INTO web_tasks(id,name,profile_id,setup,project_id) VALUES (?,?,?,?,?)')
-            .run(id, input.name, 'ordinary-claude', JSON.stringify(ordinaryTaskSettings(store, id)), input.project_id);
+          metadata.insertTask({ id: id, name: input.name, profileId: 'ordinary-claude', setup: ordinaryTaskSettings(store, id), projectId: input.project_id });
         });
         return Promise.resolve(taskDto(id));
       }
@@ -693,17 +664,22 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
             pins.settingsHash,
             pins.setupHash
           ]);
-          privateDb
-            .prepare('INSERT INTO web_tasks(id,name,profile_id,setup,reason,project_id) VALUES (?,?,?,?,?,?)')
-            .run(id, input.name, profile.id, JSON.stringify(reserved), 'shared_preparation_pending', input.project_id);
+          metadata.insertTask({
+            id: id,
+            name: input.name,
+            profileId: profile.id,
+            setup: reserved,
+            projectId: input.project_id,
+            reason: 'shared_preparation_pending'
+          });
         });
         try {
           prepareExternalTask(store, reserved, false);
           assertSharedTask(store, id, undefined, true);
-          privateDb.prepare('UPDATE web_tasks SET reason=NULL WHERE id=?').run(id);
+          metadata.setReason(id, null);
           if (profile.session_binding) registerBindingCollectionControl(store, id);
         } catch (error) {
-          privateDb.prepare('UPDATE web_tasks SET reason=? WHERE id=?').run(localWebError(error), id);
+          metadata.setReason(id, localWebError(error));
         }
         return Promise.resolve(taskDto(id));
       }
@@ -711,9 +687,7 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
       const id = created.state.task_id;
       if (profile.session_binding) registerBindingCollectionControl(store, id);
       withLiveWebMetadataScope(store, { taskId: id, projectId: input.project_id }, () => {
-        privateDb
-          .prepare('INSERT INTO web_tasks(id,name,profile_id,setup,project_id) VALUES (?,?,?,?,?)')
-          .run(id, input.name, profile.id, JSON.stringify(created.setup), input.project_id);
+        metadata.insertTask({ id: id, name: input.name, profileId: profile.id, setup: created.setup, projectId: input.project_id });
       });
       return Promise.resolve(taskDto(id));
     },
@@ -779,7 +753,7 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
       // Filename identity only. Session contents are read exclusively by the scoped domain collector.
       const source: Source = { handle: randomUUID(), label: basename(path), path, session_id: z.uuid().parse(match[1]) };
       withLiveWebMetadataScope(store, { taskId }, () => {
-        privateDb.prepare('INSERT INTO web_sources(handle,task_id,payload) VALUES (?,?,?)').run(source.handle, taskId, JSON.stringify(source));
+        metadata.saveSource(taskId, source);
       });
       return { handle: source.handle, label: source.label };
     },
@@ -819,7 +793,7 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
             await previous.promise;
           }
           const connection = await ordinaryBindings.connect(id, product, { receipt });
-          privateDb.prepare('UPDATE web_tasks SET reason=NULL WHERE id=?').run(id);
+          metadata.setReason(id, null);
           beginBindingObservation(id);
           return {
             ...taskDto(id),
@@ -845,7 +819,7 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
           revokeOrdinaryObservation(store, id);
           await ordinaryBindings.stopObservation(id);
           await previous?.promise;
-          privateDb.prepare('UPDATE web_tasks SET reason=NULL WHERE id=?').run(id);
+          metadata.setReason(id, null);
           return taskDto(id);
         }
         if (action === 'pause' || action === 'stop-observation' || action.startsWith('finish-')) {
@@ -861,7 +835,7 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
             const criteria = outcome === 'success' ? z.array(identifier).parse(input.criteria ?? metadata.criterion_ids) : [];
             life.finalize(id, outcome, criteria);
           }
-          privateDb.prepare('UPDATE web_tasks SET reason=NULL WHERE id=?').run(id);
+          metadata.setReason(id, null);
           return taskDto(id);
         }
         throw new Error('invalid_ui_request');
@@ -927,9 +901,9 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
           prepareExternalTask(store, setup, action === 'apply');
           assertSharedTask(store, id, undefined, !!setup.workflow.application);
           if (profile.session_binding) registerBindingCollectionControl(store, id);
-          privateDb.prepare('UPDATE web_tasks SET reason=NULL WHERE id=?').run(id);
+          metadata.setReason(id, null);
         } catch (error) {
-          privateDb.prepare('UPDATE web_tasks SET reason=? WHERE id=?').run(localWebError(error), id);
+          metadata.setReason(id, localWebError(error));
           throw error;
         }
       } else if (
@@ -943,18 +917,15 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
       async function guardedAction() {
         if (action === 'ticket') {
           const ticket = issueExternalStartTicket(store, setup);
-          privateDb
-            .prepare('UPDATE web_tasks SET startup=?,reason=NULL WHERE id=?')
-            .run(JSON.stringify({ ticket_id: ticket.ticket_id, start_command: ticket.start_command }), id);
+          metadata.setStartup(id, { ticket_id: ticket.ticket_id, start_command: ticket.start_command });
         } else if (action === 'connect') {
-          const stored = privateDb.prepare('SELECT payload FROM web_sources WHERE handle=? AND task_id=?').get(input.source_handle, id) as
-            { payload: string } | undefined;
+          const stored = metadata.source(input.source_handle, id);
           if (!stored || record.startup === null) throw new Error('external_ticket_required');
           const source = JSON.parse(stored.payload) as Source;
           const execution = executionFor(record, 'link', source);
           const startup = JSON.parse(record.startup) as { ticket_id: string };
           await connectExternalTask(store, setup, execution, startup.ticket_id, options.adapterFactory?.(store, execution));
-          privateDb.prepare('UPDATE web_tasks SET source=?,startup=NULL,reason=NULL WHERE id=?').run(JSON.stringify(source), id);
+          metadata.connectSource(id, source);
         } else if (action === 'session-connect') {
           const product = z.enum(['codex', 'claude_code']).parse(input.product) satisfies BindingProduct;
           const receipt = z.uuid().parse(input.receipt);
@@ -967,14 +938,14 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
           try {
             connection = await bindings.connect(id, product, { receipt });
           } catch (error) {
-            privateDb.prepare('UPDATE web_tasks SET reason=? WHERE id=?').run(localWebError(error), id);
+            metadata.setReason(id, localWebError(error));
             // A rejected new receipt must not silently stop a previously authorized
             // live family. Failed baseline acquisition already pauses its scope.
             if (store.get<{ state: string }>('SELECT state FROM tasks WHERE id=?', [id])?.state === 'active' && bindings.status(id).roots > 0)
               beginBindingObservation(id);
             throw error;
           }
-          privateDb.prepare('UPDATE web_tasks SET reason=NULL WHERE id=?').run(id);
+          metadata.setReason(id, null);
           beginBindingObservation(id);
           return {
             ...taskDto(id),
@@ -1000,12 +971,12 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
           jobs.set(id, job);
           job.promise = collectExternalTask(store, setup, execution, options.adapterFactory?.(store, execution))
             .then(() => {
-              privateDb.prepare('UPDATE web_tasks SET reason=NULL WHERE id=?').run(id);
+              metadata.setReason(id, null);
             })
             .catch((error: unknown) => {
               const reason =
                 job.pauseRequested && error instanceof Error && error.message === 'workflow_scope_revoked' ? 'measurement_paused' : localWebError(error);
-              privateDb.prepare('UPDATE web_tasks SET reason=? WHERE id=?').run(reason, id);
+              metadata.setReason(id, reason);
             })
             .finally(() => {
               jobs.delete(id);
@@ -1091,7 +1062,7 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
       for (const result of await Promise.allSettled(pending.map(([, job]) => job.promise)))
         if (result.status === 'rejected') failure ??= result.reason as unknown;
       await ordinaryBindings.close();
-      privateDb.close();
+      metadata.close();
       if (failure) throw failure instanceof Error ? failure : new Error('local_operation_failed');
     }
   };
