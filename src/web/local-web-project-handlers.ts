@@ -1,3 +1,5 @@
+import { projectBaseline } from './local-web-native.js';
+import { localWebSupport } from './local-web-support.js';
 import { randomUUID } from 'node:crypto';
 import { realpathSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
@@ -11,25 +13,23 @@ import type { SessionBindingProvider } from '../session-binding-contract.js';
 import type { createSessionBindingService } from '../session-binding-service.js';
 import type { createCodexProjectSetupManager } from './local-web-codex.js';
 import type { createLocalWebMetadata } from './local-web-metadata-store.js';
-import type { LocalWebProfile } from './local-web-profile.js';
+
 import type { LocalWebDomain } from './local-web-server.js';
-import type { LocalWebDomainOptions, projectBaseline as readProjectBaseline, localWebSupport as readLocalWebSupport } from './local-web-domain.js';
+import type { LocalWebDomainOptions } from './local-web-domain.js';
 
 type ProjectDependencies = {
   readonly life: Lifecycle;
   readonly metadata: ReturnType<typeof createLocalWebMetadata>;
-  readonly profiles: () => LocalWebProfile[];
   readonly taskDto: LocalWebDomain['task'];
   readonly bindings: Pick<ReturnType<typeof createSessionBindingService>, 'flushForgotten'>;
   readonly providers: Map<string, SessionBindingProvider[]>;
   readonly codexProjects: ReturnType<typeof createCodexProjectSetupManager>;
   readonly picker: NonNullable<LocalWebDomainOptions['picker']>;
-  readonly projectBaseline: typeof readProjectBaseline;
-  readonly localWebSupport: typeof readLocalWebSupport;
 };
 
 async function bootstrapProjects(store: Store, dependencies: ProjectDependencies) {
-  const { codexProjects, bindings, profiles, projectBaseline, localWebSupport, metadata, taskDto } = dependencies;
+  const { codexProjects, bindings, metadata, taskDto } = dependencies;
+  const profiles = metadata.profiles;
   codexProjects.pruneDeleted();
   await bindings.flushForgotten();
   const allProfiles = profiles().filter(
@@ -104,7 +104,7 @@ export function createLocalWebProjectHandlers(
   'bootstrap' | 'ordinaryProject' | 'ordinaryProjectAction' | 'codexProject' | 'codexProjectAction' | 'registerProject' | 'chooseDirectory' | 'refreshPrices'
 > {
   const store = options.store;
-  const { life, providers, codexProjects, picker, projectBaseline } = dependencies;
+  const { life, providers, codexProjects, picker } = dependencies;
   return {
     bootstrap: () => bootstrapProjects(store, dependencies),
     ordinaryProject: id => ordinaryProjectDto(store, id),

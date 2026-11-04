@@ -1,3 +1,4 @@
+import { projectBaseline } from './local-web-native.js';
 import { randomUUID } from 'node:crypto';
 import { buildExternalTaskSetup, createExternalTask, prepareExternalTask } from '../external-session-service.js';
 import type { ExternalTaskSetup } from '../external-session-service.js';
@@ -10,18 +11,17 @@ import type { LocalWebDomain, LocalWebCreateTaskInput } from './local-web-server
 import type { createLocalWebMetadata } from './local-web-metadata-store.js';
 import type { createSharedSetupManager } from './local-web-shared.js';
 import type { LocalWebProfile } from './local-web-profile.js';
-import type { LocalWebDomainOptions, projectBaseline as readProjectBaseline } from './local-web-domain.js';
+import type { LocalWebDomainOptions } from './local-web-domain.js';
 
 type TaskCreationDependencies = {
   readonly profileFor: (id: string) => LocalWebProfile;
   readonly taskDto: LocalWebDomain['task'];
   readonly sharedSetups: ReturnType<typeof createSharedSetupManager>;
   readonly metadata: ReturnType<typeof createLocalWebMetadata>;
-  readonly projectBaseline: typeof readProjectBaseline;
 };
 function createTask(input: LocalWebCreateTaskInput, options: LocalWebDomainOptions, dependencies: TaskCreationDependencies) {
   const store = options.store;
-  const { profileFor, taskDto, sharedSetups, metadata, projectBaseline } = dependencies;
+  const { profileFor, taskDto, sharedSetups, metadata } = dependencies;
   if (options.nativePilot) throw new Error('binding_pilot_control_only');
   if (options.qualificationLease) throw new Error('binding_qualification_control_only');
   if ('mode' in input) {

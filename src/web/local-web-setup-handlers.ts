@@ -1,3 +1,4 @@
+import { readLocalWebSetupDocument, readLocalWebManifest } from './local-web-native.js';
 import { randomUUID } from 'node:crypto';
 import { realpathSync } from 'node:fs';
 import { basename } from 'node:path';
@@ -7,7 +8,7 @@ import type { LocalWebDomain } from './local-web-server.js';
 import type { createSharedSetupManager } from './local-web-shared.js';
 import type { createSetupReviewManager } from './local-web-setup-review.js';
 import type { createLocalWebMetadata, PrivateTask, Source } from './local-web-metadata-store.js';
-import type { LocalWebDomainOptions, readLocalWebSetupDocument as readSetup, readLocalWebManifest as readManifest } from './local-web-domain.js';
+import type { LocalWebDomainOptions } from './local-web-domain.js';
 
 export function createLocalWebSetupHandlers(
   options: LocalWebDomainOptions,
@@ -15,15 +16,12 @@ export function createLocalWebSetupHandlers(
     readonly picker: NonNullable<LocalWebDomainOptions['picker']>;
     readonly row: (id: string) => PrivateTask;
     readonly metadata: ReturnType<typeof createLocalWebMetadata>;
-    readonly saveProfiles: ReturnType<typeof createLocalWebMetadata>['saveProfiles'];
     readonly sharedSetups: ReturnType<typeof createSharedSetupManager>;
     readonly setupReviews: ReturnType<typeof createSetupReviewManager>;
-    readonly readLocalWebSetupDocument: typeof readSetup;
-    readonly readLocalWebManifest: typeof readManifest;
   }
 ): Pick<LocalWebDomain, 'importSetup' | 'bindSetup' | 'reviewSetup' | 'saveReviewedSetup' | 'chooseSession'> {
   const store = options.store;
-  const { picker, row, metadata, saveProfiles, sharedSetups, setupReviews, readLocalWebSetupDocument, readLocalWebManifest } = dependencies;
+  const { picker, row, metadata, sharedSetups, setupReviews } = dependencies;
   return {
     async importSetup() {
       if (options.nativePilot) throw new Error('binding_pilot_control_only');
@@ -32,7 +30,7 @@ export function createLocalWebSetupHandlers(
       if (path === null) return { cancelled: true };
       const raw = readLocalWebSetupDocument(path) as { kind?: unknown };
       if (raw.kind === 'harness-delta.comparison') return sharedSetups.preview(path);
-      const saved = saveProfiles(readLocalWebManifest(path).profiles);
+      const saved = metadata.saveProfiles(readLocalWebManifest(path).profiles);
       return { imported: true, added_count: saved.addedCount, existing_count: saved.existingCount };
     },
     bindSetup(input) {

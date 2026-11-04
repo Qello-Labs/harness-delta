@@ -1,3 +1,5 @@
+import type { PrivateTask } from './local-web-metadata-store.js';
+export type { PrivateTask, Source } from './local-web-metadata-store.js';
 import { createHash } from 'node:crypto';
 import { projectExternalActions } from './local-web-task-actions-projection.js';
 import type { TaskRow } from '../lifecycle.js';
@@ -8,21 +10,6 @@ import type { ExternalTaskSetup, externalTaskState } from '../external-session-s
 import type { comparisonVariant } from '../core/protocol-store.js';
 import type { readBlockedTask, readExternalTask, readOrdinaryTask } from './local-web-task-read.js';
 
-export interface PrivateTask {
-  readonly id: string;
-  readonly name: string;
-  readonly profile_id: string;
-  readonly setup: string;
-  readonly startup: string | null;
-  readonly source: string | null;
-  readonly reason: string | null;
-}
-export interface Source {
-  readonly handle: string;
-  readonly label: string;
-  readonly path: string;
-  readonly session_id: string;
-}
 export type ExternalTaskData = ReturnType<typeof readExternalTask>;
 export type OrdinaryTaskData = ReturnType<typeof readOrdinaryTask>;
 export type TaskApplication = ReturnType<ApplicationCoordinator['status']> & {
