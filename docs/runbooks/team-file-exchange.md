@@ -53,7 +53,7 @@ Review the producer protocol, variants, shared project and expected writers. Fro
 built repository, obtain their canonical pin locally (no network):
 
 ```sh
-node --input-type=module -e 'import {readExchangeFile} from "./dist/exchange/files.js"; import {parseExchangePackage,protocolDigest} from "./dist/exchange/contracts.js"; const p=parseExchangePackage(readExchangeFile("package.json")); if(p.kind!=="assignment_metadata")throw Error("data_required"); console.log(protocolDigest(p));'
+node --input-type=module -e 'import {readExchangeFile} from "./dist/comparison/exchange/files.js"; import {parseExchangePackage,protocolDigest} from "./dist/comparison/exchange/contracts.js"; const p=parseExchangePackage(readExchangeFile("package.json")); if(p.kind!=="assignment_metadata")throw Error("data_required"); console.log(protocolDigest(p));'
 ```
 
 Create mapping.json with the resulting 64-character digest in `protocol_digest`:
@@ -161,7 +161,7 @@ A stale file or a new package/snapshot ID cannot resurrect that retired scope.
 From a Node 24 or 26 checkout after `npm ci`:
 
 ```sh
-npm test -- tests/exchange-boundaries.test.ts tests/team-report.test.ts tests/team-snapshot.test.ts tests/team-deletion.test.ts tests/team-exchange-cli.test.ts
+npm test -- tests/comparison/exchange-boundaries.test.ts tests/comparison/team-report.test.ts tests/comparison/team-snapshot.test.ts tests/team-deletion.test.ts tests/team-exchange-cli.test.ts
 npm run check
 ```
 

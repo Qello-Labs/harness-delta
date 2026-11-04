@@ -1,5 +1,5 @@
-import { buildExchangePackage as build } from '../../src/exchange/source.js';
-import { createTeamSnapshot as create, readTeamSnapshot as read } from '../../src/reports/team-snapshot.js';
+import { buildExchangePackage as build } from '../../src/comparison/exchange/source.js';
+import { createTeamSnapshot as create, readTeamSnapshot as read } from '../../src/comparison/reports/team-snapshot.js';
 export function buildExchangePackage(...args: Parameters<typeof build>) {
   const p = build(...args);
   if (p.schema_version !== 1) throw new Error('expected_legacy_exchange');

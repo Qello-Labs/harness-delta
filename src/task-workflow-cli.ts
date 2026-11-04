@@ -13,8 +13,8 @@ import { createClaudeWorkflowAdapter, ClaudeWorkflowExecutionSchema, recoverClau
 import { recoverCodexWorkflow, stopCodexWorkflow } from './codex-workflow-journal.js';
 import type { Outcome } from './lifecycle.js';
 import type { Store } from './store.js';
-import { createComparisonSnapshot } from './reports/comparison-snapshot.js';
-import type { ComparisonSnapshotRequest } from './reports/comparison-contracts.js';
+import { createComparisonSnapshot } from './comparison/reports/comparison-snapshot.js';
+import type { ComparisonSnapshotRequest } from './comparison/reports/comparison-contracts.js';
 import { registerExternalSessionCommands } from './external-session-cli.js';
 
 /** Fixed codes only: read and parse errors may contain paths or file content. */

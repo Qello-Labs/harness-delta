@@ -1,12 +1,12 @@
 import { expect, test } from 'vitest';
 import { Store } from '../src/store.js';
-import { assignTask } from '../src/allocation.js';
-import { confirmConfiguration } from '../src/config-confirmation-write.js';
-import { createComparisonSnapshot, readComparisonSnapshot } from '../src/reports/comparison-snapshot.js';
-import { registerExchangeSource, buildExchangePackage } from '../src/exchange/source.js';
-import { registerExchangeMapping } from '../src/exchange/mapping.js';
-import { protocolDigest } from '../src/exchange/contracts.js';
-import { importExchangePackage } from '../src/exchange/import.js';
+import { assignTask } from '../src/comparison/allocation.js';
+import { confirmConfiguration } from '../src/comparison/config-confirmation-write.js';
+import { createComparisonSnapshot, readComparisonSnapshot } from '../src/comparison/reports/comparison-snapshot.js';
+import { registerExchangeSource, buildExchangePackage } from '../src/comparison/exchange/source.js';
+import { registerExchangeMapping } from '../src/comparison/exchange/mapping.js';
+import { protocolDigest } from '../src/comparison/exchange/contracts.js';
+import { importExchangePackage } from '../src/comparison/exchange/import.js';
 import { seedFlexibleComparison } from './helpers/flexible-store.js';
 import { namespaceId, sharedProjectId, packageId } from './helpers/exchange-fixture.js';
 test('crossover_is_frozen_exported_imported_and_late_confirmation_needs_new_revision', () => {

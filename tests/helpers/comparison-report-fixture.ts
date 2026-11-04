@@ -1,4 +1,4 @@
-import { assignTask } from '../../src/allocation.js';
+import { assignTask } from '../../src/comparison/allocation.js';
 import { freezeProtocol, registerProtocol, registerVariant } from '../../src/comparison.js';
 import { Lifecycle } from '../../src/lifecycle.js';
 import { Store } from '../../src/store.js';

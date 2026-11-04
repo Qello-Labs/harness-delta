@@ -6,7 +6,7 @@ import { bundledPriceCatalog, digest } from '../../src/pricing/price-catalog.js'
 import { registerVariant, freezeProtocol, showProtocol } from '../../src/comparison.js';
 import { makeFlexibleFixture } from '../helpers/flexible-fixture.js';
 import { seedProject, beforeRecruitment, assignmentInput } from '../helpers/comparison-fixture.js';
-import { assignTask } from '../../src/allocation.js';
+import { assignTask } from '../../src/comparison/allocation.js';
 import { readReferenceTaskCostReport } from '../../src/pricing/price-catalog-task-report.js';
 
 const now = '2026-10-06T15:00:00Z';

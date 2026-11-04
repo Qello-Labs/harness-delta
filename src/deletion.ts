@@ -1,8 +1,8 @@
 import { queueApplicationCleanup, flushApplicationCleanup, assertApplicationCleanupDone } from './harness/harness-application-cleanup.js';
-import { deleteMappedProject } from './exchange/invalidation.js';
-import { recordSourceTaskDeletion, recordSourceProjectDeletion } from './exchange/deletion.js';
+import { deleteMappedProject } from './comparison/exchange/invalidation.js';
+import { recordSourceTaskDeletion, recordSourceProjectDeletion } from './comparison/exchange/deletion.js';
 import { z } from 'zod';
-import { affectedComparisonProtocols, invalidateComparisonSnapshots } from './reports/comparison-invalidation.js';
+import { affectedComparisonProtocols, invalidateComparisonSnapshots } from './comparison/reports/comparison-invalidation.js';
 import { IdSchema, TimestampSchema } from './contracts.js';
 import { utcNow, type Clock } from './lifecycle.js';
 import type { Store } from './store.js';

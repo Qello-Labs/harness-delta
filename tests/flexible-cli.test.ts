@@ -6,7 +6,7 @@ import { main } from '../src/cli.js';
 import { Store } from '../src/store.js';
 import { seedFlexibleComparison } from './helpers/flexible-store.js';
 import { makeFlexibleFixture } from './helpers/flexible-fixture.js';
-import { assignTask } from '../src/allocation.js';
+import { assignTask } from '../src/comparison/allocation.js';
 import { putUsageWithEvidence } from '../src/runtime-history.js';
 test('CLI registers explicit immutable prices and shows them without defaults', async () => {
   const root = mkdtempSync(join(tmpdir(), 'flexible-cli-'));

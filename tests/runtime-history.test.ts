@@ -116,7 +116,7 @@ test('migration_preserves_v1_snapshot_bytes', async () => {
   const file = join(root, 'db.sqlite');
   try {
     const { reportStore, request, evaluation } = await import('./helpers/comparison-report-fixture.js');
-    const { createComparisonSnapshot, readComparisonSnapshot } = await import('../src/reports/comparison-snapshot.js');
+    const { createComparisonSnapshot, readComparisonSnapshot } = await import('../src/comparison/reports/comparison-snapshot.js');
     const legacy = reportStore();
     const report = createComparisonSnapshot(legacy, request, () => evaluation);
     const bytes = legacy.get('SELECT input_json,report_json,snapshot_hash FROM comparison_report_snapshots');

@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { Store } from '../src/store.js';
-import { assignTask } from '../src/allocation.js';
-import { confirmConfiguration } from '../src/config-confirmation-write.js';
+import { assignTask } from '../src/comparison/allocation.js';
+import { confirmConfiguration } from '../src/comparison/config-confirmation-write.js';
 import { Lifecycle } from '../src/lifecycle.js';
 import { recordRuntimeEvidence, readRuntimeHistory } from '../src/runtime-history.js';
 import { FlexibleProtocolSchema } from '../src/flexible-contracts.js';

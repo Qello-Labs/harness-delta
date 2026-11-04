@@ -209,9 +209,9 @@ test('new reports disclose a late outcome separately; version 1 inputs project u
   const f = codexWorkflowFixture();
   try {
     const { finishAssignedWorkflow } = await import('../src/task-workflow.js');
-    const { createComparisonSnapshot } = await import('../src/reports/comparison-snapshot.js');
-    const { projectFlexibleComparison, FlexibleSnapshotInputSchema } = await import('../src/reports/flexible-comparison.js');
-    const { renderComparisonReport } = await import('../src/reports/comparison-render.js');
+    const { createComparisonSnapshot } = await import('../src/comparison/reports/comparison-snapshot.js');
+    const { projectFlexibleComparison, FlexibleSnapshotInputSchema } = await import('../src/comparison/reports/flexible-comparison.js');
+    const { renderComparisonReport } = await import('../src/comparison/reports/comparison-render.js');
     const first = await runAssignedWorkflow(f.store, f.input, stub(), runtime);
     const late = new Date(Date.parse(first.followup_ends_at) + 60000).toISOString();
     const cutoff = new Date(Date.parse(late) + 60000).toISOString();
@@ -299,9 +299,9 @@ test('begin also accepts --confirmation', async () => {
 test('a stored version 1 flexible snapshot still reads back unchanged', async () => {
   const f = codexWorkflowFixture();
   try {
-    const { createComparisonSnapshot, readComparisonSnapshot } = await import('../src/reports/comparison-snapshot.js');
+    const { createComparisonSnapshot, readComparisonSnapshot } = await import('../src/comparison/reports/comparison-snapshot.js');
     const { canonicalJson } = await import('../src/canonical-json.js');
-    const { projectFlexibleComparison, FlexibleSnapshotInputSchema } = await import('../src/reports/flexible-comparison.js');
+    const { projectFlexibleComparison, FlexibleSnapshotInputSchema } = await import('../src/comparison/reports/flexible-comparison.js');
     const first = await runAssignedWorkflow(f.store, f.input, stub(), runtime);
     const cutoff = new Date(Date.parse(first.followup_ends_at) + 60000).toISOString();
     createComparisonSnapshot(f.store, { protocolId: first.protocol_id, reportId: 'report-2', cutoff, revisionReason: 'initial' }, () => cutoff);

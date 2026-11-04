@@ -1,9 +1,9 @@
 import { Store } from '../../src/store.js';
 import { registerVariant, registerProtocol, freezeProtocol } from '../../src/comparison.js';
-import { assignTask } from '../../src/allocation.js';
-import { createComparisonSnapshot } from '../../src/reports/comparison-snapshot.js';
+import { assignTask } from '../../src/comparison/allocation.js';
+import { createComparisonSnapshot } from '../../src/comparison/reports/comparison-snapshot.js';
 import { buildExchangePackage } from './legacy-exchange.js';
-import { registerExchangeSource } from '../../src/exchange/source.js';
+import { registerExchangeSource } from '../../src/comparison/exchange/source.js';
 import { protocol, variantA, variantB, assignmentInput, beforeRecruitment, seedProject } from './comparison-fixture.js';
 export const namespaceId = '11111111-1111-4111-8111-111111111111';
 export const sharedProjectId = '22222222-2222-4222-8222-222222222222';

@@ -12,8 +12,8 @@ const areas: readonly (readonly [string, RegExp])[] = [
     /^src\/(codex-qualification|codex-session-binding-qualification|codex-binding-qualification-versions|codex-workflow-qualification|claude-native-probe|claude-probe-|claude-minimal-run|claude-trace-candidate|binding-readiness-probe|codex-failure-diagnostics|external-session-claude-candidate)/
   ],
   ['harness', /^src\/(?:harness\/)?harness-/],
-  ['workflow', /^src\/config-confirmation-write\.ts$/],
-  ['comparison', /^src\/(comparison|allocation|config-confirmation|reports\/|exchange\/)/],
+  ['workflow', /^src\/(?:comparison\/)?config-confirmation-write\.ts$/],
+  ['comparison', /^src\/(?:comparison\/)?(comparison|allocation|config-confirmation|reports\/|exchange\/)/],
   ['pricing', /^src\/(?:pricing\/)?(price|pricing|cost-coverage|catalog-cost|observed-cost|request-price|report-source-trust|metrics)/],
   ['connect', /^src\/(codex-connect|claude-connect|claude-process-binary|owned-cli-invocation)/],
   [

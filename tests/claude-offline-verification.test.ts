@@ -5,7 +5,7 @@ import { expect, test, vi } from 'vitest';
 import { sessionCompatibility } from '../src/source-compatibility.js';
 import { lookupFileProfile } from '../src/adapter-profiles.js';
 import { parseFlexibleSnapshot } from '../src/adapters-flexible.js';
-import { assignTask } from '../src/allocation.js';
+import { assignTask } from '../src/comparison/allocation.js';
 import { Collector } from '../src/collection.js';
 import { EventV2Schema, PriceTableSchema, type EventV2 } from '../src/flexible-contracts.js';
 import { Lifecycle } from '../src/lifecycle.js';

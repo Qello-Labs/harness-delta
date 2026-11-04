@@ -9,7 +9,7 @@ import { Store } from '../src/store.js';
 import { Lifecycle } from '../src/lifecycle.js';
 import { registerVariant, registerProtocol, freezeProtocol } from '../src/comparison.js';
 import { registerPriceTable } from '../src/pricing.js';
-import { createComparisonSnapshot } from '../src/reports/comparison-snapshot.js';
+import { createComparisonSnapshot } from '../src/comparison/reports/comparison-snapshot.js';
 import { Deletion } from '../src/deletion.js';
 import { putUsageWithEvidence } from '../src/runtime-history.js';
 import { assignmentInput, beforeRecruitment } from './helpers/comparison-fixture.js';

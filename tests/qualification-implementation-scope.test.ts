@@ -79,7 +79,7 @@ process.stdout.write(JSON.stringify({ before: before.intent.implementation_diges
   }
 }, 30000);
 
-test.each(['configuration-evidence', 'config-confirmation-write'])(
+test.each(['configuration-evidence', 'comparison/config-confirmation-write'])(
   'workflow qualification freezes extracted %s implementation bytes',
   name => {
     const temporary = realpathSync(mkdtempSync(join(tmpdir(), 'workflow-scope-')));

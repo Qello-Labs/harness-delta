@@ -1,15 +1,15 @@
 import { expect, test } from 'vitest';
 import { Store } from '../src/store.js';
-import { assignTask } from '../src/allocation.js';
+import { assignTask } from '../src/comparison/allocation.js';
 import { Lifecycle } from '../src/lifecycle.js';
 import { registerProtocol, freezeProtocol } from '../src/comparison.js';
 import { seedFlexibleComparison } from './helpers/flexible-store.js';
 import { putUsageWithEvidence } from '../src/runtime-history.js';
-import { createComparisonSnapshot, readComparisonSnapshot } from '../src/reports/comparison-snapshot.js';
-import { registerExchangeSource, buildExchangePackage } from '../src/exchange/source.js';
-import { registerExchangeMapping } from '../src/exchange/mapping.js';
-import { importExchangePackage } from '../src/exchange/import.js';
-import { protocolDigest } from '../src/exchange/contracts.js';
+import { createComparisonSnapshot, readComparisonSnapshot } from '../src/comparison/reports/comparison-snapshot.js';
+import { registerExchangeSource, buildExchangePackage } from '../src/comparison/exchange/source.js';
+import { registerExchangeMapping } from '../src/comparison/exchange/mapping.js';
+import { importExchangePackage } from '../src/comparison/exchange/import.js';
+import { protocolDigest } from '../src/comparison/exchange/contracts.js';
 import { Deletion } from '../src/deletion.js';
 import { namespaceId, sharedProjectId, packageId } from './helpers/exchange-fixture.js';
 test('synthetic_end_to_end_flexible_cost_preserves_assignment_sessions_quality_and_deletion', () => {

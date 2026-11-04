@@ -34,14 +34,14 @@ test('rejects unsupported mechanisms, incomplete endpoints, omitted slots and po
   expect(assessStudyCase({ ...original, population: original.population.map(t => ({ ...t, yA: 0, yB: 0 })) })).toEqual({ status: 'eligible' });
 });
 
-import { projectComparison } from '../src/reports/comparison.js';
-import type { ComparisonSnapshotInput } from '../src/reports/comparison-contracts.js';
+import { projectComparison } from '../src/comparison/reports/comparison.js';
+import type { ComparisonSnapshotInput } from '../src/comparison/reports/comparison-contracts.js';
 import { ProtocolSchema, VariantSchema } from '../src/comparison-contracts.js';
 import { TaskMetadataSchema } from '../src/contracts.js';
 import { metadata, protocol, variantA, variantB, assignmentInput, beforeRecruitment, assignmentTime } from './helpers/comparison-fixture.js';
 import { reportStore } from './helpers/comparison-report-fixture.js';
 import { registerProtocol, freezeProtocol } from '../src/comparison.js';
-import { assignTask } from '../src/allocation.js';
+import { assignTask } from '../src/comparison/allocation.js';
 function reportInput(): ComparisonSnapshotInput {
   const assigned = '2026-01-01T00:00:00.000Z',
     deadline = '2026-01-01T01:00:00.000Z';

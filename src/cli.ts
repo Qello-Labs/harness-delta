@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { registerExchangeCommands, ExchangeCliError } from './exchange/cli.js';
+import { registerExchangeCommands, ExchangeCliError } from './comparison/exchange/cli.js';
 import { registerCompatibilityCommands } from './source-compatibility-cli.js';
 import { sessionCompatibility } from './source-compatibility.js';
 import { Command, CommanderError } from 'commander';
@@ -15,13 +15,13 @@ import { Store } from './store.js';
 import { Lifecycle, type Outcome } from './lifecycle.js';
 import { Deletion } from './deletion.js';
 import { Collector } from './collection.js';
-import { aggregateFlexibleTaskReport } from './reports/flexible-comparison.js';
-import { aggregateOrdinaryTaskReport } from './reports/ordinary-task.js';
+import { aggregateFlexibleTaskReport } from './comparison/reports/flexible-comparison.js';
+import { aggregateOrdinaryTaskReport } from './comparison/reports/ordinary-task.js';
 import { ordinaryTask } from './ordinary-observation.js';
 import { parseTaskMetadata } from './flexible-contracts.js';
 import { aggregateTask } from './metrics.js';
-import { freezePeriod, periodReport } from './reports/period.js';
-import { renderReport } from './reports/render.js';
+import { freezePeriod, periodReport } from './comparison/reports/period.js';
+import { renderReport } from './comparison/reports/render.js';
 import { setTimeout as delay } from 'node:timers/promises';
 
 export async function main(argv: string[], workflowDependencies: WorkflowCommandDependencies = {}): Promise<number> {

@@ -1,7 +1,7 @@
 export const frozenCycles: readonly string[] = [];
 
 export const frozenEdges: readonly string[] = [
-  "runtime src/allocation.ts -> src/readiness-store.ts",
+  "runtime src/comparison/allocation.ts -> src/readiness-store.ts",
   "runtime src/bounded-candidate-invocation.ts -> src/codex-failure-diagnostics.ts",
   "runtime src/claude-connect-installation.ts -> src/harness/harness-application-files.ts",
   "runtime src/claude-connect-installation.ts -> src/harness/harness-config.ts",
@@ -38,8 +38,8 @@ export const frozenEdges: readonly string[] = [
   "type src/ordinary-session-binding.ts -> src/nested-candidate.ts",
   "runtime src/price-catalog-selection.ts -> src/comparison.ts",
   "runtime src/price-catalog-selection.ts -> src/ordinary-observation.ts",
-  "runtime src/pricing/price-revaluation.ts -> src/reports/comparison-snapshot.ts",
-  "runtime src/pricing/price-revaluation.ts -> src/reports/flexible-comparison.ts",
+  "runtime src/pricing/price-revaluation.ts -> src/comparison/reports/comparison-snapshot.ts",
+  "runtime src/pricing/price-revaluation.ts -> src/comparison/reports/flexible-comparison.ts",
   "runtime src/session-binding-claude.ts -> src/claude-process-binary.ts",
   "type src/session-binding-claude.ts -> src/nested-candidate.ts",
   "runtime src/session-binding-codex.ts -> src/codex-candidate-rollout.ts",
@@ -59,7 +59,7 @@ export const frozenEdges: readonly string[] = [
   "runtime src/source-compatibility.ts -> src/claude-binding-admission.ts",
   "runtime src/source-compatibility.ts -> src/codex-binding-admission.ts",
   "runtime src/source-compatibility.ts -> src/readiness.ts",
-  "runtime src/task-workflow.ts -> src/allocation.ts",
+  "runtime src/task-workflow.ts -> src/comparison/allocation.ts",
   "runtime src/task-workflow.ts -> src/harness-application.ts",
   "runtime src/task-workflow.ts -> src/readiness-store.ts",
   "runtime src/task-workflow.ts -> src/readiness.ts"

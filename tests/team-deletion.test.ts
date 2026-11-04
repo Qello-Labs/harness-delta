@@ -1,10 +1,10 @@
 import { expect, test } from 'vitest';
 import { teamFixture } from './helpers/team-fixture.js';
-import { importExchangePackage } from '../src/exchange/import.js';
-import { createTeamSnapshot, readTeamSnapshot } from '../src/reports/team-snapshot.js';
+import { importExchangePackage } from '../src/comparison/exchange/import.js';
+import { createTeamSnapshot, readTeamSnapshot } from '../src/comparison/reports/team-snapshot.js';
 import { Deletion } from '../src/deletion.js';
-import { buildExchangePackage } from '../src/exchange/source.js';
-import { assignTask } from '../src/allocation.js';
+import { buildExchangePackage } from '../src/comparison/exchange/source.js';
+import { assignTask } from '../src/comparison/allocation.js';
 import { assignmentInput } from './helpers/comparison-fixture.js';
 const now = '2026-01-06T00:00:00.000Z';
 for (const mode of ['source-delete', 'source-conflict', 'project-delete', 'local-project-delete'] as const)

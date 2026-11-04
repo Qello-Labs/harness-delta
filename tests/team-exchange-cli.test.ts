@@ -5,7 +5,7 @@ import { expect, test, vi } from 'vitest';
 import { main } from '../src/cli.js';
 import { Store } from '../src/store.js';
 import { teamFixture } from './helpers/team-fixture.js';
-import { readTeamSnapshot } from '../src/reports/team-snapshot.js';
+import { readTeamSnapshot } from '../src/comparison/reports/team-snapshot.js';
 
 test('offline public export→import→replay→freeze→report→delete→stale rejection', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'team-cli-'));

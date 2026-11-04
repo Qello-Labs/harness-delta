@@ -10,7 +10,7 @@ import { putUsageWithEvidence, recordRuntimeEvidence } from '../src/runtime-hist
 import { preparePriceBasis, refreshPriceCatalog } from '../src/price-catalog-store.js';
 import { readReferenceTaskCostReport } from '../src/pricing/price-catalog-task-report.js';
 import { captureTaskCostSnapshot, createPriceRevaluation, readPriceRevaluation } from '../src/pricing/price-revaluation.js';
-import { FlexibleSnapshotInputSchema, projectFlexibleComparison } from '../src/reports/flexible-comparison.js';
+import { FlexibleSnapshotInputSchema, projectFlexibleComparison } from '../src/comparison/reports/flexible-comparison.js';
 import { canonicalJson } from '../src/canonical-json.js';
 import { resolveSourceCompatibility } from '../src/source-compatibility.js';
 import { makeFlexibleFixture } from './helpers/flexible-fixture.js';

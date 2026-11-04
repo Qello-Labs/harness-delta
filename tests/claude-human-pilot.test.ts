@@ -9,7 +9,7 @@ import { createLocalWebDomain } from '../src/local-web-domain.js';
 import { claudeProjectDirName } from '../src/session-binding-claude.js';
 import { localWebFixture } from './helpers/local-web-fixture.js';
 import { Deletion } from '../src/deletion.js';
-import { assignTask } from '../src/allocation.js';
+import { assignTask } from '../src/comparison/allocation.js';
 import { beginAssignedWorkflow, workflowStatus } from '../src/task-workflow.js';
 import { invalidateCompatibility, resolveSourceCompatibility } from '../src/source-compatibility.js';
 

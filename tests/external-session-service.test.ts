@@ -20,7 +20,7 @@ import {
 import { externalInstructionFragment, verifyExternalContext } from '../src/external-session-context.js';
 import { externalContract } from '../src/external-session-contract.js';
 import { sha256 } from '../src/harness/harness-managed-file.js';
-import { aggregateFlexibleTaskReport } from '../src/reports/flexible-comparison.js';
+import { aggregateFlexibleTaskReport } from '../src/comparison/reports/flexible-comparison.js';
 import { Deletion } from '../src/deletion.js';
 import { Lifecycle } from '../src/lifecycle.js';
 import { beginAssignedWorkflow, workflowTaskStatus, finishAssignedWorkflow } from '../src/task-workflow.js';

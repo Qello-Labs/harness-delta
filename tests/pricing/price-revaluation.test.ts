@@ -97,8 +97,8 @@ for (const target of ['task', 'project'] as const)
 
 test('both original arms reprice together from one comparison snapshot and base invalidation purges them', async () => {
   const { seedFlexibleComparison } = await import('../helpers/flexible-store.js');
-  const { assignTask } = await import('../../src/allocation.js');
-  const { createComparisonSnapshot, readComparisonSnapshot } = await import('../../src/reports/comparison-snapshot.js');
+  const { assignTask } = await import('../../src/comparison/allocation.js');
+  const { createComparisonSnapshot, readComparisonSnapshot } = await import('../../src/comparison/reports/comparison-snapshot.js');
   const { captureComparisonCostSnapshot } = await import('../../src/pricing/price-revaluation.js');
   const store = new Store(':memory:');
   try {

@@ -7,7 +7,7 @@ import { EventV2Schema } from '../src/flexible-contracts.js';
 import { ingestCandidateObservation, projectCandidateObservation, candidateCostCoverage, type CandidateScope } from '../src/nested-candidate.js';
 import { evaluateCostCoverage, productionCostProfiles } from '../src/cost-coverage.js';
 import { lookupFileProfile } from '../src/adapter-profiles.js';
-import { assignTask } from '../src/allocation.js';
+import { assignTask } from '../src/comparison/allocation.js';
 import { recordRuntimeEvidence } from '../src/runtime-history.js';
 import { aggregateTaskCost } from '../src/metrics.js';
 import { makeFlexibleFixture } from './helpers/flexible-fixture.js';

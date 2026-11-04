@@ -1,6 +1,6 @@
 import { Store } from '../../src/store.js';
-import { registerExchangeMapping } from '../../src/exchange/mapping.js';
-import { protocolDigest } from '../../src/exchange/contracts.js';
+import { registerExchangeMapping } from '../../src/comparison/exchange/mapping.js';
+import { protocolDigest } from '../../src/comparison/exchange/contracts.js';
 import { freshSource, assignAndSnapshot, dataPackage, sharedProjectId, namespaceId } from './exchange-fixture.js';
 export const receivedAt = '2026-01-05T00:00:00.000Z';
 export function paired(path = ':memory:') {

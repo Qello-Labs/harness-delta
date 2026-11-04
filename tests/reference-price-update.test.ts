@@ -5,7 +5,7 @@ import { preparePriceCatalogRelease } from '../src/pricing/price-catalog-release
 import { preparePriceBasis, readPriceBasis, readPriceCatalogStatus, refreshPriceCatalog } from '../src/price-catalog-store.js';
 import { registerProtocolWithCatalogDefaults, selectTaskPriceTable } from '../src/price-catalog-selection.js';
 import { freezeProtocol, registerVariant, showProtocol } from '../src/comparison.js';
-import { assignTask } from '../src/allocation.js';
+import { assignTask } from '../src/comparison/allocation.js';
 import { projectCatalogCost } from '../src/catalog-cost-report.js';
 import { Store } from '../src/store.js';
 import { makeFlexibleFixture } from './helpers/flexible-fixture.js';

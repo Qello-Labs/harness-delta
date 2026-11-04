@@ -1,14 +1,14 @@
 import { applicationRequired, assertAppliedHarness } from './harness-application.js';
 import { resolveSourceCompatibility, effectiveSourceCompatibility } from './source-compatibility.js';
 import { z } from 'zod';
-import { assignTask } from './allocation.js';
-import type { AssignmentRow } from './allocation.js';
+import { assignTask } from './comparison/allocation.js';
+import type { AssignmentRow } from './comparison/allocation.js';
 import { IdSchema, ModelSchema, ProductVersionSchema } from './contracts.js';
 import { ConfigurationRecordSchema, parseComparison } from './comparison-contracts.js';
 import { FlexibleAssignmentInputSchema } from './flexible-contracts.js';
 import { comparisonProtocol, comparisonVariant, protocolRow } from './protocol-store.js';
 import { requireConfigurationConfirmation, selectedArtifactSnapshot } from './configuration-evidence.js';
-import { confirmConfiguration } from './config-confirmation-write.js';
+import { confirmConfiguration } from './comparison/config-confirmation-write.js';
 import { Lifecycle, utcNow } from './lifecycle.js';
 import type { Clock, Outcome } from './lifecycle.js';
 import { comparisonReadiness, functionalWorkflowEligible } from './readiness-store.js';

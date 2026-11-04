@@ -140,7 +140,7 @@ function implementationDigest() {
     'store',
     'config-confirmation',
     'configuration-evidence',
-    'config-confirmation-write',
+    'comparison/config-confirmation-write',
     'package-paths'
   ];
   return hash(

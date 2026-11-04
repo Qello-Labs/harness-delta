@@ -88,7 +88,7 @@ test('an observed unverified zero remains a reference zero, never a verified zer
 import { Store } from '../src/store.js';
 import { Lifecycle } from '../src/lifecycle.js';
 import { aggregateTask } from '../src/metrics.js';
-import { freezePeriod, periodReport } from '../src/reports/period.js';
+import { freezePeriod, periodReport } from '../src/comparison/reports/period.js';
 import { invalidateCompatibility, pinSessionCompatibility, resolveSourceCompatibility } from '../src/source-compatibility.js';
 import { preparePriceBasis } from '../src/price-catalog-store.js';
 import { captureTaskCostSnapshot, createPriceRevaluation, readPriceRevaluation } from '../src/pricing/price-revaluation.js';
@@ -192,11 +192,11 @@ test('mismatched source provenance cannot label a different actual version verif
 
 import { registerVariant, registerProtocol, freezeProtocol } from '../src/comparison.js';
 import { registerPriceTable } from '../src/pricing.js';
-import { assignTask } from '../src/allocation.js';
+import { assignTask } from '../src/comparison/allocation.js';
 import { assignmentInput } from './helpers/comparison-fixture.js';
-import { createComparisonSnapshot, readComparisonSnapshot } from '../src/reports/comparison-snapshot.js';
+import { createComparisonSnapshot, readComparisonSnapshot } from '../src/comparison/reports/comparison-snapshot.js';
 import { canonicalJson } from '../src/canonical-json.js';
-import { FlexibleSnapshotInputSchema, projectFlexibleComparison } from '../src/reports/flexible-comparison.js';
+import { FlexibleSnapshotInputSchema, projectFlexibleComparison } from '../src/comparison/reports/flexible-comparison.js';
 
 function nativeComparisonFixture(version = '0.161.0') {
   const store = new Store(':memory:', () => '2026-01-01T00:00:04Z');
