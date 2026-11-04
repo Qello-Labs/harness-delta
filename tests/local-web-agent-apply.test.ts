@@ -1,11 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import Database from 'better-sqlite3';
-import { createLocalWebServer } from '../src/local-web-server.js';
+import { createLocalWebServer } from '../src/web/local-web-server.js';
 import { readFileSync, writeFileSync, existsSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { localWebFixture } from './helpers/local-web-fixture.js';
-import { createLocalWebDomain } from '../src/local-web-domain.js';
+import { createLocalWebDomain } from '../src/web/local-web-domain.js';
 import { registerHarness, generateComparison, hashBytes } from '../src/harness/harness-config.js';
 import { comparisonVariant } from '../src/core/protocol-store.js';
 import { assertSharedTask } from '../src/web/local-web-shared-guard.js';

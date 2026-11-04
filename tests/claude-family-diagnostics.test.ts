@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test, vi } from 'vitest';
-import { createLocalWebDomain } from '../src/local-web-domain.js';
+import { createLocalWebDomain } from '../src/web/local-web-domain.js';
 import { ClaudeSessionBindingProvider, claudeProjectDirName } from '../src/session-binding-claude.js';
 import { localWebFixture } from './helpers/local-web-fixture.js';
 

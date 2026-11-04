@@ -1,22 +1,22 @@
-import type { ChildReadinessObservation } from './binding-child-readiness.js';
-import { appendFamilyDiagnostic, takeFamilyDiagnostic } from './binding-family-diagnostics.js';
+import type { ChildReadinessObservation } from '../binding-child-readiness.js';
+import { appendFamilyDiagnostic, takeFamilyDiagnostic } from '../binding-family-diagnostics.js';
 import {
   ApplicationSelectionSchema,
   ApplicationCheckpointSchema,
   ApplicationReportSchema,
   ApplicationIdentitySchema
-} from './harness/harness-application-contract.js';
-import { getApplicationLaunchCapability } from './harness/harness-application-launch.js';
-import { ApplicationCoordinator, applicationRequired, effectiveTaskWorkspace } from './harness-application.js';
+} from '../harness/harness-application-contract.js';
+import { getApplicationLaunchCapability } from '../harness/harness-application-launch.js';
+import { ApplicationCoordinator, applicationRequired, effectiveTaskWorkspace } from '../harness-application.js';
 
-import { assertSharedTask } from './web/local-web-shared-guard.js';
-import { LocalWebProfileSchema, LocalWebManifestSchema, type LocalWebProfile } from './web/local-web-profile.js';
-export { LocalWebProfileSchema, LocalWebManifestSchema, type LocalWebProfile } from './web/local-web-profile.js';
-import { createSharedSetupManager } from './web/local-web-shared.js';
-import { createSetupReviewManager } from './web/local-web-setup-review.js';
-import { localWebRecruitment } from './web/local-web-recruitment.js';
-import { convertTaskToAgentApplication } from './web/local-web-task-application.js';
-import { externalContract } from './external-session-contract.js';
+import { assertSharedTask } from './local-web-shared-guard.js';
+import { LocalWebProfileSchema, LocalWebManifestSchema, type LocalWebProfile } from './local-web-profile.js';
+export { LocalWebProfileSchema, LocalWebManifestSchema, type LocalWebProfile } from './local-web-profile.js';
+import { createSharedSetupManager } from './local-web-shared.js';
+import { createSetupReviewManager } from './local-web-setup-review.js';
+import { localWebRecruitment } from './local-web-recruitment.js';
+import { convertTaskToAgentApplication } from './local-web-task-application.js';
+import { externalContract } from '../external-session-contract.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { execFile, execFileSync } from 'node:child_process';
 import { constants, closeSync, fstatSync, mkdirSync, openSync, readFileSync, realpathSync } from 'node:fs';
@@ -24,12 +24,12 @@ import { basename, dirname, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import Database from 'better-sqlite3';
 import { z } from 'zod';
-import { Lifecycle } from './lifecycle.js';
-import { Store } from './store.js';
-import { registerWebMetadata, withLiveWebMetadataScope } from './web/local-web-metadata.js';
-import { comparisonProtocol, comparisonVariant, protocolRow } from './core/protocol-store.js';
-import { CodexWorkflowExecutionSchema } from './codex-workflow-adapter.js';
-import { recoverCodexWorkflow } from './codex-workflow-journal.js';
+import { Lifecycle } from '../lifecycle.js';
+import { Store } from '../store.js';
+import { registerWebMetadata, withLiveWebMetadataScope } from './local-web-metadata.js';
+import { comparisonProtocol, comparisonVariant, protocolRow } from '../core/protocol-store.js';
+import { CodexWorkflowExecutionSchema } from '../codex-workflow-adapter.js';
+import { recoverCodexWorkflow } from '../codex-workflow-journal.js';
 import {
   ExternalTaskSetupSchema,
   buildExternalTaskSetup,
@@ -42,37 +42,37 @@ import {
   externalTaskState,
   recordExternalTaskOutcome,
   externalTaskResult
-} from './external-session-service.js';
-import type { ExternalTaskSetup } from './external-session-service.js';
-import type { WorkflowAdapter } from './task-workflow.js';
-import { bindingCollectionControl, registerBindingCollectionControl, revokeBindingCollectionControl } from './external-session-contract.js';
-import { releaseExternalWorkflow } from './external-session-workflow.js';
-import { readOnlinePriceCatalogStatus, refreshOnlinePriceCatalog } from './pricing/price-catalog-online.js';
+} from '../external-session-service.js';
+import type { ExternalTaskSetup } from '../external-session-service.js';
+import type { WorkflowAdapter } from '../task-workflow.js';
+import { bindingCollectionControl, registerBindingCollectionControl, revokeBindingCollectionControl } from '../external-session-contract.js';
+import { releaseExternalWorkflow } from '../external-session-workflow.js';
+import { readOnlinePriceCatalogStatus, refreshOnlinePriceCatalog } from '../pricing/price-catalog-online.js';
 import { localWebError, type LocalWebDomain } from './local-web-server.js';
-import { createSessionBindingService, type BindingObservation } from './session-binding-service.js';
-import { ClaudeSessionBindingProvider, type ClaudeBindingOptions } from './session-binding-claude.js';
-import { CodexSessionBindingProvider, codexRootPilotVersions } from './session-binding-codex.js';
-import { resolveSourceCompatibility, effectiveSourceCompatibility } from './source-compatibility.js';
-import { functionalWorkflowEligible, comparisonReadiness } from './readiness-store.js';
-import { parseProtocol, parseTaskMetadata } from './flexible-contracts.js';
-import type { BindingQualificationLease } from './session-binding-qualification-lease.js';
+import { createSessionBindingService, type BindingObservation } from '../session-binding-service.js';
+import { ClaudeSessionBindingProvider, type ClaudeBindingOptions } from '../session-binding-claude.js';
+import { CodexSessionBindingProvider, codexRootPilotVersions } from '../session-binding-codex.js';
+import { resolveSourceCompatibility, effectiveSourceCompatibility } from '../source-compatibility.js';
+import { functionalWorkflowEligible, comparisonReadiness } from '../readiness-store.js';
+import { parseProtocol, parseTaskMetadata } from '../flexible-contracts.js';
+import type { BindingQualificationLease } from '../session-binding-qualification-lease.js';
 import {
   assertBindingQualification,
   bindingQualificationOwnerLive,
   revokeBindingQualification,
   noteQualificationCollectorError
-} from './session-binding-qualification-lease.js';
+} from '../session-binding-qualification-lease.js';
 import {
   issueCodexHumanPilotScope,
   assertHumanPilotScope,
   isHumanPilotProtocol,
   codexRootHumanPilotProfileId,
   type HumanPilotScope
-} from './session-binding-human-pilot.js';
-import type { BindingProduct, SessionBindingProvider } from './session-binding-contract.js';
-import { issueClaudeHumanPilotScope, assertClaudeHumanPilotSource, isClaudeHumanPilotScope } from './session-binding-claude-human-pilot.js';
+} from '../session-binding-human-pilot.js';
+import type { BindingProduct, SessionBindingProvider } from '../session-binding-contract.js';
+import { issueClaudeHumanPilotScope, assertClaudeHumanPilotSource, isClaudeHumanPilotScope } from '../session-binding-claude-human-pilot.js';
 import { setTimeout as delay } from 'node:timers/promises';
-import { getCodexBindingAdmission, isAdmittedCodexBindingProtocol } from './codex-binding-admission.js';
+import { getCodexBindingAdmission, isAdmittedCodexBindingProtocol } from '../codex-binding-admission.js';
 import {
   assertOrdinaryTaskPrepared,
   createOrdinaryTask,
@@ -80,12 +80,12 @@ import {
   ordinaryTaskSettings,
   OrdinaryProjectSettingsSchema,
   revokeOrdinaryObservation
-} from './ordinary-observation.js';
-import { ordinaryProjectAction, ordinaryProjectDto } from './web/local-web-ordinary.js';
-import { createOrdinarySessionBindingService } from './ordinary-session-binding.js';
-import { getClaudeBindingAdmission } from './claude-binding-admission.js';
-import { inspectClaudeProjectSkill, inspectOrdinaryClaudeProjectSkill } from './connect/claude-connect-readiness.js';
-import { codexReceiptDirectoryState, createCodexProjectSetupManager } from './web/local-web-codex.js';
+} from '../ordinary-observation.js';
+import { ordinaryProjectAction, ordinaryProjectDto } from './local-web-ordinary.js';
+import { createOrdinarySessionBindingService } from '../ordinary-session-binding.js';
+import { getClaudeBindingAdmission } from '../claude-binding-admission.js';
+import { inspectClaudeProjectSkill, inspectOrdinaryClaudeProjectSkill } from '../connect/claude-connect-readiness.js';
+import { codexReceiptDirectoryState, createCodexProjectSetupManager } from './local-web-codex.js';
 
 const identifier = z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,199}$/);
 export function localWebSupport(store: Store, profile: LocalWebProfile) {

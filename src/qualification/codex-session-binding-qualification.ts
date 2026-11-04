@@ -11,8 +11,8 @@ import { registerVariant, freezeProtocol } from '../comparison.js';
 import { comparisonProtocol, protocolRow } from '../core/protocol-store.js';
 import { registerProtocolWithCatalogDefaults } from '../price-catalog-selection.js';
 import { selectedArtifactSnapshot } from '../core/configuration-evidence.js';
-import { createLocalWebDomain, LocalWebProfileSchema } from '../local-web-domain.js';
-import { createLocalWebServer } from '../local-web-server.js';
+import { createLocalWebDomain, LocalWebProfileSchema } from '../web/local-web-domain.js';
+import { createLocalWebServer } from '../web/local-web-server.js';
 import {
   codexBindingQualificationVersions,
   codexBindingQualificationBinarySha,

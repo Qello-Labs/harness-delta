@@ -15,7 +15,7 @@ import {
   serveCodexSessionBindingQualificationUiPreparation,
   serveCodexSessionBindingQualificationResults
 } from '../../src/qualification/codex-session-binding-qualification.js';
-import { createLocalWebDomain } from '../../src/local-web-domain.js';
+import { createLocalWebDomain } from '../../src/web/local-web-domain.js';
 import {
   assertBindingQualification,
   issueCodexBindingLease,
@@ -27,8 +27,8 @@ import { Store } from '../../src/store.js';
 import { EventSchema, SourceCompatibilitySchema } from '../../src/contracts.js';
 import { z } from 'zod';
 import * as priceSelection from '../../src/price-catalog-selection.js';
-import * as localWeb from '../../src/local-web-domain.js';
-import * as localServer from '../../src/local-web-server.js';
+import * as localWeb from '../../src/web/local-web-domain.js';
+import * as localServer from '../../src/web/local-web-server.js';
 import { command as runFixtureCommand } from '../../src/instrumented-codex/instrumented-codex-qualification.js';
 import { createSessionBindingService } from '../../src/session-binding-service.js';
 import { CodexSessionBindingProvider } from '../../src/session-binding-codex.js';

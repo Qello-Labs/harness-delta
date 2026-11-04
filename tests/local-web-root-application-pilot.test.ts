@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 import { expect, test } from 'vitest';
 import { z } from 'zod';
 import { localWebFixture } from './helpers/local-web-fixture.js';
-import { createLocalWebDomain, LocalWebProfileSchema } from '../src/local-web-domain.js';
+import { createLocalWebDomain, LocalWebProfileSchema } from '../src/web/local-web-domain.js';
 import { registerHarness, generateComparison } from '../src/harness/harness-config.js';
 import { comparisonVariant } from '../src/core/protocol-store.js';
 import { codexRootHumanPilotProfileId } from '../src/session-binding-human-pilot.js';

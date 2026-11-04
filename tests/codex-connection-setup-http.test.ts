@@ -9,8 +9,8 @@ import { codexBindingAdmission } from '../src/codex-binding-admission.js';
 import { Deletion } from '../src/deletion.js';
 import { Lifecycle } from '../src/lifecycle.js';
 import { Store } from '../src/store.js';
-import { createLocalWebDomain } from '../src/local-web-domain.js';
-import { createLocalWebServer } from '../src/local-web-server.js';
+import { createLocalWebDomain } from '../src/web/local-web-domain.js';
+import { createLocalWebServer } from '../src/web/local-web-server.js';
 import { localWebFixture } from './helpers/local-web-fixture.js';
 
 type Setup = {

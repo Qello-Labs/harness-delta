@@ -16,7 +16,7 @@ import { CodexSessionBindingProvider } from '../src/session-binding-codex.js';
 import { createSessionBindingService } from '../src/session-binding-service.js';
 import { resolveSourceCompatibility } from '../src/source-compatibility.js';
 import { localWebFixture } from './helpers/local-web-fixture.js';
-import { localWebSupport } from '../src/local-web-domain.js';
+import { localWebSupport } from '../src/web/local-web-domain.js';
 import { beginAssignedWorkflow, workflowStatus } from '../src/task-workflow.js';
 
 const cleanups: (() => void)[] = [];

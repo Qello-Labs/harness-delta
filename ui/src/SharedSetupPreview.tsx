@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { Locale } from './types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import type { LocalWebProfile } from '../../src/local-web-domain.js';
+import type { LocalWebProfile } from '../../src/web/local-web-domain.js';
 import type { PriceTable } from '../../src/flexible-contracts.js';
 export interface SharedSetupImport {
   shared: true;

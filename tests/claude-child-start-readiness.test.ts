@@ -6,7 +6,7 @@ import { expect, test, vi } from 'vitest';
 import { takeFamilyDiagnostic } from '../src/binding-family-diagnostics.js';
 import { createSessionBindingService } from '../src/session-binding-service.js';
 import { issueClaudeHumanPilotScope, assertClaudeHumanPilotSource } from '../src/session-binding-claude-human-pilot.js';
-import { createLocalWebDomain } from '../src/local-web-domain.js';
+import { createLocalWebDomain } from '../src/web/local-web-domain.js';
 import { ClaudeSessionBindingProvider, claudeProjectDirName } from '../src/session-binding-claude.js';
 import { localWebFixture } from './helpers/local-web-fixture.js';
 

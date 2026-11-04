@@ -1,7 +1,7 @@
 import type { AgentDisplayMetadata } from './session-labels.js';
 import type { RecruitmentWindow } from '../../src/web/local-web-recruitment.js';
 import type { ApplicationMode } from './application-mode.js';
-import type { localWebSupport } from '../../src/local-web-domain.js';
+import type { localWebSupport } from '../../src/web/local-web-domain.js';
 export type SupportDetails = ReturnType<typeof localWebSupport>;
 export type Locale = 'ko' | 'en';
 export interface OrdinarySetup {

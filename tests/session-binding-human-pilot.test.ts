@@ -16,7 +16,7 @@ import { ExternalTaskSetupSchema, prepareExternalTask } from '../src/external-se
 import { bindingSourceSupported, createSessionBindingService } from '../src/session-binding-service.js';
 import type { VerifiedSessionIdentity } from '../src/session-binding-contract.js';
 import { localWebFixture } from './helpers/local-web-fixture.js';
-import { createLocalWebDomain } from '../src/local-web-domain.js';
+import { createLocalWebDomain } from '../src/web/local-web-domain.js';
 import { beginAssignedWorkflow, workflowStatus } from '../src/task-workflow.js';
 import { assignTask } from '../src/comparison/allocation.js';
 

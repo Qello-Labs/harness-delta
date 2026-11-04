@@ -9,12 +9,12 @@ import { collectExternalTask } from '../../src/external-session-service.js';
 import Database from 'better-sqlite3';
 import { expect, test, vi } from 'vitest';
 import { localWebFixture } from '../helpers/local-web-fixture.js';
-import { createLocalWebDomain } from '../../src/local-web-domain.js';
+import { createLocalWebDomain } from '../../src/web/local-web-domain.js';
 import { registerHarness, generateComparison } from '../../src/harness/harness-config.js';
 import { comparisonVariant } from '../../src/core/protocol-store.js';
 import { Lifecycle } from '../../src/lifecycle.js';
 import { Deletion } from '../../src/deletion.js';
-import { createLocalWebServer } from '../../src/local-web-server.js';
+import { createLocalWebServer } from '../../src/web/local-web-server.js';
 import { loadSharedStartup } from '../../src/web/local-web-shared.js';
 import { assertSharedTask } from '../../src/web/local-web-shared-guard.js';
 function pair(f: ReturnType<typeof localWebFixture>, name = 'Synthetic pair') {

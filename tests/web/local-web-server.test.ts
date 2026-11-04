@@ -4,9 +4,9 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { expect, test } from 'vitest';
-import { createLocalWebServer, type LocalWebDomain } from '../src/local-web-server.js';
-import { Store } from '../src/store.js';
-import { Deletion } from '../src/deletion.js';
+import { createLocalWebServer, type LocalWebDomain } from '../../src/web/local-web-server.js';
+import { Store } from '../../src/store.js';
+import { Deletion } from '../../src/deletion.js';
 import { EventEmitter, once } from 'node:events';
 
 const origin = 'http://127.0.0.1:4318';

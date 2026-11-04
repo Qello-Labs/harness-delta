@@ -6,8 +6,8 @@ import Database from 'better-sqlite3';
 import { localWebFixture } from '../helpers/local-web-fixture.js';
 import { registerHarness, generateComparison } from '../../src/harness/harness-config.js';
 import { comparisonVariant } from '../../src/core/protocol-store.js';
-import { createLocalWebDomain } from '../../src/local-web-domain.js';
-import { createLocalWebServer } from '../../src/local-web-server.js';
+import { createLocalWebDomain } from '../../src/web/local-web-domain.js';
+import { createLocalWebServer } from '../../src/web/local-web-server.js';
 
 test('UI HTTP workflow imports a portable pair, explicitly binds it and persists one inactive task', async () => {
   const f = localWebFixture();

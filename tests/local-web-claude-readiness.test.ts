@@ -2,7 +2,7 @@ import { cpSync, mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { expect, test } from 'vitest';
 import { z } from 'zod';
-import { createLocalWebDomain, LocalWebProfileSchema } from '../src/local-web-domain.js';
+import { createLocalWebDomain, LocalWebProfileSchema } from '../src/web/local-web-domain.js';
 import { localWebFixture } from './helpers/local-web-fixture.js';
 
 test('Claude project installation inspection remains read-only and cannot authorize ordinary collection', async () => {

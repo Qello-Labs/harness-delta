@@ -5,8 +5,8 @@ import { fileURLToPath } from 'node:url';
 import { loadSharedStartup } from '../web/local-web-shared.js';
 import { Command } from 'commander';
 import { Store } from '../store.js';
-import { createLocalWebDomain, readLocalWebManifest, readLocalWebSetupDocument } from '../local-web-domain.js';
-import { createLocalWebServer, localWebError } from '../local-web-server.js';
+import { createLocalWebDomain, readLocalWebManifest, readLocalWebSetupDocument } from '../web/local-web-domain.js';
+import { createLocalWebServer, localWebError } from '../web/local-web-server.js';
 import { implementationPath } from '../package-paths.js';
 
 interface WebCommandOptions {

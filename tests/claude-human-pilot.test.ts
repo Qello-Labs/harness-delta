@@ -5,7 +5,7 @@ import { once } from 'node:events';
 import { appendFileSync, mkdirSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
-import { createLocalWebDomain } from '../src/local-web-domain.js';
+import { createLocalWebDomain } from '../src/web/local-web-domain.js';
 import { claudeProjectDirName } from '../src/session-binding-claude.js';
 import { localWebFixture } from './helpers/local-web-fixture.js';
 import { Deletion } from '../src/deletion.js';

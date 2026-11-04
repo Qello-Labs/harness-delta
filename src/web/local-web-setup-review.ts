@@ -8,7 +8,7 @@ import { comparisonProtocol, protocolRow } from '../core/protocol-store.js';
 import { readPriceTable, registerPriceTable } from '../pricing.js';
 import { LocalWebProfileSchema, type LocalWebProfile } from './local-web-profile.js';
 import type { createSharedSetupManager } from './local-web-shared.js';
-import { localWebError } from '../local-web-server.js';
+import { localWebError } from './local-web-server.js';
 import type { Store } from '../store.js';
 import { comparisonRelativePath, hashBytes, readComparison } from '../harness/harness-config.js';
 

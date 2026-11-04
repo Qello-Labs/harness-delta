@@ -35,7 +35,7 @@ loads this file. Resolve links from this directory, not the Codex entry.
    | Codex ordinary root candidates and receipt producer | `src/session-binding-codex.ts`, `scripts/session-binding-codex-hook.mjs` |
    | Ordinary task authority and topology | `src/session-binding-human-pilot.ts`, `src/session-binding-claude-human-pilot.ts` |
    | Claude ordinary candidates and source semantics | `src/session-binding-claude.ts` |
-   | UI route display and provider construction | `src/local-web-domain.ts` |
+   | UI route display and provider construction | `src/web/local-web-domain.ts` |
 
 5. Obtain the newest regular release from the official GitHub release and npm
    package metadata; record checked UTC date, exact tag/commit and URLs.
@@ -128,7 +128,7 @@ Select Node 24, build, then run the relevant existing suites. Typical selection:
 
 ```sh
 npm run build
-npm test -- tests/source-compatibility.test.ts tests/cli/source-compatibility-cli.test.ts tests/native-forward-compatibility.test.ts tests/session-binding-codex.test.ts tests/session-binding-claude.test.ts tests/session-binding-application-pilot.test.ts tests/local-web-root-application-pilot.test.ts tests/claude-human-pilot.test.ts tests/local-web-domain.test.ts
+npm test -- tests/source-compatibility.test.ts tests/cli/source-compatibility-cli.test.ts tests/native-forward-compatibility.test.ts tests/session-binding-codex.test.ts tests/session-binding-claude.test.ts tests/session-binding-application-pilot.test.ts tests/local-web-root-application-pilot.test.ts tests/claude-human-pilot.test.ts tests/web/local-web-domain.test.ts
 npm run check
 ```
 

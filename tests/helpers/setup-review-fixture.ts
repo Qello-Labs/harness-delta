@@ -6,7 +6,7 @@ import { readPriceTable } from '../../src/pricing.js';
 import { registerHarness, generateComparison } from '../../src/harness/harness-config.js';
 import { Store } from '../../src/store.js';
 import { Lifecycle } from '../../src/lifecycle.js';
-import { createLocalWebDomain } from '../../src/local-web-domain.js';
+import { createLocalWebDomain } from '../../src/web/local-web-domain.js';
 
 export function setupReviewFixture(registerProject = true) {
   const seed = localWebFixture();

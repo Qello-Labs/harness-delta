@@ -44,7 +44,7 @@ import { applyHarness, type ApplicationChoice } from './application-actions';
 import { subscribeTaskRefresh } from './task-refresh';
 import { SupportGuidance } from './SupportGuidance';
 import type { Locale, Setup, Snapshot, Task, TaskAction } from './types';
-import type { LocalWebSetupImportResult } from '../../src/local-web-server.js';
+import type { LocalWebSetupImportResult } from '../../src/web/local-web-server.js';
 
 const GettingStarted = lazy(() => import('./GettingStarted.js').then(module => ({ default: module.GettingStarted })));
 type Screen = 'tasks' | 'detail' | 'new' | 'setup' | 'intro';

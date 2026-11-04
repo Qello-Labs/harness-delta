@@ -3,8 +3,8 @@ import { appendFileSync, chmodSync, mkdirSync, readFileSync, writeFileSync } fro
 import { execFileSync } from 'node:child_process';
 import { join, resolve } from 'node:path';
 import { expect, test } from 'vitest';
-import { createLocalWebDomain } from '../src/local-web-domain.js';
-import { createLocalWebServer } from '../src/local-web-server.js';
+import { createLocalWebDomain } from '../src/web/local-web-domain.js';
+import { createLocalWebServer } from '../src/web/local-web-server.js';
 import { CodexSessionBindingProvider } from '../src/session-binding-codex.js';
 import { localWebFixture } from './helpers/local-web-fixture.js';
 import type { SessionBindingProvider } from '../src/session-binding-contract.js';

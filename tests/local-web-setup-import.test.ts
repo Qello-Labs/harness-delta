@@ -4,8 +4,8 @@ import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import { expect, test } from 'vitest';
 import { localWebFixture } from './helpers/local-web-fixture.js';
-import { createLocalWebServer } from '../src/local-web-server.js';
-import type { LocalWebProfile } from '../src/local-web-domain.js';
+import { createLocalWebServer } from '../src/web/local-web-server.js';
+import type { LocalWebProfile } from '../src/web/local-web-domain.js';
 
 async function fixture() {
   const f = localWebFixture();
