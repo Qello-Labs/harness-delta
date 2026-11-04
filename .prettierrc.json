@@ -19,6 +19,7 @@
         "tests/runtime.test.ts",
         "vitest.config.ts"
       ],
+      "excludeFiles": "ui/**",
       "options": {
         "singleQuote": false
       }
