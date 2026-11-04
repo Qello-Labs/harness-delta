@@ -1,79 +1,53 @@
+import { createLocalWebBindingSelection } from './local-web-binding-selection.js';
+import { createLocalWebBindingObservation, type Job } from './local-web-binding-observation.js';
+import { createLocalWebProjectHandlers } from './local-web-project-handlers.js';
+import { createLocalWebTaskCreation } from './local-web-task-creation.js';
+import { createLocalWebSetupHandlers } from './local-web-setup-handlers.js';
+import { createLocalWebApplicationHandlers } from './local-web-application-handlers.js';
+import { createLocalWebTaskActions } from './local-web-task-actions.js';
 import { createLocalWebTaskReader } from './local-web-task-read.js';
 import { createLocalWebMetadata, type PrivateTask, type Source } from './local-web-metadata-store.js';
 import type { ChildReadinessObservation } from '../binding-child-readiness.js';
-import { appendFamilyDiagnostic, takeFamilyDiagnostic } from '../binding-family-diagnostics.js';
-import {
-  ApplicationSelectionSchema,
-  ApplicationCheckpointSchema,
-  ApplicationReportSchema,
-  ApplicationIdentitySchema
-} from '../harness/harness-application-contract.js';
-import { ApplicationCoordinator, applicationRequired, effectiveTaskWorkspace } from '../harness-application.js';
 
-import { assertSharedTask } from './local-web-shared-guard.js';
+import { ApplicationCoordinator } from '../harness-application.js';
+
 import { LocalWebManifestSchema, type LocalWebProfile } from './local-web-profile.js';
 export { LocalWebProfileSchema, LocalWebManifestSchema, type LocalWebProfile } from './local-web-profile.js';
 import { createSharedSetupManager } from './local-web-shared.js';
 import { createSetupReviewManager } from './local-web-setup-review.js';
-import { localWebRecruitment } from './local-web-recruitment.js';
-import { convertTaskToAgentApplication } from './local-web-task-application.js';
+
 import { randomUUID } from 'node:crypto';
 import { execFile, execFileSync } from 'node:child_process';
-import { constants, closeSync, fstatSync, openSync, readFileSync, realpathSync } from 'node:fs';
-import { basename, resolve } from 'node:path';
+import { constants, closeSync, fstatSync, openSync, readFileSync } from 'node:fs';
+
 import { promisify } from 'node:util';
-import { z } from 'zod';
+
 import { Lifecycle } from '../lifecycle.js';
 import { Store } from '../store.js';
-import { withLiveWebMetadataScope } from './local-web-metadata.js';
-import { comparisonProtocol, protocolRow } from '../core/protocol-store.js';
+
+import { protocolRow } from '../core/protocol-store.js';
 import { CodexWorkflowExecutionSchema } from '../codex-workflow-adapter.js';
-import { recoverCodexWorkflow } from '../codex-workflow-journal.js';
-import {
-  ExternalTaskSetupSchema,
-  buildExternalTaskSetup,
-  createExternalTask,
-  prepareExternalTask,
-  issueExternalStartTicket,
-  connectExternalTask,
-  collectExternalTask,
-  pauseExternalTask,
-  externalTaskState,
-  recordExternalTaskOutcome
-} from '../external-session-service.js';
-import type { ExternalTaskSetup } from '../external-session-service.js';
+
+import { ExternalTaskSetupSchema, pauseExternalTask } from '../external-session-service.js';
+
 import type { WorkflowAdapter } from '../task-workflow.js';
-import { bindingCollectionControl, registerBindingCollectionControl, revokeBindingCollectionControl } from '../external-session-contract.js';
-import { releaseExternalWorkflow } from '../external-session-workflow.js';
-import { readOnlinePriceCatalogStatus, refreshOnlinePriceCatalog } from '../pricing/price-catalog-online.js';
-import { localWebError, type LocalWebDomain } from './local-web-server.js';
-import { createSessionBindingService, type BindingObservation } from '../session-binding-service.js';
-import { ClaudeSessionBindingProvider, type ClaudeBindingOptions } from '../session-binding-claude.js';
-import { CodexSessionBindingProvider, codexRootPilotVersions } from '../session-binding-codex.js';
+
+import { type LocalWebDomain } from './local-web-server.js';
+import { type BindingObservation } from '../session-binding-service.js';
+import { type ClaudeBindingOptions } from '../session-binding-claude.js';
+
 import { resolveSourceCompatibility, effectiveSourceCompatibility } from '../source-compatibility.js';
 import { functionalWorkflowEligible, comparisonReadiness } from '../readiness-store.js';
-import { parseProtocol, parseTaskMetadata } from '../flexible-contracts.js';
+import { parseProtocol } from '../flexible-contracts.js';
 import type { BindingQualificationLease } from '../session-binding-qualification-lease.js';
-import { bindingQualificationOwnerLive, revokeBindingQualification, noteQualificationCollectorError } from '../session-binding-qualification-lease.js';
-import { issueCodexHumanPilotScope, isHumanPilotProtocol, codexRootHumanPilotProfileId, type HumanPilotScope } from '../session-binding-human-pilot.js';
-import type { BindingProduct, SessionBindingProvider } from '../session-binding-contract.js';
-import { issueClaudeHumanPilotScope, assertClaudeHumanPilotSource, isClaudeHumanPilotScope } from '../session-binding-claude-human-pilot.js';
-import { setTimeout as delay } from 'node:timers/promises';
-import { getCodexBindingAdmission, isAdmittedCodexBindingProtocol } from '../codex-binding-admission.js';
-import {
-  assertOrdinaryTaskPrepared,
-  createOrdinaryTask,
-  ordinaryTask,
-  ordinaryTaskSettings,
-  OrdinaryProjectSettingsSchema,
-  revokeOrdinaryObservation
-} from '../ordinary-observation.js';
-import { ordinaryProjectAction, ordinaryProjectDto } from './local-web-ordinary.js';
-import { createOrdinarySessionBindingService } from '../ordinary-session-binding.js';
-import { getClaudeBindingAdmission } from '../claude-binding-admission.js';
-import { codexReceiptDirectoryState, createCodexProjectSetupManager } from './local-web-codex.js';
+import { revokeBindingQualification } from '../session-binding-qualification-lease.js';
+import { isHumanPilotProtocol, codexRootHumanPilotProfileId } from '../session-binding-human-pilot.js';
+import type { SessionBindingProvider } from '../session-binding-contract.js';
 
-const identifier = z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,199}$/);
+import { getCodexBindingAdmission, isAdmittedCodexBindingProtocol } from '../codex-binding-admission.js';
+
+import { createCodexProjectSetupManager } from './local-web-codex.js';
+
 export function localWebSupport(store: Store, profile: LocalWebProfile) {
   const workflow = profile.setup.workflow;
   const protocolRecord = protocolRow(store, workflow.assignment.protocol_id);
@@ -138,10 +112,7 @@ export function localWebSupport(store: Store, profile: LocalWebProfile) {
     inference: false
   };
 }
-export interface Job {
-  promise: Promise<void>;
-  pauseRequested: boolean;
-}
+export type { Job } from './local-web-binding-observation.js';
 export interface LocalWebDomainOptions {
   store: Store;
   metadataFile: string;
@@ -284,218 +255,16 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
       metadata.setReason(record.id, 'shared_binding_changed');
     }
   }
-  const providers = new Map<string, SessionBindingProvider[]>();
-  const providersForTask = (id: string, deletedProjectRoot?: string): SessionBindingProvider[] => {
-    if (options.bindingProviders) return options.bindingProviders;
-    if (providers.has(id)) return providers.get(id)!;
-    const projectRoot = deletedProjectRoot ?? effectiveTaskWorkspace(store, id);
-    if (!projectRoot) throw new Error('binding_scope_mismatch');
-    if (options.bindingProviderFactory) {
-      const callbacks = ordinaryTask(store, id)
-        ? {
-            authorizeSource: (source: Parameters<NonNullable<ClaudeBindingOptions['authorizeSource']>>[0]) => ordinaryBindings.assertSource(id, source),
-            memberEligible: (member: Parameters<NonNullable<ClaudeBindingOptions['memberEligible']>>[0]) => ordinaryBindings.memberEligible(id, member)
-          }
-        : undefined;
-      const result = options.bindingProviderFactory(id, projectRoot, callbacks);
-      providers.set(id, result);
-      return result;
-    }
-    const record = metadata.task(id);
-    if (!record) return [];
-    if (record.profile_id === 'ordinary-claude') {
-      const config = ordinaryTask(store, id) ? ordinaryTaskSettings(store, id) : OrdinaryProjectSettingsSchema.parse(JSON.parse(record.setup));
-      const admission = getClaudeBindingAdmission(config.product_version);
-      if (!admission?.admitted) throw new Error('binding_source_unqualified');
-      const result = [
-        new ClaudeSessionBindingProvider({
-          receiptDir: config.receipt_directory,
-          claudeProjectsDir: config.claude_projects_directory,
-          projectRoot,
-          ordinaryAdmission: true,
-          productVersion: config.product_version,
-          maxFamilyMembers: admission.maxFamilyMembers,
-          authorizeSource: source => ordinaryBindings.assertSource(id, source),
-          memberEligible: member => ordinaryBindings.memberEligible(id, member)
-        })
-      ];
-      providers.set(id, result);
-      return result;
-    }
-    const protocol = comparisonProtocol(store, protocolRow(store, setupFor(record).workflow.assignment.protocol_id));
-    const ordinaryFamily = !options.qualificationLease && !options.nativePilot && protocol.schema_version === 2 && isAdmittedCodexBindingProtocol(protocol);
-    const workflow = setupFor(record).workflow;
-    const ordinaryAdmission = ordinaryFamily ? getCodexBindingAdmission(workflow.product_version) : undefined;
-    const savedProjectConfig =
-      workflow.assignment.metadata.product === 'codex' && !options.qualificationLease && !options.nativePilot
-        ? codexProjects.configuration(workflow.assignment.project_id)
-        : undefined;
-    const projectConfig = savedProjectConfig?.product_version === workflow.product_version ? savedProjectConfig : undefined;
-    const config = projectConfig ? { ...projectConfig, project_root: projectRoot } : profileFor(record.profile_id).session_binding;
-    if (!config) return [];
-    if (config.product === 'codex' && !applicationRequired(store, id) && config.project_root !== projectRoot) throw new Error('binding_scope_mismatch');
-    if (projectConfig) {
-      const receiptState = codexReceiptDirectoryState(config.receipt_directory);
-      if (receiptState !== 'ready') throw new Error(receiptState === 'missing' ? 'receipt_directory_missing' : 'receipt_directory_unsafe');
-    }
-    let result: SessionBindingProvider[];
-    try {
-      result =
-        config.product === 'codex'
-          ? [
-              new CodexSessionBindingProvider({
-                receiptDirectory: config.receipt_directory,
-                sourceRoots: config.source_roots,
-                projectRoot,
-                ...(setupFor(record).workflow.assignment.metadata.product === 'synthetic' ? {} : { productVersion: setupFor(record).workflow.product_version }),
-                ...(options.qualificationLease
-                  ? {
-                      maxDepth: 1,
-                      maxFamilyMembers: 3,
-                      ...(['0.162.1', '0.163.0'].includes(setupFor(record).workflow.product_version) ? { ordinaryFamilyQualification: true } : {})
-                    }
-                  : options.nativePilot
-                    ? { maxDepth: 1, maxFamilyMembers: codexRootPilotVersions.some(version => version === setupFor(record).workflow.product_version) ? 1 : 3 }
-                    : {}),
-                ...(ordinaryAdmission
-                  ? {
-                      ordinaryFamilyAdmission: true,
-                      maxDepth: ordinaryAdmission.maxDepth,
-                      maxFamilyMembers: options.bindingObservation?.maxFamilyMembers ?? ordinaryAdmission.maxFamilyMembers
-                    }
-                  : {}),
-                ...(options.nativePilot?.observe &&
-                options.nativePilot.taskId === id &&
-                codexRootPilotVersions.some(version => version === setupFor(record).workflow.product_version)
-                  ? { ordinaryRootPilot: true }
-                  : {})
-              })
-            ]
-          : [
-              new ClaudeSessionBindingProvider({
-                receiptDir: config.receipt_directory,
-                claudeProjectsDir: config.claude_projects_directory,
-                projectRoot,
-                ...(options.nativePilot
-                  ? {
-                      allowCandidateProfiles: true,
-                      maxFamilyMembers: 3,
-                      authorizeSource: source => {
-                        if (!humanPilot || options.nativePilot?.taskId !== id) throw new Error('binding_source_unqualified');
-                        assertClaudeHumanPilotSource(humanPilot, store, id, source);
-                      }
-                    }
-                  : {})
-              })
-            ];
-    } catch (error) {
-      if (
-        !options.qualificationLease &&
-        !options.nativePilot &&
-        config.product === 'codex' &&
-        error instanceof Error &&
-        'code' in error &&
-        error.code === 'ENOENT' &&
-        codexReceiptDirectoryState(config.receipt_directory) === 'missing'
-      )
-        throw new Error('receipt_directory_missing', { cause: error });
-      throw error;
-    }
-    providers.set(id, result);
-    return result;
-  };
-  let humanPilot: HumanPilotScope | undefined;
-  if (options.nativePilot) {
-    const provider = providersForTask(options.nativePilot.taskId)[0];
-    if (!(provider instanceof CodexSessionBindingProvider) && !(provider instanceof ClaudeSessionBindingProvider))
-      throw new Error('binding_pilot_scope_invalid');
-    // Issuance inspects task/protocol metadata only; preparation grants no reads.
-    const scope =
-      provider instanceof ClaudeSessionBindingProvider
-        ? issueClaudeHumanPilotScope(store, options.nativePilot.taskId, provider, { untilExplicitStop: options.nativePilot.untilExplicitStop === true })
-        : issueCodexHumanPilotScope(store, options.nativePilot.taskId, provider, { untilExplicitStop: options.nativePilot.untilExplicitStop === true });
-    if (options.nativePilot.observe) humanPilot = scope;
-  }
-  const familyDiagnosticsEnabled = !!humanPilot && isClaudeHumanPilotScope(humanPilot);
-  const writeFamilyDiagnostic = (diagnostic: unknown) => appendFamilyDiagnostic(options.metadataFile + '.family-diagnostics.jsonl', diagnostic);
-  const legacyBindings = createSessionBindingService({
-    store,
-    providers: options.bindingProviders ?? [],
-    setupFor: id => setupFor(row(id)),
-    providersForTask,
-    ...(options.bindingObservation ? { bindingObservation: options.bindingObservation } : {}),
-    ...(options.qualificationLease ? { qualificationLease: options.qualificationLease } : {}),
-    ...(humanPilot
-      ? {
-          humanPilot,
-          ...(familyDiagnosticsEnabled
-            ? { onFamilyRejection: writeFamilyDiagnostic, ...(options.onChildReadiness ? { onChildReadiness: options.onChildReadiness } : {}) }
-            : {})
-        }
-      : {}),
-    syntheticProviderForTask(provider, id) {
-      return !!options.bindingProviderFactory && !!providers.get(id)?.includes(provider);
-    }
+  const { providers, providersForTask, ordinaryBindings, bindings, humanPilot, familyDiagnosticsEnabled, writeFamilyDiagnostic } =
+    createLocalWebBindingSelection({ options, recordFor: metadata.task, row, setupFor, profileFor, codexProjects });
+  const { beginBindingObservation } = createLocalWebBindingObservation({
+    options,
+    jobs,
+    bindings,
+    familyDiagnosticsEnabled,
+    writeFamilyDiagnostic,
+    setReason: metadata.setReason
   });
-  const ordinaryBindings = createOrdinarySessionBindingService({
-    store,
-    providersForTask,
-    syntheticProviderForTask: () => options.bindingProviders !== undefined || options.bindingProviderFactory !== undefined
-  });
-  const selectedService = (id: string) => (ordinaryTask(store, id) ? ordinaryBindings : legacyBindings);
-  const bindings = {
-    status: (id: string) => selectedService(id).status(id),
-    pause: (id: string) => selectedService(id).pause(id),
-    resumeAvailable: (id: string) => selectedService(id).resumeAvailable(id),
-    sourceSupported: (id: string, product: BindingProduct) => selectedService(id).sourceSupported(id, product),
-    capabilities: (id: string, product: BindingProduct) => selectedService(id).capabilities(id, product),
-    connect: (id: string, product: BindingProduct, input: { receipt: string }) => selectedService(id).connect(id, product, input),
-    resume: (id: string) => selectedService(id).resume(id),
-    tick: (id: string) => selectedService(id).tick(id),
-    flushForgotten: async () => {
-      await legacyBindings.flushForgotten();
-      await ordinaryBindings.flushForgotten();
-    }
-  };
-  // A newly opened server never resumes an unobserved interval from a persisted
-  // cursor. No native source is touched here; reconnect always baselines again.
-  for (const task of store.all<{ task_id: string }>("SELECT DISTINCT task_id FROM session_bindings WHERE state='observing'")) {
-    if (!ordinaryTask(store, task.task_id)) legacyBindings.pause(task.task_id);
-  }
-  const beginBindingObservation = (id: string) => {
-    if (jobs.has(id)) return;
-    const job: Job = { promise: Promise.resolve(), pauseRequested: false };
-    jobs.set(id, job);
-    job.promise = (async () => {
-      try {
-        while (!job.pauseRequested && store.get<{ state: string }>('SELECT state FROM tasks WHERE id=?', [id])?.state === 'active') {
-          await bindings.tick(id);
-          await delay(250);
-        }
-      } catch (error) {
-        const expectedPause = job.pauseRequested && error instanceof Error && error.message === 'binding_scope_revoked';
-        if (!expectedPause) options.bindingObservation?.error(error);
-        if (store.get('SELECT id FROM tasks WHERE id=?', [id])) {
-          const diagnostic =
-            familyDiagnosticsEnabled && options.nativePilot?.taskId === id && !job.pauseRequested ? takeFamilyDiagnostic(error, id, store) : null;
-          metadata.setReason(id, expectedPause ? 'measurement_paused' : localWebError(error));
-          if (!expectedPause && options.qualificationLease) {
-            noteQualificationCollectorError(options.qualificationLease, error);
-            revokeBindingQualification(options.qualificationLease);
-          }
-          try {
-            bindings.pause(id);
-          } catch (pauseError) {
-            // Pause fences are durable even when a clock/gap write fails.
-            if (options.qualificationLease) noteQualificationCollectorError(options.qualificationLease, pauseError);
-          }
-          if (diagnostic) writeFamilyDiagnostic(diagnostic);
-        }
-      } finally {
-        jobs.delete(id);
-      }
-    })();
-  };
   const taskDto = createLocalWebTaskReader({
     options,
     store,
@@ -516,533 +285,52 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
   });
   const domain: LocalWebDomain = {
     metadataStore: store,
-    async bootstrap() {
-      codexProjects.pruneDeleted();
-      await bindings.flushForgotten();
-      const allProfiles = profiles().filter(
-        p =>
-          store.get<{ status: string }>('SELECT status FROM comparison_protocols WHERE id=?', [p.setup.workflow.assignment.protocol_id])?.status === 'frozen' &&
-          store.get('SELECT id FROM projects WHERE id=?', [p.setup.workflow.assignment.project_id])
-      );
-      const projects = store.all<{ id: string; local_root: string }>('SELECT id,local_root FROM projects').map(p => {
-        let baseline: string | null = null;
-        try {
-          baseline = projectBaseline(p.local_root);
-        } catch {
-          /* Show unavailable without creating a commit. */
-        }
-        const ordinary = ordinaryProjectDto(store, p.id);
-        return {
-          id: p.id,
-          name: basename(p.local_root),
-          directory: p.local_root,
-          baseline,
-          setup_ids: allProfiles.filter(s => s.setup.workflow.assignment.project_id === p.id).map(s => s.id),
-          ordinary: {
-            configured: ordinary.configured,
-            product_version: ordinary.product_version,
-            installation_state: ordinary.installation.state,
-            qualified: ordinary.admission.qualified
-          }
-        };
-      });
-      const setups = allProfiles.map(p => {
-        const protocol = comparisonProtocol(store, protocolRow(store, p.setup.workflow.assignment.protocol_id));
-        const strata = protocol.strata.filter(s => s.assignees.includes(p.setup.workflow.assignment.metadata.assignee));
-        return {
-          id: p.id,
-          name: p.name,
-          project_id: p.setup.workflow.assignment.project_id,
-          arm_a: protocol.variant_ids[0],
-          arm_b: protocol.variant_ids[1],
-          recruitment: localWebRecruitment(protocol),
-          application_mode: p.setup.workflow.application ? ('agent_applied' as const) : ('selected_markdown_only' as const),
-          ...(p.shared_binding
-            ? {
-                shared: {
-                  revision_id: p.id,
-                  template_id: p.shared_binding.template_id,
-                  template_name: profiles().find(row => row.id === p.shared_binding!.template_id)?.name ?? p.shared_binding.template_id,
-                  runtime: p.setup.runtime
-                }
-              }
-            : {}),
-          types: [...new Set(strata.flatMap(s => s.types))],
-          sizes: [...new Set(strata.flatMap(s => s.sizes))],
-          support: `${p.setup.workflow.assignment.metadata.product} ${p.setup.workflow.product_version}: route-specific gates; partial cost only`,
-          support_details: localWebSupport(store, p)
-        };
-      });
-      const tasks = metadata.taskIds().flatMap(t => {
-        try {
-          return [taskDto(t.id)];
-        } catch {
-          return [];
-        }
-      });
-      return { projects, setups, tasks, catalog: readOnlinePriceCatalogStatus(store) };
-    },
+    ...createLocalWebProjectHandlers(options, {
+      life,
+      metadata,
+      profiles,
+      taskDto,
+      bindings,
+      providers,
+      codexProjects,
+      picker,
+      projectBaseline,
+      localWebSupport
+    }),
     task: taskDto,
-    ordinaryProject: id => ordinaryProjectDto(store, id),
-    ordinaryProjectAction(id, input) {
-      if (options.nativePilot) throw new Error('binding_pilot_control_only');
-      if (options.qualificationLease) throw new Error('binding_qualification_control_only');
-      return Promise.resolve(ordinaryProjectAction(store, id, input));
-    },
-    codexProject: id => codexProjects.inspect(id),
-    codexProjectAction(id, input) {
-      if (options.nativePilot) throw new Error('binding_pilot_control_only');
-      if (options.qualificationLease) throw new Error('binding_qualification_control_only');
-      const result = codexProjects.action(id, input);
-      if (['configure', 'install', 'remove'].includes(input.operation)) {
-        for (const task of store.all<{ id: string }>('SELECT id FROM tasks WHERE project_id=?', [id])) providers.delete(task.id);
-      }
-      return Promise.resolve(result);
-    },
-    registerProject(directory) {
-      if (options.nativePilot) throw new Error('binding_pilot_control_only');
-      if (options.qualificationLease) throw new Error('binding_qualification_control_only');
-      const root = realpathSync(resolve(directory));
-      projectBaseline(root);
-      const previous = store.get<{ id: string }>('SELECT id FROM projects WHERE local_root=?', [root]);
-      if (previous) return Promise.resolve({ id: previous.id });
-      const id = randomUUID();
-      life.registerProject(id, root);
-      return Promise.resolve({ id });
-    },
-    createTask(input) {
-      if (options.nativePilot) throw new Error('binding_pilot_control_only');
-      if (options.qualificationLease) throw new Error('binding_qualification_control_only');
-      if ('mode' in input) {
-        const id = createOrdinaryTask(store, {
-          project_id: input.project_id,
-          criterion_ids: input.criterion_ids,
-          ...(input.type ? { type: input.type } : {}),
-          ...(input.size ? { expected_size: input.size } : {}),
-          ...(input.assignee ? { assignee: input.assignee } : {})
-        });
-        withLiveWebMetadataScope(store, { taskId: id, projectId: input.project_id }, () => {
-          metadata.insertTask({ id: id, name: input.name, profileId: 'ordinary-claude', setup: ordinaryTaskSettings(store, id), projectId: input.project_id });
-        });
-        return Promise.resolve(taskDto(id));
-      }
-      const profile = profileFor(input.setup_id);
-      const existing = store.get<{ local_root: string }>('SELECT local_root FROM projects WHERE id=?', [input.project_id]);
-      if (!existing || profile.setup.workflow.assignment.project_id !== input.project_id) throw new Error('unknown_project');
-      const base = buildExternalTaskSetup(store, { id: profile.id, setup: profile.setup }, { projectId: input.project_id });
-      const setup: ExternalTaskSetup = {
-        ...base,
-        workflow: {
-          ...base.workflow,
-          assignment: {
-            ...base.workflow.assignment,
-            code_base_commit: projectBaseline(existing.local_root),
-            metadata: {
-              ...base.workflow.assignment.metadata,
-              ...(input.type ? { type: input.type } : {}),
-              ...(input.size ? { expected_size: input.size } : {})
-            }
-          }
-        }
-      };
-      if (profile.shared_binding) {
-        sharedSetups.assertProfile(profile);
-        const id = randomUUID();
-        const reserved: ExternalTaskSetup = {
-          ...setup,
-          workflow: {
-            ...setup.workflow,
-            confirmation_id: randomUUID(),
-            assignment: { ...setup.workflow.assignment, task_id: id, logical_task_id: randomUUID(), alias_ids: [randomUUID()] }
-          }
-        };
-        const pins = sharedSetups.journalTask(profile, id)!;
-        withLiveWebMetadataScope(store, { projectId: input.project_id }, () => {
-          store.execute('INSERT INTO shared_configuration_tasks(task_id,project_id,settings_hash,setup_hash) VALUES(?,?,?,?)', [
-            id,
-            input.project_id,
-            pins.settingsHash,
-            pins.setupHash
-          ]);
-          metadata.insertTask({
-            id: id,
-            name: input.name,
-            profileId: profile.id,
-            setup: reserved,
-            projectId: input.project_id,
-            reason: 'shared_preparation_pending'
-          });
-        });
-        try {
-          prepareExternalTask(store, reserved, false);
-          assertSharedTask(store, id, undefined, true);
-          metadata.setReason(id, null);
-          if (profile.session_binding) registerBindingCollectionControl(store, id);
-        } catch (error) {
-          metadata.setReason(id, localWebError(error));
-        }
-        return Promise.resolve(taskDto(id));
-      }
-      const created = createExternalTask(store, setup, false);
-      const id = created.state.task_id;
-      if (profile.session_binding) registerBindingCollectionControl(store, id);
-      withLiveWebMetadataScope(store, { taskId: id, projectId: input.project_id }, () => {
-        metadata.insertTask({ id: id, name: input.name, profileId: profile.id, setup: created.setup, projectId: input.project_id });
-      });
-      return Promise.resolve(taskDto(id));
-    },
-    async chooseDirectory() {
-      if (options.nativePilot) throw new Error('binding_pilot_control_only');
-      if (options.qualificationLease) throw new Error('binding_qualification_control_only');
-      return picker('project');
-    },
-    async importSetup() {
-      if (options.nativePilot) throw new Error('binding_pilot_control_only');
-      if (options.qualificationLease) throw new Error('binding_qualification_control_only');
-      const path = await picker('setup');
-      if (path === null) return { cancelled: true };
-      const raw = readLocalWebSetupDocument(path) as { kind?: unknown };
-      if (raw.kind === 'harness-delta.comparison') return sharedSetups.preview(path);
-      const saved = saveProfiles(readLocalWebManifest(path).profiles);
-      return { imported: true, added_count: saved.addedCount, existing_count: saved.existingCount };
-    },
-    bindSetup(input) {
-      if (options.nativePilot) throw new Error('binding_pilot_control_only');
-      if (options.qualificationLease) throw new Error('binding_qualification_control_only');
-      return Promise.resolve(sharedSetups.bind(input));
-    },
-    reviewSetup(input) {
-      if (options.nativePilot) throw new Error('binding_pilot_control_only');
-      if (options.qualificationLease) throw new Error('binding_qualification_control_only');
-      return Promise.resolve(setupReviews.review(input));
-    },
-    saveReviewedSetup(token) {
-      if (options.nativePilot) throw new Error('binding_pilot_control_only');
-      if (options.qualificationLease) throw new Error('binding_qualification_control_only');
-      return Promise.resolve(setupReviews.save(token));
-    },
-    applicationWorkspace(taskId, directory) {
-      row(taskId);
-      return applications.workspace(taskId, directory);
-    },
-    applicationContext(taskId, attemptId) {
-      row(taskId);
-      return applications.context(taskId, attemptId);
-    },
-    applicationLaunchContext(taskId, origin) {
-      row(taskId);
-      return applications.launchContext(taskId, origin);
-    },
-    applicationHandoff(taskId, origin) {
-      row(taskId);
-      return applications.handoff(taskId, origin);
-    },
-    applicationReview(taskId) {
-      row(taskId);
-      return applications.review(taskId);
-    },
-    async chooseSession(taskId) {
-      if (options.nativePilot) throw new Error('binding_pilot_control_only');
-      if (options.qualificationLease) throw new Error('binding_qualification_control_only');
-      row(taskId);
-      const selected = await picker('session');
-      if (selected === null) return null;
-      const path = realpathSync(selected);
-      const match = basename(path).match(/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\.jsonl$/i);
-      if (!match) throw new Error('native_source_unqualified');
-      // Filename identity only. Session contents are read exclusively by the scoped domain collector.
-      const source: Source = { handle: randomUUID(), label: basename(path), path, session_id: z.uuid().parse(match[1]) };
-      withLiveWebMetadataScope(store, { taskId }, () => {
-        metadata.saveSource(taskId, source);
-      });
-      return { handle: source.handle, label: source.label };
-    },
-    async taskAction(id, action, input) {
-      if (
-        options.nativePilot &&
-        (id !== options.nativePilot.taskId ||
-          ![
-            'prepare',
-            'apply',
-            'session-connect',
-            'pause',
-            'revoke-collection',
-            'resume-binding',
-            'finish-success',
-            'finish-failed',
-            'finish-abandoned',
-            'release'
-          ].includes(action))
-      )
-        throw new Error('binding_pilot_control_only');
-      if (
-        options.qualificationLease &&
-        (id !== store.get<{ task_id: string }>('SELECT task_id FROM binding_qualification WHERE singleton=1')?.task_id ||
-          !['session-connect', 'pause', 'resume-binding', 'emergency-stop'].includes(action))
-      )
-        throw new Error('binding_qualification_control_only');
-      const record = row(id);
-      if (ordinaryTask(store, id)) {
-        if (action === 'session-connect' || action === 'resume-binding') assertOrdinaryTaskPrepared(store, id);
-        if (action === 'session-connect') {
-          const product = z.enum(['codex', 'claude_code']).parse(input.product);
-          const receipt = z.uuid().parse(input.receipt);
-          const previous = jobs.get(id);
-          if (previous) {
-            previous.pauseRequested = true;
-            await previous.promise;
-          }
-          const connection = await ordinaryBindings.connect(id, product, { receipt });
-          metadata.setReason(id, null);
-          beginBindingObservation(id);
-          return {
-            ...taskDto(id),
-            connection: {
-              ...connection,
-              project_id: life.task(id).project_id,
-              task_id: id,
-              identity_basis: 'native_metadata_receipt',
-              evidence: 'server_verified_identity_source_and_relations',
-              collection_active: true,
-              cost_coverage: 'partial'
-            }
-          };
-        }
-        if (action === 'resume-binding') {
-          await ordinaryBindings.resume(id);
-          beginBindingObservation(id);
-          return taskDto(id);
-        }
-        if (action === 'revoke-collection') {
-          const previous = jobs.get(id);
-          if (previous) previous.pauseRequested = true;
-          revokeOrdinaryObservation(store, id);
-          await ordinaryBindings.stopObservation(id);
-          await previous?.promise;
-          metadata.setReason(id, null);
-          return taskDto(id);
-        }
-        if (action === 'pause' || action === 'stop-observation' || action.startsWith('finish-')) {
-          const previous = jobs.get(id);
-          if (previous) previous.pauseRequested = true;
-          if (action === 'pause') ordinaryBindings.pause(id);
-          else await ordinaryBindings.stopObservation(id);
-          await previous?.promise;
-          if (action.startsWith('finish-')) {
-            const outcome = action === 'finish-success' ? 'success' : action === 'finish-failed' ? 'failed' : action === 'finish-abandoned' ? 'aborted' : null;
-            if (outcome === null) throw new Error('invalid_ui_request');
-            const metadata = parseTaskMetadata(JSON.parse(life.task(id).metadata));
-            const criteria = outcome === 'success' ? z.array(identifier).parse(input.criteria ?? metadata.criterion_ids) : [];
-            life.finalize(id, outcome, criteria);
-          }
-          metadata.setReason(id, null);
-          return taskDto(id);
-        }
-        throw new Error('invalid_ui_request');
-      }
-      const setup = setupFor(record);
-      if (['application-start', 'application-execute', 'application-permission-decide', 'application-recover', 'application-publish'].includes(action))
-        throw new Error('application_managed_retired');
-      if (action === 'application-prepare') {
-        providers.delete(id);
-        applications.prepareHandoff(id, ApplicationSelectionSchema.parse(input));
-        return taskDto(id);
-      }
-      if (action === 'application-open') {
-        await applications.open(id, z.string().parse(input.origin));
-        return taskDto(id);
-      }
-      if (action === 'application-checkpoint') return applications.checkpoint(id, ApplicationCheckpointSchema.parse(input));
-      if (action === 'application-report') {
-        applications.report(id, ApplicationReportSchema.parse(input));
-        return taskDto(id);
-      }
-      if (action === 'application-identity') {
-        const request = ApplicationIdentitySchema.parse(input);
-        applications.context(id, request.attempt_id);
-        const provider = providersForTask(id).find(p => p.product === request.product);
-        if (!provider?.resolveApplicationIdentity || provider.capabilities().currentIdentity === 'unavailable')
-          throw new Error('application_identity_unavailable');
-        const identity = await provider.resolveApplicationIdentity({ receipt: request.receipt });
-        return applications.registerIdentity(id, request.attempt_id, identity);
-      }
-      if (action === 'application-cancel') {
-        applications.cancel(id);
-        return taskDto(id);
-      }
-      if (action === 'application-mode') {
-        z.strictObject({ mode: z.literal('agent_applied') }).parse(input);
-        if (jobs.has(id) || running(id).length) throw new Error('workflow_run_active');
-        convertTaskToAgentApplication(store, id, setup.preparation);
-        providers.delete(id);
-        return taskDto(id);
-      }
-
-      if (action === 'prepare' || action === 'apply') {
-        if (action === 'apply' && setup.workflow.application) throw new Error('application_required');
-        if (applicationRequired(store, id)) {
-          if (action === 'apply') throw new Error('application_required');
-          assertSharedTask(store, id, undefined, true);
-          return taskDto(id);
-        }
-        const profile = profileFor(record.profile_id);
-        sharedSetups.assertProfile(profile);
-        if (store.get('SELECT id FROM tasks WHERE id=?', [id])) assertSharedTask(store, id);
-        if (profile.shared_binding) {
-          const pins = sharedSetups.journalTask(profile, id, true)!;
-          store.execute('INSERT OR IGNORE INTO shared_configuration_tasks(task_id,project_id,settings_hash,setup_hash) VALUES(?,?,?,?)', [
-            id,
-            setup.workflow.assignment.project_id,
-            pins.settingsHash,
-            pins.setupHash
-          ]);
-        }
-        try {
-          prepareExternalTask(store, setup, action === 'apply');
-          assertSharedTask(store, id, undefined, !!setup.workflow.application);
-          if (profile.session_binding) registerBindingCollectionControl(store, id);
-          metadata.setReason(id, null);
-        } catch (error) {
-          metadata.setReason(id, localWebError(error));
-          throw error;
-        }
-      } else if (
-        profileFor(record.profile_id).shared_binding &&
-        !['pause', 'release', 'finish-success', 'finish-failed', 'finish-abandoned', 'rework', 'recover', 'revoke-collection'].includes(action)
-      ) {
-        assertSharedTask(store, id);
-        return guardedAction();
-      } else return guardedAction();
-      return taskDto(id);
-      async function guardedAction() {
-        if (action === 'ticket') {
-          const ticket = issueExternalStartTicket(store, setup);
-          metadata.setStartup(id, { ticket_id: ticket.ticket_id, start_command: ticket.start_command });
-        } else if (action === 'connect') {
-          const stored = metadata.source(input.source_handle, id);
-          if (!stored || record.startup === null) throw new Error('external_ticket_required');
-          const source = JSON.parse(stored.payload) as Source;
-          const execution = executionFor(record, 'link', source);
-          const startup = JSON.parse(record.startup) as { ticket_id: string };
-          await connectExternalTask(store, setup, execution, startup.ticket_id, options.adapterFactory?.(store, execution));
-          metadata.connectSource(id, source);
-        } else if (action === 'session-connect') {
-          const product = z.enum(['codex', 'claude_code']).parse(input.product) satisfies BindingProduct;
-          const receipt = z.uuid().parse(input.receipt);
-          const previous = jobs.get(id);
-          if (previous) {
-            previous.pauseRequested = true;
-            await previous.promise;
-          }
-          let connection;
-          try {
-            connection = await bindings.connect(id, product, { receipt });
-          } catch (error) {
-            metadata.setReason(id, localWebError(error));
-            // A rejected new receipt must not silently stop a previously authorized
-            // live family. Failed baseline acquisition already pauses its scope.
-            if (store.get<{ state: string }>('SELECT state FROM tasks WHERE id=?', [id])?.state === 'active' && bindings.status(id).roots > 0)
-              beginBindingObservation(id);
-            throw error;
-          }
-          metadata.setReason(id, null);
-          beginBindingObservation(id);
-          return {
-            ...taskDto(id),
-            connection: {
-              ...connection,
-              project_id: life.task(id).project_id,
-              task_id: id,
-              assigned_variant_id: externalTaskState(store, id).assigned_variant_id,
-              identity_basis: 'native_metadata_receipt',
-              evidence: 'server_verified_identity_source_and_relations',
-              collection_active: true,
-              cost_coverage: 'partial'
-            }
-          };
-        } else if (action === 'observe') {
-          if (jobs.has(id) || running(id).length) throw new Error('workflow_run_active');
-          if (bindings.status(id).roots > 0) throw new Error('binding_identity_unavailable');
-          const source = sourceFor(record);
-          if (!source) throw new Error('external_connection_required');
-          const execution = executionFor(record, 'collect', source);
-          // Foreground core collection runs asynchronously; the mutation queue remains free for pause.
-          const job: Job = { promise: Promise.resolve(), pauseRequested: false };
-          jobs.set(id, job);
-          job.promise = collectExternalTask(store, setup, execution, options.adapterFactory?.(store, execution))
-            .then(() => {
-              metadata.setReason(id, null);
-            })
-            .catch((error: unknown) => {
-              const reason =
-                job.pauseRequested && error instanceof Error && error.message === 'workflow_scope_revoked' ? 'measurement_paused' : localWebError(error);
-              metadata.setReason(id, reason);
-            })
-            .finally(() => {
-              jobs.delete(id);
-            });
-        } else if (action === 'pause') {
-          const job = jobs.get(id);
-          if (job) job.pauseRequested = true;
-          if (bindings.status(id).roots > 0) bindings.pause(id);
-          else pauseExternalTask(store, id);
-          await job?.promise;
-        } else if (action === 'revoke-collection') {
-          if (options.qualificationLease) throw new Error('binding_qualification_control_only');
-          const job = jobs.get(id);
-          if (job) job.pauseRequested = true;
-          revokeBindingCollectionControl(store, id);
-          if (bindings.status(id).roots > 0) bindings.pause(id);
-          await job?.promise;
-        } else if (action === 'resume-binding') {
-          await bindings.resume(id);
-          beginBindingObservation(id);
-        } else if (action === 'emergency-stop') {
-          if (!options.qualificationLease) throw new Error('owned_native_inactive');
-          revokeBindingQualification(options.qualificationLease);
-          const job = jobs.get(id);
-          if (job) job.pauseRequested = true;
-          bindings.pause(id);
-          await job?.promise;
-        } else if (action === 'recover') {
-          if (jobs.has(id)) throw new Error('workflow_run_active');
-          for (const run of running(id)) recoverCodexWorkflow(store, run.id);
-          pauseExternalTask(store, id);
-        } else if (action === 'release') releaseExternalWorkflow(store, id, input.external_session_stopped === true);
-        else if (action === 'rework' || action.startsWith('finish-')) {
-          const choice =
-            action === 'rework'
-              ? 'rework'
-              : action === 'finish-success'
-                ? 'success'
-                : action === 'finish-failed'
-                  ? 'failed'
-                  : action === 'finish-abandoned'
-                    ? 'aborted'
-                    : null;
-          if (choice === null) throw new Error('invalid_ui_request');
-          if (action.startsWith('finish-') && bindingCollectionControl(store, id) && !options.qualificationLease && bindings.status(id).roots > 0) {
-            const job = jobs.get(id);
-            if (job) job.pauseRequested = true;
-            bindings.pause(id);
-            await job?.promise;
-          }
-          if (jobs.has(id) || bindingQualificationOwnerLive(options.qualificationLease)) throw new Error('workflow_run_active');
-          recordExternalTaskOutcome(
-            store,
-            id,
-            choice,
-            choice === 'success' ? z.array(identifier).parse(input.criteria ?? setup.workflow.assignment.metadata.criterion_ids) : []
-          );
-        } else throw new Error('invalid_ui_request');
-        return taskDto(id);
-      }
-    },
-    async refreshPrices() {
-      if (options.nativePilot) throw new Error('binding_pilot_control_only');
-      if (options.qualificationLease) throw new Error('binding_qualification_control_only');
-      return refreshOnlinePriceCatalog(store);
-    },
+    createTask: createLocalWebTaskCreation(options, { profileFor, taskDto, sharedSetups, metadata, projectBaseline }),
+    ...createLocalWebSetupHandlers(options, {
+      picker,
+      row,
+      metadata,
+      saveProfiles,
+      sharedSetups,
+      setupReviews,
+      readLocalWebSetupDocument,
+      readLocalWebManifest
+    }),
+    ...createLocalWebApplicationHandlers(row, applications),
+    taskAction: createLocalWebTaskActions({
+      store,
+      metadata,
+      options,
+      life,
+      jobs,
+      bindings,
+      ordinaryBindings,
+      applications,
+      providers,
+      providersForTask,
+      sharedSetups,
+      row,
+      setupFor,
+      profileFor,
+      sourceFor,
+      executionFor,
+      running,
+      beginBindingObservation,
+      taskDto
+    }),
     async close() {
       applications.close();
       if (options.qualificationLease) revokeBindingQualification(options.qualificationLease);
