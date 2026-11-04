@@ -1,7 +1,12 @@
 import type { SharedSetupImportResult } from './local-web-shared.js';
 import { isLocalWebTaskErrorCode } from './local-web-task-errors.js';
 import type { SetupReviewResult, SetupSaveResult } from './local-web-setup-review.js';
-import { ApplicationSelectionSchema, ApplicationCheckpointSchema, ApplicationReportSchema, ApplicationIdentitySchema } from './harness-application-contract.js';
+import {
+  ApplicationSelectionSchema,
+  ApplicationCheckpointSchema,
+  ApplicationReportSchema,
+  ApplicationIdentitySchema
+} from './harness/harness-application-contract.js';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { readFileSync, realpathSync } from 'node:fs';
 import { join, sep } from 'node:path';

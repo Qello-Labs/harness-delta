@@ -15,7 +15,7 @@ import {
   readRepositoryFile,
   readStrictJson,
   checkOriginalTools
-} from './harness-config.js';
+} from './harness/harness-config.js';
 import { checkSharedBinding } from './local-web-shared-guard.js';
 import { readPriceTable } from './pricing.js';
 import { withLiveWebMetadataScope } from './local-web-metadata.js';

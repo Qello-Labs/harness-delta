@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { IdSchema } from './contracts.js';
+import { IdSchema } from '../contracts.js';
 import { ApplicationWorkspaceSchema } from './harness-application-workspace.js';
 export const applicationHash = z.string().regex(/^[a-f0-9]{64}$/);
 export const ApplicationSelectionSchema = z.strictObject({

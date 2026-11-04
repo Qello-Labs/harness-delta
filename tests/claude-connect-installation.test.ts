@@ -17,7 +17,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { afterEach, expect, test, vi } from 'vitest';
-import { hashBytes } from '../src/harness-config.js';
+import { hashBytes } from '../src/harness/harness-config.js';
 import {
   installClaudeConnectInstallation as install,
   previewClaudeConnectInstallation as preview,

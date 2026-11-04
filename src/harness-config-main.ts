@@ -2,7 +2,7 @@
 import { Command } from 'commander';
 import { fileURLToPath } from 'node:url';
 import { resolve, dirname, basename } from 'node:path';
-import { readStrictJson, readRepositoryFile, registerHarness, generateComparison } from './harness-config.js';
+import { readStrictJson, readRepositoryFile, registerHarness, generateComparison } from './harness/harness-config.js';
 /** Standalone authoring has no measurement DB or native-product dependency. */
 export function harnessConfigMain(argv: string[]): number {
   const program = new Command().name('hm-harness-config');

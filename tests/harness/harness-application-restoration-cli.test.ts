@@ -2,8 +2,8 @@ import { spawnSync } from 'node:child_process';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import { main } from '../src/cli.js';
-import { apply, begin, bytes, fixture, git, restore } from './helpers/harness-application-restoration-fixture.js';
+import { main } from '../../src/cli.js';
+import { apply, begin, bytes, fixture, git, restore } from '../helpers/harness-application-restoration-fixture.js';
 
 // Keep subprocess deadlines observable while complete application fixtures run.
 vi.setConfig({ testTimeout: 30000 });

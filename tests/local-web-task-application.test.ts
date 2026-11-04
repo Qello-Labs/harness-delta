@@ -8,7 +8,7 @@ import { setupReviewFixture } from './helpers/setup-review-fixture.js';
 import { localWebFixture } from './helpers/local-web-fixture.js';
 import { applicationRequired } from '../src/harness-application.js';
 import { ExternalTaskSetupSchema, prepareExternalTask } from '../src/external-session-service.js';
-import { hashBytes } from '../src/harness-config.js';
+import { hashBytes } from '../src/harness/harness-config.js';
 import { createLocalWebServer } from '../src/local-web-server.js';
 import { assertSharedTask } from '../src/local-web-shared-guard.js';
 

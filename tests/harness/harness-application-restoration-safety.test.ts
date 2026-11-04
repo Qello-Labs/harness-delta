@@ -2,11 +2,11 @@ import { execFileSync } from 'node:child_process';
 import { chmodSync, existsSync, linkSync, readFileSync, rmdirSync, statSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import * as restoration from '../src/harness-application-restoration.js';
-import { ApplicationCoordinator } from '../src/harness-application.js';
-import { canonicalJson, hashBytes } from '../src/harness-config.js';
-import { localWebError } from '../src/local-web-server.js';
-import { apply, begin, bytes, fixture, git, restore } from './helpers/harness-application-restoration-fixture.js';
+import * as restoration from '../../src/harness/harness-application-restoration.js';
+import { ApplicationCoordinator } from '../../src/harness-application.js';
+import { canonicalJson, hashBytes } from '../../src/harness/harness-config.js';
+import { localWebError } from '../../src/local-web-server.js';
+import { apply, begin, bytes, fixture, git, restore } from '../helpers/harness-application-restoration-fixture.js';
 
 // Keep subprocess deadlines observable while complete application fixtures run.
 vi.setConfig({ testTimeout: 30000 });

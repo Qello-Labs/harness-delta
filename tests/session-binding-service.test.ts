@@ -1,6 +1,6 @@
 import { writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { hashBytes, registerHarness } from '../src/harness-config.js';
+import { hashBytes, registerHarness } from '../src/harness/harness-config.js';
 import { ApplicationCoordinator, requireApplication } from '../src/harness-application.js';
 import { randomUUID } from 'node:crypto';
 import { afterEach, expect, test, vi } from 'vitest';

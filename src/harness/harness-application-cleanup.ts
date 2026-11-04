@@ -1,7 +1,7 @@
 import { lstatSync, realpathSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import type { Store } from './store.js';
-import { IdSchema } from './contracts.js';
+import type { Store } from '../store.js';
+import { IdSchema } from '../contracts.js';
 function directoryIdentity(path: string) {
   const stat = lstatSync(path, { bigint: true });
   if (!stat.isDirectory() || stat.isSymbolicLink() || realpathSync(path) !== path) throw new Error('application_cleanup_pending');

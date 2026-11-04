@@ -5,7 +5,7 @@ import { expect, test, vi } from 'vitest';
 import { z } from 'zod';
 import { localWebFixture } from './helpers/local-web-fixture.js';
 import { ExternalTaskSetupSchema, prepareExternalTask } from '../src/external-session-service.js';
-import { registerHarness, hashBytes } from '../src/harness-config.js';
+import { registerHarness, hashBytes } from '../src/harness/harness-config.js';
 import { ApplicationCoordinator, requireApplication } from '../src/harness-application.js';
 import { CodexSessionBindingProvider } from '../src/session-binding-codex.js';
 import { codexHumanPilotProfileId, codexRootHumanPilotProfileId, issueCodexHumanPilotScope } from '../src/session-binding-human-pilot.js';

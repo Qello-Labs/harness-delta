@@ -3,7 +3,7 @@ import { cpSync, lstatSync, mkdtempSync, mkdirSync, renameSync, realpathSync, rm
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, expect, test, vi } from 'vitest';
-import * as workspace from '../src/harness-application-workspace.js';
+import * as workspace from '../../src/harness/harness-application-workspace.js';
 vi.mock('node:child_process', { spy: true });
 const realExecFileSync = (await vi.importActual<typeof import('node:child_process')>('node:child_process')).execFileSync;
 const roots: string[] = [];

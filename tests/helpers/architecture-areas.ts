@@ -11,7 +11,7 @@ const areas: readonly (readonly [string, RegExp])[] = [
     'qualification',
     /^src\/(codex-qualification|codex-session-binding-qualification|codex-binding-qualification-versions|codex-workflow-qualification|claude-native-probe|claude-probe-|claude-minimal-run|claude-trace-candidate|binding-readiness-probe|codex-failure-diagnostics|external-session-claude-candidate)/
   ],
-  ['harness', /^src\/harness-/],
+  ['harness', /^src\/(?:harness\/)?harness-/],
   ['workflow', /^src\/config-confirmation-write\.ts$/],
   ['comparison', /^src\/(comparison|allocation|config-confirmation|reports\/|exchange\/)/],
   ['pricing', /^src\/(price|pricing|cost-coverage|catalog-cost|observed-cost|request-price|report-source-trust|metrics)/],

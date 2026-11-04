@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { closeSync, constants, fstatSync, openSync, readSync, realpathSync, mkdirSync, lstatSync } from 'node:fs';
 import { join, sep } from 'node:path';
 import { TimestampSchema } from './contracts.js';
-import { sha256 } from './harness-managed-file.js';
+import { sha256 } from './harness/harness-managed-file.js';
 import { ClaudeProbeCoordinator } from './claude-probe-coordinator.js';
 import { startClaudeProbeGateway, type ClaudeProbeGatewayCoordinator } from './claude-probe-gateway.js';
 import { recordObservationGap } from './runtime-history.js';

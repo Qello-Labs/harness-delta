@@ -10,7 +10,7 @@ import Database from 'better-sqlite3';
 import { expect, test, vi } from 'vitest';
 import { localWebFixture } from './helpers/local-web-fixture.js';
 import { createLocalWebDomain } from '../src/local-web-domain.js';
-import { registerHarness, generateComparison } from '../src/harness-config.js';
+import { registerHarness, generateComparison } from '../src/harness/harness-config.js';
 import { comparisonVariant } from '../src/protocol-store.js';
 import { Lifecycle } from '../src/lifecycle.js';
 import { Deletion } from '../src/deletion.js';

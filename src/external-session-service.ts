@@ -8,7 +8,7 @@ import { createHash } from 'node:crypto';
 import { stopCodexWorkflow } from './codex-workflow-journal.js';
 import { IdSchema, TimestampSchema } from './contracts.js';
 import { Lifecycle, utcNow, type Clock } from './lifecycle.js';
-import { ExternalPreparationSpecSchema, managedHarnessContent, sha256 } from './harness-managed-file.js';
+import { ExternalPreparationSpecSchema, managedHarnessContent, sha256 } from './harness/harness-managed-file.js';
 import { assertExternalPrepared, prepareExternalWorkflow, runExternalWorkflow, externalWorkflowState } from './external-session-workflow.js';
 import { externalContract, registerExternalContract, bindingCollectionControl } from './external-session-contract.js';
 import { externalInstructionFragment, type ExternalContextEvidence } from './external-session-context.js';

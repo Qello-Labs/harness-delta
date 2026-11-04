@@ -1,4 +1,4 @@
-import { queueApplicationCleanup, flushApplicationCleanup, assertApplicationCleanupDone } from './harness-application-cleanup.js';
+import { queueApplicationCleanup, flushApplicationCleanup, assertApplicationCleanupDone } from './harness/harness-application-cleanup.js';
 import { deleteMappedProject } from './exchange/invalidation.js';
 import { recordSourceTaskDeletion, recordSourceProjectDeletion } from './exchange/deletion.js';
 import { z } from 'zod';

@@ -1,7 +1,12 @@
 import type { ChildReadinessObservation } from './binding-child-readiness.js';
 import { appendFamilyDiagnostic, takeFamilyDiagnostic } from './binding-family-diagnostics.js';
-import { ApplicationSelectionSchema, ApplicationCheckpointSchema, ApplicationReportSchema, ApplicationIdentitySchema } from './harness-application-contract.js';
-import { getApplicationLaunchCapability } from './harness-application-launch.js';
+import {
+  ApplicationSelectionSchema,
+  ApplicationCheckpointSchema,
+  ApplicationReportSchema,
+  ApplicationIdentitySchema
+} from './harness/harness-application-contract.js';
+import { getApplicationLaunchCapability } from './harness/harness-application-launch.js';
 import { ApplicationCoordinator, applicationRequired, effectiveTaskWorkspace } from './harness-application.js';
 
 import { assertSharedTask } from './local-web-shared-guard.js';

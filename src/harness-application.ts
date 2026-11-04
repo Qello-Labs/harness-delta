@@ -5,9 +5,9 @@ import { lstatSync, realpathSync } from 'node:fs';
 import { z } from 'zod';
 import type { Store } from './store.js';
 import { IdSchema } from './contracts.js';
-import { canonicalJson, hashBytes, readHarness, readRepositoryFile, readStrictJson } from './harness-config.js';
-import { assertApplicationWorkspace, inspectApplicationWorkspace } from './harness-application-workspace.js';
-import { applicationPath, durablePrivateBytes, optionalApplicationBytes, outputDigest } from './harness-application-files.js';
+import { canonicalJson, hashBytes, readHarness, readRepositoryFile, readStrictJson } from './harness/harness-config.js';
+import { assertApplicationWorkspace, inspectApplicationWorkspace } from './harness/harness-application-workspace.js';
+import { applicationPath, durablePrivateBytes, optionalApplicationBytes, outputDigest } from './harness/harness-application-files.js';
 import {
   ApplicationContextSchema,
   ApplicationSelectionSchema,
@@ -15,10 +15,10 @@ import {
   ApplicationReportSchema,
   applicationHash,
   type ApplicationSelection
-} from './harness-application-contract.js';
-import { getApplicationLaunchCapability, openApplicationSession, type LaunchEnvironment } from './harness-application-launch.js';
+} from './harness/harness-application-contract.js';
+import { getApplicationLaunchCapability, openApplicationSession, type LaunchEnvironment } from './harness/harness-application-launch.js';
 import type { VerifiedSessionIdentity } from './session-binding-contract.js';
-import { checkApplicationIndex, restorationPreview, restoreApplicationFile, type RestorationFile } from './harness-application-restoration.js';
+import { checkApplicationIndex, restorationPreview, restoreApplicationFile, type RestorationFile } from './harness/harness-application-restoration.js';
 import { implementationPath, packagePath } from './package-paths.js';
 const procedureSchema = z.strictObject({
   origin: z.string(),

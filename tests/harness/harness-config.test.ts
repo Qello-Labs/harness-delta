@@ -11,7 +11,7 @@ import {
   readStrictJson,
   checkOriginalTools,
   hashBytes
-} from '../src/harness-config.js';
+} from '../../src/harness/harness-config.js';
 const roots: string[] = [];
 function fixture() {
   const root = mkdtempSync(join(tmpdir(), 'harness-config-synthetic-'));

@@ -3,7 +3,7 @@ import { mkdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { prepareExternalTask } from '../../src/external-session-service.js';
 import { ApplicationCoordinator, requireApplication } from '../../src/harness-application.js';
-import { hashBytes, registerHarness } from '../../src/harness-config.js';
+import { hashBytes, registerHarness } from '../../src/harness/harness-config.js';
 import { localWebFixture } from './local-web-fixture.js';
 
 export function git(root: string, args: string[], extra: NodeJS.ProcessEnv = {}) {

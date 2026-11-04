@@ -3,11 +3,11 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import Database from 'better-sqlite3';
-import { localWebFixture } from './helpers/local-web-fixture.js';
-import { registerHarness, generateComparison } from '../src/harness-config.js';
-import { comparisonVariant } from '../src/protocol-store.js';
-import { createLocalWebDomain } from '../src/local-web-domain.js';
-import { createLocalWebServer } from '../src/local-web-server.js';
+import { localWebFixture } from '../helpers/local-web-fixture.js';
+import { registerHarness, generateComparison } from '../../src/harness/harness-config.js';
+import { comparisonVariant } from '../../src/protocol-store.js';
+import { createLocalWebDomain } from '../../src/local-web-domain.js';
+import { createLocalWebServer } from '../../src/local-web-server.js';
 
 test('UI HTTP workflow imports a portable pair, explicitly binds it and persists one inactive task', async () => {
   const f = localWebFixture();

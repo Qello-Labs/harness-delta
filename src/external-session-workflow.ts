@@ -1,6 +1,6 @@
 import { applicationRequired, requireApplication, assertAppliedHarness, applicationEvidence } from './harness-application.js';
 import { relative } from 'node:path';
-import { readRepositoryFile, hashBytes, readHarness } from './harness-config.js';
+import { readRepositoryFile, hashBytes, readHarness } from './harness/harness-config.js';
 import { assertSharedTask, configurationIntegrityFailed } from './local-web-shared-guard.js';
 import { randomUUID } from 'node:crypto';
 import { AssignedWorkflowInputSchema, prepareAssignedWorkflow, runAssignedWorkflow, workflowTaskStatus, type WorkflowAdapter } from './task-workflow.js';
@@ -18,7 +18,7 @@ import {
   sha256,
   verifyCommonArtifacts,
   type ExternalPreparationSpec
-} from './harness-managed-file.js';
+} from './harness/harness-managed-file.js';
 import type { Store } from './store.js';
 import { externalContract } from './external-session-contract.js';
 import { codexHumanPilotProfileId, isHumanPilotProtocol } from './session-binding-human-pilot.js';

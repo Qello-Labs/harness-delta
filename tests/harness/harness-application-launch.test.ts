@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { buildApplicationLaunch, getApplicationLaunchCapability, openApplicationSession } from '../src/harness-application-launch.js';
+import { buildApplicationLaunch, getApplicationLaunchCapability, openApplicationSession } from '../../src/harness/harness-application-launch.js';
 const context = { workspace: "/tmp/synthetic path's repo", product: 'codex' as const, prompt: "literal $(touch nope) `echo nope` ' context" };
 test('interactive commands preserve literal context and workspace, with native permissions', () => {
   const plan = buildApplicationLaunch(context, '/bin/synthetic-codex');

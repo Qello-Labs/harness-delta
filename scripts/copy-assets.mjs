@@ -20,6 +20,6 @@ for (const name of ['app-server','approvals','budget','codex','confinement','exe
 }
 await rm(new URL('../dist/native/',import.meta.url),{recursive:true,force:true});
 
-for (const name of ["instrumented-codex-accounting","instrumented-codex-build-identity","instrumented-codex-conformance","instrumented-codex-contracts","instrumented-codex-cost","instrumented-codex-descriptor","instrumented-codex-launcher","instrumented-codex-qualification","instrumented-codex-usage"]) {
+for (const name of ["harness-application-cleanup","harness-application-contract","harness-application-files","harness-application-launch","harness-application-restoration","harness-application-workspace","harness-config","harness-managed-file","instrumented-codex-accounting","instrumented-codex-build-identity","instrumented-codex-conformance","instrumented-codex-contracts","instrumented-codex-cost","instrumented-codex-descriptor","instrumented-codex-launcher","instrumented-codex-qualification","instrumented-codex-usage"]) {
  for (const extension of ['js','js.map','d.ts','d.ts.map']) await rm(new URL(`../dist/${name}.${extension}`,import.meta.url),{force:true});
 }
