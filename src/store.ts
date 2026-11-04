@@ -4,6 +4,7 @@ import type { Event } from './contracts.js';
 import { EventSchema, TimestampSchema } from './contracts.js';
 import { assertCompatibilityAllowed, sessionCompatibility } from './source-compatibility.js';
 import { flushWebMetadataCleanup } from './local-web-metadata.js';
+import { implementationPath } from './package-paths.js';
 
 type EventRow = Omit<Event, 'payload'> & { payload: string };
 
@@ -26,7 +27,7 @@ export class Store {
       this.db.pragma('busy_timeout = 5000');
       this.db.transaction(() => {
         for (let index = version; index < migrations.length; index++) {
-          this.db.exec(readFileSync(new URL(`./migrations/${migrations[index]}`, import.meta.url), 'utf8'));
+          this.db.exec(readFileSync(implementationPath(`migrations/${migrations[index]}`), 'utf8'));
           this.db.pragma(`user_version = ${index + 1}`);
         }
       })();

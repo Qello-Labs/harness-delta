@@ -1,6 +1,6 @@
 const areas: readonly (readonly [string, RegExp])[] = [
   ['ops', /^src\/(deletion|readiness|readiness-store)\.ts$/],
-  ['core', /^src\/(comparison-contracts|report-source-trust-contracts|external-session-contract|session-binding-contract|source-errors|source-compatibility|runtime-history|coverage)\.ts$/],
+  ['core', /^src\/(comparison-contracts|report-source-trust-contracts|external-session-contract|session-binding-contract|source-errors|source-compatibility|runtime-history|coverage|package-paths)\.ts$/],
   ['entry', /^src\/(cli|cli-errors|index|.*-cli|.*-main)\.ts$/],
   ['web', /^src\/local-web-/],
   ['instrumented', /^src\/instrumented-codex-/],

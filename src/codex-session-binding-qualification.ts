@@ -21,6 +21,7 @@ import { assertCompatibilityAllowed, resolveSourceCompatibility, sessionCompatib
 import { getCodexBindingAdmission, isAdmittedCodexBindingProtocol } from './codex-binding-admission.js';
 import { setTimeout as delay } from 'node:timers/promises';
 import { TimestampSchema } from './contracts.js';
+import { packagePath } from './package-paths.js';
 
 const hash=(value:string|Buffer)=>createHash('sha256').update(value).digest('hex');
 const path=z.string().startsWith('/').max(4096).refine(v=>!/[\0\r\n]/.test(v));
@@ -129,7 +130,7 @@ function verify(i:Intent,fixture?:BindingQualificationFixture){
  if((nodeMajor!==24&&(nodeMajor!==26||i.validation_kind!=='synthetic'))||realpathSync(i.node)!==realpathSync(process.execPath)||
   i.node_sha256!==hash(privateBytes(i.node,256*1024*1024))||i.binary_sha256!==hash(binaryBytes(i.binary,i.product_version,!!fixture))||
   i.python_sha256!==hash(privateBytes(i.python,256*1024*1024))||i.python!==OwnedCliInvocation.pythonExecutable()||
-  i.worker!==realpathSync(fileURLToPath(new URL('../scripts/owned-cli-pty.py',import.meta.url)))||i.worker_sha256!==hash(privateBytes(i.worker,65536))||
+  i.worker!==realpathSync(packagePath('scripts','owned-cli-pty.py'))||i.worker_sha256!==hash(privateBytes(i.worker,65536))||
   i.recorder!==join(i.directory,'recorder.mjs')||i.recorder_sha256!==hash(privateBytes(i.recorder,65536))||
   i.package_digest!==packageDigest(join(i.project,'.agents/skills/harness-connect'))||
   i.wrapper_sha256!==hash(privateBytes(i.wrapper,4096))||i.implementation_digest!==implementationDigest())throw new Error('binding_qualification_drift');
@@ -165,15 +166,15 @@ export async function prepareCodexSessionBindingQualification(directory:string,i
  const home=realpathSync(input.codexHome);realpathSync(join(home,'sessions'));
  mkdirSync(directory,{mode:0o700});const project=join(directory,'project');mkdirSync(project,{mode:0o700});
  const receipts=join(directory,'receipts');mkdirSync(receipts,{mode:0o700});
- const packageSource=fileURLToPath(new URL('../skills/harness-connect',import.meta.url));
+ const packageSource=packagePath('skills','harness-connect');
  mkdirSync(join(project,'.agents','skills'),{recursive:true});cpSync(packageSource,join(project,'.agents','skills','harness-connect'),{recursive:true,errorOnExist:true,force:false});
  // An empty disposable fixture baseline, not a commit in the user's repository.
  const env=Object.fromEntries(Object.entries(process.env).filter(([key])=>!key.startsWith('GIT_')));
  execFileSync('git',['init','-q',project],{env});execFileSync('git',['-C',project,'-c','user.name=Qualification','-c','user.email=qualification@example.invalid','commit','--allow-empty','-qm','Qualification fixture baseline'],{env});
- const node=realpathSync(process.execPath);const python=OwnedCliInvocation.pythonExecutable();const worker=realpathSync(fileURLToPath(new URL('../scripts/owned-cli-pty.py',import.meta.url)));const wrapper=join(directory,'start-hook');
- const recorder=join(directory,'recorder.mjs');copyFileSync(fileURLToPath(new URL('../scripts/session-binding-codex-hook.mjs',import.meta.url)),recorder);
+ const node=realpathSync(process.execPath);const python=OwnedCliInvocation.pythonExecutable();const worker=realpathSync(packagePath('scripts','owned-cli-pty.py'));const wrapper=join(directory,'start-hook');
+ const recorder=join(directory,'recorder.mjs');copyFileSync(packagePath('scripts','session-binding-codex-hook.mjs'),recorder);
  const connector=networkQualification(productVersion)?join(directory,'connect-once.mjs'):null;
- if(connector){copyFileSync(fileURLToPath(new URL('../scripts/codex-binding-qualification-connect.mjs',import.meta.url)),connector);chmodSync(connector,0o600);}
+ if(connector){copyFileSync(packagePath('scripts','codex-binding-qualification-connect.mjs'),connector);chmodSync(connector,0o600);}
  writeFileSync(wrapper,`#!/bin/sh\nexec ${quote(node)} ${quote(recorder)} --receipt-directory ${quote(receipts)} --source-root ${quote(join(home,'sessions'))} --product-version ${quote(productVersion)}\n`,{flag:'wx',mode:0o700});
  const database=join(directory,'measurement.sqlite');writeFileSync(database,'',{flag:'wx',mode:0o600});const store=new Store(database);
  const metadata=join(directory,'ui.sqlite');let domain:ReturnType<typeof createLocalWebDomain>|undefined;
@@ -217,7 +218,7 @@ export async function serveCodexSessionBindingQualificationUiPreparation(file:st
    const dto=z.object({version:z.string(),actions:z.array(z.object({code:z.string(),enabled:z.boolean(),reason:z.string().nullable()}))}).passthrough().parse(ownedDomain.task(id));return{...dto,actions:dto.actions.map(action=>action.code==='apply'?action:{...action,enabled:false,reason:'binding_qualification_prepare_only'})};
   };
   const forbidden=()=>Promise.reject(new Error('binding_qualification_prepare_only'));
-  app=createLocalWebServer({origin:`http://127.0.0.1:${i.port}`,metadataFile:i.metadata,uiRoot:fileURLToPath(new URL('../dist/local-ui/',import.meta.url)),domain:{
+  app=createLocalWebServer({origin:`http://127.0.0.1:${i.port}`,metadataFile:i.metadata,uiRoot:packagePath('dist','local-ui'),domain:{
    metadataStore:store,async bootstrap(){const dto=z.object({tasks:z.array(z.object({id:z.string()}).passthrough())}).passthrough().parse(await ownedDomain.bootstrap());return{...dto,tasks:dto.tasks.map(t=>task(t.id))};},task,
    registerProject:forbidden,createTask:forbidden,refreshPrices:forbidden,chooseDirectory:forbidden,importSetup:forbidden,chooseSession:forbidden,
    async taskAction(id,action,input){if(id!==i.task_id||action!=='apply')throw new Error('binding_qualification_prepare_only');await ownedDomain.taskAction(id,action,input);return task(id);},
@@ -242,7 +243,7 @@ export async function serveCodexSessionBindingQualificationResults(file:string,f
   const permitted=new Set(['finish-success','finish-failed','finish-abandoned']);
   const task=(id:string)=>{if(id!==i.task_id)throw new Error('binding_qualification_scope_invalid');const dto=z.object({version:z.string(),actions:z.array(z.object({code:z.string(),enabled:z.boolean(),reason:z.string().nullable()}))}).passthrough().parse(owned.task(id));return{...dto,actions:dto.actions.map(a=>permitted.has(a.code)?a:{...a,enabled:false,reason:'binding_qualification_results_only'})};};
   const forbidden=()=>Promise.reject(new Error('binding_qualification_results_only'));
-  app=createLocalWebServer({origin:`http://127.0.0.1:${i.port}`,metadataFile:i.metadata,uiRoot:fileURLToPath(new URL('../dist/local-ui/',import.meta.url)),domain:{
+  app=createLocalWebServer({origin:`http://127.0.0.1:${i.port}`,metadataFile:i.metadata,uiRoot:packagePath('dist','local-ui'),domain:{
    metadataStore:store,async bootstrap(){const dto=z.object({tasks:z.array(z.object({id:z.string()}).passthrough())}).passthrough().parse(await owned.bootstrap());return{...dto,tasks:dto.tasks.map(t=>task(t.id))};},task,
    registerProject:forbidden,createTask:forbidden,refreshPrices:forbidden,chooseDirectory:forbidden,importSetup:forbidden,chooseSession:forbidden,
    async taskAction(id,action,input){if(id!==i.task_id||!permitted.has(action))throw new Error('binding_qualification_results_only');await owned.taskAction(id,action,input);return task(id);},
@@ -434,7 +435,7 @@ export async function executeCodexSessionBindingQualification(file:string,consen
     return scopedTask(id);
    },
   }:ownedDomain;
-  phase='receiver';diagnosticStage='receiver';app=createLocalWebServer({origin:`http://127.0.0.1:${i.port}`,domain:serverDomain,metadataFile:i.metadata,uiRoot:fileURLToPath(new URL('../dist/local-ui/',import.meta.url))});app.addHook('onClose',()=>{owner.stop();});await app.listen({host:'127.0.0.1',port:i.port});
+  phase='receiver';diagnosticStage='receiver';app=createLocalWebServer({origin:`http://127.0.0.1:${i.port}`,domain:serverDomain,metadataFile:i.metadata,uiRoot:packagePath('dist','local-ui')});app.addHook('onClose',()=>{owner.stop();});await app.listen({host:'127.0.0.1',port:i.port});
   phase='process';diagnosticStage='owner_run';const ownerDone=owner.run();owned=ownerDone;
   const monitor=(async()=>{while(owner.isAlive()||Date.now()<deadline&&native===undefined){
    if(owner.isAlive()){

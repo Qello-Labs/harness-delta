@@ -11,6 +11,7 @@ import { hashInstrumentedBinary } from './instrumented-codex-build-identity.js';
 import { InstrumentedBuildIdentitySchema, InstrumentedProducerProfileSchema } from './instrumented-codex-contracts.js';
 import { runInstrumentedCodexConformance } from './instrumented-codex-conformance.js';
 import { IdSchema } from './contracts.js';
+import { packagePath } from './package-paths.js';
 
 const upstreamCommit = '092d3acd6bec3e3a14bdc7e7a2810ab628ab759d';
 const target = 'aarch64-apple-darwin';
@@ -151,7 +152,7 @@ export function verifyInstrumentedWorkspaceLock(base: string, patched: string): 
 }
 
 async function patchBytes(): Promise<Buffer> {
-  return readFile(new URL('../native/instrumented-codex-01621.patch', import.meta.url));
+  return readFile(packagePath('native', 'instrumented-codex-01621.patch'));
 }
 
 async function currentPatch(checkout: string): Promise<Buffer> {

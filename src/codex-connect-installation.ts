@@ -2,11 +2,11 @@ import { randomUUID } from 'node:crypto';
 import { lstatSync, mkdirSync, readdirSync, realpathSync, renameSync, rmdirSync, unlinkSync } from 'node:fs';
 import type { Stats } from 'node:fs';
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import { getCodexBindingAdmission } from './codex-binding-admission.js';
 import { durablePrivateBytes } from './harness-application-files.js';
 import { hashBytes, readRepositoryFile, readStrictJson, safeRelativePath } from './harness-config.js';
+import { packagePath, packagedSkillPath } from './package-paths.js';
 
 const destination = '.agents/skills/harness-connect';
 const metadata = '.harness-delta/codex-connect';
@@ -247,15 +247,12 @@ function packageSource(root: string, options: CodexConnectInstallationOptions) {
     try { rootIdentity(sourceRoot, true); }
     catch (error) { if (missing(error)) fail('source_root_missing'); throw error; }
   }
-  const moduleDirectory = dirname(fileURLToPath(import.meta.url));
-  const sourceRoot = options.packageRoot ?? fileURLToPath(new URL(
-    basename(moduleDirectory) === 'src' ? '../skills/harness-connect/' : './skills/harness-connect/', import.meta.url,
-  ));
+  const sourceRoot = options.packageRoot ?? packagedSkillPath('harness-connect');
   const files = new Map([...tree(sourceRoot)].map(([path, bytes]) => [`${destination}/${path}`, bytes]));
   for (const path of ['SKILL.md', 'scripts/connect.mjs']) {
     if (!files.has(`${destination}/${path}`)) fail('package_invalid');
   }
-  const hookSource = options.hookSource ?? fileURLToPath(new URL('../scripts/session-binding-codex-hook.mjs', import.meta.url));
+  const hookSource = options.hookSource ?? packagePath('scripts', 'session-binding-codex-hook.mjs');
   rootIdentity(dirname(hookSource), true);
   const hookBytes = bytesAt(dirname(hookSource), basename(hookSource));
   if (!hookBytes) return fail('package_source_unavailable');

@@ -7,6 +7,7 @@ import { Command } from 'commander';
 import { Store } from './store.js';
 import { createLocalWebDomain, readLocalWebManifest, readLocalWebSetupDocument } from './local-web-domain.js';
 import { createLocalWebServer, localWebError } from './local-web-server.js';
+import { implementationPath } from './package-paths.js';
 
 interface WebCommandOptions { port: string; metadata?: string; setup?: string; setupBindingRevision?: string; pilotTask?: string; pilotObserve?: boolean; pilotUntilStop?: boolean; }
 export async function startLocalWeb(store: Store, options: WebCommandOptions) {
@@ -25,7 +26,7 @@ export async function startLocalWeb(store: Store, options: WebCommandOptions) {
   const domain = createLocalWebDomain({ store, metadataFile, profiles,
     ...(options.pilotTask ? {nativePilot:{taskId:options.pilotTask,observe:options.pilotObserve===true,untilExplicitStop:options.pilotUntilStop===true}} : {}) });
   const origin = `http://127.0.0.1:${port}`;
-  const app = createLocalWebServer({ origin, domain, metadataFile, uiRoot: fileURLToPath(new URL('./local-ui/', import.meta.url)) });
+  const app = createLocalWebServer({ origin, domain, metadataFile, uiRoot: implementationPath('local-ui') });
   try { await app.listen({ host: '127.0.0.1', port }); } catch (error) { await app.close(); throw error; }
   return { app, origin };
 }

@@ -154,7 +154,7 @@ test('compiled dist module resolves its own bundled skills without repository fa
   const dist = join(f.root, 'dist');
   const packaged = join(dist, 'skills', 'harness-connect');
   install(packaged);
-  for (const name of ['claude-connect-readiness', 'claude-connect-installation', 'harness-application-files', 'harness-config']) {
+  for (const name of ['claude-connect-readiness', 'claude-connect-installation', 'harness-application-files', 'harness-config', 'package-paths']) {
     const compiled = transpileModule(readFileSync(new URL(`../src/${name}.ts`, import.meta.url), 'utf8'), {
       compilerOptions: { module: ModuleKind.ESNext, target: ScriptTarget.ES2023 },
     }).outputText;

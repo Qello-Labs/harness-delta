@@ -1,8 +1,8 @@
 import { spawn, execFileSync } from 'node:child_process';
 import { realpathSync } from 'node:fs';
 import { isAbsolute } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
+import { packagePath } from './package-paths.js';
 
 export interface OwnedCliOptions {
  command:string;args:readonly string[];cwd:string;durationMs:number;stdio:'inherit'|'ignore';env?:NodeJS.ProcessEnv;
@@ -34,7 +34,7 @@ export class OwnedCliInvocation {
   if(this.options.stdio==='inherit'&&(!process.stdin.isTTY||!process.stdout.isTTY))throw new Error('owned_cli_terminal_required');
   if(signal?.aborted||this.stopController.signal.aborted)throw new Error('owned_cli_stopped_before_start');
   this.started=true;const o=this.options;const wasRaw=process.stdin.isRaw??false;
-  const worker=fileURLToPath(new URL('../scripts/owned-cli-pty.py',import.meta.url));
+  const worker=packagePath('scripts','owned-cli-pty.py');
   return await new Promise((resolve,reject)=>{
    const cfg={command:o.command,args:o.args,cwd:o.cwd,durationMs:o.durationMs,terminationMs:o.terminationMs??5000,termGraceMs:o.termGraceMs??2000,rows:process.stdout.rows??24,columns:process.stdout.columns??80};
    const child=spawn(o.pythonExecutable??OwnedCliInvocation.pythonExecutable(),[worker,JSON.stringify(cfg)],{shell:false,stdio:['pipe','pipe','pipe','pipe'],...(o.env?{env:o.env}:{})});

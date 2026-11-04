@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { lstatSync, mkdirSync, readdirSync, realpathSync, renameSync, rmdirSync, rmSync, unlinkSync } from 'node:fs';
-import { basename, dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join, resolve } from 'node:path';
 import { z } from 'zod';
 import { durablePrivateBytes } from './harness-application-files.js';
 import { hashBytes, readRepositoryFile, readStrictJson, safeRelativePath } from './harness-config.js';
+import { packagedSkillPath } from './package-paths.js';
 
 const destination = '.claude/skills/harness-connect';
 const metadata = '.harness-delta/claude-connect';
@@ -102,10 +102,7 @@ const bundleHash = (files: Map<string, Buffer>) => hashBytes(JSON.stringify(
   [...files].sort(([a], [b]) => a.localeCompare(b)).map(([path, bytes]) => [path, hashBytes(bytes)]),
 ));
 function packageSource(options: ClaudeConnectInstallationOptions): { files: Map<string, Buffer>; shipped: Map<string, Buffer> } {
-  const moduleDirectory = dirname(fileURLToPath(import.meta.url));
-  const sourceRoot = options.packageRoot ?? fileURLToPath(new URL(
-    basename(moduleDirectory) === 'src' ? '../skills/harness-connect/' : './skills/harness-connect/', import.meta.url,
-  ));
+  const sourceRoot = options.packageRoot ?? packagedSkillPath('harness-connect');
   rootIdentity(sourceRoot, true);
   const shipped = tree(sourceRoot, '', true);
   for (const path of ['SKILL.md', 'scripts/connect.mjs', 'scripts/claude-session-hook.mjs']) {

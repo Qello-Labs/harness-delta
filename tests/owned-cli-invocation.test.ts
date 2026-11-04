@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawn, execFileSync } from 'node:child_process';
@@ -6,6 +6,7 @@ import { Writable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import { EventEmitter, once } from 'node:events';
 import { expect, test } from 'vitest';
+import { ModuleKind, ScriptTarget, transpileModule } from 'typescript';
 import { OwnedCliInvocation } from '../src/owned-cli-invocation.js';
 
 test('owned CLI accepts a fifteen-minute duration and verifies immediate normal exit',async()=>{
@@ -61,7 +62,17 @@ test('inherited terminal forwards harmless manual input and restores its raw mod
  try{
   const marker=join(dir,'received.json'),payload=join(dir,'payload.mjs'),runner=join(dir,'runner.mjs');
   writeFileSync(payload,`import{writeFileSync}from'node:fs';process.stdin.setRawMode(true);let input='';const expiry=setTimeout(()=>process.exit(3),6000);process.stdin.on('data',b=>{input+=b.toString();if(input.includes('harmless-manual-input\\r')){writeFileSync(${JSON.stringify(marker)},JSON.stringify({input,stdin:process.stdin.isTTY,stdout:process.stdout.isTTY}));clearTimeout(expiry);process.exit(0);}});process.stdout.write('READY-FOR-MANUAL-INPUT\\n');`);
-  const source=fileURLToPath(new URL('../src/owned-cli-invocation.ts',import.meta.url));
+  const dist=join(dir,'dist');mkdirSync(dist);
+  writeFileSync(join(dir,'package.json'),JSON.stringify({type:'module'}));
+  symlinkSync(fileURLToPath(new URL('../node_modules',import.meta.url)),join(dir,'node_modules'),'dir');
+  symlinkSync(fileURLToPath(new URL('../scripts',import.meta.url)),join(dir,'scripts'),'dir');
+  for(const name of ['owned-cli-invocation','package-paths']){
+   const compiled=transpileModule(readFileSync(new URL(`../src/${name}.ts`,import.meta.url),'utf8'),{
+    compilerOptions:{module:ModuleKind.ESNext,target:ScriptTarget.ES2023},
+   }).outputText;
+   writeFileSync(join(dist,`${name}.js`),compiled);
+  }
+  const source=join(dist,'owned-cli-invocation.js');
   writeFileSync(runner,`import{OwnedCliInvocation}from${JSON.stringify(source)};const raw=process.stdin.isRaw??false;const result=await new OwnedCliInvocation({command:${JSON.stringify(realpathSync(process.execPath))},args:[${JSON.stringify(payload)}],cwd:${JSON.stringify(dir)},durationMs:4000,terminationMs:1500,termGraceMs:100,stdio:'inherit'}).run();console.log('OWNER-RESULT:'+JSON.stringify({...result,rawRestored:process.stdin.isRaw===raw}));`);
   const harness=`import os,pty,select,sys,time,signal,json
 pid,master=pty.fork()

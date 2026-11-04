@@ -5,6 +5,7 @@ import { IdSchema, ModelSchema, MonetaryAmountSchema, TimestampSchema } from './
 import { PriceTableSchema, type BillingComponent, type PriceTable, type UsageEvent, type RuntimeEvidence } from './flexible-contracts.js';
 import { verifiedRequestPromptTokens } from './request-price-evidence.js';
 import { canonicalJson } from './reports/comparison-snapshot.js';
+import { implementationPath, packagePath } from './package-paths.js';
 
 export const referencePolicyId = 'reference-standard-v1';
 export const catalogMatchingVersion = 'exact-catalog-v1';
@@ -62,8 +63,8 @@ export function parsePriceCatalog(input: unknown): PriceCatalog {
   return { ...parsed.data, models: parsed.data.models.map(row => ({ ...row, aliases: [...row.aliases].sort() })).sort((a, b) => `${a.product}:${a.model}` < `${b.product}:${b.model}` ? -1 : 1) };
 }
 export function bundledCatalogBytes(): Buffer {
-  const built = new URL('./catalogs/reference-catalog-2026-10-06.json', import.meta.url);
-  return readFileSync(existsSync(built) ? built : new URL('../config/prices/catalogs/reference-catalog-2026-10-06.json', import.meta.url));
+  const built = implementationPath('catalogs', 'reference-catalog-2026-10-06.json');
+  return readFileSync(existsSync(built) ? built : packagePath('config', 'prices', 'catalogs', 'reference-catalog-2026-10-06.json'));
 }
 export function bundledPriceCatalog(): PriceCatalog {
   return parsePriceCatalog(JSON.parse(bundledCatalogBytes().toString('utf8')) as unknown);

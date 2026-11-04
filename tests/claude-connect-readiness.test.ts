@@ -283,7 +283,7 @@ test('compiled dist module resolves its own bundled skills without repository fa
   writeFileSync(module, compiled);
   writeFileSync(join(dist, 'package.json'), JSON.stringify({ type: 'module' }));
   symlinkSync(fileURLToPath(new URL('../node_modules', import.meta.url)), join(f.root, 'node_modules'), 'dir');
-  for (const name of ['claude-connect-installation', 'harness-application-files', 'harness-config']) {
+  for (const name of ['claude-connect-installation', 'harness-application-files', 'harness-config', 'package-paths']) {
     const dependency = transpileModule(readFileSync(new URL(`../src/${name}.ts`, import.meta.url), 'utf8'), {
       compilerOptions: { module: ModuleKind.ESNext, target: ScriptTarget.ES2023 },
     }).outputText;

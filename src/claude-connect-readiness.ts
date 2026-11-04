@@ -1,7 +1,7 @@
 import { closeSync, constants, fstatSync, lstatSync, openSync, readSync } from 'node:fs';
-import { dirname, join, parse, resolve, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join, parse, resolve, sep } from 'node:path';
 import { statusClaudeConnectInstallation, type ClaudeConnectInstallationOptions } from './claude-connect-installation.js';
+import { packagedSkillPath } from './package-paths.js';
 
 export type ClaudeProjectSkillReadiness =
   | { readonly state: 'installed'; readonly reason: null; readonly install_command: null }
@@ -10,8 +10,7 @@ export type ClaudeProjectSkillReadiness =
 
 const expectedFiles = ['SKILL.md', 'scripts/connect.mjs', 'scripts/claude-session-hook.mjs', 'references/support.md'] as const;
 const maxFileBytes = 64 * 1024;
-const moduleDirectory = dirname(fileURLToPath(import.meta.url));
-const packagedSource = join(moduleDirectory, moduleDirectory.endsWith(`${sep}dist`) ? 'skills' : '../skills', 'harness-connect');
+const packagedSource = packagedSkillPath('harness-connect');
 
 class InspectionFailure extends Error {
   constructor(readonly state: 'conflict' | 'unavailable', readonly reason: string) {
