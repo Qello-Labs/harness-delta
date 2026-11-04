@@ -1,3 +1,5 @@
+import { createLocalWebTaskReader } from './local-web-task-read.js';
+import type { PrivateTask, Source } from './local-web-task-projection.js';
 import type { ChildReadinessObservation } from '../binding-child-readiness.js';
 import { appendFamilyDiagnostic, takeFamilyDiagnostic } from '../binding-family-diagnostics.js';
 import {
@@ -6,7 +8,6 @@ import {
   ApplicationReportSchema,
   ApplicationIdentitySchema
 } from '../harness/harness-application-contract.js';
-import { getApplicationLaunchCapability } from '../harness/harness-application-launch.js';
 import { ApplicationCoordinator, applicationRequired, effectiveTaskWorkspace } from '../harness-application.js';
 
 import { assertSharedTask } from './local-web-shared-guard.js';
@@ -16,8 +17,7 @@ import { createSharedSetupManager } from './local-web-shared.js';
 import { createSetupReviewManager } from './local-web-setup-review.js';
 import { localWebRecruitment } from './local-web-recruitment.js';
 import { convertTaskToAgentApplication } from './local-web-task-application.js';
-import { externalContract } from '../external-session-contract.js';
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { execFile, execFileSync } from 'node:child_process';
 import { constants, closeSync, fstatSync, mkdirSync, openSync, readFileSync, realpathSync } from 'node:fs';
 import { basename, dirname, resolve } from 'node:path';
@@ -27,7 +27,7 @@ import { z } from 'zod';
 import { Lifecycle } from '../lifecycle.js';
 import { Store } from '../store.js';
 import { registerWebMetadata, withLiveWebMetadataScope } from './local-web-metadata.js';
-import { comparisonProtocol, comparisonVariant, protocolRow } from '../core/protocol-store.js';
+import { comparisonProtocol, protocolRow } from '../core/protocol-store.js';
 import { CodexWorkflowExecutionSchema } from '../codex-workflow-adapter.js';
 import { recoverCodexWorkflow } from '../codex-workflow-journal.js';
 import {
@@ -40,8 +40,7 @@ import {
   collectExternalTask,
   pauseExternalTask,
   externalTaskState,
-  recordExternalTaskOutcome,
-  externalTaskResult
+  recordExternalTaskOutcome
 } from '../external-session-service.js';
 import type { ExternalTaskSetup } from '../external-session-service.js';
 import type { WorkflowAdapter } from '../task-workflow.js';
@@ -56,19 +55,8 @@ import { resolveSourceCompatibility, effectiveSourceCompatibility } from '../sou
 import { functionalWorkflowEligible, comparisonReadiness } from '../readiness-store.js';
 import { parseProtocol, parseTaskMetadata } from '../flexible-contracts.js';
 import type { BindingQualificationLease } from '../session-binding-qualification-lease.js';
-import {
-  assertBindingQualification,
-  bindingQualificationOwnerLive,
-  revokeBindingQualification,
-  noteQualificationCollectorError
-} from '../session-binding-qualification-lease.js';
-import {
-  issueCodexHumanPilotScope,
-  assertHumanPilotScope,
-  isHumanPilotProtocol,
-  codexRootHumanPilotProfileId,
-  type HumanPilotScope
-} from '../session-binding-human-pilot.js';
+import { bindingQualificationOwnerLive, revokeBindingQualification, noteQualificationCollectorError } from '../session-binding-qualification-lease.js';
+import { issueCodexHumanPilotScope, isHumanPilotProtocol, codexRootHumanPilotProfileId, type HumanPilotScope } from '../session-binding-human-pilot.js';
 import type { BindingProduct, SessionBindingProvider } from '../session-binding-contract.js';
 import { issueClaudeHumanPilotScope, assertClaudeHumanPilotSource, isClaudeHumanPilotScope } from '../session-binding-claude-human-pilot.js';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -84,7 +72,6 @@ import {
 import { ordinaryProjectAction, ordinaryProjectDto } from './local-web-ordinary.js';
 import { createOrdinarySessionBindingService } from '../ordinary-session-binding.js';
 import { getClaudeBindingAdmission } from '../claude-binding-admission.js';
-import { inspectClaudeProjectSkill, inspectOrdinaryClaudeProjectSkill } from '../connect/claude-connect-readiness.js';
 import { codexReceiptDirectoryState, createCodexProjectSetupManager } from './local-web-codex.js';
 
 const identifier = z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,199}$/);
@@ -152,22 +139,7 @@ export function localWebSupport(store: Store, profile: LocalWebProfile) {
     inference: false
   };
 }
-interface PrivateTask {
-  id: string;
-  name: string;
-  profile_id: string;
-  setup: string;
-  startup: string | null;
-  source: string | null;
-  reason: string | null;
-}
-interface Source {
-  handle: string;
-  label: string;
-  path: string;
-  session_id: string;
-}
-interface Job {
+export interface Job {
   promise: Promise<void>;
   pauseRequested: boolean;
 }
@@ -551,475 +523,24 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
       }
     })();
   };
-  const taskDto = (id: string) => {
-    const record = row(id);
-    if (ordinaryTask(store, id)) return ordinaryTaskDto(id, record);
-    const setup = setupFor(record);
-    const task = store.get('SELECT id FROM tasks WHERE id=?', [id])
-      ? life.task(id)
-      : { id, project_id: setup.workflow.assignment.project_id, state: 'registered' as const };
-    const supportDetails = localWebSupport(store, profileFor(record.profile_id));
-    const taskProtocol = parseProtocol(JSON.parse(protocolRow(store, setup.workflow.assignment.protocol_id).settings) as unknown);
-    const recruitment = localWebRecruitment(taskProtocol);
-    const assignedVariant = store.get<{ variant_id: string }>('SELECT variant_id FROM comparison_assignments WHERE task_id=?', [id])?.variant_id ?? null;
-    const assignedIndex = assignedVariant === null ? -1 : taskProtocol.variant_ids.indexOf(assignedVariant);
-    const harness = {
-      arm: assignedIndex === 0 ? ('A' as const) : assignedIndex === 1 ? ('B' as const) : null,
-      variant_id: assignedVariant,
-      version: assignedVariant === null ? null : comparisonVariant(store, assignedVariant).harness_version,
-      application_mode: setup.workflow.application || applicationRequired(store, id) ? ('agent_applied' as const) : ('selected_markdown_only' as const)
-    };
-    if (
-      !externalContract(store, id) ||
-      (task.state !== 'finalized' && record.reason?.startsWith('shared_') && externalContract(store, id)?.started_at === null)
-    ) {
-      const assignment = store.get<{ variant_id: string }>('SELECT variant_id FROM comparison_assignments WHERE task_id=?', [id]);
-      const reason = record.reason ?? 'external_preparation_required';
-      const nativeApplication = harness.application_mode === 'agent_applied';
-      const blockedApplication = nativeApplication
-        ? {
-            state: 'blocked_configuration',
-            jobId: null,
-            epoch: 0,
-            reason,
-            workspace: null,
-            launchState: 'not_requested',
-            identity: 'unavailable',
-            capabilities: [getApplicationLaunchCapability('codex'), getApplicationLaunchCapability('claude_code')],
-            baseline: setup.workflow.assignment.code_base_commit
-          }
-        : undefined;
-      return {
-        id,
-        name: record.name,
-        project_id: task.project_id,
-        setup_id: record.profile_id,
-        version: '"' + createHash('sha256').update(JSON.stringify({ task, record })).digest('hex') + '"',
-        state: task.state,
-        status: 'blocked_configuration',
-        ...(blockedApplication ? { application: blockedApplication } : {}),
-        support_details: supportDetails,
-        recruitment,
-        harness,
-        measurement: { state: 'waiting_connection', active_ms: null, requests: null, window: { started_at: null, ends_at: null } },
-        outcome: null,
-        attempt: 1,
-        preparation: {
-          state: 'blocked_configuration',
-          configuration_evidence: 'unverified',
-          native_context_evidence: 'unverified',
-          freshness_evidence: 'unverified',
-          tool_use_evidence: 'unavailable',
-          assigned_variant_id: assignment?.variant_id ?? null
-        },
-        price: { partial_amount: null, currency: 'USD', unpriced_events: 0, basis: null },
-        criteria: setup.workflow.assignment.metadata.criterion_ids,
-        startup: null,
-        source: null,
-        reason,
-        actions: [
-          { code: 'prepare', enabled: task.state !== 'finalized', reason: null },
-          ...(!nativeApplication ? [{ code: 'apply', enabled: task.state !== 'finalized', reason: null }] : [])
-        ]
-      };
-    }
-    const application = applicationRequired(store, id)
-      ? {
-          ...applications.status(id),
-          capabilities: [getApplicationLaunchCapability('codex'), getApplicationLaunchCapability('claude_code')],
-          baseline: setup.workflow.assignment.code_base_commit
-        }
-      : undefined;
-    const state = externalTaskState(store, id);
-    const result = externalTaskResult(store, id);
-    const runs = running(id);
-    const active = runs.length > 0 || jobs.has(id);
-    const finalized = task.state === 'finalized';
-    const connected = state.window.started_at !== null;
-    const supported = setup.workflow.assignment.metadata.product !== 'claude_code';
-    const ready = application
-      ? application.state === 'applied' && application.identity === 'verified_metadata'
-      : state.configuration_evidence === 'verified_at_preparation' && state.state !== 'released';
-    const source = sourceFor(record);
-    const startup = record.startup === null ? null : (JSON.parse(record.startup) as { ticket_id: string; start_command: string });
-    const binding = bindings.status(id);
-    const bindingProduct =
-      profileFor(record.profile_id).session_binding?.product ??
-      options.bindingProviders?.[0]?.product ??
-      providers.get(id)?.[0]?.product ??
-      (setup.workflow.assignment.metadata.product === 'claude_code' ? 'claude_code' : 'codex');
-    let bindingAvailable = false;
-    let bindingUnavailableReason = 'binding_provider_unavailable';
-    try {
-      bindings.capabilities(id, bindingProduct);
-      bindingAvailable = true;
-    } catch (error) {
-      const reason = localWebError(error);
-      if (reason !== 'local_operation_failed') bindingUnavailableReason = reason;
-    }
-    let ordinaryAvailable = false;
-    try {
-      ordinaryAvailable = bindings.sourceSupported(id, bindingProduct);
-    } catch {
-      /* Missing/unqualified sources cannot enable an action. */
-    }
-    let qualificationAvailable = false;
-    try {
-      qualificationAvailable = bindingQualificationOwnerLive(options.qualificationLease) && assertBindingQualification(options.qualificationLease, store, id);
-    } catch {
-      /* A revoked lease cannot enable a browser action. */
-    }
-    const ownedNativeLive = bindingQualificationOwnerLive(options.qualificationLease);
-    let pilotAvailable = false;
-    try {
-      if (humanPilot) {
-        assertHumanPilotScope(humanPilot, store, id, providersForTask(id)[0]);
-        pilotAvailable = true;
-      }
-    } catch {
-      /* Exact pilot task only. */
-    }
-    const bindingAuthorized = options.qualificationLease ? qualificationAvailable : humanPilot ? pilotAvailable : ordinaryAvailable;
-    const reason = ownedNativeLive
-      ? 'owned_native_running'
-      : finalized
-        ? 'finalized'
-        : active
-          ? 'observation_running'
-          : !connected
-            ? 'external_connection_required'
-            : null;
-    const action = (code: string, enabled: boolean, why: string | null = null) => ({ code, enabled, reason: enabled ? null : why });
-    const explicitStop = state.collection_end_condition === 'explicit_stop' && !options.qualificationLease;
-    const canFinish = !finalized && (!active || (explicitStop && binding.roots > 0)) && !ownedNativeLive && connected;
-    const qualificationActions = new Set(['session-connect', 'pause', 'resume-binding', 'emergency-stop']);
-    const actions = [
-      ...(application
-        ? [
-            action(
-              'application-prepare',
-              !finalized && !active && ['awaiting_application', 'failed', 'abandoned'].includes(application.state),
-              'application_required'
-            ),
-            action('application-open', !finalized && !active && application.state === 'awaiting_session', 'application_required'),
-            action(
-              'application-cancel',
-              !finalized && !active && !!application.jobId && ['awaiting_session', 'applying', 'applied', 'failed'].includes(application.state),
-              'application_required'
-            )
-          ]
-        : []),
-      action('apply', !finalized && !active && !ready, finalized ? 'finalized' : active ? 'workflow_run_active' : 'configuration_ready'),
-      action(
-        'ticket',
-        !finalized && !active && ready && state.window_status !== 'closed' && supported,
-        !supported ? 'external_collection_unsupported' : finalized ? 'finalized' : active ? 'workflow_run_active' : 'external_preparation_required'
-      ),
-      action(
-        'connect',
-        !finalized && !active && startup !== null && ready && state.window_status !== 'closed' && supported,
-        !supported ? 'external_collection_unsupported' : active ? 'workflow_run_active' : 'external_ticket_required'
-      ),
-      action(
-        'session-connect',
-        !finalized && ready && state.window_status !== 'closed' && bindingAvailable && bindingAuthorized,
-        !bindingAvailable
-          ? bindingUnavailableReason
-          : !bindingAuthorized
-            ? 'binding_source_unqualified'
-            : finalized
-              ? 'finalized'
-              : !ready
-                ? 'external_preparation_required'
-                : 'external_window_closed'
-      ),
-      action(
-        'observe',
-        binding.roots === 0 &&
-          !finalized &&
-          !active &&
-          !ownedNativeLive &&
-          connected &&
-          source !== null &&
-          ready &&
-          state.window_status !== 'closed' &&
-          supported,
-        binding.roots > 0
-          ? 'binding_reconnect_required'
-          : (reason ?? (state.window_status === 'closed' ? 'external_window_closed' : 'external_connection_required'))
-      ),
-      action(
-        'resume-binding',
-        bindingAuthorized && ready && state.window_status !== 'closed' && task.state === 'paused' && bindings.resumeAvailable(id),
-        !bindingAuthorized
-          ? 'binding_source_unqualified'
-          : task.state === 'active'
-            ? 'observation_running'
-            : task.state === 'finalized'
-              ? 'finalized'
-              : 'binding_reconnect_required'
-      ),
-      action('emergency-stop', ownedNativeLive, 'owned_native_inactive'),
-      action('revoke-collection', explicitStop && !finalized && !bindingCollectionControl(store, id)?.revoked_at, 'binding_scope_revoked'),
-      action('pause', !finalized && (active || task.state === 'active'), 'inactive_observation'),
-      action('rework', !finalized && !active && !ownedNativeLive && connected && state.window_status !== 'closed', reason ?? 'external_window_closed'),
-      action('finish-success', canFinish, reason),
-      action('finish-failed', canFinish, reason),
-      action('finish-abandoned', canFinish, reason),
-      action('recover', runs.length > 0 && !jobs.has(id), 'inactive_observation'),
-      action('release', !active && state.state !== 'released', 'workflow_run_active')
-    ]
-      .map(a =>
-        application && ['apply', 'ticket', 'connect'].includes(a.code) ? { ...a, enabled: false, reason: 'application_native_loading_unqualified' } : a
-      )
-      .map(a =>
-        options.qualificationLease && !qualificationActions.has(a.code)
-          ? { ...a, enabled: false, reason: 'binding_qualification_control_only' }
-          : options.nativePilot &&
-              (id !== options.nativePilot.taskId ||
-                ![
-                  'apply',
-                  'pause',
-                  'revoke-collection',
-                  'session-connect',
-                  'resume-binding',
-                  'finish-success',
-                  'finish-failed',
-                  'finish-abandoned',
-                  'release'
-                ].includes(a.code))
-            ? { ...a, enabled: false, reason: 'binding_pilot_control_only' }
-            : a
-      );
-    const version =
-      '"' +
-      createHash('sha256')
-        .update(
-          JSON.stringify({
-            task,
-            application,
-            control: { revision: state.revision, window: state.window, configuration_evidence: state.configuration_evidence },
-            record,
-            collectionControl: bindingCollectionControl(store, id),
-            runs,
-            ownJob: jobs.has(id)
-          })
-        )
-        .digest('hex') +
-      '"';
-    const measurementState = finalized
-      ? 'measurement_ended'
-      : active
-        ? state.state === 'measuring'
-          ? 'active'
-          : 'starting'
-        : task.state === 'active'
-          ? 'connected'
-          : connected
-            ? 'paused'
-            : 'waiting_connection';
-    const status =
-      state.outcome ??
-      (measurementState === 'waiting_connection'
-        ? ready
-          ? supportDetails.context === 'synthetic_validation_only'
-            ? 'validation_ready'
-            : 'waiting_for_session'
-          : 'draft'
-        : measurementState);
-    const connectionReadiness =
-      ready && supportDetails.context === 'real' && supportDetails.connection_route === 'family' && bindingProduct === 'claude_code'
-        ? {
-            skill: inspectClaudeProjectSkill(effectiveTaskWorkspace(store, id)),
-            configured_version: setup.workflow.product_version,
-            installed_version: null,
-            collection_revoked: !!bindingCollectionControl(store, id)?.revoked_at
-          }
-        : undefined;
-    return {
-      id,
-      name: record.name,
-      project_id: task.project_id,
-      setup_id: record.profile_id,
-      version,
-      ...(application ? { application } : {}),
-      state: task.state,
-      status,
-      support_details: supportDetails,
-      recruitment,
-      harness,
-      ...(connectionReadiness ? { connection_readiness: connectionReadiness } : {}),
-      measurement: {
-        state: measurementState,
-        active_ms: result.time.active_ms,
-        requests: result.cost?.event_count ?? null,
-        window: state.window,
-        end_condition: state.collection_end_condition
-      },
-      outcome: state.outcome === null ? null : { status: state.outcome, assessed_at: result.outcome_at! },
-      attempt: state.rework_count + 1,
-      preparation: {
-        state: state.state,
-        configuration_evidence: state.configuration_evidence,
-        native_context_evidence: state.native_context_evidence,
-        freshness_evidence: state.freshness_evidence,
-        tool_use_evidence: state.tool_use_evidence,
-        assigned_variant_id: state.assigned_variant_id
-      },
-      price: {
-        partial_amount: result.cost?.partial_amount ?? null,
-        compatibility_unverified_partial_amount: result.cost?.compatibility_unverified_partial_amount ?? null,
-        legacy_unverified_partial_amount: result.cost?.legacy_unverified_partial_amount ?? null,
-        compatibility: result.cost?.compatibility ?? null,
-        currency: result.cost?.currency ?? 'USD',
-        unpriced_events: result.cost?.unpriced_events ?? 0,
-        basis: result.cost?.price_table_hash ?? null
-      },
-      criteria: setup.workflow.assignment.metadata.criterion_ids,
-      actions,
-      startup,
-      source: source ? { handle: source.handle, label: source.label } : null,
-      binding: {
-        ...binding,
-        ...(supportDetails.context === 'synthetic_validation_only' ? {} : { product: bindingProduct }),
-        support:
-          supportDetails.context === 'synthetic_validation_only'
-            ? 'synthetic_validation_only'
-            : options.nativePilot && id === options.nativePilot.taskId
-              ? humanPilot
-                ? 'native_unverified_pilot'
-                : 'native_pilot_preparation_only'
-              : options.qualificationLease
-                ? 'native_qualification_only'
-                : bindingAvailable
-                  ? ordinaryAvailable
-                    ? supportDetails.family
-                    : 'qualification_required'
-                  : 'instrumentation_required'
-      },
-      reason: record.reason === 'measurement_paused' ? null : (record.reason ?? state.reason_code)
-    };
-  };
-  const ordinaryTaskDto = (id: string, record: PrivateTask) => {
-    const task = life.task(id);
-    const preparation = ordinaryTask(store, id);
-    if (!preparation) throw new Error('ordinary_preparation_required');
-    const settings = ordinaryTaskSettings(store, id);
-    const admission = getClaudeBindingAdmission(settings.product_version);
-    if (!admission) throw new Error('binding_source_unqualified');
-    const metadata = parseTaskMetadata(JSON.parse(task.metadata));
-    const binding = ordinaryBindings.status(id);
-    const summary = life.summary(id);
-    const end = Date.parse(task.finalized_at ?? new Date().toISOString());
-    const activeMs =
-      task.started_at === null
-        ? null
-        : store
-            .all<{ started_at: string; ended_at: string | null }>('SELECT started_at,ended_at FROM active_intervals WHERE task_id=?', [id])
-            .reduce(
-              (total, interval) =>
-                total + Math.max(0, Math.min(Date.parse(interval.ended_at ?? new Date(end).toISOString()), end) - Date.parse(interval.started_at)),
-              0
-            );
-    const finalized = task.state === 'finalized';
-    const active = binding.state === 'observing';
-    const connected = binding.roots > 0;
-    const revoked = preparation.revoked_at !== null;
-    let supported = false;
-    let supportReason = 'binding_source_unqualified';
-    if (!finalized && !revoked) {
-      try {
-        supported = ordinaryBindings.sourceSupported(id, 'claude_code');
-      } catch (error) {
-        supportReason = localWebError(error);
-      }
-    }
-    const action = (code: string, enabled: boolean, reason: string) => ({ code, enabled, reason: enabled ? null : reason });
-    const actions = [
-      action('session-connect', !finalized && !revoked && supported, !supported ? supportReason : 'binding_scope_revoked'),
-      action('pause', !finalized && active, 'inactive_observation'),
-      action('resume-binding', !finalized && !revoked && task.state === 'paused' && ordinaryBindings.resumeAvailable(id), 'binding_reconnect_required'),
-      action(
-        'stop-observation',
-        !finalized && !!binding.selected_root_id && binding.segment_state !== null && binding.segment_state !== 'closed',
-        'inactive_observation'
-      ),
-      action('revoke-collection', !finalized && !revoked, 'binding_scope_revoked'),
-      action('finish-success', !finalized && connected, 'external_connection_required'),
-      action('finish-failed', !finalized && connected, 'external_connection_required'),
-      action('finish-abandoned', !finalized, 'finalized')
-    ];
-    return {
-      id,
-      mode: 'ordinary' as const,
-      name: record.name,
-      project_id: task.project_id,
-      setup_id: record.profile_id,
-      version:
-        '"' +
-        createHash('sha256')
-          .update(
-            JSON.stringify({
-              task,
-              record,
-              preparation,
-              binding: {
-                state: binding.state,
-                selected_root_id: binding.selected_root_id,
-                segment_state: binding.segment_state
-              }
-            })
-          )
-          .digest('hex') +
-        '"',
-      state: task.state,
-      status: finalized ? summary.outcome : active ? 'active' : connected ? 'paused' : 'waiting_for_session',
-      connection_readiness: {
-        skill: inspectOrdinaryClaudeProjectSkill(effectiveTaskWorkspace(store, id)),
-        configured_version: settings.product_version,
-        installed_version: null,
-        collection_revoked: revoked
-      },
-      measurement: {
-        state: finalized ? 'measurement_ended' : active ? 'active' : connected ? 'paused' : 'waiting_connection',
-        active_ms: activeMs,
-        requests: binding.requests,
-        window: { started_at: task.started_at, ends_at: null },
-        end_condition: 'explicit_stop' as const
-      },
-      outcome: summary.outcome === null ? null : { status: summary.outcome, assessed_at: task.finalized_at },
-      attempt: summary.rework_count + 1,
-      preparation: {
-        state: 'prepared',
-        configuration_evidence: 'task_snapshot_pinned',
-        native_context_evidence: connected ? 'native_metadata_receipt' : 'unverified',
-        freshness_evidence: connected ? 'explicit_connection_baseline' : 'unverified',
-        tool_use_evidence: 'unavailable'
-      },
-      price: {
-        partial_amount: binding.summary.partial_amount,
-        currency: binding.summary.currency ?? 'USD',
-        compatibility_unverified_partial_amount: binding.summary.compatibility_unverified_partial_amount,
-        legacy_unverified_partial_amount: binding.summary.legacy_unverified_partial_amount,
-        compatibility: binding.summary.compatibility,
-        unpriced_events: binding.summary.unpriced_events,
-        basis: binding.price_table_hash
-      },
-      criteria: metadata.criterion_ids,
-      actions,
-      startup: null,
-      source: null,
-      binding: {
-        ...binding,
-        product: 'claude_code' as const,
-        product_version: settings.product_version,
-        max_family_members: admission.maxFamilyMembers,
-        supported_model_family: 'claude' as const,
-        support: admission.admitted ? 'claude_family' : 'ordinary_qualification_pending'
-      },
-      reason: record.reason === 'measurement_paused' ? null : record.reason
-    };
-  };
+  const taskDto = createLocalWebTaskReader({
+    options,
+    store,
+    life,
+    applications,
+    row,
+    setupFor,
+    profileFor,
+    sourceFor,
+    running,
+    jobs,
+    bindings,
+    ordinaryBindings,
+    providers,
+    providersForTask,
+    humanPilot,
+    supportDetails: localWebSupport
+  });
   const domain: LocalWebDomain = {
     metadataStore: store,
     async bootstrap() {
