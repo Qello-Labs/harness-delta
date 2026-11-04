@@ -20,15 +20,15 @@ const runtime = (from: string, to: string): ImportEdge => ({ from, to, typeOnly:
 test('source imports introduce no cycles or area violations and frozen lists stay current', () => {
   const root = fileURLToPath(new URL('../', import.meta.url));
   const src = join(root, 'src');
-  const modules = readdirSync(src, { recursive: true, withFileTypes: true })
-    .filter(entry => entry.isFile() && entry.name.endsWith('.ts'))
-    .map(entry => {
-      const path = join(entry.parentPath, entry.name);
-      return { path: relative(root, path), text: readFileSync(path, 'utf8') };
-    });
+  const files = readdirSync(src, { recursive: true, withFileTypes: true })
+    .filter(entry => entry.isFile())
+    .map(entry => join(entry.parentPath, entry.name));
+  const modules = files.filter(path => path.endsWith('.ts'))
+    .map(path => ({ path: relative(root, path), text: readFileSync(path, 'utf8') }));
+  const assets = files.filter(path => !path.endsWith('.ts')).map(path => relative(root, path));
   const unmapped = modules.filter(module => ranks[area(module.path)] === undefined).map(module => module.path);
   expect(unmapped).toEqual([]);
-  expect(checkArchitecture(buildImportGraph(modules), policy)).toEqual([]);
+  expect(checkArchitecture(buildImportGraph(modules, assets), policy)).toEqual([]);
 });
 
 test('a new runtime cycle fails even within an already cyclic component', () => {
@@ -99,8 +99,6 @@ test('mixed imports, side effects, dynamic imports and repeated targets retain r
 test.each([
   "import('./local-web-domain.js')",
   'import(`./local-web-domain.js`)',
-  "require('./local-web-domain.js')",
-  'require(`./local-web-domain.js`)',
 ])('literal dynamic dependency %s retains cycle and area checks', expression => {
   const modules = [
     { path: 'src/coverage.ts', text: `void ${expression};` },
@@ -116,8 +114,6 @@ test.each([
   'import(target)',
   'import(`./${target}.js`)',
   "import(import.meta.resolve('./local-web-domain.js'))",
-  'require(target)',
-  "require(import.meta.resolve('./local-web-domain.js'))",
 ])('unresolved dynamic dependency %s fails with its source file', expression => {
   const modules = [
     { path: 'src/coverage.ts', text: `const target = './local-web-domain.js'; void ${expression};` },
@@ -148,4 +144,49 @@ test('import.meta.resolve alone does not load a runtime dependency', () => {
     { path: 'src/local-web-domain.ts', text: "import './coverage.js';" },
   ]);
   expect(graph).toEqual([runtime('src/local-web-domain.ts', 'src/coverage.ts')]);
+});
+
+test.each(['require', 'createRequire'].flatMap(identifier => [
+  [identifier, `(${identifier})(target);`],
+  [identifier, `const load = ${identifier};`],
+  [identifier, `${identifier}('./x');`],
+  [identifier, `module.${identifier};`],
+  [identifier, `const ${identifier} = 1;`],
+  [identifier, `type Loader = { ${identifier}: unknown };`],
+  [identifier, `import { ${identifier} as load } from 'node:module';`],
+] as const))('forbids loader identifier %s in %s', (identifier, text) => {
+  expect(() => buildImportGraph([{ path: 'src/coverage.ts', text }]))
+    .toThrow(`Unsupported loader identifier in src/coverage.ts: ${identifier}`);
+});
+
+test('loader names in comments and strings are not identifiers', () => {
+  const graph = buildImportGraph([{
+    path: 'core/a.ts',
+    text: '// require createRequire\nconst value = "require createRequire";\nconst object = { "require": `createRequire` };',
+  }]);
+  expect(graph).toEqual([]);
+});
+
+test.each([
+  ["import './b';", './b'],
+  ["import './missing.js';", './missing.js'],
+  ["import type { B } from './missing.js';", './missing.js'],
+  ["export * from './missing.js';", './missing.js'],
+  ["export type { B } from './missing.js';", './missing.js'],
+  ["type B = import('./missing.js').B;", './missing.js'],
+  ["import B = require('./missing.js');", './missing.js'],
+  ["void import('./missing.js');", './missing.js'],
+  ["import data from './missing.json' with { type: 'json' };", './missing.json'],
+])('rejects unknown relative specifier in %s', (text, specifier) => {
+  expect(() => buildImportGraph([
+    { path: 'core/a.ts', text },
+    { path: 'core/b.ts', text: '' },
+  ])).toThrow(`Unresolved relative dependency in core/a.ts: ${specifier}`);
+});
+
+test('known JSON assets remain allowed without becoming graph modules', () => {
+  const graph = buildImportGraph([{
+    path: 'core/a.ts', text: "import data from './data.json' with { type: 'json' };",
+  }], ['core/data.json']);
+  expect(graph).toEqual([]);
 });

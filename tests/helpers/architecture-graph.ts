@@ -19,27 +19,34 @@ export interface ArchitecturePolicy {
   readonly edges: readonly string[];
 }
 
-export function buildImportGraph(modules: readonly SourceModule[]): readonly ImportEdge[] {
+export function buildImportGraph(
+  modules: readonly SourceModule[], knownAssets: readonly string[] = [],
+): readonly ImportEdge[] {
   const paths = new Set(modules.map(module => module.path));
+  const assets = new Set(knownAssets);
   const edges = new Map<string, ImportEdge>();
   for (const module of modules) {
     const source = ts.createSourceFile(module.path, module.text, ts.ScriptTarget.Latest, true);
     const add = (specifier: ts.Node | undefined, typeOnly: boolean): void => {
       if (!specifier || !ts.isStringLiteralLike(specifier) || !specifier.text.startsWith('.')) return;
-      const path = normalize(join(dirname(module.path), specifier.text)).replace(/\.js$/, '.ts');
-      if (!paths.has(path)) return;
+      const target = normalize(join(dirname(module.path), specifier.text));
+      if (assets.has(target)) return;
+      const path = target.replace(/\.js$/, '.ts');
+      if (!paths.has(path))
+        throw new Error(`Unresolved relative dependency in ${module.path}: ${specifier.text}`);
       const key = `${module.path} -> ${path}`;
       const previous = edges.get(key);
       edges.set(key, { from: module.path, to: path, typeOnly: typeOnly && (previous?.typeOnly ?? true) });
     };
     const visit = (node: ts.Node): void => {
+      if (ts.isIdentifier(node) && (node.text === 'require' || node.text === 'createRequire'))
+        throw new Error(`Unsupported loader identifier in ${module.path}: ${node.text}`);
       if (ts.isImportDeclaration(node)) {
         // Inline type specifiers retain import/export {} under verbatimModuleSyntax.
         add(node.moduleSpecifier, node.importClause?.isTypeOnly ?? false);
       } else if (ts.isExportDeclaration(node)) {
         add(node.moduleSpecifier, node.isTypeOnly);
-      } else if (ts.isCallExpression(node) && (node.expression.kind === ts.SyntaxKind.ImportKeyword ||
-        (ts.isIdentifier(node.expression) && node.expression.text === 'require'))) {
+      } else if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
         const specifier = node.arguments[0];
         if (!specifier || !ts.isStringLiteralLike(specifier))
           throw new Error(`Unresolved module dependency in ${module.path}`);
