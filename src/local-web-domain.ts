@@ -9,13 +9,13 @@ import {
 import { getApplicationLaunchCapability } from './harness/harness-application-launch.js';
 import { ApplicationCoordinator, applicationRequired, effectiveTaskWorkspace } from './harness-application.js';
 
-import { assertSharedTask } from './local-web-shared-guard.js';
-import { LocalWebProfileSchema, LocalWebManifestSchema, type LocalWebProfile } from './local-web-profile.js';
-export { LocalWebProfileSchema, LocalWebManifestSchema, type LocalWebProfile } from './local-web-profile.js';
-import { createSharedSetupManager } from './local-web-shared.js';
-import { createSetupReviewManager } from './local-web-setup-review.js';
-import { localWebRecruitment } from './local-web-recruitment.js';
-import { convertTaskToAgentApplication } from './local-web-task-application.js';
+import { assertSharedTask } from './web/local-web-shared-guard.js';
+import { LocalWebProfileSchema, LocalWebManifestSchema, type LocalWebProfile } from './web/local-web-profile.js';
+export { LocalWebProfileSchema, LocalWebManifestSchema, type LocalWebProfile } from './web/local-web-profile.js';
+import { createSharedSetupManager } from './web/local-web-shared.js';
+import { createSetupReviewManager } from './web/local-web-setup-review.js';
+import { localWebRecruitment } from './web/local-web-recruitment.js';
+import { convertTaskToAgentApplication } from './web/local-web-task-application.js';
 import { externalContract } from './external-session-contract.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { execFile, execFileSync } from 'node:child_process';
@@ -26,7 +26,7 @@ import Database from 'better-sqlite3';
 import { z } from 'zod';
 import { Lifecycle } from './lifecycle.js';
 import { Store } from './store.js';
-import { registerWebMetadata, withLiveWebMetadataScope } from './local-web-metadata.js';
+import { registerWebMetadata, withLiveWebMetadataScope } from './web/local-web-metadata.js';
 import { comparisonProtocol, comparisonVariant, protocolRow } from './protocol-store.js';
 import { CodexWorkflowExecutionSchema } from './codex-workflow-adapter.js';
 import { recoverCodexWorkflow } from './codex-workflow-journal.js';
@@ -81,11 +81,11 @@ import {
   OrdinaryProjectSettingsSchema,
   revokeOrdinaryObservation
 } from './ordinary-observation.js';
-import { ordinaryProjectAction, ordinaryProjectDto } from './local-web-ordinary.js';
+import { ordinaryProjectAction, ordinaryProjectDto } from './web/local-web-ordinary.js';
 import { createOrdinarySessionBindingService } from './ordinary-session-binding.js';
 import { getClaudeBindingAdmission } from './claude-binding-admission.js';
 import { inspectClaudeProjectSkill, inspectOrdinaryClaudeProjectSkill } from './connect/claude-connect-readiness.js';
-import { codexReceiptDirectoryState, createCodexProjectSetupManager } from './local-web-codex.js';
+import { codexReceiptDirectoryState, createCodexProjectSetupManager } from './web/local-web-codex.js';
 
 const identifier = z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,199}$/);
 export function localWebSupport(store: Store, profile: LocalWebProfile) {

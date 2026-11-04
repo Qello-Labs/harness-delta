@@ -1,4 +1,4 @@
-import type { RecruitmentWindow } from '../../src/local-web-recruitment.js';
+import type { RecruitmentWindow } from '../../src/web/local-web-recruitment.js';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { taskErrorGuidance } from './task-error-guidance';
 import type { Locale } from './types';

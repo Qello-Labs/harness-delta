@@ -5,10 +5,10 @@ import { mkdtempSync, realpathSync, renameSync, rmSync, symlinkSync } from 'node
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, expect, test, vi } from 'vitest';
-import { Store } from '../src/store.js';
-import { Deletion } from '../src/deletion.js';
-import { registerWebMetadata } from '../src/local-web-metadata.js';
-import { createCodexProjectSetupManager } from '../src/local-web-codex.js';
+import { Store } from '../../src/store.js';
+import { Deletion } from '../../src/deletion.js';
+import { registerWebMetadata } from '../../src/web/local-web-metadata.js';
+import { createCodexProjectSetupManager } from '../../src/web/local-web-codex.js';
 
 const cleanups: (() => void)[] = [];
 afterEach(() => {
@@ -212,7 +212,7 @@ test.each(['task', 'project'] as const)('a Store-only Node process retries pendi
           store.close();
         }
       `,
-      new URL('../dist/store.js', import.meta.url).href,
+      new URL('../../dist/store.js', import.meta.url).href,
       f.path
     ],
     { timeout: 10000 }

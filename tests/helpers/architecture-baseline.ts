@@ -28,7 +28,7 @@ export const frozenEdges: readonly string[] = [
   "runtime src/external-session-workflow.ts -> src/harness-application.ts",
   "runtime src/external-session-workflow.ts -> src/harness/harness-config.ts",
   "runtime src/external-session-workflow.ts -> src/harness/harness-managed-file.ts",
-  "runtime src/external-session-workflow.ts -> src/local-web-shared-guard.ts",
+  "runtime src/external-session-workflow.ts -> src/web/local-web-shared-guard.ts",
   "runtime src/lifecycle.ts -> src/config-confirmation.ts",
   "runtime src/lifecycle.ts -> src/managed-journal.ts",
   "runtime src/lifecycle.ts -> src/nested-candidate.ts",

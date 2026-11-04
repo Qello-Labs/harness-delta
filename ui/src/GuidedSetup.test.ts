@@ -1,7 +1,7 @@
 import { createElement, isValidElement, useEffect, useRef, useState, type ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { expect, test, vi } from 'vitest';
-import type { SetupReviewResult } from '../../src/local-web-setup-review.js';
+import type { SetupReviewResult } from '../../src/web/local-web-setup-review.js';
 import { Button } from '@/components/ui/button';
 import { buildMeasurementRequest, buildSetupRequest, GuidedSetup, measurementSettingIdentifier } from './GuidedSetup';
 import { setupReviewFixture } from '../../tests/helpers/setup-review-fixture.js';

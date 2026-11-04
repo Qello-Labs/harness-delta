@@ -3,13 +3,13 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import { expect, test, vi } from 'vitest';
-import { setupReviewFixture } from './helpers/setup-review-fixture.js';
-import { registerVariant } from '../src/comparison.js';
-import { createLocalWebDomain, LocalWebProfileSchema } from '../src/local-web-domain.js';
-import { createLocalWebServer } from '../src/local-web-server.js';
-import * as harnessConfig from '../src/harness/harness-config.js';
-import { Lifecycle } from '../src/lifecycle.js';
-import type { SetupSaveResult } from '../src/local-web-setup-review.js';
+import { setupReviewFixture } from '../helpers/setup-review-fixture.js';
+import { registerVariant } from '../../src/comparison.js';
+import { createLocalWebDomain, LocalWebProfileSchema } from '../../src/local-web-domain.js';
+import { createLocalWebServer } from '../../src/local-web-server.js';
+import * as harnessConfig from '../../src/harness/harness-config.js';
+import { Lifecycle } from '../../src/lifecycle.js';
+import type { SetupSaveResult } from '../../src/web/local-web-setup-review.js';
 
 test('path-only transport review inspects registered comparison references without registrations or a save token', async () => {
   const f = setupReviewFixture();
@@ -324,7 +324,7 @@ test('a changed portable descriptor invalidates review before any registrations 
     // Keep the test descriptor valid by updating its canonical hash through the production hash function.
     const { settings_hash: ignored, ...fields } = descriptor;
     void ignored;
-    const { canonicalJson, hashBytes } = await import('../src/harness/harness-config.js');
+    const { canonicalJson, hashBytes } = await import('../../src/harness/harness-config.js');
     writeFileSync(f.input.comparison_path, JSON.stringify({ ...fields, settings_hash: hashBytes(`harness-delta:comparison:v1\n${canonicalJson(fields)}`) }));
     expect(() => f.domain.saveReviewedSetup!(reviewed.token)).toThrow('shared_preview_changed');
     expect(f.store.all('SELECT * FROM comparison_variants')).toHaveLength(0);

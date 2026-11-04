@@ -1,4 +1,4 @@
-import type { Protocol } from './comparison-contracts.js';
+import type { Protocol } from '../comparison-contracts.js';
 
 export interface RecruitmentWindow {
   starts_at: string;

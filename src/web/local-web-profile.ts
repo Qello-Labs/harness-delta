@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { CodexWorkflowExecutionSchema } from './codex-workflow-adapter.js';
-import { ExternalTaskSetupSchema } from './external-session-service.js';
+import { CodexWorkflowExecutionSchema } from '../codex-workflow-adapter.js';
+import { ExternalTaskSetupSchema } from '../external-session-service.js';
 import { SharedBindingSchema } from './local-web-shared-guard.js';
 
 const identifier = z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,199}$/);

@@ -2,7 +2,7 @@
 import { chmodSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadSharedStartup } from './local-web-shared.js';
+import { loadSharedStartup } from './web/local-web-shared.js';
 import { Command } from 'commander';
 import { Store } from './store.js';
 import { createLocalWebDomain, readLocalWebManifest, readLocalWebSetupDocument } from './local-web-domain.js';

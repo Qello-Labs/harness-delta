@@ -1,16 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import type Database from 'better-sqlite3';
 import { z } from 'zod';
-import { IdSchema, TimestampSchema } from './contracts.js';
-import { FlexibleProtocolSchema, FlexibleVariantSchema, PriceTableSchema } from './flexible-contracts.js';
-import { freezeProtocol, registerProtocol, registerVariant } from './comparison.js';
-import { comparisonProtocol, protocolRow } from './protocol-store.js';
-import { readPriceTable, registerPriceTable } from './pricing.js';
+import { IdSchema, TimestampSchema } from '../contracts.js';
+import { FlexibleProtocolSchema, FlexibleVariantSchema, PriceTableSchema } from '../flexible-contracts.js';
+import { freezeProtocol, registerProtocol, registerVariant } from '../comparison.js';
+import { comparisonProtocol, protocolRow } from '../protocol-store.js';
+import { readPriceTable, registerPriceTable } from '../pricing.js';
 import { LocalWebProfileSchema, type LocalWebProfile } from './local-web-profile.js';
 import type { createSharedSetupManager } from './local-web-shared.js';
-import { localWebError } from './local-web-server.js';
-import type { Store } from './store.js';
-import { comparisonRelativePath, hashBytes, readComparison } from './harness/harness-config.js';
+import { localWebError } from '../local-web-server.js';
+import type { Store } from '../store.js';
+import { comparisonRelativePath, hashBytes, readComparison } from '../harness/harness-config.js';
 
 // This envelope is private UI input. Its contents use the existing production contracts.
 export const SetupReviewInputSchema = z.strictObject({

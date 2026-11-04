@@ -1,8 +1,8 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { expect, test } from 'vitest';
-import { localWebTaskErrorCodes } from '../../src/local-web-task-errors.js';
-import type { RecruitmentWindow } from '../../src/local-web-recruitment.js';
+import { localWebTaskErrorCodes } from '../../src/web/local-web-task-errors.js';
+import type { RecruitmentWindow } from '../../src/web/local-web-recruitment.js';
 import { taskErrorGuidance } from './task-error-guidance';
 import { TaskErrorNotice } from './TaskErrorNotice';
 

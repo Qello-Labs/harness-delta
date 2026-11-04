@@ -1,11 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test, vi } from 'vitest';
-import { localWebFixture } from './helpers/local-web-fixture.js';
-import { createLocalWebServer, localWebError } from '../src/local-web-server.js';
-import { comparisonProtocol, protocolRow } from '../src/protocol-store.js';
-import { setupReviewFixture } from './helpers/setup-review-fixture.js';
-import { localWebRecruitment } from '../src/local-web-recruitment.js';
-import { localWebTaskErrorCodes } from '../src/local-web-task-errors.js';
+import { localWebFixture } from '../helpers/local-web-fixture.js';
+import { createLocalWebServer, localWebError } from '../../src/local-web-server.js';
+import { comparisonProtocol, protocolRow } from '../../src/protocol-store.js';
+import { setupReviewFixture } from '../helpers/setup-review-fixture.js';
+import { localWebRecruitment } from '../../src/web/local-web-recruitment.js';
+import { localWebTaskErrorCodes } from '../../src/web/local-web-task-errors.js';
 import { z } from 'zod';
 
 test.each(['before_start', 'ended'] as const)('task creation retains the recruitment failure code %s', async phase => {

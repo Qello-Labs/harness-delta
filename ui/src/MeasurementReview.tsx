@@ -1,4 +1,4 @@
-import type { SetupReviewResult } from '../../src/local-web-setup-review.js';
+import type { SetupReviewResult } from '../../src/web/local-web-setup-review.js';
 import { applicationModeText } from './application-mode';
 import type { Locale } from './types';
 

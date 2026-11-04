@@ -1,17 +1,17 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { z } from 'zod';
-import { defaultClaudeBindingVersion, getClaudeBindingAdmission } from './claude-binding-admission.js';
+import { defaultClaudeBindingVersion, getClaudeBindingAdmission } from '../claude-binding-admission.js';
 import {
   installClaudeConnectInstallation,
   previewClaudeConnectInstallation,
   removeClaudeConnectInstallation,
   statusClaudeConnectInstallation,
   recoverClaudeConnectInstallationLock
-} from './connect/claude-connect-installation.js';
-import { IdSchema } from './contracts.js';
-import { ordinaryProjectSettings, saveOrdinaryProjectSettings } from './ordinary-observation.js';
-import type { Store } from './store.js';
+} from '../connect/claude-connect-installation.js';
+import { IdSchema } from '../contracts.js';
+import { ordinaryProjectSettings, saveOrdinaryProjectSettings } from '../ordinary-observation.js';
+import type { Store } from '../store.js';
 
 export const OrdinaryProjectActionSchema = z.strictObject({
   operation: z.enum(['configure', 'preview-install', 'install', 'preview-remove', 'remove', 'recover-lock']),

@@ -1,8 +1,8 @@
-import { columns, hasTable, fileIdentity, flushWebMetadataCleanup } from './store-metadata-cleanup.js';
+import { columns, hasTable, fileIdentity, flushWebMetadataCleanup } from '../store-metadata-cleanup.js';
 import { realpathSync } from 'node:fs';
 import type Database from 'better-sqlite3';
 import { z } from 'zod';
-import type { Store } from './store.js';
+import type { Store } from '../store.js';
 
 export interface WebMetadataScope {
   readonly taskId?: string;

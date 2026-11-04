@@ -308,7 +308,7 @@ not automatically adopt a candidate. Old comparisons and assignments stay fixed.
    writing; never put private paths or participant IDs in a public artifact.
    Its envelope is `kind: "harness-delta.measurement-setup"`,
    `schema_version: 1`, and `input` following `SetupReviewInputSchema` in
-   `src/local-web-setup-review.ts`. Include verified `comparison_path` and
+   `src/web/local-web-setup-review.ts`. Include verified `comparison_path` and
    `project_id`, a reviewed `profile` (or registered `template_id`), complete
    schema-2 `protocol`, approved `policy_status` or `variants` (not both),
    and `price_table` only if needed. The embedded documents use the existing

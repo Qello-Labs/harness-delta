@@ -292,7 +292,7 @@ A/B는 고정 버전 이름이 아닌 비교 역할입니다. 사람이 채택�
    `.harness-delta/setup-drafts/` 아래 Git 제외 여부를 확인하고 보관합니다.
    비공개 경로나 참가자 ID를 공개 산출물에 넣지 마세요. 외부 형식은
    `kind: "harness-delta.measurement-setup"`, `schema_version: 1`,
-   `input`이며 input은 `src/local-web-setup-review.ts`의
+   `input`이며 input은 `src/web/local-web-setup-review.ts`의
    `SetupReviewInputSchema`를 따릅니다. 확인한 `comparison_path`·`project_id`,
    검토한 `profile` 또는 등록된 `template_id`, 완전한 schema-2 `protocol`,
    승인한 `policy_status` 또는 `variants` 중 하나, 필요할 때만 `price_table`을

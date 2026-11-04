@@ -3,17 +3,17 @@ import { homedir } from 'node:os';
 import { isAbsolute, join, resolve } from 'node:path';
 import type Database from 'better-sqlite3';
 import { z } from 'zod';
-import { defaultCodexBindingVersion, codexBindingAdmissions, getCodexBindingAdmission, isQualifiedCodexBindingAdmission } from './codex-binding-admission.js';
+import { defaultCodexBindingVersion, codexBindingAdmissions, getCodexBindingAdmission, isQualifiedCodexBindingAdmission } from '../codex-binding-admission.js';
 import {
   installCodexConnectInstallation,
   previewCodexConnectInstallation,
   recoverCodexConnectInstallationLock,
   removeCodexConnectInstallation,
   statusCodexConnectInstallation
-} from './connect/codex-connect-installation.js';
-import { IdSchema } from './contracts.js';
-import { CodexSessionBindingProvider } from './session-binding-codex.js';
-import type { Store } from './store.js';
+} from '../connect/codex-connect-installation.js';
+import { IdSchema } from '../contracts.js';
+import { CodexSessionBindingProvider } from '../session-binding-codex.js';
+import type { Store } from '../store.js';
 import { withLiveWebMetadataScope } from './local-web-metadata.js';
 
 const sourceRoot = z

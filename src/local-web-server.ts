@@ -1,6 +1,6 @@
-import type { SharedSetupImportResult } from './local-web-shared.js';
-import { isLocalWebTaskErrorCode } from './local-web-task-errors.js';
-import type { SetupReviewResult, SetupSaveResult } from './local-web-setup-review.js';
+import type { SharedSetupImportResult } from './web/local-web-shared.js';
+import { isLocalWebTaskErrorCode } from './web/local-web-task-errors.js';
+import type { SetupReviewResult, SetupSaveResult } from './web/local-web-setup-review.js';
 import {
   ApplicationSelectionSchema,
   ApplicationCheckpointSchema,
@@ -13,10 +13,10 @@ import { join, sep } from 'node:path';
 import Fastify, { type FastifyRequest, type FastifyReply } from 'fastify';
 import Database from 'better-sqlite3';
 import { z } from 'zod';
-import { OrdinaryProjectActionSchema, type OrdinaryProjectAction } from './local-web-ordinary.js';
-import { CodexProjectActionSchema, type CodexProjectAction } from './local-web-codex.js';
+import { OrdinaryProjectActionSchema, type OrdinaryProjectAction } from './web/local-web-ordinary.js';
+import { CodexProjectActionSchema, type CodexProjectAction } from './web/local-web-codex.js';
 import type { Store } from './store.js';
-import { registerWebMetadata, withLiveWebMetadataScope, type WebMetadataScope } from './local-web-metadata.js';
+import { registerWebMetadata, withLiveWebMetadataScope, type WebMetadataScope } from './web/local-web-metadata.js';
 
 /** Accepted imports retain imported:true; counts describe actual transactional saves. */
 export type LocalWebSetupImportResult = { cancelled: true } | { imported: true; added_count: number; existing_count: number };

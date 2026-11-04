@@ -1,7 +1,7 @@
 import { applicationRequired, requireApplication, assertAppliedHarness, applicationEvidence } from './harness-application.js';
 import { relative } from 'node:path';
 import { readRepositoryFile, hashBytes, readHarness } from './harness/harness-config.js';
-import { assertSharedTask, configurationIntegrityFailed } from './local-web-shared-guard.js';
+import { assertSharedTask, configurationIntegrityFailed } from './web/local-web-shared-guard.js';
 import { randomUUID } from 'node:crypto';
 import { AssignedWorkflowInputSchema, prepareAssignedWorkflow, runAssignedWorkflow, workflowTaskStatus, type WorkflowAdapter } from './task-workflow.js';
 import { CodexWorkflowExecutionSchema, createCodexWorkflowAdapter } from './codex-workflow-adapter.js';

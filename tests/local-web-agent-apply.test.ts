@@ -8,7 +8,7 @@ import { localWebFixture } from './helpers/local-web-fixture.js';
 import { createLocalWebDomain } from '../src/local-web-domain.js';
 import { registerHarness, generateComparison, hashBytes } from '../src/harness/harness-config.js';
 import { comparisonVariant } from '../src/protocol-store.js';
-import { assertSharedTask } from '../src/local-web-shared-guard.js';
+import { assertSharedTask } from '../src/web/local-web-shared-guard.js';
 import { applicationRequired } from '../src/harness-application.js';
 test('agent comparison preparation persists assignment but neither applies files nor permits legacy apply or connect', async () => {
   const f = localWebFixture();

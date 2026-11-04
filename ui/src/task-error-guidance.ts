@@ -1,5 +1,5 @@
-import { isLocalWebTaskErrorCode, type LocalWebTaskErrorCode } from '../../src/local-web-task-errors.js';
-import type { RecruitmentWindow } from '../../src/local-web-recruitment.js';
+import { isLocalWebTaskErrorCode, type LocalWebTaskErrorCode } from '../../src/web/local-web-task-errors.js';
+import type { RecruitmentWindow } from '../../src/web/local-web-recruitment.js';
 import type { Locale } from './types';
 
 type Message = readonly [enTitle: string, koTitle: string, enMessage: string, koMessage: string];
