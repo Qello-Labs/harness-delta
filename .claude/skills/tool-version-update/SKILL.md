@@ -128,7 +128,7 @@ Select Node 24, build, then run the relevant existing suites. Typical selection:
 
 ```sh
 npm run build
-npm test -- tests/source-compatibility.test.ts tests/source-compatibility-cli.test.ts tests/native-forward-compatibility.test.ts tests/session-binding-codex.test.ts tests/session-binding-claude.test.ts tests/session-binding-application-pilot.test.ts tests/local-web-root-application-pilot.test.ts tests/claude-human-pilot.test.ts tests/local-web-domain.test.ts
+npm test -- tests/source-compatibility.test.ts tests/cli/source-compatibility-cli.test.ts tests/native-forward-compatibility.test.ts tests/session-binding-codex.test.ts tests/session-binding-claude.test.ts tests/session-binding-application-pilot.test.ts tests/local-web-root-application-pilot.test.ts tests/claude-human-pilot.test.ts tests/local-web-domain.test.ts
 npm run check
 ```
 

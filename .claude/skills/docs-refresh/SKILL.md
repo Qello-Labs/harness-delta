@@ -40,7 +40,7 @@ is a symlink to it. Edit the canonical copy only.
 
    | Claim in the document | Check against |
    | --- | --- |
-   | CLI commands, options, exit and error codes | `src/cli.ts`, `src/*-cli.ts`, `src/local-web-main.ts`, `src/cli-errors.ts`, `scripts/hm.mjs` |
+   | CLI commands, options, exit and error codes | `src/cli.ts`, `src/cli/*-cli.ts`, `src/cli/local-web-main.ts`, `src/cli/cli-errors.ts`, `scripts/hm.mjs` |
    | Exact supported versions and profile IDs | `src/adapter-profiles.ts`, `src/codex-admissions.json`, `src/readiness.ts`, `src/claude-workflow-versions.ts` |
    | Conditional version windows | `src/source-compatibility.ts` |
    | Ordinary-session pilot profiles and family limits | `src/session-binding-human-pilot.ts`, `src/session-binding-claude-human-pilot.ts`, `src/session-binding-claude.ts` |

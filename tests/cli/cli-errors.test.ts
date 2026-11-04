@@ -4,8 +4,8 @@ import { join } from 'node:path';
 import { CommanderError } from 'commander';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { z } from 'zod';
-import { main } from '../src/cli.js';
-import { describeCliError } from '../src/cli-errors.js';
+import { main } from '../../src/cli.js';
+import { describeCliError } from '../../src/cli/cli-errors.js';
 
 test.each([
   Object.assign(

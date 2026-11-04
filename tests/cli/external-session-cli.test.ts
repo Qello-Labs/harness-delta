@@ -2,10 +2,10 @@ import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import Database from 'better-sqlite3';
 import { join } from 'node:path';
 import { expect, test, vi } from 'vitest';
-import { main } from '../src/cli.js';
-import { createSyntheticCodexWorkflowAdapter } from '../src/codex-workflow-adapter.js';
-import { codexWorkflowFixture } from './helpers/codex-workflow-fixture.js';
-import { externalInstructionFragment } from '../src/external-session-context.js';
+import { main } from '../../src/cli.js';
+import { createSyntheticCodexWorkflowAdapter } from '../../src/codex-workflow-adapter.js';
+import { codexWorkflowFixture } from '../helpers/codex-workflow-fixture.js';
+import { externalInstructionFragment } from '../../src/external-session-context.js';
 
 test('CLI prepares without activation, explicitly connects and never accepts launch as an external operation', async () => {
   const f = codexWorkflowFixture();
@@ -61,7 +61,7 @@ test('CLI opt-in handoff/connect/state/result and four human outcomes share the 
     if (!f.store.get("SELECT 1 FROM sqlite_master WHERE name='external_task_contracts'")) {
       const db = new Database(f.database);
       try {
-        db.exec(readFileSync(new URL('../src/migrations/019_external_connection_contract.sql', import.meta.url), 'utf8'));
+        db.exec(readFileSync(new URL('../../src/migrations/019_external_connection_contract.sql', import.meta.url), 'utf8'));
       } finally {
         db.close();
       }

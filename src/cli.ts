@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 import { registerExchangeCommands, ExchangeCliError } from './comparison/exchange/cli.js';
-import { registerCompatibilityCommands } from './source-compatibility-cli.js';
+import { registerCompatibilityCommands } from './cli/source-compatibility-cli.js';
 import { sessionCompatibility } from './source-compatibility.js';
 import { Command, CommanderError } from 'commander';
-import { describeCliError } from './cli-errors.js';
+import { describeCliError } from './cli/cli-errors.js';
 import { readFileSync, realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { registerComparisonCommands } from './comparison-cli.js';
-import { registerLocalWebCommand } from './local-web-main.js';
-import { registerApplicationCommands } from './harness-application-cli.js';
-import { registerTaskWorkflowCommands, type WorkflowCommandDependencies } from './task-workflow-cli.js';
-import { registerInstrumentedCodexCommands } from './instrumented-codex-cli.js';
+import { registerComparisonCommands } from './cli/comparison-cli.js';
+import { registerLocalWebCommand } from './cli/local-web-main.js';
+import { registerApplicationCommands } from './cli/harness-application-cli.js';
+import { registerTaskWorkflowCommands, type WorkflowCommandDependencies } from './cli/task-workflow-cli.js';
+import { registerInstrumentedCodexCommands } from './cli/instrumented-codex-cli.js';
 import { Store } from './store.js';
 import { Lifecycle, type Outcome } from './lifecycle.js';
 import { Deletion } from './deletion.js';

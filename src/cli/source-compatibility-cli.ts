@@ -1,14 +1,14 @@
 import { z } from 'zod';
 import type { Command } from 'commander';
-import { SourceCompatibilitySchema } from './contracts.js';
+import { SourceCompatibilitySchema } from '../contracts.js';
 import {
   compatibilityRuleRevision,
   effectiveSourceCompatibility,
   invalidateCompatibility,
   resolveSourceCompatibility,
   sourceCompatibilityWindows
-} from './source-compatibility.js';
-import type { Store } from './store.js';
+} from '../source-compatibility.js';
+import type { Store } from '../store.js';
 
 export function registerCompatibilityCommands(program: Command, db: () => Store, print: (value: unknown) => void): void {
   const compatibility = program.command('compatibility').description('Source parser compatibility and local invalidation');

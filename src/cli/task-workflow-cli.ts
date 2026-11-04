@@ -7,14 +7,14 @@ import {
   workflowTaskStatus,
   runAssignedWorkflow,
   type WorkflowAdapter
-} from './task-workflow.js';
-import { createCodexWorkflowAdapter, CodexWorkflowExecutionSchema } from './codex-workflow-adapter.js';
-import { createClaudeWorkflowAdapter, ClaudeWorkflowExecutionSchema, recoverClaudeWorkflow, stopClaudeWorkflow } from './claude-workflow-adapter.js';
-import { recoverCodexWorkflow, stopCodexWorkflow } from './codex-workflow-journal.js';
-import type { Outcome } from './lifecycle.js';
-import type { Store } from './store.js';
-import { createComparisonSnapshot } from './comparison/reports/comparison-snapshot.js';
-import type { ComparisonSnapshotRequest } from './comparison/reports/comparison-contracts.js';
+} from '../task-workflow.js';
+import { createCodexWorkflowAdapter, CodexWorkflowExecutionSchema } from '../codex-workflow-adapter.js';
+import { createClaudeWorkflowAdapter, ClaudeWorkflowExecutionSchema, recoverClaudeWorkflow, stopClaudeWorkflow } from '../claude-workflow-adapter.js';
+import { recoverCodexWorkflow, stopCodexWorkflow } from '../codex-workflow-journal.js';
+import type { Outcome } from '../lifecycle.js';
+import type { Store } from '../store.js';
+import { createComparisonSnapshot } from '../comparison/reports/comparison-snapshot.js';
+import type { ComparisonSnapshotRequest } from '../comparison/reports/comparison-contracts.js';
 import { registerExternalSessionCommands } from './external-session-cli.js';
 
 /** Fixed codes only: read and parse errors may contain paths or file content. */

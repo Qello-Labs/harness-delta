@@ -81,7 +81,7 @@ Keep artifact `source_path` files outside the entire `harness-config/` directory
 Run from the built Harness Delta checkout:
 
 ```sh
-node dist/harness-config-main.js register --root /path/to/project --input /path/to/register-input.json
+node dist/cli/harness-config-main.js register --root /path/to/project --input /path/to/register-input.json
 ```
 
 Expected result: `registered`; exact repeats return `already_registered`. To
@@ -114,7 +114,7 @@ Create a comparison input:
 ```
 
 ```sh
-node dist/harness-config-main.js compare --root /path/to/project --input /path/to/comparison-input.json
+node dist/cli/harness-config-main.js compare --root /path/to/project --input /path/to/comparison-input.json
 ```
 
 Expected result: `generated`; exact repeats return `already_generated`. Different

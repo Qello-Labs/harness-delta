@@ -2,9 +2,9 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test, vi } from 'vitest';
-import { main } from '../src/cli.js';
-import { Lifecycle } from '../src/lifecycle.js';
-import { Store } from '../src/store.js';
+import { main } from '../../src/cli.js';
+import { Lifecycle } from '../../src/lifecycle.js';
+import { Store } from '../../src/store.js';
 
 test.each([
   ['codex', '0.161.0'],

@@ -2,9 +2,9 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test, vi } from 'vitest';
-import { main } from '../src/cli.js';
-import { Store } from '../src/store.js';
-import { assignmentInput, assignmentTime, beforeRecruitment, protocol, variantA, variantB } from './helpers/comparison-fixture.js';
+import { main } from '../../src/cli.js';
+import { Store } from '../../src/store.js';
+import { assignmentInput, assignmentTime, beforeRecruitment, protocol, variantA, variantB } from '../helpers/comparison-fixture.js';
 
 test('CLI synthetic assignment to human outcome is durable, with fixture-only usage and no collection bypass', async () => {
   const root = mkdtempSync(join(tmpdir(), 'comparison-cli-'));

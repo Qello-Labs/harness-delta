@@ -3,12 +3,12 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test, vi } from 'vitest';
-import { main } from '../src/cli.js';
-import { Store } from '../src/store.js';
-import { Lifecycle } from '../src/lifecycle.js';
-import { bundledPriceCatalog, digest } from '../src/pricing/price-catalog.js';
-import { ensureBundledCatalog, readPriceCatalogStatus } from '../src/price-catalog-store.js';
-import { compiledWorker } from './helpers/compiled-worker.js';
+import { main } from '../../src/cli.js';
+import { Store } from '../../src/store.js';
+import { Lifecycle } from '../../src/lifecycle.js';
+import { bundledPriceCatalog, digest } from '../../src/pricing/price-catalog.js';
+import { ensureBundledCatalog, readPriceCatalogStatus } from '../../src/price-catalog-store.js';
+import { compiledWorker } from '../helpers/compiled-worker.js';
 
 test('default estimate, trusted local refresh and separate repricing work without manual price registration', async () => {
   const root = mkdtempSync(join(tmpdir(), 'catalog-cli-'));

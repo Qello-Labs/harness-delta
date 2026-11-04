@@ -1,22 +1,22 @@
-import { registerPriceTable, readPriceTable } from './pricing.js';
+import { registerPriceTable, readPriceTable } from '../pricing.js';
 import { registerObservedCostCommand } from './pricing-cli.js';
-import { PriceTableSchema, parseTaskMetadata } from './flexible-contracts.js';
-import { parseComparison } from './comparison-contracts.js';
-import { readRuntimeHistory } from './runtime-history.js';
-import { comparisonReadiness } from './readiness-store.js';
+import { PriceTableSchema, parseTaskMetadata } from '../flexible-contracts.js';
+import { parseComparison } from '../comparison-contracts.js';
+import { readRuntimeHistory } from '../runtime-history.js';
+import { comparisonReadiness } from '../readiness-store.js';
 import { readFileSync } from 'node:fs';
-import { createComparisonSnapshot, readComparisonSnapshot } from './comparison/reports/comparison-snapshot.js';
-import { renderComparisonReport } from './comparison/reports/comparison-render.js';
-import type { ComparisonSnapshotRequest } from './comparison/reports/comparison-contracts.js';
+import { createComparisonSnapshot, readComparisonSnapshot } from '../comparison/reports/comparison-snapshot.js';
+import { renderComparisonReport } from '../comparison/reports/comparison-render.js';
+import type { ComparisonSnapshotRequest } from '../comparison/reports/comparison-contracts.js';
 import type { Command } from 'commander';
-import { assignTask } from './comparison/allocation.js';
-import { freezeProtocol, registerVariant, showProtocol, showVariant } from './comparison.js';
-import { registerProtocolWithCatalogDefaults } from './price-catalog-selection.js';
+import { assignTask } from '../comparison/allocation.js';
+import { freezeProtocol, registerVariant, showProtocol, showVariant } from '../comparison.js';
+import { registerProtocolWithCatalogDefaults } from '../price-catalog-selection.js';
 import { registerPriceCatalogCommands } from './price-catalog-cli.js';
-import { configurationHistory } from './configuration-evidence.js';
-import { confirmConfiguration } from './comparison/config-confirmation-write.js';
-import type { SelectedArtifact } from './configuration-evidence.js';
-import type { Store } from './store.js';
+import { configurationHistory } from '../configuration-evidence.js';
+import { confirmConfiguration } from '../comparison/config-confirmation-write.js';
+import type { SelectedArtifact } from '../configuration-evidence.js';
+import type { Store } from '../store.js';
 
 const readConfig = (path: string): unknown => JSON.parse(readFileSync(path, 'utf8')) as unknown;
 

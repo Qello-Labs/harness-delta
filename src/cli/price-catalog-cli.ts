@@ -2,14 +2,14 @@ import { randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
 import { open } from 'node:fs/promises';
 import type { Command } from 'commander';
-import { bundledCatalogBytes, catalogByteLimit, digest } from './pricing/price-catalog.js';
-import { preparePriceBasis, refreshPriceCatalog } from './price-catalog-store.js';
-import { readOnlinePriceCatalogStatus, refreshOnlinePriceCatalog } from './pricing/price-catalog-online.js';
-import { selectTaskPriceTable } from './price-catalog-selection.js';
-import { captureComparisonCostSnapshot, captureTaskCostSnapshot, createPriceRevaluation, readPriceRevaluation } from './pricing/price-revaluation.js';
-import { captureInstrumentedCostSnapshot, createInstrumentedValuation, readInstrumentedValuation } from './instrumented-codex/instrumented-codex-cost.js';
-import type { LegacyInputBasis } from './pricing.js';
-import type { Store } from './store.js';
+import { bundledCatalogBytes, catalogByteLimit, digest } from '../pricing/price-catalog.js';
+import { preparePriceBasis, refreshPriceCatalog } from '../price-catalog-store.js';
+import { readOnlinePriceCatalogStatus, refreshOnlinePriceCatalog } from '../pricing/price-catalog-online.js';
+import { selectTaskPriceTable } from '../price-catalog-selection.js';
+import { captureComparisonCostSnapshot, captureTaskCostSnapshot, createPriceRevaluation, readPriceRevaluation } from '../pricing/price-revaluation.js';
+import { captureInstrumentedCostSnapshot, createInstrumentedValuation, readInstrumentedValuation } from '../instrumented-codex/instrumented-codex-cost.js';
+import type { LegacyInputBasis } from '../pricing.js';
+import type { Store } from '../store.js';
 
 export function registerPriceCatalogCommands(prices: Command, store: () => Store, print: (value: unknown) => void): void {
   prices

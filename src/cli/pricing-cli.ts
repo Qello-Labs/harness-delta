@@ -1,8 +1,8 @@
 import type { Command } from 'commander';
-import { readObservedCostReport } from './observed-cost-report.js';
-import type { LegacyInputBasis } from './pricing.js';
-import type { Store } from './store.js';
-import { readReferenceTaskCostReport } from './pricing/price-catalog-task-report.js';
+import { readObservedCostReport } from '../observed-cost-report.js';
+import type { LegacyInputBasis } from '../pricing.js';
+import type { Store } from '../store.js';
+import { readReferenceTaskCostReport } from '../pricing/price-catalog-task-report.js';
 
 export function registerObservedCostCommand(prices: Command, store: () => Store, print: (value: unknown) => void): void {
   prices
