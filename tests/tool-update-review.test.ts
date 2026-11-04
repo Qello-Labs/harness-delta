@@ -16,54 +16,89 @@ import type { Candidate, Observation, Product, Release } from '../scripts/tool-u
 
 const root = realpathSync(fileURLToPath(new URL('..', import.meta.url)));
 const temporary: string[] = [];
-afterEach(async () => { for (const path of temporary.splice(0)) await rm(path, { recursive: true, force: true }); });
+afterEach(async () => {
+  for (const path of temporary.splice(0)) await rm(path, { recursive: true, force: true });
+});
 async function scratch() {
   const directory = await mkdtemp(join(realpathSync(tmpdir()), 'tool-update-review-'));
   temporary.push(directory);
   return directory;
 }
 const key = {
-  product: 'codex', route: 'file', profile_id: 'codex-file-checkpoint-v1', operation: 'collect', topology: 'root',
+  product: 'codex',
+  route: 'file',
+  profile_id: 'codex-file-checkpoint-v1',
+  operation: 'collect',
+  topology: 'root'
 } as const;
 const profile = key.profile_id;
 const commits: Record<string, string> = {
-  '0.150.0': '7'.repeat(40), '0.151.0': '8'.repeat(40), '0.158.0': '9'.repeat(40), '0.162.1': '1'.repeat(40), '0.162.2': '2'.repeat(40), '0.163.0': '3'.repeat(40),
+  '0.150.0': '7'.repeat(40),
+  '0.151.0': '8'.repeat(40),
+  '0.158.0': '9'.repeat(40),
+  '0.162.1': '1'.repeat(40),
+  '0.162.2': '2'.repeat(40),
+  '0.163.0': '3'.repeat(40)
 };
 const evidence = 'c'.repeat(64);
 let sourceDigest = '';
 function fixture(versions = ['0.162.1', '0.162.2', '0.163.0'], product: Product = 'codex') {
   const releases: Release[] = versions.map((version, i) => ({
-    version, release_id: i + 1, tag: `${product === 'codex' ? 'rust-v' : 'v'}${version}`,
+    version,
+    release_id: i + 1,
+    tag: `${product === 'codex' ? 'rust-v' : 'v'}${version}`,
     commit: commits[version] ?? String(i + 1).repeat(40),
-    npm_integrity: `sha512-${Buffer.alloc(64, i).toString('base64')}`,
+    npm_integrity: `sha512-${Buffer.alloc(64, i).toString('base64')}`
   }));
   const last = releases.at(-1);
   if (!last) throw new Error('fixture_release_required');
   const { version, ...identity } = last;
   const candidate: Candidate = { schema_version: 1, kind: 'candidate', product, target: version, ...identity };
   const observation: Observation = {
-    schema_version: 1, kind: 'observation', product, checked_at: '2026-10-24T00:00:00.000Z',
-    result: 'metadata_reconciled', reasons: ['baseline_missing'],
-    heads: { github: version, npm_latest: version, npm_stable: version }, checks: [], releases,
-    candidate_id: digest(candidate),
+    schema_version: 1,
+    kind: 'observation',
+    product,
+    checked_at: '2026-10-24T00:00:00.000Z',
+    result: 'metadata_reconciled',
+    reasons: ['baseline_missing'],
+    heads: { github: version, npm_latest: version, npm_stable: version },
+    checks: [],
+    releases,
+    candidate_id: digest(candidate)
   };
   return { root, candidate, observation };
 }
 function baseline(version = '0.162.1', evidenceIds = ['a'.repeat(64)]): Baseline {
-  return { schema_version: 1, kind: 'baseline', rows: [{
-    ...key, last_reviewed_version: version, contract_revision: 'consumed-v1',
-    evidence_ids: evidenceIds, source_digest: 'b'.repeat(64),
-  }] };
+  return {
+    schema_version: 1,
+    kind: 'baseline',
+    rows: [
+      {
+        ...key,
+        last_reviewed_version: version,
+        contract_revision: 'consumed-v1',
+        evidence_ids: evidenceIds,
+        source_digest: 'b'.repeat(64)
+      }
+    ]
+  };
 }
 type Judgment = 'unaffected' | 'affected' | 'unknown';
-const contracts = (judgment: Judgment, overrides: Partial<Record<typeof consumedContracts[number], Judgment>> = {}) =>
+const contracts = (judgment: Judgment, overrides: Partial<Record<(typeof consumedContracts)[number], Judgment>> = {}) =>
   consumedContracts.map(contract_id => ({ contract_id, judgment: overrides[contract_id] ?? judgment }));
 const ref = (version: string) => ({ version, commit: commits[version] ?? '' });
 function review(from: string, to: string, change: Partial<ContractReview> = {}): ContractReview {
   return {
-    schema_version: 1, kind: 'contract_review', ...key, contract_revision: 'consumed-v1',
-    from: ref(from), to: ref(to), contracts: contracts('unaffected'), evidence_ids: [evidence],
-    source_digest: sourceDigest, ...change,
+    schema_version: 1,
+    kind: 'contract_review',
+    ...key,
+    contract_revision: 'consumed-v1',
+    from: ref(from),
+    to: ref(to),
+    contracts: contracts('unaffected'),
+    evidence_ids: [evidence],
+    source_digest: sourceDigest,
+    ...change
   };
 }
 const first = () => review('0.162.1', '0.162.2');
@@ -77,9 +112,10 @@ function lane(assessment: Assessment, name: string = profile, operation = 'colle
 }
 const zeroInput = () => fixture(['0.163.0']);
 const zeroReview = (change: Partial<ContractReview> = {}) => review('0.162.1', '0.163.0', change);
-const zero = (record: ContractReview, bound: readonly string[] = [digest(record)]) =>
-  assess([record], zeroInput(), baseline('0.163.0', [...bound]));
-beforeAll(async () => { sourceDigest = (await assessCandidate(zeroInput())).source_digest; }, 60_000);
+const zero = (record: ContractReview, bound: readonly string[] = [digest(record)]) => assess([record], zeroInput(), baseline('0.163.0', [...bound]));
+beforeAll(async () => {
+  sourceDigest = (await assessCandidate(zeroInput())).source_digest;
+}, 60_000);
 
 test('a review record is a strict fixed-code object', () => {
   const valid = first();
@@ -87,20 +123,28 @@ test('a review record is a strict fixed-code object', () => {
   const [head, ...tail] = valid.contracts;
   if (!head) throw new Error('fixture_contract_required');
   for (const bad of [
-    { ...valid, note: 'free text' }, { ...valid, path: '/Users/synthetic/private' },
-    { ...valid, schema_version: 2 }, { ...valid, contract_revision: 'consumed-v2' },
-    { ...valid, contracts: [head, ...tail, head] }, { ...valid, contracts: tail },
-    { ...valid, contracts: [head, head, ...tail.slice(1)] }, { ...valid, contracts: [...tail, head] },
+    { ...valid, note: 'free text' },
+    { ...valid, path: '/Users/synthetic/private' },
+    { ...valid, schema_version: 2 },
+    { ...valid, contract_revision: 'consumed-v2' },
+    { ...valid, contracts: [head, ...tail, head] },
+    { ...valid, contracts: tail },
+    { ...valid, contracts: [head, head, ...tail.slice(1)] },
+    { ...valid, contracts: [...tail, head] },
     { ...valid, contracts: [{ ...head, judgment: 'pass' }, ...tail] },
     { ...valid, contracts: [{ ...head, extra: 'text' }, ...tail] },
-    { ...valid, evidence_ids: [] }, { ...valid, evidence_ids: ['d'.repeat(64), evidence] },
-    { ...valid, evidence_ids: [evidence, evidence] }, { ...valid, source_digest: 'F'.repeat(64) },
+    { ...valid, evidence_ids: [] },
+    { ...valid, evidence_ids: ['d'.repeat(64), evidence] },
+    { ...valid, evidence_ids: [evidence, evidence] },
+    { ...valid, source_digest: 'F'.repeat(64) },
     { ...valid, evidence_ids: Array.from({ length: 65 }, (_, index) => index.toString(16).padStart(64, '0')) },
-    { ...valid, from: ref('0.162.2'), to: ref('0.162.1') }, { ...valid, to: valid.from },
+    { ...valid, from: ref('0.162.2'), to: ref('0.162.1') },
+    { ...valid, to: valid.from },
     { ...valid, to: { ...valid.to, commit: 'F'.repeat(40) } },
     { ...valid, from: { ...valid.from, version: '0.162.x' } },
-    { ...valid, to: { ...valid.to, version: '0.162.2-beta' } },
-  ]) expect(contractReviewSchema.safeParse(bad).success).toBe(false);
+    { ...valid, to: { ...valid.to, version: '0.162.2-beta' } }
+  ])
+    expect(contractReviewSchema.safeParse(bad).success).toBe(false);
 });
 
 test('record-review publishes the record under its content address and prints one status', async () => {
@@ -113,8 +157,10 @@ test('record-review publishes the record under its content address and prints on
   expect(await readFile(join(output, 'reviews', `${digest(record)}.json`), 'utf8')).toBe(canonical(record));
   expect(await runToolUpdate(['record-review', '--input', input, '--out', output])).toEqual(result);
   expect(await readdir(join(output, 'reviews'))).toEqual([`${digest(record)}.json`]);
-  const { stdout, stderr } = await promisify(execFile)(process.execPath,
-    ['scripts/tool-update.mjs', 'record-review', '--input', input, '--out', output], { cwd: root, timeout: 30_000 });
+  const { stdout, stderr } = await promisify(execFile)(process.execPath, ['scripts/tool-update.mjs', 'record-review', '--input', input, '--out', output], {
+    cwd: root,
+    timeout: 30_000
+  });
   expect(stdout).toBe(`${JSON.stringify(result.output)}\n`);
   expect(stderr).toBe('');
 });
@@ -123,8 +169,7 @@ test('record-review rejects malformed input without publishing and requires both
   const output = await scratch();
   const input = join(output, 'input.json');
   await writeFile(input, JSON.stringify({ ...first(), note: 'synthetic-secret' }));
-  expect(await runToolUpdate(['record-review', '--input', input, '--out', output]))
-    .toEqual({ exitCode: 2, output: { status: 'invalid_review' } });
+  expect(await runToolUpdate(['record-review', '--input', input, '--out', output])).toEqual({ exitCode: 2, output: { status: 'invalid_review' } });
   expect(await readdir(output)).toEqual(['input.json']);
   expect(await runToolUpdate(['record-review', '--input', input])).toEqual({ exitCode: 2, output: { status: 'invalid_arguments' } });
   expect(await runToolUpdate(['record-review', '--out', output])).toEqual({ exitCode: 2, output: { status: 'invalid_arguments' } });
@@ -144,11 +189,15 @@ test('a lane closes only when every edge has a matching all-unaffected record', 
   expect(selected.live).toEqual(lane(plain).live);
   expect(selected.review.parser_comparison).toEqual(lane(plain).review.parser_comparison);
   expect(selected.review.releases).toEqual(lane(plain).review.releases);
-  expect(result.lanes.filter(row => row !== selected).map(row => {
-    const { selection_policy, ...previous } = row;
-    expect(selection_policy).toBeDefined();
-    return previous;
-  })).toEqual(plain.lanes.filter(row => row !== lane(plain)));
+  expect(
+    result.lanes
+      .filter(row => row !== selected)
+      .map(row => {
+        const { selection_policy, ...previous } = row;
+        expect(selection_policy).toBeDefined();
+        return previous;
+      })
+  ).toEqual(plain.lanes.filter(row => row !== lane(plain)));
   expect(result.review_sources).toEqual(plain.review_sources);
   expect(result.source_digest).toBe(plain.source_digest);
   expect(result.review_ids).toEqual([digest(first()), digest(second())].sort());
@@ -160,8 +209,12 @@ test('closed contracts never imply support', async () => {
   for (const selected of closed) {
     expect(selected.gates.contracts_reviewed).toBe('closed');
     expect({ ...selected.gates, contracts_reviewed: 'x' }).toEqual({
-      contracts_reviewed: 'x', conformance: 'not_assessed', regression: 'not_assessed',
-      implementation_review: 'not_assessed', admission: 'not_assessed', default_promotion: 'not_assessed',
+      contracts_reviewed: 'x',
+      conformance: 'not_assessed',
+      regression: 'not_assessed',
+      implementation_review: 'not_assessed',
+      admission: 'not_assessed',
+      default_promotion: 'not_assessed'
     });
     expect(Object.values(selected.live)).toEqual(Array<string>(5).fill('not_assessed'));
   }
@@ -178,18 +231,38 @@ test('an edge without a matching record keeps the lane unknown', async () => {
 
 test('lane contracts are the per-contract worst case across edges', async () => {
   const result = await assess([
-    review('0.162.1', '0.162.2', { contracts: contracts('unaffected', {
-      identity_source_mapping: 'affected', fields_types_enums: 'unknown' }) }),
-    review('0.162.2', '0.163.0', { contracts: contracts('unaffected', {
-      fields_types_enums: 'affected', identity_source_mapping: 'unknown', hooks_order_receipts_loading: 'unknown' }) }),
+    review('0.162.1', '0.162.2', {
+      contracts: contracts('unaffected', {
+        identity_source_mapping: 'affected',
+        fields_types_enums: 'unknown'
+      })
+    }),
+    review('0.162.2', '0.163.0', {
+      contracts: contracts('unaffected', {
+        fields_types_enums: 'affected',
+        identity_source_mapping: 'unknown',
+        hooks_order_receipts_loading: 'unknown'
+      })
+    })
   ]);
   const selected = lane(result);
-  expect(selected.review.contracts).toEqual(contracts('unaffected', {
-    identity_source_mapping: 'affected', fields_types_enums: 'affected', hooks_order_receipts_loading: 'unknown' }));
+  expect(selected.review.contracts).toEqual(
+    contracts('unaffected', {
+      identity_source_mapping: 'affected',
+      fields_types_enums: 'affected',
+      hooks_order_receipts_loading: 'unknown'
+    })
+  );
   expect(selected.gates.contracts_reviewed).toBe('affected');
   expect(selected.reasons).toEqual(expect.arrayContaining(['contracts_affected', 'contracts_unknown']));
-  const unknown = lane(await assess([first(), review('0.162.2', '0.163.0', {
-    contracts: contracts('unaffected', { fields_types_enums: 'unknown' }) })]));
+  const unknown = lane(
+    await assess([
+      first(),
+      review('0.162.2', '0.163.0', {
+        contracts: contracts('unaffected', { fields_types_enums: 'unknown' })
+      })
+    ])
+  );
   expect(unknown.gates.contracts_reviewed).toBe('unknown');
   expect(unknown.review.contracts).toEqual(contracts('unaffected', { fields_types_enums: 'unknown' }));
   expect(unknown.reasons).not.toContain('contracts_affected');
@@ -222,7 +295,7 @@ test('records that match no lane or edge are listed as unused', async () => {
     review('0.162.1', '0.162.2', { operation: 'restart' }),
     review('0.162.1', '0.162.2', { topology: 'root_direct_child' }),
     review('0.162.1', '0.162.2', { route: 'codex_workflow' }),
-    review('0.158.0', '0.162.1'),
+    review('0.158.0', '0.162.1')
   ];
   const result = await assess([...unmatched, first()]);
   if (result.schema_version !== 4) throw new Error('schema_4_required');
@@ -234,13 +307,12 @@ test('records that match no lane or edge are listed as unused', async () => {
 test('conflicting records for one lane edge fail closed', async () => {
   const other = review('0.162.1', '0.162.2', { evidence_ids: ['d'.repeat(64)] });
   await expect(assess([first(), other, second()])).rejects.toMatchObject({ code: 'review_conflict' });
-  await expect(assess([first(), review('0.162.1', '0.162.2', { source_digest: 'f'.repeat(64) })]))
-    .rejects.toMatchObject({ code: 'review_conflict' });
+  await expect(assess([first(), review('0.162.1', '0.162.2', { source_digest: 'f'.repeat(64) })])).rejects.toMatchObject({ code: 'review_conflict' });
 });
 
 test.each([
   ['to', () => review('0.162.1', '0.162.2', { to: { version: '0.162.2', commit: 'f'.repeat(40) } })],
-  ['from', () => review('0.162.1', '0.162.2', { from: { version: '0.162.1', commit: 'f'.repeat(40) } })],
+  ['from', () => review('0.162.1', '0.162.2', { from: { version: '0.162.1', commit: 'f'.repeat(40) } })]
 ])('a record with a conflicting %s commit fails closed', async (_, build) => {
   await expect(assess([build(), second()])).rejects.toMatchObject({ code: 'review_commit_conflict' });
 });
@@ -263,22 +335,37 @@ test('a baseline-bound record with the target version closes a zero-edge lane', 
 test.each([
   ['codex', ['0.160.0'], 'codex_workflow', 'codex-workflow-own-response-v1', 'launch'],
   ['claude_code', ['2.1.282', '2.1.283'], 'file', 'claude-file-message-components-v1', 'collect'],
-  ['claude_code', ['2.1.283'], 'file', 'claude-file-message-components-v1', 'collect'],
+  ['claude_code', ['2.1.283'], 'file', 'claude-file-message-components-v1', 'collect']
 ] as const)('clean %s %j lanes can close without any remaining reason', async (product, versions, route, profile_id, operation) => {
   const input = fixture([...versions], product);
   const from = input.observation.releases[0];
   const to = input.observation.releases.at(-1);
   if (!from || !to) throw new Error('fixture_release_required');
   const record = review('0.162.1', '0.163.0', {
-    product, route, profile_id, operation,
-    from: versions.length === 1 ? { version: '0.1.0', commit: 'f'.repeat(40) }
-      : { version: from.version, commit: from.commit },
-    to: { version: to.version, commit: to.commit },
+    product,
+    route,
+    profile_id,
+    operation,
+    from: versions.length === 1 ? { version: '0.1.0', commit: 'f'.repeat(40) } : { version: from.version, commit: from.commit },
+    to: { version: to.version, commit: to.commit }
   });
-  const base: Baseline = { schema_version: 1, kind: 'baseline', rows: [{
-    product, route, profile_id, operation, topology: 'root', last_reviewed_version: from.version,
-    contract_revision: 'consumed-v1', evidence_ids: [digest(record)], source_digest: sourceDigest,
-  }] };
+  const base: Baseline = {
+    schema_version: 1,
+    kind: 'baseline',
+    rows: [
+      {
+        product,
+        route,
+        profile_id,
+        operation,
+        topology: 'root',
+        last_reviewed_version: from.version,
+        contract_revision: 'consumed-v1',
+        evidence_ids: [digest(record)],
+        source_digest: sourceDigest
+      }
+    ]
+  };
   const selected = lane(await assess([record], input, base), profile_id, operation);
   expect(selected.gates.contracts_reviewed).toBe('closed');
   expect(selected.reasons).toEqual([]);
@@ -294,12 +381,30 @@ test('closing an exact-only lane preserves no-window and transition reasons', as
   if (!selected) throw new Error('fixture_lane_required');
   const { product, route, profile_id, operation, topology } = selected;
   const record = review('0.163.0', '0.164.0', {
-    product, route, profile_id, operation, topology, to: { version: target.version, commit: target.commit },
+    product,
+    route,
+    profile_id,
+    operation,
+    topology,
+    to: { version: target.version, commit: target.commit }
   });
-  const base: Baseline = { schema_version: 1, kind: 'baseline', rows: [{
-    product, route, profile_id, operation, topology, last_reviewed_version: target.version,
-    contract_revision: 'consumed-v1', evidence_ids: [digest(record)], source_digest: sourceDigest,
-  }] };
+  const base: Baseline = {
+    schema_version: 1,
+    kind: 'baseline',
+    rows: [
+      {
+        product,
+        route,
+        profile_id,
+        operation,
+        topology,
+        last_reviewed_version: target.version,
+        contract_revision: 'consumed-v1',
+        evidence_ids: [digest(record)],
+        source_digest: sourceDigest
+      }
+    ]
+  };
   const result = await assess([record], input, base);
   const closed = result.lanes.find(row => row.profile_id === profile_id && row.operation === operation && row.topology === topology);
   expect(closed?.gates.contracts_reviewed).toBe('closed');
@@ -320,7 +425,7 @@ test.each([
   ['stale digest', () => zeroReview({ source_digest: 'f'.repeat(64) }), 'unknown', true],
   ['older to version', () => review('0.158.0', '0.162.1'), 'unknown', false],
   ['affected contract', () => zeroReview({ contracts: contracts('unaffected', { fields_types_enums: 'affected' }) }), 'affected', false],
-  ['unknown contract', () => zeroReview({ contracts: contracts('unaffected', { fields_types_enums: 'unknown' }) }), 'unknown', false],
+  ['unknown contract', () => zeroReview({ contracts: contracts('unaffected', { fields_types_enums: 'unknown' }) }), 'unknown', false]
 ] as const)('zero-edge binding with %s does not close the lane', async (_, build, gate, changed) => {
   const result = await zero(build());
   expect(lane(result).gates.contracts_reviewed).toBe(gate);
@@ -352,12 +457,22 @@ test('parser comparison needs a contiguous chain from the parser base to the tar
   expect(lane(stale).reasons).toContain('review_source_changed');
   const closed = await assess([second(), chain, first()], input);
   expect(lane(closed).review.parser_comparison).toMatchObject({
-    from_version: '0.158.0', to: { version: '0.163.0' }, contracts: contracts('unaffected'),
+    from_version: '0.158.0',
+    to: { version: '0.163.0' },
+    contracts: contracts('unaffected')
   });
   if (closed.schema_version !== 4) throw new Error('schema_4_required');
   expect(closed.unused_review_ids).toEqual([]);
-  const mixed = await assess([chain, first(), review('0.162.2', '0.163.0', {
-    contracts: contracts('unaffected', { fields_types_enums: 'affected' }) })], input);
+  const mixed = await assess(
+    [
+      chain,
+      first(),
+      review('0.162.2', '0.163.0', {
+        contracts: contracts('unaffected', { fields_types_enums: 'affected' })
+      })
+    ],
+    input
+  );
   expect(lane(mixed).review.parser_comparison?.contracts).toEqual(contracts('unaffected', { fields_types_enums: 'affected' }));
   expect(lane(mixed).gates.contracts_reviewed).toBe('affected');
 });
@@ -373,7 +488,8 @@ test('parser comparison cannot trust a base or intermediate commit absent from t
   const chain = [
     review('0.158.0', '0.151.0', { to: { version: '0.160.0', commit: 'a'.repeat(40) } }),
     review('0.151.0', '0.162.1', { from: { version: '0.160.0', commit: 'b'.repeat(40) } }),
-    first(), second(),
+    first(),
+    second()
   ];
   const result = await assess(chain, fixture(['0.158.0', '0.162.1', '0.162.2', '0.163.0']));
   expect(lane(result).review.parser_comparison?.contracts).toEqual(contracts('unknown'));
@@ -391,26 +507,48 @@ test('without reviews the assessment stays schema 2 and old schemas stay readabl
   expect(scope).toBe('legacy_full_inventory');
   expect(assessmentSchema.safeParse({ ...fields, schema_version: 1 }).success).toBe(true);
   const selected = lane(plain);
-  const forged = { ...plain, lanes: plain.lanes.map(row => row === selected ? {
-    ...row, review: { ...row.review, contracts: contracts('affected') } } : row) };
+  const forged = {
+    ...plain,
+    lanes: plain.lanes.map(row =>
+      row === selected
+        ? {
+            ...row,
+            review: { ...row.review, contracts: contracts('affected') }
+          }
+        : row
+    )
+  };
   expect(assessmentSchema.safeParse(forged).success).toBe(false);
   for (const overrides of [
     { gates: { ...selected.gates, contracts_reviewed: 'closed' } },
     { reasons: [...selected.reasons, 'contracts_affected'] },
-    { reasons: [...selected.reasons, 'review_source_changed'] },
-  ]) expect(assessmentSchema.safeParse({ ...plain, lanes: [{ ...selected, ...overrides }] }).success).toBe(false);
+    { reasons: [...selected.reasons, 'review_source_changed'] }
+  ])
+    expect(assessmentSchema.safeParse({ ...plain, lanes: [{ ...selected, ...overrides }] }).success).toBe(false);
   const closed = await assess([first(), second()]);
   expect(assessmentSchema.safeParse(closed).success).toBe(true);
   if (closed.schema_version !== 4) throw new Error('schema_4_required');
-  const schema3 = { ...closed, schema_version: 3, lanes: closed.lanes.map(row => {
-    const { selection_policy, ...previous } = row;
-    expect(selection_policy).toBeDefined();
-    return previous;
-  }) };
+  const schema3 = {
+    ...closed,
+    schema_version: 3,
+    lanes: closed.lanes.map(row => {
+      const { selection_policy, ...previous } = row;
+      expect(selection_policy).toBeDefined();
+      return previous;
+    })
+  };
   expect(assessmentSchema.safeParse(schema3).success).toBe(true);
   expect(assessmentSchema.safeParse({ ...closed, review_ids: [...closed.review_ids].reverse() }).success).toBe(false);
-  expect(assessmentSchema.safeParse({ ...closed, lanes: closed.lanes.map(row => row.profile_id === profile && row.operation === 'collect'
-    ? { ...row, gates: { ...row.gates, contracts_reviewed: 'closed' }, review: { ...row.review, contracts: contracts('unknown') } } : row) }).success).toBe(false);
+  expect(
+    assessmentSchema.safeParse({
+      ...closed,
+      lanes: closed.lanes.map(row =>
+        row.profile_id === profile && row.operation === 'collect'
+          ? { ...row, gates: { ...row.gates, contracts_reviewed: 'closed' }, review: { ...row.review, contracts: contracts('unknown') } }
+          : row
+      )
+    }).success
+  ).toBe(false);
 });
 
 async function stage(versions = ['0.162.1', '0.162.2', '0.163.0']) {
@@ -418,10 +556,21 @@ async function stage(versions = ['0.162.1', '0.162.2', '0.163.0']) {
   const input = fixture(versions);
   const candidateId = await publishRecord(output, input.candidate, candidateSchema);
   const observationId = await publishRecord(output, input.observation, observationSchema);
-  const file = async (name: string, value: unknown) => { const path = join(output, name); await writeFile(path, JSON.stringify(value)); return path; };
+  const file = async (name: string, value: unknown) => {
+    const path = join(output, name);
+    await writeFile(path, JSON.stringify(value));
+    return path;
+  };
   const run = async (reviews: readonly unknown[], base: Baseline = baseline()) => {
-    const args = ['assess', '--manifest', join(output, 'candidates', `${candidateId}.json`),
-      '--observation', join(output, 'observations', `${observationId}.json`), '--baseline', await file('baseline.json', base)];
+    const args = [
+      'assess',
+      '--manifest',
+      join(output, 'candidates', `${candidateId}.json`),
+      '--observation',
+      join(output, 'observations', `${observationId}.json`),
+      '--baseline',
+      await file('baseline.json', base)
+    ];
     for (const [index, value] of reviews.entries()) args.push('--review', await file(`review-${index}.json`, value));
     return runToolUpdate(args);
   };
@@ -444,12 +593,15 @@ test('assess --review is repeatable, order independent and writes schema 4', asy
 
 test('assess --review reports fixed codes for conflicting, commit-conflicting and malformed records', async () => {
   const { run } = await stage();
-  expect(await run([first(), review('0.162.1', '0.162.2', { evidence_ids: ['d'.repeat(64)] })]))
-    .toEqual({ exitCode: 2, output: { status: 'review_conflict' } });
-  expect(await run([review('0.162.1', '0.162.2', { to: { version: '0.162.2', commit: 'f'.repeat(40) } })]))
-    .toEqual({ exitCode: 2, output: { status: 'review_commit_conflict' } });
-  expect(await run([{ ...first(), note: 'synthetic-secret' }]))
-    .toEqual({ exitCode: 2, output: { status: 'invalid_review' } });
+  expect(await run([first(), review('0.162.1', '0.162.2', { evidence_ids: ['d'.repeat(64)] })])).toEqual({
+    exitCode: 2,
+    output: { status: 'review_conflict' }
+  });
+  expect(await run([review('0.162.1', '0.162.2', { to: { version: '0.162.2', commit: 'f'.repeat(40) } })])).toEqual({
+    exitCode: 2,
+    output: { status: 'review_commit_conflict' }
+  });
+  expect(await run([{ ...first(), note: 'synthetic-secret' }])).toEqual({ exitCode: 2, output: { status: 'invalid_review' } });
 });
 
 test('review-file failures are fixed and independent of option order', async () => {
@@ -461,12 +613,20 @@ test('review-file failures are fixed and independent of option order', async () 
   await writeFile(baselinePath, JSON.stringify(baseline()));
   await writeFile(invalid, JSON.stringify({ ...first(), note: 'synthetic-secret' }));
   await writeFile(unreadable, 'synthetic-invalid-json');
-  const args = ['assess', '--manifest', join(output, 'candidates', `${digest(input.candidate)}.json`),
-    '--observation', join(output, 'observations', `${digest(input.observation)}.json`), '--baseline', baselinePath];
-  for (const files of [[invalid, unreadable], [unreadable, invalid]]) {
-    expect(await runToolUpdate([...args, ...files.flatMap(path => ['--review', path])]))
-      .toEqual({ exitCode: 2, output: { status: 'invalid_review' } });
+  const args = [
+    'assess',
+    '--manifest',
+    join(output, 'candidates', `${digest(input.candidate)}.json`),
+    '--observation',
+    join(output, 'observations', `${digest(input.observation)}.json`),
+    '--baseline',
+    baselinePath
+  ];
+  for (const files of [
+    [invalid, unreadable],
+    [unreadable, invalid]
+  ]) {
+    expect(await runToolUpdate([...args, ...files.flatMap(path => ['--review', path])])).toEqual({ exitCode: 2, output: { status: 'invalid_review' } });
   }
-  expect(await runToolUpdate([...args, '--review', unreadable]))
-    .toEqual({ exitCode: 2, output: { status: 'record_read_failed' } });
+  expect(await runToolUpdate([...args, '--review', unreadable])).toEqual({ exitCode: 2, output: { status: 'record_read_failed' } });
 });

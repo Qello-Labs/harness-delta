@@ -19,18 +19,22 @@ const events = ['SessionStart', 'SubagentStart'] as const;
 const digest = z.string().regex(/^[a-f0-9]{64}$/);
 const hookEntrySchema = z.strictObject({
   matcher: z.string().optional(),
-  hooks: z.array(z.strictObject({ type: z.literal('command'), command: z.string() })).length(1),
+  hooks: z.array(z.strictObject({ type: z.literal('command'), command: z.string() })).length(1)
 });
 const manifestSchema = z.strictObject({
   schema_version: z.literal(1),
   package: z.literal('harness-connect'),
   root_identity: z.string(),
-  files: z.array(z.strictObject({
-    path: z.string().refine(path => safeRelativePath(path) &&
-      (path.startsWith(`${destination}/`) || path === recorder)),
-    sha256: digest,
-  })).min(2).max(257),
-  hooks: z.strictObject({ SessionStart: hookEntrySchema, SubagentStart: hookEntrySchema }),
+  files: z
+    .array(
+      z.strictObject({
+        path: z.string().refine(path => safeRelativePath(path) && (path.startsWith(`${destination}/`) || path === recorder)),
+        sha256: digest
+      })
+    )
+    .min(2)
+    .max(257),
+  hooks: z.strictObject({ SessionStart: hookEntrySchema, SubagentStart: hookEntrySchema })
 });
 const lockOwnerSchema = z.strictObject({ pid: z.number().int().positive(), root_identity: z.string() });
 type Manifest = z.infer<typeof manifestSchema>;
@@ -72,18 +76,27 @@ export interface CodexConnectInstallationPreview extends CodexConnectInstallatio
   readonly beforeHooksHash: string | null;
 }
 export class CodexConnectInstallationError extends Error {
-  constructor(readonly code: string) { super(code); this.name = 'CodexConnectInstallationError'; }
+  constructor(readonly code: string) {
+    super(code);
+    this.name = 'CodexConnectInstallationError';
+  }
 }
-const fail = (code: string): never => { throw new CodexConnectInstallationError(`codex_connect_${code}`); };
-const blocker = (error: unknown) => error instanceof CodexConnectInstallationError
-  ? error.code : 'codex_connect_installation_unavailable';
+const fail = (code: string): never => {
+  throw new CodexConnectInstallationError(`codex_connect_${code}`);
+};
+const blocker = (error: unknown) => (error instanceof CodexConnectInstallationError ? error.code : 'codex_connect_installation_unavailable');
 const missing = (error: unknown) => error instanceof Error && 'code' in error && error.code === 'ENOENT';
 const identity = (stat: Stats) => `${stat.dev}:${stat.ino}:${stat.birthtimeMs}`;
 function rootIdentity(root: string, source = false): string {
   const stat = lstatSync(root);
-  if (!stat.isDirectory() || stat.isSymbolicLink() || realpathSync(root) !== resolve(root) ||
-    (stat.mode & 0o022) !== 0 || (typeof process.getuid === 'function' &&
-      stat.uid !== process.getuid() && !(source && stat.uid === 0))) fail('unsafe_project_root');
+  if (
+    !stat.isDirectory() ||
+    stat.isSymbolicLink() ||
+    realpathSync(root) !== resolve(root) ||
+    (stat.mode & 0o022) !== 0 ||
+    (typeof process.getuid === 'function' && stat.uid !== process.getuid() && !(source && stat.uid === 0))
+  )
+    fail('unsafe_project_root');
   return identity(stat);
 }
 function entry(root: string, path: string) {
@@ -93,19 +106,28 @@ function entry(root: string, path: string) {
   for (const [index, part] of parts.entries()) {
     current = join(current, part);
     let stat;
-    try { stat = lstatSync(current); } catch (error) { if (missing(error)) return null; throw error; }
-    if (stat.isSymbolicLink() || (index < parts.length - 1 && !stat.isDirectory()) ||
-      (stat.mode & 0o022) !== 0 || (typeof process.getuid === 'function' &&
-        stat.uid !== process.getuid() && stat.uid !== 0) ||
-      (!stat.isDirectory() && (!stat.isFile() || stat.nlink !== 1))) fail('unsafe_path');
+    try {
+      stat = lstatSync(current);
+    } catch (error) {
+      if (missing(error)) return null;
+      throw error;
+    }
+    if (
+      stat.isSymbolicLink() ||
+      (index < parts.length - 1 && !stat.isDirectory()) ||
+      (stat.mode & 0o022) !== 0 ||
+      (typeof process.getuid === 'function' && stat.uid !== process.getuid() && stat.uid !== 0) ||
+      (!stat.isDirectory() && (!stat.isFile() || stat.nlink !== 1))
+    )
+      fail('unsafe_path');
     if (index === parts.length - 1) return stat;
   }
   return null;
 }
 function privateDirectory(root: string, path: string) {
   const stat = entry(root, path);
-  if (stat && (!stat.isDirectory() || (stat.mode & 0o077) !== 0 ||
-    (typeof process.getuid === 'function' && stat.uid !== process.getuid()))) fail('metadata_unsafe');
+  if (stat && (!stat.isDirectory() || (stat.mode & 0o077) !== 0 || (typeof process.getuid === 'function' && stat.uid !== process.getuid())))
+    fail('metadata_unsafe');
   return stat;
 }
 function bytesAt(root: string, path: string): Buffer | null {
@@ -117,7 +139,8 @@ function bytesAt(root: string, path: string): Buffer | null {
 function tree(root: string): Map<string, Buffer> {
   rootIdentity(root, true);
   const files = new Map<string, Buffer>();
-  let count = 0, size = 0;
+  let count = 0,
+    size = 0;
   const visit = (prefix: string, depth: number) => {
     if (depth > 16) fail('package_limit');
     const names = readdirSync(join(root, prefix)).sort();
@@ -139,9 +162,13 @@ function tree(root: string): Map<string, Buffer> {
   visit('', 0);
   return files;
 }
-const bundleHash = (files: Map<string, Buffer>, hooks: HookEntries | null) => hashBytes(JSON.stringify({
-  files: [...files].sort(([a], [b]) => a.localeCompare(b)).map(([path, bytes]) => [path, hashBytes(bytes)]), hooks,
-}));
+const bundleHash = (files: Map<string, Buffer>, hooks: HookEntries | null) =>
+  hashBytes(
+    JSON.stringify({
+      files: [...files].sort(([a], [b]) => a.localeCompare(b)).map(([path, bytes]) => [path, hashBytes(bytes)]),
+      hooks
+    })
+  );
 const object = (value: unknown): JsonObject => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return fail('hooks_invalid');
   return z.custom<JsonObject>().parse(value);
@@ -150,9 +177,9 @@ const equal = (a: unknown, b: unknown): boolean => {
   if (a === b) return true;
   if (Array.isArray(a) && Array.isArray(b)) return a.length === b.length && a.every((v, i) => equal(v, b[i]));
   if (a && b && typeof a === 'object' && typeof b === 'object' && !Array.isArray(a) && !Array.isArray(b)) {
-    const left = object(a), right = object(b);
-    return Object.keys(left).length === Object.keys(right).length &&
-      Object.keys(left).every(key => Object.hasOwn(right, key) && equal(left[key], right[key]));
+    const left = object(a),
+      right = object(b);
+    return Object.keys(left).length === Object.keys(right).length && Object.keys(left).every(key => Object.hasOwn(right, key) && equal(left[key], right[key]));
   }
   return false;
 };
@@ -162,7 +189,9 @@ function hookDocument(bytes: Buffer | null) {
     if (input.length > 1048576 || !Buffer.from(input.toString('utf8')).equals(input)) return fail('hooks_invalid');
     const text = input.toString('utf8');
     let offset = 0;
-    const ws = () => { while (offset < text.length && /[ \t\r\n]/.test(text[offset] ?? '')) offset++; };
+    const ws = () => {
+      while (offset < text.length && /[ \t\r\n]/.test(text[offset] ?? '')) offset++;
+    };
     const string = (): string => {
       const start = offset++;
       while (offset < text.length) {
@@ -177,26 +206,40 @@ function hookDocument(bytes: Buffer | null) {
       const ch = text[offset];
       if (ch === '"') return string();
       if (ch === '{') {
-        offset++; ws();
-        const out: JsonObject = {}, keys = new Set<string>();
-        if (text[offset] === '}') { offset++; return out; }
+        offset++;
+        ws();
+        const out: JsonObject = {},
+          keys = new Set<string>();
+        if (text[offset] === '}') {
+          offset++;
+          return out;
+        }
         for (;;) {
-          ws(); if (text[offset] !== '"') return fail('hooks_invalid');
+          ws();
+          if (text[offset] !== '"') return fail('hooks_invalid');
           const key = string();
           if (keys.has(key)) return fail('hooks_invalid');
-          keys.add(key); ws(); if (text[offset++] !== ':') return fail('hooks_invalid');
+          keys.add(key);
+          ws();
+          if (text[offset++] !== ':') return fail('hooks_invalid');
           Object.defineProperty(out, key, { value: value(depth + 1), enumerable: true, writable: true, configurable: true });
-          ws(); const end = text[offset++];
+          ws();
+          const end = text[offset++];
           if (end === '}') return out;
           if (end !== ',') return fail('hooks_invalid');
         }
       }
       if (ch === '[') {
-        offset++; ws();
+        offset++;
+        ws();
         const out: unknown[] = [];
-        if (text[offset] === ']') { offset++; return out; }
+        if (text[offset] === ']') {
+          offset++;
+          return out;
+        }
         for (;;) {
-          out.push(value(depth + 1)); ws();
+          out.push(value(depth + 1));
+          ws();
           const end = text[offset++];
           if (end === ']') return out;
           if (end !== ',') return fail('hooks_invalid');
@@ -206,15 +249,17 @@ function hookDocument(bytes: Buffer | null) {
       if (!token) return fail('hooks_invalid');
       offset += token.length;
       const parsed: unknown = JSON.parse(token);
-      if (typeof parsed === 'number' && (!Number.isFinite(parsed) || (Number.isInteger(parsed) && !Number.isSafeInteger(parsed))))
-        return fail('hooks_invalid');
+      if (typeof parsed === 'number' && (!Number.isFinite(parsed) || (Number.isInteger(parsed) && !Number.isSafeInteger(parsed)))) return fail('hooks_invalid');
       return parsed;
     };
     try {
-      const result = value(0); ws();
+      const result = value(0);
+      ws();
       if (offset !== text.length) return fail('hooks_invalid');
       return result;
-    } catch { return fail('hooks_invalid'); }
+    } catch {
+      return fail('hooks_invalid');
+    }
   };
   const document = bytes ? object(parse(bytes)) : {};
   const hooks = document.hooks === undefined ? {} : object(document.hooks);
@@ -229,8 +274,7 @@ function mergeHooks(bytes: Buffer | null, before: HookEntries | null, after: Hoo
     const entries = z.array(z.unknown()).parse(hooks[event] ?? []);
     if (before && entries.filter(value => equal(value, before[event])).length !== 1) fail('hooks_drift');
     const remaining = before ? entries.filter(value => !equal(value, before[event])) : entries;
-    if (after && remaining.some(value => equal(value, after[event]) ||
-      JSON.stringify(value).includes(recorder))) fail('hooks_unowned');
+    if (after && remaining.some(value => equal(value, after[event]) || JSON.stringify(value).includes(recorder))) fail('hooks_unowned');
     if (after) remaining.push(after[event]);
     if (hooks[event] !== undefined || after) hooks[event] = remaining;
   }
@@ -239,13 +283,15 @@ function mergeHooks(bytes: Buffer | null, before: HookEntries | null, after: Hoo
 const quote = (value: string) => `'${value.replaceAll("'", "'\"'\"'")}'`;
 function packageSource(root: string, options: CodexConnectInstallationOptions) {
   if (!getCodexBindingAdmission(options.productVersion)) fail('product_version_unsupported');
-  if (!Array.isArray(options.sourceRoots) || options.sourceRoots.length === 0 || options.sourceRoots.length > 32)
-    fail('source_roots_invalid');
+  if (!Array.isArray(options.sourceRoots) || options.sourceRoots.length === 0 || options.sourceRoots.length > 32) fail('source_roots_invalid');
   for (const sourceRoot of options.sourceRoots) {
-    if (!isAbsolute(sourceRoot) || sourceRoot.length > 4096 || sourceRoot.includes('\0') || resolve(sourceRoot) === '/')
-      fail('source_roots_invalid');
-    try { rootIdentity(sourceRoot, true); }
-    catch (error) { if (missing(error)) fail('source_root_missing'); throw error; }
+    if (!isAbsolute(sourceRoot) || sourceRoot.length > 4096 || sourceRoot.includes('\0') || resolve(sourceRoot) === '/') fail('source_roots_invalid');
+    try {
+      rootIdentity(sourceRoot, true);
+    } catch (error) {
+      if (missing(error)) fail('source_root_missing');
+      throw error;
+    }
   }
   const sourceRoot = options.packageRoot ?? packagedSkillPath('harness-connect');
   const files = new Map([...tree(sourceRoot)].map(([path, bytes]) => [`${destination}/${path}`, bytes]));
@@ -257,12 +303,21 @@ function packageSource(root: string, options: CodexConnectInstallationOptions) {
   const hookBytes = bytesAt(dirname(hookSource), basename(hookSource));
   if (!hookBytes) return fail('package_source_unavailable');
   files.set(recorder, hookBytes);
-  const runtime = realpathSync(process.execPath), runtimeStat = lstatSync(runtime);
-  if (!isAbsolute(runtime) || !runtimeStat.isFile() || (runtimeStat.mode & 0o022) !== 0 ||
-    !/^node(?:\.exe)?$/.test(basename(runtime))) fail('node_runtime_unavailable');
-  const command = [runtime, join(resolve(root), recorder), '--receipt-directory', join(resolve(root), receiptDirectory),
-    '--product-version', options.productVersion,
-    ...options.sourceRoots.flatMap(path => ['--source-root', path])].map(quote).join(' ');
+  const runtime = realpathSync(process.execPath),
+    runtimeStat = lstatSync(runtime);
+  if (!isAbsolute(runtime) || !runtimeStat.isFile() || (runtimeStat.mode & 0o022) !== 0 || !/^node(?:\.exe)?$/.test(basename(runtime)))
+    fail('node_runtime_unavailable');
+  const command = [
+    runtime,
+    join(resolve(root), recorder),
+    '--receipt-directory',
+    join(resolve(root), receiptDirectory),
+    '--product-version',
+    options.productVersion,
+    ...options.sourceRoots.flatMap(path => ['--source-root', path])
+  ]
+    .map(quote)
+    .join(' ');
   const hook = { hooks: [{ type: 'command' as const, command }] };
   const hooks: HookEntries = { SessionStart: { matcher: 'startup|resume|clear|compact', ...hook }, SubagentStart: hook };
   return { files, hooks };
@@ -270,12 +325,16 @@ function packageSource(root: string, options: CodexConnectInstallationOptions) {
 function inspectOwned(root: string) {
   const rootId = rootIdentity(root);
   const pins = new Map<string, string | null>();
-  const pin = (path: string) => { const stat = entry(root, path); pins.set(path, stat ? identity(stat) : null); };
-  for (const path of ['.agents', '.agents/skills', destination, '.harness-delta', metadata, receiptDirectory,
-    manifestPath, recorder, '.codex', hooksPath]) pin(path);
+  const pin = (path: string) => {
+    const stat = entry(root, path);
+    pins.set(path, stat ? identity(stat) : null);
+  };
+  for (const path of ['.agents', '.agents/skills', destination, '.harness-delta', metadata, receiptDirectory, manifestPath, recorder, '.codex', hooksPath])
+    pin(path);
   privateDirectory(root, metadata);
   privateDirectory(root, receiptDirectory);
-  const bytes = bytesAt(root, manifestPath), hookBytes = bytesAt(root, hooksPath);
+  const bytes = bytesAt(root, manifestPath),
+    hookBytes = bytesAt(root, hooksPath);
   hookDocument(hookBytes);
   const files = new Map<string, Buffer>();
   if (!bytes) {
@@ -300,7 +359,10 @@ function inspectOwned(root: string) {
     if (!value || hashBytes(value) !== file.sha256) fail('package_drift');
     pin(file.path);
     let parent = dirname(file.path);
-    while (parent !== '.') { pin(parent); parent = dirname(parent); }
+    while (parent !== '.') {
+      pin(parent);
+      parent = dirname(parent);
+    }
   }
   mergeHooks(hookBytes, manifest.hooks, null);
   return { rootId, pins, bytes, hookBytes, files, manifest };
@@ -313,45 +375,69 @@ function plan(root: string, options: CodexConnectInstallationPreviewOptions) {
   try {
     owned = inspectOwned(root);
     if (entry(root, lockPath)) fail('installation_busy');
-  } catch (error) { blockers.push(blocker(error)); }
-  try { source = packageSource(root, options); }
-  catch (error) { if (operation === 'install') blockers.push(blocker(error)); }
+  } catch (error) {
+    blockers.push(blocker(error));
+  }
+  try {
+    source = packageSource(root, options);
+  } catch (error) {
+    if (operation === 'install') blockers.push(blocker(error));
+  }
   const wanted = operation === 'install' ? source?.files : new Map<string, Buffer>();
   const changes: CodexConnectInstallationChange[] = [];
   let afterHooks: Buffer | null = null;
   if (owned && wanted && blockers.length === 0) {
     try {
       if (operation === 'install' || owned.manifest) {
-        afterHooks = mergeHooks(owned.hookBytes, owned.manifest?.hooks ?? null,
-          operation === 'install' ? source?.hooks ?? null : null);
+        afterHooks = mergeHooks(owned.hookBytes, owned.manifest?.hooks ?? null, operation === 'install' ? (source?.hooks ?? null) : null);
         // An idempotent install must not rewrite formatting or reorder existing hooks.
-        if (operation === 'install' && owned.manifest && source && equal(owned.manifest.hooks, source.hooks))
-          afterHooks = owned.hookBytes;
+        if (operation === 'install' && owned.manifest && source && equal(owned.manifest.hooks, source.hooks)) afterHooks = owned.hookBytes;
       }
       for (const path of [...new Set([...owned.files.keys(), ...wanted.keys()])].sort()) {
-        const before = owned.files.get(path), after = wanted.get(path);
-        const beforeHash = before ? hashBytes(before) : null, afterHash = after ? hashBytes(after) : null;
-        if (beforeHash !== afterHash) changes.push({ path,
-          action: beforeHash === null ? 'create' : afterHash === null ? 'delete' : 'update', beforeHash, afterHash });
+        const before = owned.files.get(path),
+          after = wanted.get(path);
+        const beforeHash = before ? hashBytes(before) : null,
+          afterHash = after ? hashBytes(after) : null;
+        if (beforeHash !== afterHash)
+          changes.push({ path, action: beforeHash === null ? 'create' : afterHash === null ? 'delete' : 'update', beforeHash, afterHash });
       }
-      if (afterHooks && !afterHooks.equals(owned.hookBytes ?? Buffer.alloc(0))) changes.push({ path: hooksPath,
-        action: owned.hookBytes ? 'update' : 'create', beforeHash: owned.hookBytes ? hashBytes(owned.hookBytes) : null,
-        afterHash: hashBytes(afterHooks) });
+      if (afterHooks && !afterHooks.equals(owned.hookBytes ?? Buffer.alloc(0)))
+        changes.push({
+          path: hooksPath,
+          action: owned.hookBytes ? 'update' : 'create',
+          beforeHash: owned.hookBytes ? hashBytes(owned.hookBytes) : null,
+          afterHash: hashBytes(afterHooks)
+        });
       if (operation === 'install' && owned.pins.get(receiptDirectory) === null)
         changes.push({ path: receiptDirectory, action: 'create', beforeHash: null, afterHash: hashBytes('directory:0700') });
-    } catch (error) { blockers.push(blocker(error)); }
+    } catch (error) {
+      blockers.push(blocker(error));
+    }
   }
   const beforeHooksHash = owned?.hookBytes ? hashBytes(owned.hookBytes) : null;
   const preview: CodexConnectInstallationPreview = {
-    state: blockers.length ? 'blocked' : !owned?.manifest ? 'absent' :
-      source && (owned.pins.get(receiptDirectory) === null || bundleHash(source.files, source.hooks) !== bundleHash(owned.files, owned.manifest.hooks))
-        ? 'update_available' : 'installed',
+    state: blockers.length
+      ? 'blocked'
+      : !owned?.manifest
+        ? 'absent'
+        : source && (owned.pins.get(receiptDirectory) === null || bundleHash(source.files, source.hooks) !== bundleHash(owned.files, owned.manifest.hooks))
+          ? 'update_available'
+          : 'installed',
     source: source ? 'available' : 'unavailable',
-    packageHash: source && owned ? hashBytes(JSON.stringify([bundleHash(source.files, source.hooks), owned.rootId, beforeHooksHash, owned.pins.get(receiptDirectory) !== null])) : null,
+    packageHash:
+      source && owned
+        ? hashBytes(JSON.stringify([bundleHash(source.files, source.hooks), owned.rootId, beforeHooksHash, owned.pins.get(receiptDirectory) !== null]))
+        : null,
     installedHash: owned?.manifest
-      ? hashBytes(JSON.stringify([bundleHash(owned.files, owned.manifest.hooks), owned.rootId, beforeHooksHash, owned.pins.get(receiptDirectory) !== null])) : null,
-    destination, receiptDirectory, hookRegistration: 'unverified', blockers,
-    operation, changes: blockers.length ? [] : changes, beforeHooksHash,
+      ? hashBytes(JSON.stringify([bundleHash(owned.files, owned.manifest.hooks), owned.rootId, beforeHooksHash, owned.pins.get(receiptDirectory) !== null]))
+      : null,
+    destination,
+    receiptDirectory,
+    hookRegistration: 'unverified',
+    blockers,
+    operation,
+    changes: blockers.length ? [] : changes,
+    beforeHooksHash
   };
   return { preview, owned, source, wanted, afterHooks };
 }
@@ -360,15 +446,25 @@ export function previewCodexConnectInstallation(root: string, options: CodexConn
 }
 export function statusCodexConnectInstallation(root: string, options: CodexConnectInstallationOptions): CodexConnectInstallationStatus {
   const result = plan(root, options).preview;
-  return { state: result.state, source: result.source, packageHash: result.packageHash, installedHash: result.installedHash,
-    destination, receiptDirectory, hookRegistration: 'unverified', blockers: result.blockers };
+  return {
+    state: result.state,
+    source: result.source,
+    packageHash: result.packageHash,
+    installedHash: result.installedHash,
+    destination,
+    receiptDirectory,
+    hookRegistration: 'unverified',
+    blockers: result.blockers
+  };
 }
 function apply(root: string, options: CodexConnectInstallationPreviewOptions): CodexConnectInstallationStatus {
   const planned = plan(root, options);
   const { preview, owned, source, wanted, afterHooks } = planned;
   if (preview.blockers.length || !owned || !wanted) return preview;
-  if ((options.expectedPackageHash !== undefined && options.expectedPackageHash !== preview.packageHash) ||
-    (options.expectedInstalledHash !== undefined && options.expectedInstalledHash !== preview.installedHash))
+  if (
+    (options.expectedPackageHash !== undefined && options.expectedPackageHash !== preview.packageHash) ||
+    (options.expectedInstalledHash !== undefined && options.expectedInstalledHash !== preview.installedHash)
+  )
     fail('installation_preview_changed');
   if (!preview.changes.length) return preview;
   if (options.expectedPackageHash === undefined || options.expectedInstalledHash === undefined) fail('installation_preview_required');
@@ -380,37 +476,63 @@ function apply(root: string, options: CodexConnectInstallationPreviewOptions): C
     for (const part of path.split('/')) {
       parent = parent ? `${parent}/${part}` : part;
       const stat = entry(root, parent);
-      if (stat) { if (!stat.isDirectory()) fail('unsafe_path'); }
-      else { mkdirSync(join(root, parent), { mode: 0o700 }); created.push(parent); }
+      if (stat) {
+        if (!stat.isDirectory()) fail('unsafe_path');
+      } else {
+        mkdirSync(join(root, parent), { mode: 0o700 });
+        created.push(parent);
+      }
       if (rootIdentity(root) !== owned.rootId) fail('changed_project_root');
     }
   };
   const actions: { path: string; before: Buffer | null; after: Buffer | null; moved: boolean; installed: boolean }[] = [];
-  let locked = false, committed = false, rollbackFailed = false;
+  let locked = false,
+    committed = false,
+    rollbackFailed = false;
   try {
     ensure(metadata);
-    mkdirSync(join(root, lockPath), { mode: 0o700 }); locked = true;
+    mkdirSync(join(root, lockPath), { mode: 0o700 });
+    locked = true;
     durablePrivateBytes(root, `${lockPath}/owner.json`, Buffer.from(JSON.stringify({ pid: process.pid, root_identity: owned.rootId })));
     ensure(transaction);
     if (preview.operation === 'install') ensure(receiptDirectory);
     const recheck = () => {
       const current = inspectOwned(root);
-      if (current.rootId !== owned.rootId || bundleHash(current.files, current.manifest?.hooks ?? null) !==
-        bundleHash(owned.files, owned.manifest?.hooks ?? null) ||
+      if (
+        current.rootId !== owned.rootId ||
+        bundleHash(current.files, current.manifest?.hooks ?? null) !== bundleHash(owned.files, owned.manifest?.hooks ?? null) ||
         !equal(current.bytes ? hashBytes(current.bytes) : null, owned.bytes ? hashBytes(owned.bytes) : null) ||
         !equal(current.hookBytes ? hashBytes(current.hookBytes) : null, owned.hookBytes ? hashBytes(owned.hookBytes) : null) ||
-        [...owned.pins].some(([path, pin]) => pin !== null && current.pins.get(path) !== pin)) fail('installation_preview_changed');
+        [...owned.pins].some(([path, pin]) => pin !== null && current.pins.get(path) !== pin)
+      )
+        fail('installation_preview_changed');
     };
     recheck();
-    for (const change of preview.changes.filter(change => change.path !== receiptDirectory)) actions.push({ path: change.path,
-      before: change.path === hooksPath ? owned.hookBytes : owned.files.get(change.path) ?? null,
-      after: change.path === hooksPath ? afterHooks : wanted.get(change.path) ?? null, moved: false, installed: false });
-    const manifest: Manifest | null = preview.operation === 'install' && source ? {
-      schema_version: 1, package: 'harness-connect', root_identity: owned.rootId,
-      files: [...source.files].map(([path, bytes]) => ({ path, sha256: hashBytes(bytes) })), hooks: source.hooks,
-    } : null;
-    actions.push({ path: manifestPath, before: owned.bytes,
-      after: manifest ? Buffer.from(JSON.stringify(manifest) + '\n') : null, moved: false, installed: false });
+    for (const change of preview.changes.filter(change => change.path !== receiptDirectory))
+      actions.push({
+        path: change.path,
+        before: change.path === hooksPath ? owned.hookBytes : (owned.files.get(change.path) ?? null),
+        after: change.path === hooksPath ? afterHooks : (wanted.get(change.path) ?? null),
+        moved: false,
+        installed: false
+      });
+    const manifest: Manifest | null =
+      preview.operation === 'install' && source
+        ? {
+            schema_version: 1,
+            package: 'harness-connect',
+            root_identity: owned.rootId,
+            files: [...source.files].map(([path, bytes]) => ({ path, sha256: hashBytes(bytes) })),
+            hooks: source.hooks
+          }
+        : null;
+    actions.push({
+      path: manifestPath,
+      before: owned.bytes,
+      after: manifest ? Buffer.from(JSON.stringify(manifest) + '\n') : null,
+      moved: false,
+      installed: false
+    });
     for (const [index, action] of actions.entries()) {
       if (action.after) {
         if (rootIdentity(root) !== owned.rootId) fail('changed_project_root');
@@ -423,16 +545,17 @@ function apply(root: string, options: CodexConnectInstallationPreviewOptions): C
       ensure(dirname(action.path));
       const expectedHooks = hooksApplied ? afterHooks : owned.hookBytes;
       const currentHooks = bytesAt(root, hooksPath);
-      if ((currentHooks === null) !== (expectedHooks === null) ||
-        (currentHooks && !currentHooks.equals(expectedHooks ?? Buffer.alloc(0)))) fail('installation_preview_changed');
+      if ((currentHooks === null) !== (expectedHooks === null) || (currentHooks && !currentHooks.equals(expectedHooks ?? Buffer.alloc(0))))
+        fail('installation_preview_changed');
       const before = bytesAt(root, action.path);
-      if ((before === null) !== (action.before === null) ||
-        (before && !before.equals(action.before ?? Buffer.alloc(0)))) fail('installation_preview_changed');
+      if ((before === null) !== (action.before === null) || (before && !before.equals(action.before ?? Buffer.alloc(0)))) fail('installation_preview_changed');
       if (action.before) {
-        renameSync(join(root, action.path), join(root, transaction, `old-${index}`)); action.moved = true;
+        renameSync(join(root, action.path), join(root, transaction, `old-${index}`));
+        action.moved = true;
       }
       if (action.after) {
-        renameSync(join(root, transaction, `new-${index}`), join(root, action.path)); action.installed = true;
+        renameSync(join(root, transaction, `new-${index}`), join(root, action.path));
+        action.installed = true;
       }
       if (action.path === hooksPath) hooksApplied = true;
     }
@@ -450,16 +573,26 @@ function apply(root: string, options: CodexConnectInstallationPreviewOptions): C
           renameSync(join(root, transaction, `old-${actions.indexOf(action)}`), join(root, action.path));
         }
       }
-    } catch { rollbackFailed = true; fail('installation_rollback_failed'); }
+    } catch {
+      rollbackFailed = true;
+      fail('installation_rollback_failed');
+    }
     throw new CodexConnectInstallationError(blocker(error));
   } finally {
     if (!rollbackFailed && locked) {
       if (rootIdentity(root) !== owned.rootId) fail('changed_project_root');
       if (entry(root, transaction)) {
         for (const [index, action] of actions.entries()) {
-          for (const [name, bytes] of [[`new-${index}`, action.after], [`old-${index}`, action.before]] as const) {
-            const path = `${transaction}/${name}`, value = bytesAt(root, path);
-            if (value) { if (!bytes || !value.equals(bytes)) fail('installation_cleanup_failed'); unlinkSync(join(root, path)); }
+          for (const [name, bytes] of [
+            [`new-${index}`, action.after],
+            [`old-${index}`, action.before]
+          ] as const) {
+            const path = `${transaction}/${name}`,
+              value = bytesAt(root, path);
+            if (value) {
+              if (!bytes || !value.equals(bytes)) fail('installation_cleanup_failed');
+              unlinkSync(join(root, path));
+            }
           }
         }
         rmdirSync(join(root, transaction));
@@ -469,7 +602,10 @@ function apply(root: string, options: CodexConnectInstallationPreviewOptions): C
       const directories = new Set(created);
       for (const action of actions) {
         let path = dirname(action.path);
-        while (path.startsWith(destination)) { directories.add(path); path = dirname(path); }
+        while (path.startsWith(destination)) {
+          directories.add(path);
+          path = dirname(path);
+        }
       }
       for (const path of [...directories].sort((a, b) => b.length - a.length)) {
         if (committed && !path.startsWith(destination)) continue;
@@ -494,12 +630,13 @@ export function recoverCodexConnectInstallationLock(root: string, options: Codex
   if (!bytes) return fail('installation_recovery_required');
   const owner = lockOwnerSchema.parse(readStrictJson(bytes));
   if (owner.root_identity !== owned.rootId) return fail('changed_project_root');
-  try { process.kill(owner.pid, 0); return fail('installation_busy'); }
-  catch (error) {
+  try {
+    process.kill(owner.pid, 0);
+    return fail('installation_busy');
+  } catch (error) {
     if (!(error instanceof Error && 'code' in error && error.code === 'ESRCH')) throw error;
   }
-  if (readdirSync(join(root, lockPath)).some(name => name !== 'owner.json') ||
-    readdirSync(join(root, metadata)).some(name => name.startsWith('transaction-')))
+  if (readdirSync(join(root, lockPath)).some(name => name !== 'owner.json') || readdirSync(join(root, metadata)).some(name => name.startsWith('transaction-')))
     return fail('installation_recovery_required');
   unlinkSync(join(root, lockPath, 'owner.json'));
   rmdirSync(join(root, lockPath));

@@ -17,29 +17,38 @@ const upstreamCommit = '092d3acd6bec3e3a14bdc7e7a2810ab628ab759d';
 const target = 'aarch64-apple-darwin';
 const acceptedCompiler = {
   distributionManifest: '821ff14e4c4a1cbe1e8915f35aff0a3fbbdf8d293ad48ab8f31e3b0440c581f9',
-  installedTree: '04052d94aa9c3f55c1f162486258f1a4e475ddd6d5908f80426032d586ca1590',
+  installedTree: '04052d94aa9c3f55c1f162486258f1a4e475ddd6d5908f80426032d586ca1590'
 } as const;
 const recipe = {
-  version: 1, upstreamCommit, target, rust: '1.95.0',
+  version: 1,
+  upstreamCommit,
+  target,
+  rust: '1.95.0',
   command: ['build', '--locked', '--offline', '--target', target, '-p', 'codex-cli', '--bin', 'codex'],
-  profile: 'dev', incremental: false, debug: 0,
+  profile: 'dev',
+  incremental: false,
+  debug: 0,
   transport: IdSchema.parse('http1-responses-no-redirect-no-implicit-retry-no-pool-v1'),
   counter: IdSchema.parse('presence-preserving-disjoint-tokens-v1'),
   configuration: IdSchema.parse('fresh-root-direct-v2-two-children-gpt-61-sol-high-telemetry-off-v1'),
-  acceptedCompiler,
+  acceptedCompiler
 } as const;
 
 const LocationsSchema = z.strictObject({
-  checkoutPath: z.string().min(1), toolchainPath: z.string().min(1),
-  cargoHomePath: z.string().min(1), buildRootPath: z.string().min(1),
+  checkoutPath: z.string().min(1),
+  toolchainPath: z.string().min(1),
+  cargoHomePath: z.string().min(1),
+  buildRootPath: z.string().min(1)
 });
 export type InstrumentedQualificationLocations = z.infer<typeof LocationsSchema>;
 
 export class InstrumentedQualificationError extends Error {
   readonly name = 'InstrumentedQualificationError';
-  constructor(readonly code:
-    'source_mismatch' | 'lock_mismatch' | 'toolchain_mismatch' | 'platform_mismatch' |
-    'command_failed' | 'input_changed' | 'identity_conflict') { super(code); }
+  constructor(
+    readonly code: 'source_mismatch' | 'lock_mismatch' | 'toolchain_mismatch' | 'platform_mismatch' | 'command_failed' | 'input_changed' | 'identity_conflict'
+  ) {
+    super(code);
+  }
 }
 
 function sha(bytes: string | Buffer): string {
@@ -47,14 +56,20 @@ function sha(bytes: string | Buffer): string {
 }
 
 const ownModules = [
-  'instrumented-codex-qualification', 'instrumented-codex-conformance',
-  'instrumented-codex-accounting', 'instrumented-codex-contracts',
-  'instrumented-codex-descriptor', 'instrumented-codex-build-identity',
-  'instrumented-codex-cost', 'instrumented-codex-usage', 'package-paths',
+  'instrumented-codex-qualification',
+  'instrumented-codex-conformance',
+  'instrumented-codex-accounting',
+  'instrumented-codex-contracts',
+  'instrumented-codex-descriptor',
+  'instrumented-codex-build-identity',
+  'instrumented-codex-cost',
+  'instrumented-codex-usage',
+  'package-paths'
 ];
 // Cached modules must never be fingerprinted as a package update that occurs during Cargo.
 const loadedReceiverDigests = ownModules.map(name => ({
-  name, digest: sha(readFileSync(implementationPath(name + implementationExtension))),
+  name,
+  digest: sha(readFileSync(implementationPath(name + implementationExtension)))
 }));
 
 export async function assertInstrumentedReceiverUnchanged(): Promise<void> {
@@ -84,22 +99,33 @@ export async function rejectInheritedCargoConfiguration(directory: string): Prom
 }
 
 const gitEnvironment = {
-  PATH: '/usr/bin:/bin', GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null',
-  GIT_NO_REPLACE_OBJECTS: '1', GIT_TERMINAL_PROMPT: '0', LC_ALL: 'C',
+  PATH: '/usr/bin:/bin',
+  GIT_CONFIG_NOSYSTEM: '1',
+  GIT_CONFIG_GLOBAL: '/dev/null',
+  GIT_NO_REPLACE_OBJECTS: '1',
+  GIT_TERMINAL_PROMPT: '0',
+  LC_ALL: 'C'
 };
 const qualificationCancellation = new AsyncLocalStorage<AbortSignal | undefined>();
 
 export async function command(
-  program: string, args: readonly string[], cwd: string, env: NodeJS.ProcessEnv = gitEnvironment,
-  input?: Buffer, allowedCodes: readonly number[] = [0],
-  signal = qualificationCancellation.getStore(),
+  program: string,
+  args: readonly string[],
+  cwd: string,
+  env: NodeJS.ProcessEnv = gitEnvironment,
+  input?: Buffer,
+  allowedCodes: readonly number[] = [0],
+  signal = qualificationCancellation.getStore()
 ): Promise<Buffer> {
   signal?.throwIfAborted();
   const child = spawn(program, [...args], { cwd, env, detached: true, stdio: ['pipe', 'pipe', 'pipe'] });
   const terminate = () => {
     if (child.pid === undefined) return;
-    try { process.kill(-child.pid, 'SIGKILL'); }
-    catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error; }
+    try {
+      process.kill(-child.pid, 'SIGKILL');
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error;
+    }
   };
   const chunks: Buffer[] = [];
   let length = 0;
@@ -107,7 +133,10 @@ export async function command(
   child.stdout.on('data', (chunk: Buffer) => {
     length += chunk.length;
     if (length <= 64 * 1024 * 1024) chunks.push(chunk);
-    else { overflow = true; terminate(); }
+    else {
+      overflow = true;
+      terminate();
+    }
   });
   child.stderr.resume();
   const completion = new Promise<number | null>((resolveCode, reject) => {
@@ -115,7 +144,9 @@ export async function command(
     child.once('close', resolveCode);
   });
   let inputFailure = false;
-  child.stdin.on('error', () => { inputFailure = true; });
+  child.stdin.on('error', () => {
+    inputFailure = true;
+  });
   signal?.addEventListener('abort', terminate, { once: true });
   const timer = setTimeout(terminate, 1_800_000);
   child.stdin.end(input);
@@ -133,20 +164,27 @@ export async function command(
 }
 
 function git(checkout: string, args: readonly string[], input?: Buffer, allowedCodes?: readonly number[]) {
-  return command('/usr/bin/git', [
-    '-c', 'core.hooksPath=/dev/null', '-c', 'core.autocrlf=false', '-c', 'core.fsmonitor=false',
-    '-c', 'diff.external=', ...args,
-  ], checkout, gitEnvironment, input, allowedCodes);
+  return command(
+    '/usr/bin/git',
+    ['-c', 'core.hooksPath=/dev/null', '-c', 'core.autocrlf=false', '-c', 'core.fsmonitor=false', '-c', 'diff.external=', ...args],
+    checkout,
+    gitEnvironment,
+    input,
+    allowedCodes
+  );
 }
 
 /** Only the release's internal workspace version repair is allowed in Cargo.lock. */
 export function verifyInstrumentedWorkspaceLock(base: string, patched: string): void {
   let changed = 0;
-  const expected = base.split('[[package]]').map(block => {
-    if (/^source = /m.test(block) || !/^version = "0\.0\.0"$/m.test(block)) return block;
-    changed++;
-    return block.replace(/^version = "0\.0\.0"$/m, 'version = "0.162.1"');
-  }).join('[[package]]');
+  const expected = base
+    .split('[[package]]')
+    .map(block => {
+      if (/^source = /m.test(block) || !/^version = "0\.0\.0"$/m.test(block)) return block;
+      changed++;
+      return block.replace(/^version = "0\.0\.0"$/m, 'version = "0.162.1"');
+    })
+    .join('[[package]]');
   if (changed !== 161 || expected !== patched) throw new InstrumentedQualificationError('lock_mismatch');
 }
 
@@ -158,19 +196,32 @@ async function currentPatch(checkout: string): Promise<Buffer> {
   const head = (await git(checkout, ['rev-parse', 'HEAD'])).toString('utf8').trim();
   if (head !== upstreamCommit) throw new InstrumentedQualificationError('source_mismatch');
   const tracked = await git(checkout, [
-    '-c', 'diff.suppressBlankEmpty=true', 'diff', '--no-ext-diff', '--no-textconv', '--binary', '--full-index', '--no-renames',
-    '--ignore-submodules=none', 'HEAD', '--',
+    '-c',
+    'diff.suppressBlankEmpty=true',
+    'diff',
+    '--no-ext-diff',
+    '--no-textconv',
+    '--binary',
+    '--full-index',
+    '--no-renames',
+    '--ignore-submodules=none',
+    'HEAD',
+    '--'
   ]);
-  const additions = (await git(checkout, ['ls-files', '--others', '--exclude-standard', '-z']))
-    .toString('utf8').split('\0').filter(Boolean).sort();
+  const additions = (await git(checkout, ['ls-files', '--others', '--exclude-standard', '-z'])).toString('utf8').split('\0').filter(Boolean).sort();
   const chunks = [tracked];
   for (const path of additions) {
     if (!/^codex-rs\/[a-zA-Z0-9_./-]+$/.test(path)) {
       throw new InstrumentedQualificationError('source_mismatch');
     }
-    chunks.push(await git(checkout, [
-      '-c', 'diff.suppressBlankEmpty=true', 'diff', '--no-ext-diff', '--no-textconv', '--binary', '--full-index', '--no-index', '--', '/dev/null', path,
-    ], undefined, [1]));
+    chunks.push(
+      await git(
+        checkout,
+        ['-c', 'diff.suppressBlankEmpty=true', 'diff', '--no-ext-diff', '--no-textconv', '--binary', '--full-index', '--no-index', '--', '/dev/null', path],
+        undefined,
+        [1]
+      )
+    );
   }
   return Buffer.concat(chunks);
 }
@@ -227,8 +278,7 @@ export async function inspectInstrumentedCodexToolchain(toolchainPath: string) {
   }
   const rustVersion = (await command(rustc, ['--version', '--verbose'], toolchain)).toString('utf8');
   const cargoVersion = (await command(cargo, ['--version'], toolchain)).toString('utf8');
-  if (!/^release: 1\.95\.0$/m.test(rustVersion) || !/^host: aarch64-apple-darwin$/m.test(rustVersion) ||
-      !/^cargo 1\.95\.0 /.test(cargoVersion)) {
+  if (!/^release: 1\.95\.0$/m.test(rustVersion) || !/^host: aarch64-apple-darwin$/m.test(rustVersion) || !/^cargo 1\.95\.0 /.test(cargoVersion)) {
     throw new InstrumentedQualificationError('toolchain_mismatch');
   }
   return { digest, rustVersion, cargoVersion };
@@ -261,8 +311,7 @@ async function qualifyOwnedBuild(store: Store, input: unknown) {
     nativeTools[name] = await realpath(path);
     nativeToolDigests[name] = sha(await readFile(path));
   }
-  const sdk = await realpath((await command('/usr/bin/xcrun', ['--show-sdk-path'], toolchain))
-    .toString('utf8').trim());
+  const sdk = await realpath((await command('/usr/bin/xcrun', ['--show-sdk-path'], toolchain)).toString('utf8').trim());
   const sdkDigest = await treeDigest(sdk);
   const cache = await realpath(locations.cargoHomePath);
   const buildRoot = await realpath(locations.buildRootPath);
@@ -281,7 +330,7 @@ async function qualifyOwnedBuild(store: Store, input: unknown) {
     await git(snapshot, ['apply', '--index', '--binary', '-'], patch);
     const paths = (await git(snapshot, ['ls-files', '-z'])).toString('utf8').split('\0').filter(Boolean);
     const sourceDigest = await treeDigest(snapshot, paths);
-    if (sourceDigest !== await treeDigest(checkout, paths)) {
+    if (sourceDigest !== (await treeDigest(checkout, paths))) {
       throw new InstrumentedQualificationError('source_mismatch');
     }
     // Reuse downloaded archives and Git objects, never caller Cargo config, extracted
@@ -292,47 +341,81 @@ async function qualifyOwnedBuild(store: Store, input: unknown) {
     await rejectInheritedCargoConfiguration(root);
     await assertInstrumentedReceiverUnchanged();
     await command(join(toolchain, 'bin/cargo'), recipe.command, join(snapshot, 'codex-rs'), {
-      ...gitEnvironment, HOME: home, PATH: `${join(toolchain, 'bin')}:/usr/bin:/bin`,
-      CARGO_HOME: cargoHome, CARGO_TARGET_DIR: buildTarget,
-      RUSTC: join(toolchain, 'bin/rustc'), RUSTDOC: join(toolchain, 'bin/rustdoc'),
-      CARGO_INCREMENTAL: '0', CARGO_PROFILE_DEV_DEBUG: '0',
-      CC: nativeTools.clang, CXX: nativeTools['clang++'], AR: nativeTools.ar, RANLIB: nativeTools.ranlib,
-      CARGO_TARGET_AARCH64_APPLE_DARWIN_LINKER: nativeTools.clang, SDKROOT: sdk,
+      ...gitEnvironment,
+      HOME: home,
+      PATH: `${join(toolchain, 'bin')}:/usr/bin:/bin`,
+      CARGO_HOME: cargoHome,
+      CARGO_TARGET_DIR: buildTarget,
+      RUSTC: join(toolchain, 'bin/rustc'),
+      RUSTDOC: join(toolchain, 'bin/rustdoc'),
+      CARGO_INCREMENTAL: '0',
+      CARGO_PROFILE_DEV_DEBUG: '0',
+      CC: nativeTools.clang,
+      CXX: nativeTools['clang++'],
+      AR: nativeTools.ar,
+      RANLIB: nativeTools.ranlib,
+      CARGO_TARGET_AARCH64_APPLE_DARWIN_LINKER: nativeTools.clang,
+      SDKROOT: sdk,
       SOURCE_DATE_EPOCH: (await git(snapshot, ['show', '-s', '--format=%ct', upstreamCommit])).toString('utf8').trim(),
-      RUSTFLAGS: `--remap-path-prefix=${root}=/instrumented-build --remap-path-prefix=${toolchain}=/rust-toolchain`,
+      RUSTFLAGS: `--remap-path-prefix=${root}=/instrumented-build --remap-path-prefix=${toolchain}=/rust-toolchain`
     });
     const binaryPath = join(buildTarget, target, 'debug/codex');
     const binaryHash = hashInstrumentedBinary(binaryPath);
-    const version = (await command(binaryPath, ['--version'], home, {
-      PATH: '/usr/bin:/bin', HOME: home, CODEX_HOME: home,
-    })).toString('utf8').trim();
+    const version = (
+      await command(binaryPath, ['--version'], home, {
+        PATH: '/usr/bin:/bin',
+        HOME: home,
+        CODEX_HOME: home
+      })
+    )
+      .toString('utf8')
+      .trim();
     if (version !== 'codex-cli 0.162.1') throw new InstrumentedQualificationError('input_changed');
     const codeDigests = loadedReceiverDigests;
     const manifest = {
-      recipe, recipeDigest: instrumentedMetadataHash({ recipe, codeDigests }),
-      patchDigest: source.patchDigest, sourceDigest,
-      dependencyLockDigest: source.dependencyLockDigest, compiler,
-      nativeToolDigests, sdkDigest,
-      receiverRuntime: { version: process.version, binaryDigest: hashInstrumentedBinary(process.execPath) },
+      recipe,
+      recipeDigest: instrumentedMetadataHash({ recipe, codeDigests }),
+      patchDigest: source.patchDigest,
+      sourceDigest,
+      dependencyLockDigest: source.dependencyLockDigest,
+      compiler,
+      nativeToolDigests,
+      sdkDigest,
+      receiverRuntime: { version: process.version, binaryDigest: hashInstrumentedBinary(process.execPath) }
     };
     const manifestHash = instrumentedMetadataHash(manifest);
     const profile = InstrumentedProducerProfileSchema.parse({
-      schema_version: 1, profile_id: 'codex-instrumented-01621-http-direct-v2-v1',
-      upstream_commit: upstreamCommit, upstream_version: '0.162.1', product_version: '0.162.1',
-      patched_source_digest: sourceDigest, dependency_lock_digest: source.dependencyLockDigest,
-      build_manifest_digest: manifestHash, binary_sha256: binaryHash, target,
-      producer_protocol: 'harness-codex-accounting-v1', qualification_id: `native-localhost:${manifestHash}`,
-      transport_contract_id: recipe.transport, operation_inventory_digest: source.patchDigest,
-      counter_contract_id: recipe.counter, configuration_policy_id: recipe.configuration,
-      model: 'gpt-6.1-sol', effort: 'high', max_roots: 1, max_direct_children: 2, max_depth: 1,
+      schema_version: 1,
+      profile_id: 'codex-instrumented-01621-http-direct-v2-v1',
+      upstream_commit: upstreamCommit,
+      upstream_version: '0.162.1',
+      product_version: '0.162.1',
+      patched_source_digest: sourceDigest,
+      dependency_lock_digest: source.dependencyLockDigest,
+      build_manifest_digest: manifestHash,
+      binary_sha256: binaryHash,
+      target,
+      producer_protocol: 'harness-codex-accounting-v1',
+      qualification_id: `native-localhost:${manifestHash}`,
+      transport_contract_id: recipe.transport,
+      operation_inventory_digest: source.patchDigest,
+      counter_contract_id: recipe.counter,
+      configuration_policy_id: recipe.configuration,
+      model: 'gpt-6.1-sol',
+      effort: 'high',
+      max_roots: 1,
+      max_direct_children: 2,
+      max_depth: 1
     });
     const conformance = await runInstrumentedCodexConformance(binaryPath, profile, signal);
-    if (hashInstrumentedBinary(binaryPath) !== binaryHash ||
-        sourceDigest !== await treeDigest(snapshot, paths) ||
-        sourceDigest !== await treeDigest(checkout, paths) ||
-        source.patchDigest !== (await inspectInstrumentedCodexSource(checkout)).patchDigest ||
-        compiler.digest !== (await inspectInstrumentedCodexToolchain(toolchain)).digest ||
-        !patch.equals(await patchBytes())) {
+    if (
+      hashInstrumentedBinary(binaryPath) !== binaryHash ||
+      sourceDigest !== (await treeDigest(snapshot, paths)) ||
+      sourceDigest !== (await treeDigest(checkout, paths)) ||
+      source.patchDigest !== (await inspectInstrumentedCodexSource(checkout)).patchDigest ||
+      compiler.digest !== (await inspectInstrumentedCodexToolchain(toolchain)).digest ||
+      !patch.equals(await patchBytes())
+    ) {
       throw new InstrumentedQualificationError('input_changed');
     }
     for (const [name, path] of Object.entries(nativeTools)) {
@@ -340,22 +423,34 @@ async function qualifyOwnedBuild(store: Store, input: unknown) {
         throw new InstrumentedQualificationError('input_changed');
       }
     }
-    if (sdkDigest !== await treeDigest(sdk)) throw new InstrumentedQualificationError('input_changed');
+    if (sdkDigest !== (await treeDigest(sdk))) throw new InstrumentedQualificationError('input_changed');
     await assertInstrumentedReceiverUnchanged();
     await rejectInheritedCargoConfiguration(root);
     signal?.throwIfAborted();
     const identity = InstrumentedBuildIdentitySchema.parse({
-      schema_version: 1, id: randomUUID(), profile, qualification_kind: 'instrumented_localhost',
+      schema_version: 1,
+      id: randomUUID(),
+      profile,
+      qualification_kind: 'instrumented_localhost',
       qualification_hash: instrumentedMetadataHash({ manifest, binaryHash, conformance }),
-      qualified_at: new Date().toISOString(),
+      qualified_at: new Date().toISOString()
     });
     store.immediateTransaction(() => {
-      if (store.get('SELECT id FROM instrumented_codex_build_identities WHERE binary_sha256=? AND manifest_hash=?',
-        [binaryHash, manifestHash])) throw new InstrumentedQualificationError('identity_conflict');
+      if (store.get('SELECT id FROM instrumented_codex_build_identities WHERE binary_sha256=? AND manifest_hash=?', [binaryHash, manifestHash]))
+        throw new InstrumentedQualificationError('identity_conflict');
       store.execute(
         'INSERT INTO instrumented_codex_build_identities(id,profile_id,binary_sha256,manifest_hash,qualification_kind,qualification_hash,qualified_at,payload) VALUES (?,?,?,?,?,?,?,?)',
-        [identity.id, profile.profile_id, binaryHash, manifestHash, identity.qualification_kind,
-          identity.qualification_hash, identity.qualified_at, JSON.stringify(identity)]);
+        [
+          identity.id,
+          profile.profile_id,
+          binaryHash,
+          manifestHash,
+          identity.qualification_kind,
+          identity.qualification_hash,
+          identity.qualified_at,
+          JSON.stringify(identity)
+        ]
+      );
     });
     issued = true;
     return { identity, binaryPath, manifest, conformance };

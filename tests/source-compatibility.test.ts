@@ -6,7 +6,15 @@ import { Lifecycle } from '../src/lifecycle.js';
 import { Store } from '../src/store.js';
 import { EventSchema } from '../src/contracts.js';
 
-test.each([['codex', '0.161.0'], ['codex', '0.162.1'], ['codex', '0.163.0'], ['claude_code', '2.1.292'], ['claude_code', '2.1.293'], ['claude_code', '2.1.296'], ['claude_code', '2.1.301']])('recent regular %s can enroll without opening its source', (product, version) => {
+test.each([
+  ['codex', '0.161.0'],
+  ['codex', '0.162.1'],
+  ['codex', '0.163.0'],
+  ['claude_code', '2.1.292'],
+  ['claude_code', '2.1.293'],
+  ['claude_code', '2.1.296'],
+  ['claude_code', '2.1.301']
+])('recent regular %s can enroll without opening its source', (product, version) => {
   const root = mkdtempSync(join(tmpdir(), 'compatibility-'));
   const store = new Store(':memory:');
   try {
@@ -15,61 +23,95 @@ test.each([['codex', '0.161.0'], ['codex', '0.162.1'], ['codex', '0.163.0'], ['c
     life.createTask('p', 't', { type: 'feature', expected_size: 'small', assignee: 'u', product, model: 'synthetic', criterion_ids: ['c'] });
     expect(() => life.linkSession('t', 's', join(root, 'absent.jsonl'), product, version)).not.toThrow();
     expect(store.get('SELECT product_version FROM sessions WHERE id=?', ['s'])).toEqual({ product_version: version });
-  } finally { store.close(); rmSync(root, { recursive: true, force: true }); }
+  } finally {
+    store.close();
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 import { collectionFixture, products } from './helpers/collection-fixture.js';
 
 test.each([
-  ['codex', '0.162.1'], ['codex', '0.163.0'],
-  ['claude_code', '2.1.296'], ['claude_code', '2.1.301'],
+  ['codex', '0.162.1'],
+  ['codex', '0.163.0'],
+  ['claude_code', '2.1.296'],
+  ['claude_code', '2.1.301']
 ] as const)('%s %s reuses its parser, counts only new turns and persists trust', (product, version) => {
   const f = collectionFixture(product, version);
   try {
     f.life.start('t1');
-    f.rows(...f.turn(1, 2)); f.set(3); f.collector.tick('t1');
-    f.rows(...f.turn(1, 2), ...f.turn(4, 5, 2, 'new')); f.set(6);
+    f.rows(...f.turn(1, 2));
+    f.set(3);
+    f.collector.tick('t1');
+    f.rows(...f.turn(1, 2), ...f.turn(4, 5, 2, 'new'));
+    f.set(6);
     expect(f.collector.tick('t1')).toEqual([]);
     f.collector.tick('t1');
     expect(f.events()).toHaveLength(1);
-    expect(f.events()).toMatchObject([{ product_version: version, input_total: { value: 100 }, source_compatibility: {
-      state: 'compatibility_unverified', product_version: version, parser_version: product === 'codex' ? '0.158.0' : '2.1.283',
-      source: 'file', rule_revision: 'forward-version-v1',
-    } }]);
-  } finally { f.cleanup(); }
+    expect(f.events()).toMatchObject([
+      {
+        product_version: version,
+        input_total: { value: 100 },
+        source_compatibility: {
+          state: 'compatibility_unverified',
+          product_version: version,
+          parser_version: product === 'codex' ? '0.158.0' : '2.1.283',
+          source: 'file',
+          rule_revision: 'forward-version-v1'
+        }
+      }
+    ]);
+  } finally {
+    f.cleanup();
+  }
 });
 
 import { Collector } from '../src/collection.js';
-import { effectiveSourceCompatibility, invalidateCompatibility, overlayEventCompatibility, resolveSourceCompatibility, sessionCompatibility } from '../src/source-compatibility.js';
+import {
+  effectiveSourceCompatibility,
+  invalidateCompatibility,
+  overlayEventCompatibility,
+  resolveSourceCompatibility,
+  sessionCompatibility
+} from '../src/source-compatibility.js';
 
 test('Claude binding admission remains exact and independent of file and workflow evidence', () => {
   expect(resolveSourceCompatibility('claude_code', '2.1.306', 'claude_binding')).toMatchObject({
-    state: 'compatibility_unverified', product_version: '2.1.306', parser_version: '2.1.306',
-    profile_id: 'claude-binding-2-1-306-family-v1',
+    state: 'compatibility_unverified',
+    product_version: '2.1.306',
+    parser_version: '2.1.306',
+    profile_id: 'claude-binding-2-1-306-family-v1'
   });
   expect(resolveSourceCompatibility('claude_code', '2.1.301', 'claude_binding')).toMatchObject({
-    state: 'compatibility_unverified', product_version: '2.1.301', parser_version: '2.1.301',
-    profile_id: 'claude-binding-2-1-301-family-v1',
+    state: 'compatibility_unverified',
+    product_version: '2.1.301',
+    parser_version: '2.1.301',
+    profile_id: 'claude-binding-2-1-301-family-v1'
   });
   expect(resolveSourceCompatibility('claude_code', '2.1.296', 'claude_binding')).toMatchObject({
-    state: 'compatibility_unverified', profile_id: 'claude-binding-02196-family-v1',
+    state: 'compatibility_unverified',
+    profile_id: 'claude-binding-02196-family-v1'
   });
   for (const version of ['2.1.300', '2.1.302', '2.1.305', '2.1.307', '2.1.399', '2.1.301-rc.1', '2.1.301+build', '2.1.306-rc.1', '2.1.306+build'])
     expect(resolveSourceCompatibility('claude_code', version, 'claude_binding')).toBeNull();
   expect(resolveSourceCompatibility('codex', '2.1.301', 'claude_binding')).toBeNull();
   expect(resolveSourceCompatibility('claude_code', '2.1.301', 'claude_binding', 'claude-binding-02196-family-v1')).toBeNull();
   expect(resolveSourceCompatibility('claude_code', '2.1.301', 'file')).toMatchObject({
-    state: 'compatibility_unverified', parser_version: '2.1.283',
+    state: 'compatibility_unverified',
+    parser_version: '2.1.283'
   });
   expect(resolveSourceCompatibility('claude_code', '2.1.301', 'claude_workflow')).toMatchObject({
-    state: 'compatibility_unverified', parser_version: '2.1.296',
+    state: 'compatibility_unverified',
+    parser_version: '2.1.296'
   });
   expect(resolveSourceCompatibility('claude_code', '2.1.306', 'claude_binding', 'claude-binding-2-1-301-family-v1')).toBeNull();
   expect(resolveSourceCompatibility('claude_code', '2.1.306', 'file')).toMatchObject({
-    state: 'compatibility_unverified', parser_version: '2.1.283',
+    state: 'compatibility_unverified',
+    parser_version: '2.1.283'
   });
   expect(resolveSourceCompatibility('claude_code', '2.1.306', 'claude_workflow')).toMatchObject({
-    state: 'compatibility_unverified', parser_version: '2.1.296',
+    state: 'compatibility_unverified',
+    parser_version: '2.1.296'
   });
 });
 
@@ -77,21 +119,29 @@ test('finite source windows prefer exact verified profiles and reject suffixes a
   expect(resolveSourceCompatibility('codex', '0.158.0', 'file')?.state).toBe('verified');
   expect(resolveSourceCompatibility('codex', '0.160.0', 'codex_workflow')?.state).toBe('verified');
   expect(resolveSourceCompatibility('claude_code', '2.1.296', 'claude_workflow')?.state).toBe('verified');
-  for (const version of ['0.158.1', '0.159.0', '0.163.999']) expect(resolveSourceCompatibility('codex', version, 'file')?.state).toBe('compatibility_unverified');
+  for (const version of ['0.158.1', '0.159.0', '0.163.999'])
+    expect(resolveSourceCompatibility('codex', version, 'file')?.state).toBe('compatibility_unverified');
   for (const version of ['0.157.0', '0.164.0', '1.0.0', '0.161.0-rc.1', '0.161.0+build', '00.161.0', '0.161.0 ', '0.161.1000000000']) {
     expect(resolveSourceCompatibility('codex', version, 'file')).toBeNull();
   }
-  for (const version of ['2.1.282', '2.2.0', '3.0.0', '2.1.292-rc.1', '2.1.0292']) expect(resolveSourceCompatibility('claude_code', version, 'file')).toBeNull();
+  for (const version of ['2.1.282', '2.2.0', '3.0.0', '2.1.292-rc.1', '2.1.0292'])
+    expect(resolveSourceCompatibility('claude_code', version, 'file')).toBeNull();
   for (const version of ['2.1.288', '2.1.289', '2.1.290', '2.1.291', '2.1.292', '2.1.293', '2.1.294', '2.1.295']) {
     expect(resolveSourceCompatibility('claude_code', version, 'claude_workflow')).toBeNull();
   }
   for (const version of ['2.1.297', '2.1.298', '2.1.301']) {
-    expect(resolveSourceCompatibility('claude_code', version, 'claude_workflow'))
-      .toMatchObject({ state: 'compatibility_unverified', product_version: version, parser_version: '2.1.296' });
+    expect(resolveSourceCompatibility('claude_code', version, 'claude_workflow')).toMatchObject({
+      state: 'compatibility_unverified',
+      product_version: version,
+      parser_version: '2.1.296'
+    });
     expect(resolveSourceCompatibility('claude_code', version, 'claude_workflow', 'claude-workflow-direct-child-v1')).toBeNull();
   }
-  expect(resolveSourceCompatibility('claude_code', '2.1.296', 'claude_workflow', 'claude-workflow-direct-child-v1'))
-    .toMatchObject({ state: 'verified', profile_id: 'claude-workflow-direct-child-v1', product_version: '2.1.296' });
+  expect(resolveSourceCompatibility('claude_code', '2.1.296', 'claude_workflow', 'claude-workflow-direct-child-v1')).toMatchObject({
+    state: 'verified',
+    profile_id: 'claude-workflow-direct-child-v1',
+    product_version: '2.1.296'
+  });
   expect(resolveSourceCompatibility('codex', '0.161.0', 'claude_workflow')).toBeNull();
   expect(resolveSourceCompatibility('codex', '0.161.0', 'codex_workflow', 'unknown')).toBeNull();
 });
@@ -99,11 +149,15 @@ test('finite source windows prefer exact verified profiles and reject suffixes a
 test.each(products)('%s parser failure blocks the cohort persistently, before further access, without changing event bytes', product => {
   const f = collectionFixture(product, product === 'codex' ? '0.161.0' : '2.1.292');
   try {
-    f.life.start('t1'); f.collector.tick('t1');
-    f.rows(...f.turn(1, 2)); f.set(3); f.collector.tick('t1');
+    f.life.start('t1');
+    f.collector.tick('t1');
+    f.rows(...f.turn(1, 2));
+    f.set(3);
+    f.collector.tick('t1');
     const original = f.store.all('SELECT * FROM events');
     expect(original).toHaveLength(1);
-    f.replace([f.header(), ...f.turn(1, 2)].map(row => JSON.stringify(row)).join('\n') + '\n{"invalid":"SYNTHETIC_PRIVATE"\n'); f.set(4);
+    f.replace([f.header(), ...f.turn(1, 2)].map(row => JSON.stringify(row)).join('\n') + '\n{"invalid":"SYNTHETIC_PRIVATE"\n');
+    f.set(4);
     expect(f.collector.tick('t1')).toMatchObject([{ category: 'invalid_json' }]);
     const compatibility = sessionCompatibility(f.store, 's1')!;
     expect(compatibility.state).toBe('compatibility_unverified');
@@ -114,20 +168,25 @@ test.each(products)('%s parser failure blocks the cohort persistently, before fu
     expect(f.store.all('SELECT * FROM events')).toEqual(original);
     expect(JSON.stringify(f.store.all('SELECT * FROM source_compatibility_blocks'))).not.toContain('SYNTHETIC_PRIVATE');
     expect(() => f.link('s2')).toThrow('compatibility_invalidated');
-  } finally { f.cleanup(); }
+  } finally {
+    f.cleanup();
+  }
 });
 
 test('source version drift cannot select a new parser or read under an old pin', () => {
   const f = collectionFixture('codex', '0.161.0');
   try {
-    f.life.start('t1'); f.collector.tick('t1');
+    f.life.start('t1');
+    f.collector.tick('t1');
     const pin = sessionCompatibility(f.store, 's1');
     f.store.execute("UPDATE sessions SET product_version='0.162.0' WHERE id='s1'", []);
     const reads = f.reads();
     expect(f.collector.tick('t1')).toMatchObject([{ category: 'unsupported_source' }]);
     expect(f.reads()).toBe(reads);
     expect(sessionCompatibility(f.store, 's1')).toEqual(pin);
-  } finally { f.cleanup(); }
+  } finally {
+    f.cleanup();
+  }
 });
 
 test('deletion removes session provenance while version blocks remain durable', () => {
@@ -138,27 +197,36 @@ test('deletion removes session provenance while version blocks remain durable', 
     f.store.execute('DELETE FROM tasks WHERE id=?', ['t1']);
     expect(sessionCompatibility(f.store, 's1')).toBeNull();
     expect(effectiveSourceCompatibility(f.store, compatibility).state).toBe('invalidated');
-  } finally { f.cleanup(); }
+  } finally {
+    f.cleanup();
+  }
 });
 
 test('pins and incompatibility blocks survive database reopen without backfill or provenance upgrade', () => {
-  const root = mkdtempSync(join(tmpdir(), 'compatibility-reopen-')); const file = join(root, 'db.sqlite');
+  const root = mkdtempSync(join(tmpdir(), 'compatibility-reopen-'));
+  const file = join(root, 'db.sqlite');
   const store = new Store(file);
   let pinned;
   try {
-    const life = new Lifecycle(store); life.registerProject('p', root);
+    const life = new Lifecycle(store);
+    life.registerProject('p', root);
     life.createTask('p', 't', { type: 'feature', expected_size: 'small', assignee: 'u', product: 'codex', model: 'synthetic', criterion_ids: ['c'] });
     life.linkSession('t', 's', join(root, 'absent.jsonl'), 'codex', '0.161.0');
     pinned = sessionCompatibility(store, 's')!;
     invalidateCompatibility(store, pinned, 'semantic_incompatibility');
-  } finally { store.close(); }
+  } finally {
+    store.close();
+  }
   const reopened = new Store(file);
   try {
     expect(sessionCompatibility(reopened, 's')).toEqual(pinned);
     expect(effectiveSourceCompatibility(reopened, pinned).state).toBe('invalidated');
     expect(reopened.eventCount()).toBe(0);
     expect(() => new Lifecycle(reopened).linkSession('t', 'new', join(root, 'absent.jsonl'), 'codex', '0.161.0')).toThrow('compatibility_invalidated');
-  } finally { reopened.close(); rmSync(root, { recursive: true, force: true }); }
+  } finally {
+    reopened.close();
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test('a verified legacy-file pin cannot qualify usage from an injected flexible parser', () => {
@@ -166,19 +234,48 @@ test('a verified legacy-file pin cannot qualify usage from an injected flexible 
   try {
     f.life.start('t1');
     const reading = { status: 'observed' as const, value: 1, reason: null };
-    const event = { id: 'candidate', source_key: 'candidate', project_id: 'p1', task_id: 't1', session_id: 's1', occurred_at: f.clock(),
-      payload: { kind: 'usage' as const, product: 'codex' as const, product_version: '0.158.0', epoch: 'candidate',
-        input_total: reading, cached_input: reading, output_total: reading, reasoning_output: reading,
-        schema_version: 2 as const, model: null, runtime_evidence_id: null, attribution: 'unknown' as const, billing_components: [] } };
+    const event = {
+      id: 'candidate',
+      source_key: 'candidate',
+      project_id: 'p1',
+      task_id: 't1',
+      session_id: 's1',
+      occurred_at: f.clock(),
+      payload: {
+        kind: 'usage' as const,
+        product: 'codex' as const,
+        product_version: '0.158.0',
+        epoch: 'candidate',
+        input_total: reading,
+        cached_input: reading,
+        output_total: reading,
+        reasoning_output: reading,
+        schema_version: 2 as const,
+        model: null,
+        runtime_evidence_id: null,
+        attribution: 'unknown' as const,
+        billing_components: []
+      }
+    };
     expect(f.store.putEvent(event)).toBe(true);
-    const payload = f.store.get<{payload:string}>('SELECT payload FROM events')!.payload;
+    const payload = f.store.get<{ payload: string }>('SELECT payload FROM events')!.payload;
     expect(payload).not.toContain('source_compatibility');
     expect(f.store.putEvent(event)).toBe(false);
-    expect(() => f.store.putEvent({ ...event, id: 'false-proof', source_key: 'false-proof', payload: {
-      ...event.payload, source_compatibility: sessionCompatibility(f.store, 's1')!,
-    } })).toThrow('compatibility_scope_mismatch');
+    expect(() =>
+      f.store.putEvent({
+        ...event,
+        id: 'false-proof',
+        source_key: 'false-proof',
+        payload: {
+          ...event.payload,
+          source_compatibility: sessionCompatibility(f.store, 's1')!
+        }
+      })
+    ).toThrow('compatibility_scope_mismatch');
     expect(() => f.store.execute("UPDATE session_source_compatibility SET payload='{}' WHERE session_id='s1'", [])).toThrow('immutable_source_compatibility');
-  } finally { f.cleanup(); }
+  } finally {
+    f.cleanup();
+  }
 });
 
 test('known incompatible exact versions stop pre-migration unpinned sessions before access', () => {
@@ -191,26 +288,44 @@ test('known incompatible exact versions stop pre-migration unpinned sessions bef
     expect(f.collector.tick('t1')).toMatchObject([{ category: 'compatibility_invalidated' }]);
     expect(f.reads()).toBe(reads);
     expect(sessionCompatibility(f.store, 's1')).toBeNull();
-  } finally { f.cleanup(); }
+  } finally {
+    f.cleanup();
+  }
 });
 
 test('binding-only invalidation leaves unpinned historical usage unchanged', () => {
   const store = new Store(':memory:');
-  const reading = {status:'observed',value:1,reason:null};
+  const reading = { status: 'observed', value: 1, reason: null };
   const historical = EventSchema.parse({
-    id:'historical',project_id:'p',task_id:'t',session_id:'s',source_key:'historical',
-    occurred_at:'2026-01-01T00:00:00Z',payload:{kind:'usage',product:'codex',product_version:'0.162.1',
-      epoch:'legacy',model:'gpt-6.1-sol',input_total:reading,cached_input:reading,output_total:reading,reasoning_output:reading},
+    id: 'historical',
+    project_id: 'p',
+    task_id: 't',
+    session_id: 's',
+    source_key: 'historical',
+    occurred_at: '2026-01-01T00:00:00Z',
+    payload: {
+      kind: 'usage',
+      product: 'codex',
+      product_version: '0.162.1',
+      epoch: 'legacy',
+      model: 'gpt-6.1-sol',
+      input_total: reading,
+      cached_input: reading,
+      output_total: reading,
+      reasoning_output: reading
+    }
   });
   try {
-    const compatibility = resolveSourceCompatibility('codex','0.162.1','codex_binding');
-    if(!compatibility)throw new Error('binding_profile_missing');
+    const compatibility = resolveSourceCompatibility('codex', '0.162.1', 'codex_binding');
+    if (!compatibility) throw new Error('binding_profile_missing');
 
-    invalidateCompatibility(store,compatibility,'contract_failed');
+    invalidateCompatibility(store, compatibility, 'contract_failed');
 
-    expect(overlayEventCompatibility(store,historical)).toEqual(historical);
-    expect(resolveSourceCompatibility('codex','0.162.1','file')).toMatchObject({state:'compatibility_unverified'});
-  } finally {store.close();}
+    expect(overlayEventCompatibility(store, historical)).toEqual(historical);
+    expect(resolveSourceCompatibility('codex', '0.162.1', 'file')).toMatchObject({ state: 'compatibility_unverified' });
+  } finally {
+    store.close();
+  }
 });
 
 test('exact ordinary admission does not promote earlier unverified usage or other sources', () => {
@@ -220,16 +335,30 @@ test('exact ordinary admission does not promote earlier unverified usage or othe
   expect(compatibility.state).toBe('verified');
   const reading = { status: 'observed', value: 1, reason: null };
   const historical = EventSchema.parse({
-    id: 'historical-binding', project_id: 'p', task_id: 't', session_id: 's', source_key: 'historical-binding',
-    occurred_at: '2026-10-16T00:00:00Z', payload: {
-      kind: 'usage', product: 'codex', product_version: '0.163.0', epoch: 'candidate', model: 'gpt-6.1-sol',
-      input_total: reading, cached_input: reading, output_total: reading, reasoning_output: reading,
-      source_compatibility: { ...compatibility, state: 'compatibility_unverified' },
-    },
+    id: 'historical-binding',
+    project_id: 'p',
+    task_id: 't',
+    session_id: 's',
+    source_key: 'historical-binding',
+    occurred_at: '2026-10-16T00:00:00Z',
+    payload: {
+      kind: 'usage',
+      product: 'codex',
+      product_version: '0.163.0',
+      epoch: 'candidate',
+      model: 'gpt-6.1-sol',
+      input_total: reading,
+      cached_input: reading,
+      output_total: reading,
+      reasoning_output: reading,
+      source_compatibility: { ...compatibility, state: 'compatibility_unverified' }
+    }
   });
   try {
     expect(overlayEventCompatibility(store, historical)).toEqual(historical);
     expect(resolveSourceCompatibility('codex', '0.163.0', 'file')).toMatchObject({ state: 'compatibility_unverified' });
     expect(resolveSourceCompatibility('codex', '0.163.0', 'codex_workflow')).toMatchObject({ state: 'compatibility_unverified' });
-  } finally { store.close(); }
+  } finally {
+    store.close();
+  }
 });

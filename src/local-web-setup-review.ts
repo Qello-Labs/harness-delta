@@ -22,31 +22,31 @@ export const SetupReviewInputSchema = z.strictObject({
   protocol: FlexibleProtocolSchema.optional(),
   price_table: PriceTableSchema.optional(),
   freeze_at: TimestampSchema.optional(),
-  application_mode: z.enum(['selected_markdown_only', 'agent_applied']).optional(),
+  application_mode: z.enum(['selected_markdown_only', 'agent_applied']).optional()
 });
 type ReviewInput = z.infer<typeof SetupReviewInputSchema>;
 type Issue = { field: string; code: string };
 export function createSetupReviewManager(
-  store: Store, privateDb: Database.Database, profiles: () => LocalWebProfile[],
+  store: Store,
+  privateDb: Database.Database,
+  profiles: () => LocalWebProfile[],
   saveProfiles: (inputs: LocalWebProfile[]) => unknown,
-  shared: ReturnType<typeof createSharedSetupManager>,
+  shared: ReturnType<typeof createSharedSetupManager>
 ) {
   const tokens = new Map<string, { input: ReviewInput; hash: string; expires: number }>();
   const rollback = new Error('setup_review_rollback');
-  const selectedProfile = (input: ReviewInput) =>
-    input.profile ?? profiles().find(row => row.id === input.template_id && !row.shared_binding);
+  const selectedProfile = (input: ReviewInput) => input.profile ?? profiles().find(row => row.id === input.template_id && !row.shared_binding);
   function scopedPath(input: ReviewInput) {
     const profile = selectedProfile(input);
     const projectId = input.project_id ?? profile?.setup.workflow.assignment.project_id;
     if (!projectId) throw new Error('shared_project_required');
-    if (profile && profile.setup.workflow.assignment.project_id !== projectId ||
-      input.protocol && input.protocol.project_id !== projectId) throw new Error('shared_registration_mismatch');
+    if ((profile && profile.setup.workflow.assignment.project_id !== projectId) || (input.protocol && input.protocol.project_id !== projectId))
+      throw new Error('shared_registration_mismatch');
     const project = store.get<{ id: string; local_root: string }>('SELECT id,local_root FROM projects WHERE id=?', [projectId]);
     if (!project) throw new Error('unknown_project');
     return { project, path: comparisonRelativePath(project.local_root, input.comparison_path) };
   }
-  const proposedVariantId = (projectId: string, bundleHash: string) =>
-    `variant-${hashBytes(JSON.stringify(['harness-delta-variant', projectId, bundleHash]))}`;
+  const proposedVariantId = (projectId: string, bundleHash: string) => `variant-${hashBytes(JSON.stringify(['harness-delta-variant', projectId, bundleHash]))}`;
   function generatedVariants(input: ReviewInput) {
     const { project, path } = scopedPath(input);
     const pair = readComparison(project.local_root, path);
@@ -54,10 +54,13 @@ export function createSetupReviewManager(
       const reference = index === 0 ? pair.descriptor.arm_a : pair.descriptor.arm_b;
       const bundle = pair.bundles[index];
       return FlexibleVariantSchema.parse({
-        schema_version: 2, id: proposedVariantId(project.id, reference.bundle_hash),
-        harness_version: reference.version, instruction_manifest_hash: bundle.instruction_manifest_hash,
-        policy_version: bundle.policy_version, policy_status: index === 0 ? input.policy_status?.arm_a : input.policy_status?.arm_b,
-        runtime_policy: 'flexible',
+        schema_version: 2,
+        id: proposedVariantId(project.id, reference.bundle_hash),
+        harness_version: reference.version,
+        instruction_manifest_hash: bundle.instruction_manifest_hash,
+        policy_version: bundle.policy_version,
+        policy_status: index === 0 ? input.policy_status?.arm_a : input.policy_status?.arm_b,
+        runtime_policy: 'flexible'
       });
     };
     return [variant(0), variant(1)];
@@ -85,20 +88,23 @@ export function createSetupReviewManager(
       const protocol = comparisonProtocol(store, protocolRow(store, row.id));
       if (protocol.schema_version !== 2) throw new Error('shared_registration_mismatch');
       return { preview, profile, protocol, price_table: readPriceTable(store, protocol.price_table_id), application_mode: project.pair.application };
-    } catch (error) { shared.discardPreview(preview.token); throw error; }
+    } catch (error) {
+      shared.discardPreview(preview.token);
+      throw error;
+    }
   }
   function missing(input: ReviewInput): Issue[] {
     const issues: Issue[] = [];
     const profile = selectedProfile(input);
     if (!profile) issues.push({ field: 'profile', code: 'shared_registration_required' });
     const projectId = profile?.setup.workflow.assignment.project_id ?? input.protocol?.project_id;
-    if (projectId && !store.get('SELECT id FROM projects WHERE id=?', [projectId]))
-      issues.push({ field: `project:${projectId}`, code: 'unknown_project' });
+    if (projectId && !store.get('SELECT id FROM projects WHERE id=?', [projectId])) issues.push({ field: `project:${projectId}`, code: 'unknown_project' });
     const protocolId = profile?.setup.workflow.assignment.protocol_id;
-    const row = protocolId ? store.get<{ settings: string; status: string }>('SELECT settings,status FROM comparison_protocols WHERE id=?', [protocolId]) : undefined;
+    const row = protocolId
+      ? store.get<{ settings: string; status: string }>('SELECT settings,status FROM comparison_protocols WHERE id=?', [protocolId])
+      : undefined;
     const protocol = input.protocol ?? (row ? FlexibleProtocolSchema.parse(JSON.parse(row.settings) as unknown) : undefined);
-    if (protocolId && !row && input.protocol?.id !== protocolId)
-      issues.push({ field: `protocol:${protocolId}`, code: 'unknown_protocol' });
+    if (protocolId && !row && input.protocol?.id !== protocolId) issues.push({ field: `protocol:${protocolId}`, code: 'unknown_protocol' });
     for (const id of protocol?.variant_ids ?? []) {
       if (!input.variants?.some(variant => variant.id === id) && !store.get('SELECT id FROM comparison_variants WHERE id=?', [id]))
         issues.push({ field: `variant:${id}`, code: 'unknown_variant' });
@@ -107,10 +113,15 @@ export function createSetupReviewManager(
       issues.push({ field: `price_table:${protocol.price_table_id}`, code: 'unknown_price_table' });
     return issues;
   }
-  const identity = (result: ReturnType<typeof apply>) => hashBytes(JSON.stringify({
-    profile: result.profile, protocol: result.protocol, price_table: result.price_table,
-    pairs: result.preview.projects.map(project => ({ project_id: project.project_id, pair: project.pair })),
-  }));
+  const identity = (result: ReturnType<typeof apply>) =>
+    hashBytes(
+      JSON.stringify({
+        profile: result.profile,
+        protocol: result.protocol,
+        price_table: result.price_table,
+        pairs: result.preview.projects.map(project => ({ project_id: project.project_id, pair: project.pair }))
+      })
+    );
   return {
     review(raw: unknown) {
       const parsed = SetupReviewInputSchema.safeParse(raw);
@@ -124,26 +135,40 @@ export function createSetupReviewManager(
           const arm = (index: 0 | 1) => {
             const bundle = pair.bundles[index];
             const reference = index === 0 ? pair.descriptor.arm_a : pair.descriptor.arm_b;
-            return { ...reference, policy_version: bundle.policy_version, instruction_manifest_hash: bundle.instruction_manifest_hash,
-              proposed_variant_id: proposedVariantId(project.id, reference.bundle_hash) };
+            return {
+              ...reference,
+              policy_version: bundle.policy_version,
+              instruction_manifest_hash: bundle.instruction_manifest_hash,
+              proposed_variant_id: proposedVariantId(project.id, reference.bundle_hash)
+            };
           };
           const issues = missing(parsed.data);
           if (!parsed.data.protocol) issues.push({ field: 'protocol', code: 'unknown_protocol' });
           if (!parsed.data.protocol && !parsed.data.variants?.length && !parsed.data.policy_status) issues.push({ field: 'variants', code: 'unknown_variant' });
           if (!parsed.data.protocol && !parsed.data.price_table) issues.push({ field: 'price_table', code: 'unknown_price_table' });
           for (const field of [
-            'profile.setup.workflow.assignment.metadata.criterion_ids', 'profile.execution',
+            'profile.setup.workflow.assignment.metadata.criterion_ids',
+            'profile.execution',
             ...(!parsed.data.variants?.length && !parsed.data.policy_status ? ['variants.policy_status'] : []),
-            ...(!parsed.data.protocol ? ['protocol.recruitment_start', 'protocol.recruitment_end', 'protocol.sample_plan', 'protocol.source_profiles'] : []),
-          ]) issues.push({ field, code: 'decision_required' });
+            ...(!parsed.data.protocol ? ['protocol.recruitment_start', 'protocol.recruitment_end', 'protocol.sample_plan', 'protocol.source_profiles'] : [])
+          ])
+            issues.push({ field, code: 'decision_required' });
           if (parsed.data.application_mode && parsed.data.application_mode !== pair.descriptor.application)
             issues.push({ field: 'application_mode', code: 'application_mode_mismatch' });
-          return { ready: false as const, issues, comparison: {
-            project_id: project.id, comparison_id: pair.descriptor.id, descriptor_path: path,
-            settings_hash: pair.descriptor.settings_hash, application_mode: pair.descriptor.application,
-            proposed_profile_id: LocalWebProfileSchema.shape.id.parse(`setup-${hashBytes(JSON.stringify([project.id, pair.descriptor.settings_hash]))}`),
-            arm_a: arm(0), arm_b: arm(1),
-          } };
+          return {
+            ready: false as const,
+            issues,
+            comparison: {
+              project_id: project.id,
+              comparison_id: pair.descriptor.id,
+              descriptor_path: path,
+              settings_hash: pair.descriptor.settings_hash,
+              application_mode: pair.descriptor.application,
+              proposed_profile_id: LocalWebProfileSchema.shape.id.parse(`setup-${hashBytes(JSON.stringify([project.id, pair.descriptor.settings_hash]))}`),
+              arm_a: arm(0),
+              arm_b: arm(1)
+            }
+          };
         }
         const input = parsed.data.policy_status ? { ...parsed.data, variants: generatedVariants(parsed.data) } : parsed.data;
         if (input.project_id) scopedPath(input);
@@ -151,19 +176,26 @@ export function createSetupReviewManager(
         if (issues.length) return { ready: false as const, issues };
         let result: ReturnType<typeof apply> | undefined;
         try {
-          store.immediateTransaction(() => privateDb.transaction(() => {
-            result = apply(input);
-            throw rollback;
-          })());
-        } catch (error) { if (error !== rollback) throw error; }
-        finally { if (result) shared.discardPreview(result.preview.token); }
+          store.immediateTransaction(() =>
+            privateDb.transaction(() => {
+              result = apply(input);
+              throw rollback;
+            })()
+          );
+        } catch (error) {
+          if (error !== rollback) throw error;
+        } finally {
+          if (result) shared.discardPreview(result.preview.token);
+        }
         if (!result) throw new Error('invalid_ui_setup');
         for (const [token, value] of tokens) if (value.expires < Date.now()) tokens.delete(token);
         if (tokens.size >= 64) throw new Error('shared_import_limit');
         const token = randomUUID();
         tokens.set(token, { input, hash: identity(result), expires: Date.now() + 300000 });
         return { ready: true as const, token, registrations: input, ...result };
-      } catch (error) { return { ready: false as const, issues: [{ field: 'registrations', code: localWebError(error) }] }; }
+      } catch (error) {
+        return { ready: false as const, issues: [{ field: 'registrations', code: localWebError(error) }] };
+      }
     },
     save(token: string) {
       const selected = tokens.get(token);
@@ -179,11 +211,16 @@ export function createSetupReviewManager(
             const current = apply(selected.input);
             previewToken = current.preview.token;
             if (identity(current) !== selected.hash) throw new Error('shared_preview_changed');
-            return shared.bind({
-              token: current.preview.token,
-              project_id: current.profile.setup.workflow.assignment.project_id,
-              template_id: current.profile.id,
-            }, remove => { removeCreatedFile = remove; });
+            return shared.bind(
+              {
+                token: current.preview.token,
+                project_id: current.profile.setup.workflow.assignment.project_id,
+                template_id: current.profile.id
+              },
+              remove => {
+                removeCreatedFile = remove;
+              }
+            );
           })();
           // Separate SQLite files cannot commit atomically. Keep a committed private
           // snapshot recoverable if the measurement-store commit subsequently fails.
@@ -197,7 +234,7 @@ export function createSetupReviewManager(
       }
       tokens.delete(token);
       return result;
-    },
+    }
   };
 }
 export type SetupReviewResult = ReturnType<ReturnType<typeof createSetupReviewManager>['review']>;

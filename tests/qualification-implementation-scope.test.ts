@@ -28,12 +28,20 @@ test('relocated binding qualification still freezes implementation siblings outs
 
     const filename = 'codex-session-binding-qualification.js';
     const source = ts.createSourceFile(filename, readFileSync(join(dist, filename), 'utf8'), ts.ScriptTarget.ES2023, true, ts.ScriptKind.JS);
-    const relocated = ts.factory.updateSourceFile(source, source.statements.map(statement => {
-      if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier) ||
-          !statement.moduleSpecifier.text.startsWith('./')) return statement;
-      return ts.factory.updateImportDeclaration(statement, statement.modifiers, statement.importClause,
-        ts.factory.createStringLiteral('../' + statement.moduleSpecifier.text.slice(2)), statement.attributes);
-    }));
+    const relocated = ts.factory.updateSourceFile(
+      source,
+      source.statements.map(statement => {
+        if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier) || !statement.moduleSpecifier.text.startsWith('./'))
+          return statement;
+        return ts.factory.updateImportDeclaration(
+          statement,
+          statement.modifiers,
+          statement.importClause,
+          ts.factory.createStringLiteral('../' + statement.moduleSpecifier.text.slice(2)),
+          statement.attributes
+        );
+      })
+    );
     const moved = join(dist, 'qualification', filename);
     mkdirSync(dirname(moved));
     renameSync(join(dist, filename), moved);
@@ -43,7 +51,9 @@ test('relocated binding qualification still freezes implementation siblings outs
     writeFileSync(join(temporary, 'fixture.mjs'), 'process.exit(0);\n');
 
     const driver = join(temporary, 'probe.mjs');
-    writeFileSync(driver, `
+    writeFileSync(
+      driver,
+      `
 import { appendFileSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import { prepareCodexSessionBindingQualification } from './dist/qualification/${filename}';
@@ -54,10 +64,14 @@ const before = await prepareCodexSessionBindingQualification(join(root, 'before'
 appendFileSync(join(root, 'dist', 'store.js'), '\\n');
 const after = await prepareCodexSessionBindingQualification(join(root, 'after'), input, fixture);
 process.stdout.write(JSON.stringify({ before: before.intent.implementation_digest, after: after.intent.implementation_digest }));
-`);
-    const output: unknown = JSON.parse(execFileSync(realpathSync(process.execPath), [driver], {
-      encoding: 'utf8', timeout: 30000,
-    }));
+`
+    );
+    const output: unknown = JSON.parse(
+      execFileSync(realpathSync(process.execPath), [driver], {
+        encoding: 'utf8',
+        timeout: 30000
+      })
+    );
     const digests = z.object({ before: z.string().regex(/^[a-f0-9]{64}$/), after: z.string().regex(/^[a-f0-9]{64}$/) }).parse(output);
     expect(digests.after).not.toBe(digests.before);
   } finally {

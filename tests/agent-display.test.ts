@@ -10,9 +10,10 @@ test('EN/KO labels use native names, separate roles and child ordinals independe
     { session_id: 'kid-1', parent_session_id: 'root-b' },
     { session_id: 'kid-2', parent_session_id: 'root-a', agent_metadata: codex(null, 'worker') },
     { session_id: 'kid-3', parent_session_id: 'root-a', agent_metadata: codex('Cedar', 'reviewer') },
-    { session_id: 'kid-4', parent_session_id: 'root-a', agent_metadata: { source: 'claude_hook' as const, agent_type: 'my-plugin:reviewer' } },
+    { session_id: 'kid-4', parent_session_id: 'root-a', agent_metadata: { source: 'claude_hook' as const, agent_type: 'my-plugin:reviewer' } }
   ];
-  const en = sessionDisplayLabels(sessions, 'en'); const ko = sessionDisplayLabels(sessions, 'ko');
+  const en = sessionDisplayLabels(sessions, 'en');
+  const ko = sessionDisplayLabels(sessions, 'ko');
   expect(en.slice(2)).toEqual(['Child 1', 'Child 2 [worker]', 'Cedar [reviewer]', 'my-plugin:reviewer']);
   expect(ko.slice(2)).toEqual(['자식 1', '자식 2 [worker]', 'Cedar [reviewer]', 'my-plugin:reviewer']);
   expect(en[0]).not.toEqual(en[1]);
@@ -22,8 +23,16 @@ test('duplicate names retain distinct identity suffixes even for shared UUID pre
   const sessions = [
     { session_id: '12345678-abcd-4000-8000-000000000001', parent_session_id: 'root', agent_metadata: codex('Cedar', 'worker') },
     { session_id: '12345678-abcd-4000-8000-000000000002', parent_session_id: 'root', agent_metadata: codex('Cedar', 'worker') },
-    { session_id: '12345678-abcd-4000-8000-000000000003:a', parent_session_id: 'root', agent_metadata: { source: 'claude_hook' as const, agent_type: 'Explore' } },
-    { session_id: '12345678-abcd-4000-8000-000000000003:b', parent_session_id: 'root', agent_metadata: { source: 'claude_hook' as const, agent_type: 'Explore' } },
+    {
+      session_id: '12345678-abcd-4000-8000-000000000003:a',
+      parent_session_id: 'root',
+      agent_metadata: { source: 'claude_hook' as const, agent_type: 'Explore' }
+    },
+    {
+      session_id: '12345678-abcd-4000-8000-000000000003:b',
+      parent_session_id: 'root',
+      agent_metadata: { source: 'claude_hook' as const, agent_type: 'Explore' }
+    }
   ];
   const labels = sessionDisplayLabels(sessions, 'en');
   expect(new Set(labels).size).toBe(4);

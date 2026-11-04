@@ -11,8 +11,10 @@ const fallback = 'input_or_state_error';
 
 /** One-line next actions for codes a first-time workflow user commonly meets. */
 const hints: Record<string, string> = {
-  ui_metadata_cleanup_pending: 'Measurement deletion is committed, but private UI cleanup is pending. Restore access to the same registered metadata file and retry the deletion or retention command; do not replace that database.',
-  native_dependency: 'Select Node.js 24 or 26 and verify node --version, then run npm ci in the checkout with that selected runtime. Run npm run build and retry using the same Node runtime.',
+  ui_metadata_cleanup_pending:
+    'Measurement deletion is committed, but private UI cleanup is pending. Restore access to the same registered metadata file and retry the deletion or retention command; do not replace that database.',
+  native_dependency:
+    'Select Node.js 24 or 26 and verify node --version, then run npm ci in the checkout with that selected runtime. Run npm run build and retry using the same Node runtime.',
   application_preview_changed: 'run application preview again and review the current files before restoring',
   application_restore_conflict: 'preserve and review changed or unreported checkpoint files; no files were restored',
   application_restoration_required: 'finish restoration in the current workspace before reapplying or selecting another worktree',
@@ -50,18 +52,23 @@ const hints: Record<string, string> = {
   invalid_cutoff: 'the cutoff must be a UTC time no later than now',
   unknown_codex_workflow_run: 'no Codex run with this ID; check run IDs with `workflow task <task-id>`',
   claude_workflow_run_missing: 'no Claude run with this ID; check run IDs with `workflow task <task-id>`',
-  claude_workflow_version_not_latest: 'a new non-synthetic protocol may list at most one entry per claude_code workflow source profile, at that profile\'s newest admitted version (none while no version is admitted); functional_pilot may instead use one own-trace version in its conditional window; a registered protocol keeps its version until retirement, then its tasks need a new protocol',
-  claude_workflow_child_unadmitted: 'Claude child execution needs the exact direct-child admission of this version; remove child_runtime for a conditional or parent-only version',
+  claude_workflow_version_not_latest:
+    "a new non-synthetic protocol may list at most one entry per claude_code workflow source profile, at that profile's newest admitted version (none while no version is admitted); functional_pilot may instead use one own-trace version in its conditional window; a registered protocol keeps its version until retirement, then its tasks need a new protocol",
+  claude_workflow_child_unadmitted:
+    'Claude child execution needs the exact direct-child admission of this version; remove child_runtime for a conditional or parent-only version',
   claude_workflow_child_read_only_required: 'a Claude child execution must use permissions "read-only"',
-  claude_workflow_resume_unadmitted: 'keeping or resuming a Claude session needs the exactly admitted version; remove resumable or use launch for a conditional version',
-  claude_workflow_resume_source_invalid: 'resume_run_id must name a finished, resumable, parent-only run of this task with the same Claude Code version, and the same workspace must still hold its run directory',
-  claude_workflow_harness_inside_project: 'with workspace-edit, the workspace, harness-delta build, prompt, Claude binary and database must be verifiably outside the registered project root',
-  claude_workflow_private_workspace_required: 'the Claude workspace must be a canonical directory with mode 0700',
+  claude_workflow_resume_unadmitted:
+    'keeping or resuming a Claude session needs the exactly admitted version; remove resumable or use launch for a conditional version',
+  claude_workflow_resume_source_invalid:
+    'resume_run_id must name a finished, resumable, parent-only run of this task with the same Claude Code version, and the same workspace must still hold its run directory',
+  claude_workflow_harness_inside_project:
+    'with workspace-edit, the workspace, harness-delta build, prompt, Claude binary and database must be verifiably outside the registered project root',
+  claude_workflow_private_workspace_required: 'the Claude workspace must be a canonical directory with mode 0700'
 };
 
 function safePath(path: readonly PropertyKey[]): string {
   if (!path.length) return '(root)';
-  return path.map(part => typeof part === 'number' ? `[${part}]` : typeof part === 'string' && keyPattern.test(part) ? part : '?').join('.');
+  return path.map(part => (typeof part === 'number' ? `[${part}]` : typeof part === 'string' && keyPattern.test(part) ? part : '?')).join('.');
 }
 
 /** Lines for stderr. Never includes input values, paths or producer messages. */
@@ -70,21 +77,29 @@ export function describeCliError(error: unknown): string[] {
     if (error instanceof CommanderError) {
       // Missing names come from command definitions; other usage errors may echo argv.
       const detail = ['commander.missingMandatoryOptionValue', 'commander.optionMissingArgument', 'commander.missingArgument'].includes(error.code)
-        ? error.message.replace(/^error: /, '').trim() : error.code.replace(/^commander\./, '');
+        ? error.message.replace(/^error: /, '').trim()
+        : error.code.replace(/^commander\./, '');
       return [`invalid_command: ${detail}`, 'hint: run the command with --help for usage'];
     }
     if (error instanceof z.ZodError) {
-      return ['invalid_input', ...error.issues.slice(0, 5).map(issue => `  at ${safePath(issue.path)}: ${codePattern.test(issue.message) ? issue.message : issue.code}`)];
+      return [
+        'invalid_input',
+        ...error.issues.slice(0, 5).map(issue => `  at ${safePath(issue.path)}: ${codePattern.test(issue.message) ? issue.message : issue.code}`)
+      ];
     }
-    if (error instanceof Error && (
-      ('code' in error && error.code === 'ERR_DLOPEN_FAILED') ||
-      /NODE_MODULE_VERSION/.test(error.message) ||
-      (/Could not locate the bindings file/.test(error.message) && /better_sqlite3/.test(error.message))
-    )) return ['native_dependency', `hint: ${hints.native_dependency}`];
+    if (
+      error instanceof Error &&
+      (('code' in error && error.code === 'ERR_DLOPEN_FAILED') ||
+        /NODE_MODULE_VERSION/.test(error.message) ||
+        (/Could not locate the bindings file/.test(error.message) && /better_sqlite3/.test(error.message)))
+    )
+      return ['native_dependency', `hint: ${hints.native_dependency}`];
     if (error instanceof Error && codePattern.test(error.message)) {
       const hint = hints[error.message];
       return hint ? [error.message, `hint: ${hint}`] : [error.message];
     }
-  } catch { /* fall through to the generic code */ }
+  } catch {
+    /* fall through to the generic code */
+  }
   return [fallback];
 }

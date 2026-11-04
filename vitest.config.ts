@@ -13,7 +13,7 @@ const processBudgetTests = [
   "tests/harness-application-restoration-safety.test.ts",
   "tests/instrumented-codex-qualification.test.ts",
   "tests/tool-update-conformance.test.ts",
-  "tests/tool-update-conformance-lifecycle.test.ts",
+  "tests/tool-update-conformance-lifecycle.test.ts"
 ];
 
 export default defineConfig({
@@ -28,8 +28,8 @@ export default defineConfig({
           environment: "node",
           include: processBudgetTests,
           fileParallelism: false,
-          sequence: { groupOrder: 1 },
-        },
+          sequence: { groupOrder: 1 }
+        }
       },
       {
         extends: false,
@@ -39,9 +39,9 @@ export default defineConfig({
           environment: "node",
           include: ["tests/**/*.test.ts", "ui/src/**/*.test.ts"],
           exclude: processBudgetTests,
-          sequence: { groupOrder: 2 },
-        },
-      },
-    ],
-  },
+          sequence: { groupOrder: 2 }
+        }
+      }
+    ]
+  }
 });

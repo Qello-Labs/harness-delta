@@ -15,30 +15,53 @@ import { sourcePathAllowlist, withSourceSnapshot } from '../scripts/tool-update/
 const root = realpathSync(fileURLToPath(new URL('..', import.meta.url)));
 const parserPaths = ['src/nested-candidate.ts', 'src/codex-candidate-rollout.ts'] as const;
 const temporary: string[] = [];
-afterEach(async () => { for (const path of temporary.splice(0)) await rm(path, { recursive: true, force: true }); });
+afterEach(async () => {
+  for (const path of temporary.splice(0)) await rm(path, { recursive: true, force: true });
+});
 function fixture(product: Product = 'codex', versions = ['0.163.0']) {
   const releases: Release[] = versions.map((version, i) => ({
-    version, release_id: i + 1, tag: `${product === 'codex' ? 'rust-v' : 'v'}${version}`,
-    commit: String(i + 1).repeat(40), npm_integrity: `sha512-${Buffer.alloc(64, i).toString('base64')}`,
+    version,
+    release_id: i + 1,
+    tag: `${product === 'codex' ? 'rust-v' : 'v'}${version}`,
+    commit: String(i + 1).repeat(40),
+    npm_integrity: `sha512-${Buffer.alloc(64, i).toString('base64')}`
   }));
   const last = releases.at(-1);
   if (!last) throw new Error('fixture_release_required');
   const { version, ...identity } = last;
   const candidate: Candidate = { schema_version: 1, kind: 'candidate', product, target: version, ...identity };
   const observation: Observation = {
-    schema_version: 1, kind: 'observation', product, checked_at: '2026-10-24T00:00:00.000Z',
-    result: 'metadata_reconciled', reasons: ['baseline_missing'],
-    heads: { github: version, npm_latest: version, npm_stable: version }, checks: [], releases,
-    candidate_id: digest(candidate),
+    schema_version: 1,
+    kind: 'observation',
+    product,
+    checked_at: '2026-10-24T00:00:00.000Z',
+    result: 'metadata_reconciled',
+    reasons: ['baseline_missing'],
+    heads: { github: version, npm_latest: version, npm_stable: version },
+    checks: [],
+    releases,
+    candidate_id: digest(candidate)
   };
   return { root, candidate, observation };
 }
 function baseline(version = '0.162.1'): Baseline {
-  return { schema_version: 1, kind: 'baseline', rows: [{
-    product: 'codex', route: 'file', profile_id: 'codex-file-checkpoint-v1',
-    operation: 'collect', topology: 'root', last_reviewed_version: version,
-    contract_revision: 'consumed-v1', evidence_ids: ['a'.repeat(64)], source_digest: 'b'.repeat(64),
-  }] };
+  return {
+    schema_version: 1,
+    kind: 'baseline',
+    rows: [
+      {
+        product: 'codex',
+        route: 'file',
+        profile_id: 'codex-file-checkpoint-v1',
+        operation: 'collect',
+        topology: 'root',
+        last_reviewed_version: version,
+        contract_revision: 'consumed-v1',
+        evidence_ids: ['a'.repeat(64)],
+        source_digest: 'b'.repeat(64)
+      }
+    ]
+  };
 }
 function lane(assessment: Assessment, profile: string, operation = 'collect') {
   const value = assessment.lanes.find(row => row.profile_id === profile && row.operation === operation);
@@ -58,11 +81,16 @@ async function sourceFixture() {
 
 test('projects the actual current source without Store or private paths', async () => {
   const snapshot = await withSourceSnapshot(root, source => ({
-    windows: source.windows, lanes: sourceLanes(source),
-    child: source.resolve('codex', '0.160.0', 'codex_workflow', 'codex-workflow-direct-child-v1'),
+    windows: source.windows,
+    lanes: sourceLanes(source),
+    child: source.resolve('codex', '0.160.0', 'codex_workflow', 'codex-workflow-direct-child-v1')
   }));
   expect(snapshot.value.windows).toContainEqual({
-    product: 'codex', source: 'file', base: '0.158.0', upper_exclusive: '0.164.0', profile_id: 'codex-file-checkpoint-v1',
+    product: 'codex',
+    source: 'file',
+    base: '0.158.0',
+    upper_exclusive: '0.164.0',
+    profile_id: 'codex-file-checkpoint-v1'
   });
   expect(snapshot.value.child?.state).toBe('verified');
   expect(snapshot.source_paths).toContain('src/codex-admissions.json');
@@ -76,7 +104,7 @@ test.each([
   ['codex', '0.164.0', 'codex-file-checkpoint-v1', 'unsupported'],
   ['codex', '0.165.0', 'codex-file-checkpoint-v1', 'unsupported'],
   ['claude_code', '2.1.999', 'claude-file-message-components-v1', 'inherited'],
-  ['claude_code', '2.2.0', 'claude-file-message-components-v1', 'unsupported'],
+  ['claude_code', '2.2.0', 'claude-file-message-components-v1', 'unsupported']
 ] as const)('uses current finite windows for %s %s', async (product, target, profile, expected) => {
   const result = await assessCandidate(fixture(product, [target]));
   expect(lane(result, profile).static_selection).toBe(expected);
@@ -87,7 +115,9 @@ test('keeps exact root and child profiles separate before selecting windows', as
   const result = await assessCandidate(fixture('codex', ['0.160.0']));
   expect(lane(result, 'codex-workflow-own-response-v1', 'launch').static_selection).toBe('exact');
   expect(lane(result, 'codex-workflow-direct-child-v1', 'launch')).toMatchObject({
-    static_selection: 'exact', topology: 'root_direct_child', declared_scope: { read_only: true, max_members: 2 },
+    static_selection: 'exact',
+    topology: 'root_direct_child',
+    declared_scope: { read_only: true, max_members: 2 }
   });
   expect(lane(result, 'codex-workflow-direct-child-v1', 'resume').static_selection).toBe('unsupported');
   expect(lane(result, 'codex-workflow-direct-child-v1', 'link').static_selection).toBe('unsupported');
@@ -104,7 +134,9 @@ test.each(['2.1.296', '2.1.301'])('preserves exact-only Claude child and resume 
 test('ordinary profiles are exact-only even when their compatibility state is unverified', async () => {
   const result = await assessCandidate(fixture('claude_code', ['2.1.306']));
   expect(lane(result, 'claude-binding-2-1-306-family-v1', 'link')).toMatchObject({
-    static_selection: 'exact', compatibility: { state: 'compatibility_unverified' }, declared_scope: { exact_only: true },
+    static_selection: 'exact',
+    compatibility: { state: 'compatibility_unverified' },
+    declared_scope: { exact_only: true }
   });
   expect(lane(result, 'claude-binding-2-1-301-family-v1', 'link').static_selection).toBe('unsupported');
   expect(lane(result, 'claude-binding-2-1-306-family-v1', 'resume').static_selection).toBe('unsupported');
@@ -126,7 +158,8 @@ test('pins every adjacent review edge and keeps parser cumulative review separat
   const result = await assessCandidate({ ...fixture('codex', ['0.162.1', '0.162.2', '0.163.0']), baseline: baseline() });
   const review = lane(result, 'codex-file-checkpoint-v1').review;
   expect(review.edges.map(edge => [edge.from.version, edge.to.version])).toEqual([
-    ['0.162.1', '0.162.2'], ['0.162.2', '0.163.0'],
+    ['0.162.1', '0.162.2'],
+    ['0.162.2', '0.163.0']
   ]);
   expect(review.edges.every(edge => edge.from.commit.length === 40 && edge.contracts.every(row => row.judgment === 'unknown'))).toBe(true);
   expect(review.parser_comparison?.from_version).toBe('0.158.0');
@@ -134,7 +167,12 @@ test('pins every adjacent review edge and keeps parser cumulative review separat
   expect(lane(result, 'codex-workflow-own-response-v1', 'launch').review.coverage).toBe('baseline_missing');
   expect(result.review_sources).toHaveLength(6);
   expect(result.review_sources.map(row => row.commit)).toEqual([
-    '1'.repeat(40), '1'.repeat(40), '2'.repeat(40), '2'.repeat(40), '3'.repeat(40), '3'.repeat(40),
+    '1'.repeat(40),
+    '1'.repeat(40),
+    '2'.repeat(40),
+    '2'.repeat(40),
+    '3'.repeat(40),
+    '3'.repeat(40)
   ]);
   expect(result.review_sources.every(row => row.availability === 'not_assessed')).toBe(true);
 });
@@ -146,7 +184,11 @@ test('equal baseline has no interval but does not pass review or runtime gates',
   expect(selected.review.releases).toEqual([]);
   expect(selected.gates.contracts_reviewed).toBe('unknown');
   expect(Object.values(selected.live)).toEqual(Array<string>(5).fill('not_assessed'));
-  expect(Object.values(selected.gates).slice(1).every(value => value === 'not_assessed')).toBe(true);
+  expect(
+    Object.values(selected.gates)
+      .slice(1)
+      .every(value => value === 'not_assessed')
+  ).toBe(true);
 });
 
 test('rejects an ahead baseline', async () => {
@@ -159,23 +201,44 @@ test('rejects unknown ordinary profiles before using baseline coverage', async (
   const input = baseline();
   const row = input.rows[0];
   if (!row) throw new Error('fixture_row_required');
-  await expect(validateBaselineForSource({ ...input, rows: [{ ...row,
-    route: 'codex_binding', profile_id: 'codex-binding-09999-direct-family-v1',
-  }] }, root)).rejects.toMatchObject({ code: 'invalid_baseline' });
+  await expect(
+    validateBaselineForSource({ ...input, rows: [{ ...row, route: 'codex_binding', profile_id: 'codex-binding-09999-direct-family-v1' }] }, root)
+  ).rejects.toMatchObject({ code: 'invalid_baseline' });
 });
 test('rejects permanently unsupported child resume baseline keys', async () => {
-  await expect(validateBaselineForSource({ schema_version: 1, kind: 'baseline', rows: [{
-    product: 'codex', route: 'codex_workflow', profile_id: 'codex-workflow-direct-child-v1',
-    operation: 'resume', topology: 'root_direct_child', last_reviewed_version: '0.160.0',
-    contract_revision: 'consumed-v1', evidence_ids: ['a'.repeat(64)], source_digest: 'b'.repeat(64),
-  }] }, root)).rejects.toMatchObject({ code: 'invalid_baseline' });
+  await expect(
+    validateBaselineForSource(
+      {
+        schema_version: 1,
+        kind: 'baseline',
+        rows: [
+          {
+            product: 'codex',
+            route: 'codex_workflow',
+            profile_id: 'codex-workflow-direct-child-v1',
+            operation: 'resume',
+            topology: 'root_direct_child',
+            last_reviewed_version: '0.160.0',
+            contract_revision: 'consumed-v1',
+            evidence_ids: ['a'.repeat(64)],
+            source_digest: 'b'.repeat(64)
+          }
+        ]
+      },
+      root
+    )
+  ).rejects.toMatchObject({ code: 'invalid_baseline' });
 });
 test.each(['candidate_id', 'product', 'commit', 'heads'] as const)('rejects candidate-observation %s mismatch before source IO', async field => {
   const input = fixture();
-  const observation = field === 'commit' ? { ...input.observation, releases: input.observation.releases.map(row => ({ ...row, commit: 'f'.repeat(40) })) }
-    : field === 'product' ? { ...input.observation, product: 'claude_code', releases: input.observation.releases.map(row => ({ ...row, tag: `v${row.version}` })) }
-    : field === 'heads' ? { ...input.observation, heads: { github: '0.162.0', npm_latest: '0.163.0', npm_stable: '0.163.0' } }
-    : { ...input.observation, candidate_id: 'f'.repeat(64) };
+  const observation =
+    field === 'commit'
+      ? { ...input.observation, releases: input.observation.releases.map(row => ({ ...row, commit: 'f'.repeat(40) })) }
+      : field === 'product'
+        ? { ...input.observation, product: 'claude_code', releases: input.observation.releases.map(row => ({ ...row, tag: `v${row.version}` })) }
+        : field === 'heads'
+          ? { ...input.observation, heads: { github: '0.162.0', npm_latest: '0.163.0', npm_stable: '0.163.0' } }
+          : { ...input.observation, candidate_id: 'f'.repeat(64) };
   await expect(assessCandidate({ ...input, observation, root: '/not-read' })).rejects.toMatchObject({ code: 'observation_mismatch' });
 });
 
@@ -194,10 +257,12 @@ test('ignores stale dist and responds to current source mutations', async () => 
 
 test('rejects drift between compilation and projection completion', async () => {
   const directory = await sourceFixture();
-  await expect(withSourceSnapshot(directory, async source => {
-    await writeFile(join(directory, 'src/codex-admissions.json'), '[]');
-    return source.windows.length;
-  })).rejects.toMatchObject({ code: 'source_drift' });
+  await expect(
+    withSourceSnapshot(directory, async source => {
+      await writeFile(join(directory, 'src/codex-admissions.json'), '[]');
+      return source.windows.length;
+    })
+  ).rejects.toMatchObject({ code: 'source_drift' });
 });
 test.each(parserPaths)('a one-byte change in %s invalidates baseline and review digests', async parserPath => {
   const directory = await sourceFixture();
@@ -210,25 +275,36 @@ test.each(parserPaths)('a one-byte change in %s invalidates baseline and review 
   if (!row || !from || !to) throw new Error('fixture_review_required');
   const currentBaseline = { ...base, rows: [{ ...row, source_digest: snapshot.source_digest }] };
   const record: ContractReview = {
-    schema_version: 1, kind: 'contract_review', product: row.product, route: row.route,
-    profile_id: row.profile_id, operation: row.operation, topology: row.topology,
-    contract_revision: 'consumed-v1', from: { version: from.version, commit: from.commit },
+    schema_version: 1,
+    kind: 'contract_review',
+    product: row.product,
+    route: row.route,
+    profile_id: row.profile_id,
+    operation: row.operation,
+    topology: row.topology,
+    contract_revision: 'consumed-v1',
+    from: { version: from.version, commit: from.commit },
     to: { version: to.version, commit: to.commit },
     contracts: consumedContracts.map(contract_id => ({ contract_id, judgment: 'unaffected' })),
-    evidence_ids: ['a'.repeat(64)], source_digest: snapshot.source_digest,
+    evidence_ids: ['a'.repeat(64)],
+    source_digest: snapshot.source_digest
   };
   const before = await assessCandidate({ ...input, baseline: currentBaseline, reviews: [record] });
   if (before.schema_version !== 4) throw new Error('schema_4_required');
   expect(lane(before, row.profile_id).gates.contracts_reviewed).toBe('closed');
   expect(lane(before, row.profile_id).reasons).not.toContain('baseline_source_changed');
-  expect(assessmentSchema.safeParse({ ...before, schema_version: 3,
-    lanes: before.lanes.map(current => {
-      const { selection_policy, ...previous } = current;
-      expect(selection_policy).toBeDefined();
-      return previous;
-    }),
-    source_paths: before.source_paths.filter(path => !parserPaths.some(parser => parser === path)),
-  }).success).toBe(true);
+  expect(
+    assessmentSchema.safeParse({
+      ...before,
+      schema_version: 3,
+      lanes: before.lanes.map(current => {
+        const { selection_policy, ...previous } = current;
+        expect(selection_policy).toBeDefined();
+        return previous;
+      }),
+      source_paths: before.source_paths.filter(path => !parserPaths.some(parser => parser === path))
+    }).success
+  ).toBe(true);
   const path = join(directory, parserPath);
   const bytes = await readFile(path);
   const first = bytes[0];
@@ -237,15 +313,12 @@ test.each(parserPaths)('a one-byte change in %s invalidates baseline and review 
   await writeFile(path, bytes);
   const after = await assessCandidate({ ...input, baseline: currentBaseline, reviews: [record] });
   expect(after.source_digest).not.toBe(before.source_digest);
-  expect(lane(after, row.profile_id).reasons).toEqual(expect.arrayContaining([
-    'baseline_source_changed', 'review_source_changed',
-  ]));
+  expect(lane(after, row.profile_id).reasons).toEqual(expect.arrayContaining(['baseline_source_changed', 'review_source_changed']));
   expect(lane(after, row.profile_id).gates.contracts_reviewed).toBe('unknown');
 });
 test.each(parserPaths)('hashes %s without parsing, executing or following its imports', async parserPath => {
   const directory = await sourceFixture();
-  await writeFile(join(directory, parserPath),
-    "import './must-not-follow.js';\nthrow new Error('must_not_execute');\nconst = ;\n");
+  await writeFile(join(directory, parserPath), "import './must-not-follow.js';\nthrow new Error('must_not_execute');\nconst = ;\n");
   const snapshot = await withSourceSnapshot(directory, () => 'projected');
   expect(snapshot.source_paths).toContain(parserPath);
   expect(snapshot.value).toBe('projected');
@@ -256,11 +329,11 @@ test.each(parserPaths)('rejects a registry import of hash-only input %s', async 
   const path = join(directory, 'src/source-compatibility.ts');
   const specifier = `./${parserPath.slice(4).replace(/\.ts$/, '.js')}`;
   await writeFile(path, `import '${specifier}';\n${await readFile(path, 'utf8')}`);
-  await expect(assessCandidate({ ...fixture(), root: directory }))
-    .rejects.toMatchObject({ code: 'source_snapshot_unavailable' });
+  await expect(assessCandidate({ ...fixture(), root: directory })).rejects.toMatchObject({ code: 'source_snapshot_unavailable' });
 });
 test.each(parserPaths.flatMap(path => ['missing', 'symlink', 'oversized'].map(kind => ({ path, kind }))))(
-  'rejects a $kind hash-only input at $path', async ({ path, kind }) => {
+  'rejects a $kind hash-only input at $path',
+  async ({ path, kind }) => {
     const directory = await sourceFixture();
     const full = join(directory, path);
     if (kind === 'oversized') await writeFile(full, Buffer.alloc(8 * 1024 * 1024 + 1));
@@ -268,15 +341,16 @@ test.each(parserPaths.flatMap(path => ['missing', 'symlink', 'oversized'].map(ki
       await rm(full);
       if (kind === 'symlink') await symlink(join(root, path), full);
     }
-    await expect(assessCandidate({ ...fixture(), root: directory }))
-      .rejects.toMatchObject({ code: 'source_snapshot_unavailable' });
-  },
+    await expect(assessCandidate({ ...fixture(), root: directory })).rejects.toMatchObject({ code: 'source_snapshot_unavailable' });
+  }
 );
 test.each(parserPaths)('rejects projection-time drift in hash-only input %s', async parserPath => {
   const directory = await sourceFixture();
-  await expect(withSourceSnapshot(directory, async () => {
-    await writeFile(join(directory, parserPath), 'changed');
-  })).rejects.toMatchObject({ code: 'source_drift' });
+  await expect(
+    withSourceSnapshot(directory, async () => {
+      await writeFile(join(directory, parserPath), 'changed');
+    })
+  ).rejects.toMatchObject({ code: 'source_drift' });
 });
 test('the expanded snapshot includes 24 source paths', async () => {
   const snapshot = await withSourceSnapshot(root, () => null);

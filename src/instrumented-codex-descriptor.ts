@@ -4,17 +4,18 @@ import { IdSchema, TokenSchema } from './contracts.js';
 import { InstrumentedAccounting, InstrumentedAccountingError } from './instrumented-codex-accounting.js';
 
 export const InstrumentedBootstrapSchema = z.strictObject({
-  schema_version: z.literal(1), protocol: z.literal('harness-codex-accounting-v1'),
-  run_id: IdSchema, producer_instance_id: IdSchema, task_generation: TokenSchema,
-  configuration_receipt_id: IdSchema, configuration_revision: IdSchema, root_session_id: IdSchema,
+  schema_version: z.literal(1),
+  protocol: z.literal('harness-codex-accounting-v1'),
+  run_id: IdSchema,
+  producer_instance_id: IdSchema,
+  task_generation: TokenSchema,
+  configuration_receipt_id: IdSchema,
+  configuration_revision: IdSchema,
+  root_session_id: IdSchema
 });
 
 /** This transports permits, not producer admission; the caller must own the verified subprocess. */
-export function connectInstrumentedDescriptor(
-  accounting: InstrumentedAccounting,
-  descriptor: Duplex,
-  producerInstanceId: string,
-) {
+export function connectInstrumentedDescriptor(accounting: InstrumentedAccounting, descriptor: Duplex, producerInstanceId: string) {
   accounting.assertActive();
   if (producerInstanceId !== accounting.producerInstanceId()) {
     accounting.recordTransportFailure('record_conflict');
@@ -22,15 +23,21 @@ export function connectInstrumentedDescriptor(
   }
   const control = accounting.control();
   const bootstrap = InstrumentedBootstrapSchema.parse({
-    schema_version: 1, protocol: 'harness-codex-accounting-v1',
-    run_id: control.run_id, producer_instance_id: producerInstanceId,
-    task_generation: control.task_generation, configuration_receipt_id: control.configuration_receipt_id,
-    configuration_revision: control.configuration_receipt_id, root_session_id: control.root_session_id,
+    schema_version: 1,
+    protocol: 'harness-codex-accounting-v1',
+    run_id: control.run_id,
+    producer_instance_id: producerInstanceId,
+    task_generation: control.task_generation,
+    configuration_receipt_id: control.configuration_receipt_id,
+    configuration_revision: control.configuration_receipt_id,
+    root_session_id: control.root_session_id
   });
   let buffer = Buffer.alloc(0);
   let failure: InstrumentedAccountingError | null = null;
   let resolveClosed: () => void = () => {};
-  const closed = new Promise<void>(resolve => { resolveClosed = resolve; });
+  const closed = new Promise<void>(resolve => {
+    resolveClosed = resolve;
+  });
   const reject = (error: InstrumentedAccountingError) => {
     failure ??= error;
     if (error.code !== 'inactive_scope') accounting.recordTransportFailure('record_conflict');
@@ -51,8 +58,9 @@ export function connectInstrumentedDescriptor(
         const text = bytes.toString('utf8');
         if (!Buffer.from(text, 'utf8').equals(bytes)) throw new InstrumentedAccountingError('invalid_record');
         let record: unknown;
-        try { record = JSON.parse(text) as unknown; }
-        catch (error) {
+        try {
+          record = JSON.parse(text) as unknown;
+        } catch (error) {
           if (error instanceof SyntaxError) throw new InstrumentedAccountingError('invalid_record');
           throw error;
         }
@@ -85,6 +93,8 @@ export function connectInstrumentedDescriptor(
   return {
     closed,
     failure: () => failure,
-    close: () => { descriptor.destroy(); },
+    close: () => {
+      descriptor.destroy();
+    }
   };
 }

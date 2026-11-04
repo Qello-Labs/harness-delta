@@ -10,11 +10,11 @@ export { confirmConfiguration, configurationHistory, bindConfigurationToSession 
 export type { SelectedArtifact, ConfigurationRecord } from './config-confirmation.js';
 
 export * from './flexible-contracts.js';
-export { recordRuntimeEvidence,readRuntimeHistory,putUsageWithEvidence,recordObservationGap } from './runtime-history.js';
-export { registerPriceTable,readPriceTable,priceUsage,costFormulaVersion } from './pricing.js';
+export { recordRuntimeEvidence, readRuntimeHistory, putUsageWithEvidence, recordObservationGap } from './runtime-history.js';
+export { registerPriceTable, readPriceTable, priceUsage, costFormulaVersion } from './pricing.js';
 export { evaluateCostCoverage } from './cost-coverage.js';
 export { aggregateTaskCost } from './metrics.js';
-export { projectFlexibleComparison,aggregateFlexibleTaskReport } from './reports/flexible-comparison.js';
+export { projectFlexibleComparison, aggregateFlexibleTaskReport } from './reports/flexible-comparison.js';
 export { evaluateReadiness } from './readiness.js';
 export { comparisonReadiness } from './readiness-store.js';
 

@@ -15,38 +15,75 @@ export interface ManagedProducer {
   acknowledge(count: number): void;
   stop(): void;
 }
-export interface ManagedLimits { runTimeoutMs: number; drainTimeoutMs: number }
+export interface ManagedLimits {
+  runTimeoutMs: number;
+  drainTimeoutMs: number;
+}
 export const runInputSchema = z.strictObject({ runId: IdSchema, taskId: IdSchema, sessionId: IdSchema });
 export type RunInput = z.infer<typeof runInputSchema>;
 export type Facts = CoverageEvidence['facts'];
-export type StopReason = 'cancel' | 'timeout' | 'crash' | 'pause' | 'finalize' | 'restart' |
-  'scope_revoked' | 'identity_conflict' | 'invalid_envelope' | 'transport_error' | 'storage_error' | 'clock_regressed' | 'incomplete';
+export type StopReason =
+  | 'cancel'
+  | 'timeout'
+  | 'crash'
+  | 'pause'
+  | 'finalize'
+  | 'restart'
+  | 'scope_revoked'
+  | 'identity_conflict'
+  | 'invalid_envelope'
+  | 'transport_error'
+  | 'storage_error'
+  | 'clock_regressed'
+  | 'incomplete';
 export interface RunRow {
-  id: string; project_id: string; task_id: string; session_id: string; generation: number;
+  id: string;
+  project_id: string;
+  task_id: string;
+  session_id: string;
+  generation: number;
   profile_id: 'synthetic-managed-v1';
   state: 'preparing' | 'ready' | 'running' | 'draining' | 'sealed' | 'interrupted';
-  started_at: string; updated_at: string; ended_at: string | null; submitted_at: string | null;
-  stop_reason: StopReason | null; terminal_sequence: number | null; channel_ended: number;
-  input_facts: string; output_facts: string;
+  started_at: string;
+  updated_at: string;
+  ended_at: string | null;
+  submitted_at: string | null;
+  stop_reason: StopReason | null;
+  terminal_sequence: number | null;
+  channel_ended: number;
+  input_facts: string;
+  output_facts: string;
 }
 const sequenceSchema = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
 export const envelopeSchema = z.discriminatedUnion('kind', [
-  z.strictObject({ kind: z.literal('usage'), sequence: sequenceSchema, request_id: IdSchema,
-    occurred_at: TimestampSchema, payload: UsageSchema }),
+  z.strictObject({ kind: z.literal('usage'), sequence: sequenceSchema, request_id: IdSchema, occurred_at: TimestampSchema, payload: UsageSchema }),
   z.strictObject({ kind: z.literal('terminal'), final_sequence: sequenceSchema.or(z.literal(0)) }),
   z.strictObject({ kind: z.literal('exit') }),
-  z.strictObject({ kind: z.literal('end') }),
+  z.strictObject({ kind: z.literal('end') })
 ]);
 export const batchSchema = z.array(envelopeSchema).max(256);
 export type Envelope = z.infer<typeof envelopeSchema>;
 export type UsageEnvelope = Extract<Envelope, { kind: 'usage' }>;
 export function initialFacts(): Facts {
-  return { scopeBeforeAccess: 'verified', freshSession: 'verified', readyBeforeFirstRequest: 'unknown',
-    continuousObservation: 'verified', fixedModel: 'unknown', boundedTopology: 'unknown',
-    requestUniverse: 'unknown', terminalAccounting: 'unknown', immutableIdentity: 'verified',
-    durableFlush: 'unknown', counterSemantics: 'unknown' };
+  return {
+    scopeBeforeAccess: 'verified',
+    freshSession: 'verified',
+    readyBeforeFirstRequest: 'unknown',
+    continuousObservation: 'verified',
+    fixedModel: 'unknown',
+    boundedTopology: 'unknown',
+    requestUniverse: 'unknown',
+    terminalAccounting: 'unknown',
+    immutableIdentity: 'verified',
+    durableFlush: 'unknown',
+    counterSemantics: 'unknown'
+  };
 }
-export function isOpen(row: RunRow): boolean { return row.state !== 'sealed' && row.state !== 'interrupted'; }
+export function isOpen(row: RunRow): boolean {
+  return row.state !== 'sealed' && row.state !== 'interrupted';
+}
 export class ManagedFailure extends Error {
-  constructor(readonly reason: StopReason) { super(`managed_${reason}`); }
+  constructor(readonly reason: StopReason) {
+    super(`managed_${reason}`);
+  }
 }

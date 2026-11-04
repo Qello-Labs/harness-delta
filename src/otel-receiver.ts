@@ -21,13 +21,22 @@ export class OtelReceiver {
   private closed = false;
 
   private constructor(
-    private readonly store: Store, private readonly processId: string, private readonly profile: OtelVersionProfile,
-    private readonly clock: Clock, private readonly maxBodyBytes: number, private readonly token: string,
-    private readonly digest: Buffer, private readonly server: Server,
+    private readonly store: Store,
+    private readonly processId: string,
+    private readonly profile: OtelVersionProfile,
+    private readonly clock: Clock,
+    private readonly maxBodyBytes: number,
+    private readonly token: string,
+    private readonly digest: Buffer,
+    private readonly server: Server
   ) {}
 
-  static async start(store: Store, launch: OtelLaunch, profile: OtelVersionProfile,
-    options: { clock?: Clock; maxBodyBytes?: number } = {}): Promise<OtelReceiver> {
+  static async start(
+    store: Store,
+    launch: OtelLaunch,
+    profile: OtelVersionProfile,
+    options: { clock?: Clock; maxBodyBytes?: number } = {}
+  ): Promise<OtelReceiver> {
     const clock = options.clock ?? utcNow;
     const maxBodyBytes = options.maxBodyBytes ?? defaultMaxBodyBytes;
     if (!Number.isSafeInteger(maxBodyBytes) || maxBodyBytes < 1 || maxBodyBytes > 64 * 1024 * 1024) throw new Error('otel_invalid_limits');
@@ -40,7 +49,10 @@ export class OtelReceiver {
     try {
       await new Promise<void>((resolve, reject) => {
         server.once('error', reject);
-        server.listen({ port: 0, host: '127.0.0.1', exclusive: true }, () => { server.off('error', reject); resolve(); });
+        server.listen({ port: 0, host: '127.0.0.1', exclusive: true }, () => {
+          server.off('error', reject);
+          resolve();
+        });
       });
     } catch {
       // Never launched: revoke without claiming an unmeasured product lifetime.
@@ -55,16 +67,27 @@ export class OtelReceiver {
     return `http://${address.address}:${address.port}`;
   }
 
-  boundAddress(): string { return (this.server.address() as AddressInfo).address; }
+  boundAddress(): string {
+    return (this.server.address() as AddressInfo).address;
+  }
 
   /** Exporter headers for the launched process's per-invocation settings. Never log them. */
-  exporterHeaders(): Readonly<Record<string, string>> { return { [tokenHeader]: this.token }; }
+  exporterHeaders(): Readonly<Record<string, string>> {
+    return { [tokenHeader]: this.token };
+  }
 
   async close(): Promise<void> {
     if (this.closed) return;
     this.closed = true;
-    try { closeOtelProcess(this.store, this.processId, this.clock); } catch { /* The store may already be closed. */ }
-    await new Promise<void>(resolve => { this.server.close(() => resolve()); this.server.closeAllConnections(); });
+    try {
+      closeOtelProcess(this.store, this.processId, this.clock);
+    } catch {
+      /* The store may already be closed. */
+    }
+    await new Promise<void>(resolve => {
+      this.server.close(() => resolve());
+      this.server.closeAllConnections();
+    });
   }
 
   private handle(request: IncomingMessage, response: ServerResponse): void {
@@ -75,7 +98,11 @@ export class OtelReceiver {
     const path = request.url?.split('?')[0];
     if (path !== '/v1/logs' && path !== '/v1/metrics' && path !== '/v1/traces') return reject(404);
     let admitted: boolean;
-    try { admitted = admitOtelRequest(this.store, this.processId, this.clock); } catch { return reject(503); }
+    try {
+      admitted = admitOtelRequest(this.store, this.processId, this.clock);
+    } catch {
+      return reject(503);
+    }
     if (!admitted) return reject(403);
     if (path !== '/v1/logs') {
       // Metrics are never added to event totals and traces are configured off: acknowledge undecoded.
@@ -92,23 +119,43 @@ export class OtelReceiver {
     let oversized = false;
     request.on('data', (chunk: Buffer) => {
       size += chunk.length;
-      if (size > this.maxBodyBytes) { oversized = true; chunks.length = 0; }
+      if (size > this.maxBodyBytes) {
+        oversized = true;
+        chunks.length = 0;
+      }
       if (size > drainCeilingBytes) request.destroy();
       if (!oversized) chunks.push(chunk);
     });
-    request.on('error', () => { chunks.length = 0; });
+    request.on('error', () => {
+      chunks.length = 0;
+    });
     request.on('end', () => {
       if (oversized) return reply(response, 413);
       // Scope can be revoked while the body uploads; re-check before decoding a single byte.
       let admitted: boolean;
-      try { admitted = admitOtelRequest(this.store, this.processId, this.clock); } catch { return reply(response, 503); }
-      if (!admitted) { chunks.length = 0; return reply(response, 403); }
+      try {
+        admitted = admitOtelRequest(this.store, this.processId, this.clock);
+      } catch {
+        return reply(response, 503);
+      }
+      if (!admitted) {
+        chunks.length = 0;
+        return reply(response, 403);
+      }
       let decoded;
-      try { decoded = decodeLogsRequest(JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown); } catch { decoded = null; }
+      try {
+        decoded = decodeLogsRequest(JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown);
+      } catch {
+        decoded = null;
+      }
       chunks.length = 0;
       if (decoded === null) return reply(response, 400);
       let outcome;
-      try { outcome = ingestOtelLogs(this.store, this.processId, decoded, this.profile, this.clock); } catch { return reply(response, 503); }
+      try {
+        outcome = ingestOtelLogs(this.store, this.processId, decoded, this.profile, this.clock);
+      } catch {
+        return reply(response, 503);
+      }
       if (outcome === 'committed') reply(response, 200, '{}');
       else reply(response, outcome === 'revoked' ? 403 : 400);
     });
@@ -122,11 +169,16 @@ export class OtelReceiver {
 
 function drain(request: IncomingMessage, done: () => void): void {
   let size = 0;
-  request.on('data', (chunk: Buffer) => { size += chunk.length; if (size > drainCeilingBytes) request.destroy(); });
+  request.on('data', (chunk: Buffer) => {
+    size += chunk.length;
+    if (size > drainCeilingBytes) request.destroy();
+  });
   request.on('end', done);
   request.resume();
 }
-function digest(value: string): Buffer { return createHash('sha256').update(value, 'utf8').digest(); }
+function digest(value: string): Buffer {
+  return createHash('sha256').update(value, 'utf8').digest();
+}
 function reply(response: ServerResponse, status: number, body = ''): void {
   if (response.headersSent) return;
   response.writeHead(status, body ? { 'content-type': 'application/json' } : {});

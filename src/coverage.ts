@@ -12,13 +12,13 @@ const factsSchema = z.strictObject({
   terminalAccounting: evidenceStateSchema,
   immutableIdentity: evidenceStateSchema,
   durableFlush: evidenceStateSchema,
-  counterSemantics: evidenceStateSchema,
+  counterSemantics: evidenceStateSchema
 });
 const evidenceSchema = z.strictObject({
   profileId: z.literal('synthetic-coverage-v1'),
   metric: z.enum(['input_total', 'output_total']),
   facts: factsSchema,
-  hasObservedValue: z.boolean(),
+  hasObservedValue: z.boolean()
 });
 
 export type EvidenceState = z.infer<typeof evidenceStateSchema>;
@@ -44,7 +44,7 @@ export function evaluateCoverage(input: unknown): CoverageDecision {
 /** Merge completed intervals only. Unknown/violated evidence cannot be repaired by a later interval. */
 export function mergeCoverageFacts(
   previous: Record<CoverageFact, EvidenceState>,
-  next: Record<CoverageFact, EvidenceState>,
+  next: Record<CoverageFact, EvidenceState>
 ): Record<CoverageFact, EvidenceState> {
   const before = factsSchema.safeParse(previous);
   const after = factsSchema.safeParse(next);
@@ -53,8 +53,7 @@ export function mergeCoverageFacts(
   for (const fact of factNames) {
     const a = before.data[fact];
     const b = after.data[fact];
-    merged[fact] = a === 'violated' || b === 'violated' ? 'violated'
-      : a === 'unknown' || b === 'unknown' ? 'unknown' : 'verified';
+    merged[fact] = a === 'violated' || b === 'violated' ? 'violated' : a === 'unknown' || b === 'unknown' ? 'unknown' : 'verified';
   }
   return merged;
 }

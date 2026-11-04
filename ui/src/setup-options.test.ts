@@ -2,8 +2,21 @@ import { expect, test } from 'vitest';
 import { taskSetupOptions } from './setup-options';
 import type { Setup } from './types';
 
-const template: Setup = { id: 'template', name: 'Template', project_id: 'one', arm_a: 'a', arm_b: 'b', types: ['feature'], sizes: ['small'], support: 'synthetic' };
-const connected: Setup = { ...template, id: 'shared-one', shared: { revision_id: 'revision', template_id: template.id, template_name: template.name, runtime: { model: null, effort: null } } };
+const template: Setup = {
+  id: 'template',
+  name: 'Template',
+  project_id: 'one',
+  arm_a: 'a',
+  arm_b: 'b',
+  types: ['feature'],
+  sizes: ['small'],
+  support: 'synthetic'
+};
+const connected: Setup = {
+  ...template,
+  id: 'shared-one',
+  shared: { revision_id: 'revision', template_id: template.id, template_name: template.name, runtime: { model: null, effort: null } }
+};
 
 test('connected comparison replaces its template without mutating the stored list', () => {
   const stored = [template, connected];

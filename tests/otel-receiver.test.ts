@@ -8,10 +8,23 @@ import { Lifecycle } from '../src/lifecycle.js';
 import { Deletion } from '../src/deletion.js';
 import { aggregateTask } from '../src/metrics.js';
 import { OtelReceiver } from '../src/otel-receiver.js';
-import { apiError, apiRequest, assistantResponse, launchSessionId, logRecord, logsRequest, profile, sessionStart, syntheticVersion, userPrompt } from './helpers/otel-fixture.js';
+import {
+  apiError,
+  apiRequest,
+  assistantResponse,
+  launchSessionId,
+  logRecord,
+  logsRequest,
+  profile,
+  sessionStart,
+  syntheticVersion,
+  userPrompt
+} from './helpers/otel-fixture.js';
 
 const resources: (() => void | Promise<void>)[] = [];
-afterEach(async () => { for (const clean of resources.splice(0).reverse()) await clean(); });
+afterEach(async () => {
+  for (const clean of resources.splice(0).reverse()) await clean();
+});
 const metadata = { type: 'feature', expected_size: 'small', assignee: 'u1', product: 'claude_code', model: 'synthetic-model', criterion_ids: ['c1'] };
 const launch = { runId: 'run-1', processId: 'process-1', taskId: 't1', sessionId: launchSessionId, productVersion: syntheticVersion };
 const options = { processId: 'process-1' };
@@ -21,12 +34,19 @@ let tick: ((ms: number) => void) | undefined;
 function setup(taskMetadata: object = metadata) {
   const root = mkdtempSync(join(tmpdir(), 'otel-test-'));
   const store = new Store(':memory:');
-  resources.push(() => rmSync(root, { recursive: true, force: true }), () => store.close());
+  resources.push(
+    () => rmSync(root, { recursive: true, force: true }),
+    () => store.close()
+  );
   let time = Date.parse('2026-01-01T00:00:00.000Z');
   const clock = () => new Date(time).toISOString();
   const life = new Lifecycle(store, clock);
-  life.registerProject('p1', root); life.createTask('p1', 't1', taskMetadata); life.start('t1');
-  const advance = (ms: number) => { time += ms; };
+  life.registerProject('p1', root);
+  life.createTask('p1', 't1', taskMetadata);
+  life.start('t1');
+  const advance = (ms: number) => {
+    time += ms;
+  };
   tick = advance;
   return { store, life, clock, advance };
 }
@@ -36,16 +56,30 @@ async function open(store: Store, clock: () => string, input = launch) {
   tick?.(2000);
   return receiver;
 }
-interface Reply { status: number; body: string }
-function post(receiver: OtelReceiver, body: unknown, init: { path?: string; method?: string; headers?: Record<string, string>; auth?: boolean } = {}): Promise<Reply> {
+interface Reply {
+  status: number;
+  body: string;
+}
+function post(
+  receiver: OtelReceiver,
+  body: unknown,
+  init: { path?: string; method?: string; headers?: Record<string, string>; auth?: boolean } = {}
+): Promise<Reply> {
   const url = new URL(init.path ?? '/v1/logs', receiver.endpoint);
   const payload = typeof body === 'string' ? body : JSON.stringify(body);
-  const headers = { 'content-type': 'application/json', authorization: secretHeader,
-    ...(init.auth === false ? {} : receiver.exporterHeaders()), ...init.headers };
+  const headers = {
+    'content-type': 'application/json',
+    authorization: secretHeader,
+    ...(init.auth === false ? {} : receiver.exporterHeaders()),
+    ...init.headers
+  };
   return new Promise((resolve, reject) => {
     const outgoing = request(url, { method: init.method ?? 'POST', headers }, response => {
-      let text = ''; response.setEncoding('utf8');
-      response.on('data', (chunk: string) => { text += chunk; });
+      let text = '';
+      response.setEncoding('utf8');
+      response.on('data', (chunk: string) => {
+        text += chunk;
+      });
       response.on('end', () => resolve({ status: response.statusCode ?? 0, body: text }));
     });
     outgoing.on('error', reject);
@@ -55,7 +89,9 @@ function post(receiver: OtelReceiver, body: unknown, init: { path?: string; meth
 const count = (store: Store, table: string) => store.get<{ n: number }>(`SELECT count(*) AS n FROM ${table}`)!.n;
 const processRow = (store: Store, id = 'process-1') =>
   store.get<{ state: string; ordering: string; uncertain_reason: string | null; revoke_reason: string | null; next_sequence: number | null }>(
-    'SELECT state,ordering,uncertain_reason,revoke_reason,next_sequence FROM otel_processes WHERE id=?', [id]);
+    'SELECT state,ordering,uncertain_reason,revoke_reason,next_sequence FROM otel_processes WHERE id=?',
+    [id]
+  );
 function dump(store: Store): string {
   return JSON.stringify(['otel_processes', 'otel_records', 'events', 'sessions', 'observations'].map(table => store.all(`SELECT * FROM ${table}`)));
 }
@@ -68,8 +104,11 @@ test('the receiver listens only on an ephemeral loopback port after durable regi
   expect(url.hostname).toBe('127.0.0.1');
   expect(['0', '4317', '4318']).not.toContain(url.port);
   expect(processRow(store)).toMatchObject({ state: 'listening', ordering: 'pending' });
-  expect(store.get('SELECT product,product_version,source_path FROM sessions WHERE id=?', [launchSessionId]))
-    .toEqual({ product: 'claude_code', product_version: syntheticVersion, source_path: null });
+  expect(store.get('SELECT product,product_version,source_path FROM sessions WHERE id=?', [launchSessionId])).toEqual({
+    product: 'claude_code',
+    product_version: syntheticVersion,
+    source_path: null
+  });
   const headers = receiver.exporterHeaders();
   expect(Object.keys(headers)).toEqual(['x-harness-delta-token']);
   expect(headers['x-harness-delta-token']).toMatch(/^[A-Za-z0-9_-]{43}$/);
@@ -77,12 +116,15 @@ test('the receiver listens only on an ephemeral loopback port after durable regi
 });
 
 test('registration requires a registered project, an active claude_code task and a matching profile', async () => {
-  const inactive = setup(); inactive.life.pause('t1');
+  const inactive = setup();
+  inactive.life.pause('t1');
   await expect(OtelReceiver.start(inactive.store, launch, profile, { clock: inactive.clock })).rejects.toThrow('otel_scope_revoked');
   const codex = setup({ ...metadata, product: 'codex' });
   await expect(OtelReceiver.start(codex.store, launch, profile, { clock: codex.clock })).rejects.toThrow('otel_scope_revoked');
   const version = setup();
-  await expect(OtelReceiver.start(version.store, { ...launch, productVersion: '1.0.1' }, profile, { clock: version.clock })).rejects.toThrow('otel_unsupported_version');
+  await expect(OtelReceiver.start(version.store, { ...launch, productVersion: '1.0.1' }, profile, { clock: version.clock })).rejects.toThrow(
+    'otel_unsupported_version'
+  );
   expect(count(version.store, 'otel_processes')).toBe(0);
 });
 
@@ -133,25 +175,58 @@ test('an ordered batch stores allowlisted records and api_request usage as parti
   const { store, clock, advance } = setup();
   const receiver = await open(store, clock);
   advance(5000);
-  const reply = await post(receiver, logsRequest([sessionStart(0, options), userPrompt(1, options), apiRequest(2, options),
-    apiError(3, options), apiRequest(4, options, { query_source: 'private-subagent-name', input_tokens: 5 })]));
+  const reply = await post(
+    receiver,
+    logsRequest([
+      sessionStart(0, options),
+      userPrompt(1, options),
+      apiRequest(2, options),
+      apiError(3, options),
+      apiRequest(4, options, { query_source: 'private-subagent-name', input_tokens: 5 })
+    ])
+  );
   expect(reply).toEqual({ status: 200, body: '{}' });
   expect(count(store, 'otel_records')).toBe(5);
   expect(count(store, 'events')).toBe(2);
   expect(processRow(store)).toMatchObject({ state: 'listening', ordering: 'ready', next_sequence: 5 });
-  const usage = store.all<{ payload: string }>('SELECT payload FROM events ORDER BY occurred_at,source_key').map(row => JSON.parse(row.payload) as Record<string, unknown>);
-  expect(usage).toContainEqual({ kind: 'usage', product: 'claude_code', product_version: syntheticVersion, model: 'synthetic-model', epoch: 'process-1',
-    input_total: { status: 'observed', value: 15, reason: null }, cached_input: { status: 'observed', value: 3, reason: null },
-    output_total: { status: 'observed', value: 7, reason: null }, reasoning_output: { status: 'unmeasurable', value: null, reason: 'unsupported' } });
-  const categories = store.all<{ payload: string }>("SELECT payload FROM otel_records WHERE event_type IN ('api_request','api_error')")
-    .map(row => (JSON.parse(row.payload) as { query_source_category: string }).query_source_category).sort();
+  const usage = store
+    .all<{ payload: string }>('SELECT payload FROM events ORDER BY occurred_at,source_key')
+    .map(row => JSON.parse(row.payload) as Record<string, unknown>);
+  expect(usage).toContainEqual({
+    kind: 'usage',
+    product: 'claude_code',
+    product_version: syntheticVersion,
+    model: 'synthetic-model',
+    epoch: 'process-1',
+    input_total: { status: 'observed', value: 15, reason: null },
+    cached_input: { status: 'observed', value: 3, reason: null },
+    output_total: { status: 'observed', value: 7, reason: null },
+    reasoning_output: { status: 'unmeasurable', value: null, reason: 'unsupported' }
+  });
+  const categories = store
+    .all<{ payload: string }>("SELECT payload FROM otel_records WHERE event_type IN ('api_request','api_error')")
+    .map(row => (JSON.parse(row.payload) as { query_source_category: string }).query_source_category)
+    .sort();
   expect(categories).toEqual(['compact', 'main', 'other']);
   const text = dump(store);
-  for (const value of ['synthetic.person', 'org-synthetic', 'account-synthetic', 'synthetic-repo', 'synthetic-host', 'private-subagent-name',
-    'repl_main_thread', 'synthetic private error text', '/synthetic/private', 'synthetic-private-agent', '500000', 'synthetic-user-credential',
-    receiver.exporterHeaders()['x-harness-delta-token']!]) expect(text).not.toContain(value);
+  for (const value of [
+    'synthetic.person',
+    'org-synthetic',
+    'account-synthetic',
+    'synthetic-repo',
+    'synthetic-host',
+    'private-subagent-name',
+    'repl_main_thread',
+    'synthetic private error text',
+    '/synthetic/private',
+    'synthetic-private-agent',
+    '500000',
+    'synthetic-user-credential',
+    receiver.exporterHeaders()['x-harness-delta-token']!
+  ])
+    expect(text).not.toContain(value);
   const report = aggregateTask(store, 't1', '2026-01-01T01:00:00.000Z');
-  expect(report.usage).toMatchObject({ status: 'missing', complete_tokens: null, partial_tokens: null, legacy_unverified:{partial_tokens:39} });
+  expect(report.usage).toMatchObject({ status: 'missing', complete_tokens: null, partial_tokens: null, legacy_unverified: { partial_tokens: 39 } });
 });
 
 test('metrics and traces are acknowledged without decoding and never become usage', async () => {
@@ -219,7 +294,7 @@ test('a later managed settings change with a source ends measurement but keeps t
   const { store, clock } = setup();
   const receiver = await open(store, clock);
   const change = sessionStart(2, options, ['remote']);
-  change.attributes = change.attributes.map(item => item.key === 'managed_settings.trigger' ? { key: item.key, value: { stringValue: 'change' } } : item);
+  change.attributes = change.attributes.map(item => (item.key === 'managed_settings.trigger' ? { key: item.key, value: { stringValue: 'change' } } : item));
   expect((await post(receiver, logsRequest([sessionStart(0, options), apiRequest(1, options), change, apiRequest(3, options)]))).status).toBe(200);
   expect(count(store, 'events')).toBe(1);
   expect(processRow(store)).toMatchObject({ uncertain_reason: 'managed_override', next_sequence: 2 });
@@ -228,12 +303,16 @@ test('a later managed settings change with a source ends measurement but keeps t
 test('a sequence gap keeps the contiguous prefix and opens an unmeasurable window', async () => {
   const { store, clock, advance } = setup();
   const receiver = await open(store, clock);
-  expect((await post(receiver, logsRequest([sessionStart(0, options), apiRequest(1, options, { }), ]))).status).toBe(200);
+  expect((await post(receiver, logsRequest([sessionStart(0, options), apiRequest(1, options, {})]))).status).toBe(200);
   advance(60000);
   expect((await post(receiver, logsRequest([apiRequest(3, options, {}), apiRequest(4, options)]))).status).toBe(200);
   expect(count(store, 'events')).toBe(1);
   expect(processRow(store)).toMatchObject({ state: 'revoked', ordering: 'uncertain', uncertain_reason: 'sequence_gap', next_sequence: 2 });
-  expect(store.get('SELECT started_at,status,reason FROM observations')).toEqual({ started_at: '2026-01-01T00:00:01.000Z', status: 'unmeasurable', reason: 'incomplete' });
+  expect(store.get('SELECT started_at,status,reason FROM observations')).toEqual({
+    started_at: '2026-01-01T00:00:01.000Z',
+    status: 'unmeasurable',
+    reason: 'incomplete'
+  });
   const report = aggregateTask(store, 't1', '2026-01-01T01:00:00.000Z');
   expect(report.usage.status).toBe('missing');
   expect(report.usage.compatibility.legacy_unverified_events).toBeGreaterThan(0);
@@ -252,7 +331,7 @@ test('version, process attribute and first session mismatches are scope mismatch
     [sessionStart(0, { ...options, version: '1.0.1' })],
     [sessionStart(0, { processId: 'process-9' })],
     [sessionStart(0, { ...options, sessionId: '00000000-0000-4000-8000-000000000099' })],
-    [sessionStart(0, options), apiRequest(1, { ...options, version: '1.0.1' })],
+    [sessionStart(0, options), apiRequest(1, { ...options, version: '1.0.1' })]
   ];
   for (const batch of cases) {
     const { store, clock } = setup();
@@ -267,10 +346,25 @@ test('a new session id after /clear stays linked to the run', async () => {
   const { store, clock } = setup();
   const receiver = await open(store, clock);
   const cleared = '00000000-0000-4000-8000-000000000003';
-  expect((await post(receiver, logsRequest([sessionStart(0, options), apiRequest(1, options),
-    sessionStart(2, { ...options, sessionId: cleared }), apiRequest(3, { ...options, sessionId: cleared })]))).status).toBe(200);
+  expect(
+    (
+      await post(
+        receiver,
+        logsRequest([
+          sessionStart(0, options),
+          apiRequest(1, options),
+          sessionStart(2, { ...options, sessionId: cleared }),
+          apiRequest(3, { ...options, sessionId: cleared })
+        ])
+      )
+    ).status
+  ).toBe(200);
   expect(store.all('SELECT session_id FROM events ORDER BY session_id')).toEqual([{ session_id: launchSessionId }, { session_id: cleared }]);
-  expect(store.get('SELECT task_id,product,source_path FROM sessions WHERE id=?', [cleared])).toEqual({ task_id: 't1', product: 'claude_code', source_path: null });
+  expect(store.get('SELECT task_id,product,source_path FROM sessions WHERE id=?', [cleared])).toEqual({
+    task_id: 't1',
+    product: 'claude_code',
+    source_path: null
+  });
   expect(processRow(store)).toMatchObject({ ordering: 'ready', next_sequence: 4 });
 });
 
@@ -280,9 +374,17 @@ test('a later session id owned by another task or deleted is a scope mismatch', 
   store.execute('INSERT INTO sessions(id,project_id,task_id,product) VALUES (?,?,?,?)', ['00000000-0000-4000-8000-000000000004', 'p1', 't2', 'claude_code']);
   store.execute("INSERT INTO tombstones(kind,id,deleted_at) VALUES ('session','00000000-0000-4000-8000-000000000005','2026-01-01T00:00:00.000Z')", []);
   for (const [index, sessionId] of ['00000000-0000-4000-8000-000000000004', '00000000-0000-4000-8000-000000000005'].entries()) {
-    const receiver = await open(store, clock, { ...launch, runId: `run-${sessionId.slice(-1)}`, processId: `process-${sessionId.slice(-1)}`, sessionId: `00000000-0000-4000-8000-00000000010${sessionId.slice(-1)}` });
-    const own = { processId: `process-${sessionId.slice(-1)}`, sessionId: `00000000-0000-4000-8000-00000000010${sessionId.slice(-1)}`,
-      at: `2026-01-01T00:00:0${1 + index * 2}.000Z` };
+    const receiver = await open(store, clock, {
+      ...launch,
+      runId: `run-${sessionId.slice(-1)}`,
+      processId: `process-${sessionId.slice(-1)}`,
+      sessionId: `00000000-0000-4000-8000-00000000010${sessionId.slice(-1)}`
+    });
+    const own = {
+      processId: `process-${sessionId.slice(-1)}`,
+      sessionId: `00000000-0000-4000-8000-00000000010${sessionId.slice(-1)}`,
+      at: `2026-01-01T00:00:0${1 + index * 2}.000Z`
+    };
     expect((await post(receiver, logsRequest([sessionStart(0, own), apiRequest(1, { ...own, sessionId })]))).status).toBe(200);
     expect(processRow(store, own.processId)).toMatchObject({ uncertain_reason: 'scope_mismatch' });
   }
@@ -292,7 +394,9 @@ test('a later session id owned by another task or deleted is a scope mismatch', 
 test('raw body events show content capture was enabled and end measurement', async () => {
   const { store, clock } = setup();
   const receiver = await open(store, clock);
-  expect((await post(receiver, logsRequest([sessionStart(0, options), logRecord('api_request_body', 1, { body: 'synthetic content' }, options)]))).status).toBe(200);
+  expect((await post(receiver, logsRequest([sessionStart(0, options), logRecord('api_request_body', 1, { body: 'synthetic content' }, options)]))).status).toBe(
+    200
+  );
   expect(processRow(store)).toMatchObject({ uncertain_reason: 'content_enabled' });
   expect(dump(store)).not.toContain('synthetic content');
 });
@@ -338,7 +442,10 @@ test('pause, finalization and deletion revoke the token before late batches are 
     expect(dump(store)).toBe(before);
     if (action !== 'delete') expect(processRow(store)).toMatchObject({ state: 'revoked', revoke_reason: action });
     // Resuming the task does not reopen a revoked process token.
-    if (action === 'pause') { life.resume('t1'); expect((await post(receiver, logsRequest([apiRequest(1, options)]))).status).toBe(403); }
+    if (action === 'pause') {
+      life.resume('t1');
+      expect((await post(receiver, logsRequest([apiRequest(1, options)]))).status).toBe(403);
+    }
   }
 });
 
@@ -365,20 +472,38 @@ test('a process that never proved readiness leaves an unmeasurable window when i
     if (action === 'close') await receiver.close();
     else if (action === 'pause') life.pause('t1');
     else life.finalize('t1', 'failed', []);
-    expect(processRow(store)).toMatchObject({ state: 'revoked', revoke_reason: action === 'close' ? 'closed' : action, ordering: 'uncertain', uncertain_reason: 'ordering_missing' });
-    expect(store.get('SELECT started_at,ended_at,status,reason FROM observations')).toEqual(
-      { started_at: '2026-01-01T00:00:00.000Z', ended_at: '2026-01-01T00:00:02.000Z', status: 'unmeasurable', reason: 'incomplete' });
+    expect(processRow(store)).toMatchObject({
+      state: 'revoked',
+      revoke_reason: action === 'close' ? 'closed' : action,
+      ordering: 'uncertain',
+      uncertain_reason: 'ordering_missing'
+    });
+    expect(store.get('SELECT started_at,ended_at,status,reason FROM observations')).toEqual({
+      started_at: '2026-01-01T00:00:00.000Z',
+      ended_at: '2026-01-01T00:00:02.000Z',
+      status: 'unmeasurable',
+      reason: 'incomplete'
+    });
   }
 });
 
 test('records timed outside the process lifetime are invalid', async () => {
   const { store, clock, life, advance } = setup();
   advance(60000);
-  life.pause('t1'); advance(60000); life.resume('t1'); advance(60000);
+  life.pause('t1');
+  advance(60000);
+  life.resume('t1');
+  advance(60000);
   const receiver = await open(store, clock);
   // 00:01:30 lies inside the paused interval, before this process was registered.
-  expect((await post(receiver, logsRequest([sessionStart(0, { ...options, at: '2026-01-01T00:03:01.000Z' }),
-    apiRequest(1, { ...options, at: '2026-01-01T00:01:30.000Z' })]))).status).toBe(200);
+  expect(
+    (
+      await post(
+        receiver,
+        logsRequest([sessionStart(0, { ...options, at: '2026-01-01T00:03:01.000Z' }), apiRequest(1, { ...options, at: '2026-01-01T00:01:30.000Z' })])
+      )
+    ).status
+  ).toBe(200);
   expect(processRow(store)).toMatchObject({ uncertain_reason: 'invalid_record' });
   const future = setup();
   const later = await open(future.store, future.clock);
@@ -398,10 +523,21 @@ test('a pause during an upload rejects the body before it is decoded', async () 
   const { store, clock, life } = setup();
   const receiver = await open(store, clock);
   const status = await new Promise<number>((resolve, reject) => {
-    const outgoing = request(new URL('/v1/logs', receiver.endpoint), { method: 'POST',
-      headers: { 'content-type': 'application/json', ...receiver.exporterHeaders() } }, response => { response.resume(); resolve(response.statusCode ?? 0); });
+    const outgoing = request(
+      new URL('/v1/logs', receiver.endpoint),
+      { method: 'POST', headers: { 'content-type': 'application/json', ...receiver.exporterHeaders() } },
+      response => {
+        response.resume();
+        resolve(response.statusCode ?? 0);
+      }
+    );
     outgoing.on('error', reject);
-    outgoing.write('{not json', () => { setTimeout(() => { life.pause('t1'); outgoing.end(); }, 20); });
+    outgoing.write('{not json', () => {
+      setTimeout(() => {
+        life.pause('t1');
+        outgoing.end();
+      }, 20);
+    });
   });
   expect(status).toBe(403);
 });
@@ -422,10 +558,14 @@ test('oversized uploads receive a status instead of a connection error', async (
 
 test('a later session with another product version is a scope mismatch', async () => {
   const { store, clock } = setup();
-  store.execute("INSERT INTO sessions(id,project_id,task_id,product,product_version) VALUES ('00000000-0000-4000-8000-000000000006','p1','t1','claude_code','0.9.0')", []);
+  store.execute(
+    "INSERT INTO sessions(id,project_id,task_id,product,product_version) VALUES ('00000000-0000-4000-8000-000000000006','p1','t1','claude_code','0.9.0')",
+    []
+  );
   const receiver = await open(store, clock);
-  expect((await post(receiver, logsRequest([sessionStart(0, options),
-    apiRequest(1, { ...options, sessionId: '00000000-0000-4000-8000-000000000006' })]))).status).toBe(200);
+  expect(
+    (await post(receiver, logsRequest([sessionStart(0, options), apiRequest(1, { ...options, sessionId: '00000000-0000-4000-8000-000000000006' })]))).status
+  ).toBe(200);
   expect(processRow(store)).toMatchObject({ uncertain_reason: 'scope_mismatch' });
   expect(count(store, 'events')).toBe(0);
 });
@@ -434,8 +574,9 @@ test('a resumed session with a different product version is rejected at launch',
   const { store, clock } = setup();
   const first = await open(store, clock);
   await first.close();
-  await expect(OtelReceiver.start(store, { ...launch, processId: 'process-2', productVersion: '2.0.0-synthetic' },
-    { ...profile, version: '2.0.0-synthetic' }, { clock })).rejects.toThrow('otel_scope_revoked');
+  await expect(
+    OtelReceiver.start(store, { ...launch, processId: 'process-2', productVersion: '2.0.0-synthetic' }, { ...profile, version: '2.0.0-synthetic' }, { clock })
+  ).rejects.toThrow('otel_scope_revoked');
 });
 
 test('conflicting process attributes on the record and resource are a scope mismatch', async () => {
@@ -478,7 +619,8 @@ test('a resumed session gets a new process and token under the same task', async
 
 test('a session owned by another task cannot be adopted at launch', async () => {
   const { store, clock, life } = setup();
-  life.createTask('p1', 't2', metadata); life.start('t2');
+  life.createTask('p1', 't2', metadata);
+  life.start('t2');
   await open(store, clock, { ...launch, taskId: 't2', processId: 'process-2' });
   await expect(OtelReceiver.start(store, launch, profile, { clock })).rejects.toThrow('otel_scope_revoked');
 });
@@ -489,8 +631,11 @@ test('the receiver is not exported from the package entry point', async () => {
 });
 
 test('scope lost outside the lifecycle hooks is detected before the body is decoded', async () => {
-  for (const change of ["INSERT INTO tombstones(kind,id,deleted_at) VALUES ('task','t1','2026-01-01T00:00:00.000Z')",
-    'UPDATE projects SET local_root=NULL', 'UPDATE tasks SET generation=generation+1']) {
+  for (const change of [
+    "INSERT INTO tombstones(kind,id,deleted_at) VALUES ('task','t1','2026-01-01T00:00:00.000Z')",
+    'UPDATE projects SET local_root=NULL',
+    'UPDATE tasks SET generation=generation+1'
+  ]) {
     const { store, clock } = setup();
     const receiver = await open(store, clock);
     store.execute(change, []);

@@ -5,10 +5,12 @@ const bundle = {
   kind: 'harness-delta.measurement-setup',
   schema_version: 1,
   input: {
-    comparison_path: '/synthetic/comparison.json', project_id: 'project-one',
-    profile: { id: 'profile-one' }, protocol: { schema_version: 2 },
-    policy_status: { arm_a: 'eligible', arm_b: 'ineligible' },
-  },
+    comparison_path: '/synthetic/comparison.json',
+    project_id: 'project-one',
+    profile: { id: 'profile-one' },
+    protocol: { schema_version: 2 },
+    policy_status: { arm_a: 'eligible', arm_b: 'ineligible' }
+  }
 };
 
 test('bundle retains production input values without manufacturing missing decisions', () => {
@@ -26,7 +28,7 @@ test.each([
   { ...bundle, input: { ...bundle.input, policy_status: { arm_a: 'eligible', arm_b: null } } },
   { ...bundle, input: { ...bundle.input, start_measurement: true } },
   { ...bundle, input: { ...bundle.input, freeze_at: '2000-01-01T00:00:00Z' } },
-  { ...bundle, input: { ...bundle.input, application_mode: 'automatic' } },
+  { ...bundle, input: { ...bundle.input, application_mode: 'automatic' } }
 ])('bundle rejects wrong envelopes and unrecognized instructions', input => {
   expect(SetupBundleSchema.safeParse(input).success).toBe(false);
 });

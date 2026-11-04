@@ -13,8 +13,7 @@ test.each(['before_start', 'open', 'ended'] as const)('outside recruitment choos
 });
 
 test.each(localWebTaskErrorCodes)('task error %s selects a specific guide in both locales', code => {
-  for (const locale of ['ko', 'en'] as const)
-    expect(taskErrorGuidance(code, locale)?.kind).toBe(code);
+  for (const locale of ['ko', 'en'] as const) expect(taskErrorGuidance(code, locale)?.kind).toBe(code);
 });
 
 test('unknown errors use the existing fallback without attaching unrelated recruitment details', () => {

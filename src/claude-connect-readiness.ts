@@ -13,7 +13,10 @@ const maxFileBytes = 64 * 1024;
 const packagedSource = packagedSkillPath('harness-connect');
 
 class InspectionFailure extends Error {
-  constructor(readonly state: 'conflict' | 'unavailable', readonly reason: string) {
+  constructor(
+    readonly state: 'conflict' | 'unavailable',
+    readonly reason: string
+  ) {
     super(reason);
   }
 }
@@ -78,8 +81,9 @@ function copyCommand(root: string, source: string): string {
   const claude = join(root, '.claude');
   const skills = join(claude, 'skills');
   const destination = join(skills, 'harness-connect');
-  const guards = [...directoryChain(root, 'conflict'), ...directoryChain(source, 'unavailable'), join(source, 'scripts'), join(source, 'references')]
-    .map(path => `[ ! -L ${shellQuote(path)} ] && [ -d ${shellQuote(path)} ]`);
+  const guards = [...directoryChain(root, 'conflict'), ...directoryChain(source, 'unavailable'), join(source, 'scripts'), join(source, 'references')].map(
+    path => `[ ! -L ${shellQuote(path)} ] && [ -d ${shellQuote(path)} ]`
+  );
   for (const file of expectedFiles) {
     const path = shellQuote(join(source, file));
     guards.push(`[ ! -L ${path} ] && [ -f ${path} ]`);
@@ -89,8 +93,12 @@ function copyCommand(root: string, source: string): string {
     guards.push(`[ ! -L ${quoted} ] && ( [ -d ${quoted} ] || mkdir ${quoted} )`);
   }
   // mkdir is the no-clobber reservation; cp never targets a pre-existing install.
-  guards.push(`[ ! -L ${shellQuote(destination)} ] && [ ! -e ${shellQuote(destination)} ]`,
-    `mkdir ${shellQuote(destination)}`, `mkdir ${shellQuote(join(destination, 'scripts'))}`, `mkdir ${shellQuote(join(destination, 'references'))}`);
+  guards.push(
+    `[ ! -L ${shellQuote(destination)} ] && [ ! -e ${shellQuote(destination)} ]`,
+    `mkdir ${shellQuote(destination)}`,
+    `mkdir ${shellQuote(join(destination, 'scripts'))}`,
+    `mkdir ${shellQuote(join(destination, 'references'))}`
+  );
   for (const file of expectedFiles) {
     guards.push(`cp ${shellQuote(join(source, file))} ${shellQuote(join(destination, file))}`);
   }
@@ -129,7 +137,7 @@ export function inspectClaudeProjectSkill(projectRoot: string, packageSourceDire
         }
       }
     } catch (error) {
-      if (hasCode(error, 'ENOENT') || error instanceof InspectionFailure && error.reason === 'directory_unavailable') {
+      if (hasCode(error, 'ENOENT') || (error instanceof InspectionFailure && error.reason === 'directory_unavailable')) {
         throw new InspectionFailure('conflict', 'package_incomplete');
       }
       throw error;
@@ -153,8 +161,11 @@ export function inspectOrdinaryClaudeProjectSkill(projectRoot: string, options: 
       return { state: 'conflict', reason: 'project_skill_update_required', install_command: null };
     case 'blocked': {
       const reason = status.blockers[0] ?? 'installation_unavailable';
-      return { state: reason === 'package_source_unavailable' || reason === 'installation_unavailable' ? 'unavailable' : 'conflict',
-        reason, install_command: null };
+      return {
+        state: reason === 'package_source_unavailable' || reason === 'installation_unavailable' ? 'unavailable' : 'conflict',
+        reason,
+        install_command: null
+      };
     }
   }
 }

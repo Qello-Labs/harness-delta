@@ -5,6 +5,6 @@ if (process.argv[2] === 'descendant') {
   process.stdin.resume();
 } else {
   spawn(process.execPath, [import.meta.filename, 'descendant'], {
-    stdio: ['pipe', 'inherit', 'inherit'],
+    stdio: ['pipe', 'inherit', 'inherit']
   });
 }

@@ -3,9 +3,7 @@ import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
-import {
-  hashInstrumentedBinary, readInstrumentedBuildIdentity, resolveInstrumentedBuildIdentity,
-} from '../src/instrumented-codex-build-identity.js';
+import { hashInstrumentedBinary, readInstrumentedBuildIdentity, resolveInstrumentedBuildIdentity } from '../src/instrumented-codex-build-identity.js';
 import { instrumentedFixtureProfile, makeInstrumentedCostFixture } from './helpers/instrumented-codex-fixture.js';
 
 test('binary identity is computed from a non-symlink file rather than caller metadata', () => {
@@ -20,7 +18,9 @@ test('binary identity is computed from a non-symlink file rather than caller met
     expect(() => hashInstrumentedBinary(alias)).toThrow();
     writeFileSync(binary, 'synthetic-executable-v2');
     expect(hashInstrumentedBinary(binary)).not.toBe(expected);
-  } finally { rmSync(root, { recursive: true }); }
+  } finally {
+    rmSync(root, { recursive: true });
+  }
 });
 
 test('a self-consistent profile and matching real bytes do not substitute for code-owned qualification', () => {
@@ -33,5 +33,8 @@ test('a self-consistent profile and matching real bytes do not substitute for co
     expect(readInstrumentedBuildIdentity(f.store, profile)).toBeNull();
     expect(() => resolveInstrumentedBuildIdentity(f.store, binary, profile)).toThrow('unqualified_build');
     expect(() => resolveInstrumentedBuildIdentity(f.store, binary, instrumentedFixtureProfile)).toThrow('binary_changed');
-  } finally { f.store.close(); rmSync(root, { recursive: true }); }
+  } finally {
+    f.store.close();
+    rmSync(root, { recursive: true });
+  }
 });

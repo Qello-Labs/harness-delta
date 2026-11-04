@@ -55,19 +55,16 @@ const complexityLimits = {
   "src/store.ts": 37,
   "src/task-workflow.ts": 33,
   "tests/codex-session-binding-qualification.test.ts": 51,
-  "tests/helpers/analysis-oracle.ts": 32,
+  "tests/helpers/analysis-oracle.ts": 32
 };
 
 export default defineConfig(
-  globalIgnores([
-    "node_modules/", "dist/", "coverage/", ".harness-delta/", ".superpowers/", ".husky/_/",
-    ".agents/skills/", "ui/",
-  ]),
+  globalIgnores(["node_modules/", "dist/", "coverage/", ".harness-delta/", ".superpowers/", ".husky/_/", ".agents/skills/", "ui/"]),
   { rules: { complexity: ["error", 30] } },
   {
     files: ["**/*.{js,mjs,cjs}"],
     extends: [js.configs.recommended],
-    languageOptions: { globals: globals.node },
+    languageOptions: { globals: globals.node }
   },
   {
     files: ["**/*.ts"],
@@ -76,11 +73,12 @@ export default defineConfig(
       globals: globals.node,
       parserOptions: {
         projectService: true,
-        tsconfigRootDir: import.meta.dirname,
-      },
-    },
+        tsconfigRootDir: import.meta.dirname
+      }
+    }
   },
   ...Object.entries(complexityLimits).map(([file, maximum]) => ({
-    files: [file], rules: { complexity: ["error", maximum] },
-  })),
+    files: [file],
+    rules: { complexity: ["error", maximum] }
+  }))
 );

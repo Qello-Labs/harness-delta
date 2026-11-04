@@ -7,15 +7,21 @@ import { readClaudeProcessBinary } from '../src/claude-process-binary.js';
 
 const native = vi.hoisted(() => ({ path: '', sha256: '', version: '2.1.306' }));
 vi.mock('node:child_process', () => ({
-  execFileSync: () => `p${process.pid}\nn${native.path}\n`,
+  execFileSync: () => `p${process.pid}\nn${native.path}\n`
 }));
 vi.mock('../src/claude-binding-admission.js', () => ({
   claudeBindingRuntimeSupported: () => true,
-  claudeBindingAdmissions: [{
-    admitted: true,
-    get productVersion() { return native.version; },
-    get binarySha256() { return native.sha256; },
-  }],
+  claudeBindingAdmissions: [
+    {
+      admitted: true,
+      get productVersion() {
+        return native.version;
+      },
+      get binarySha256() {
+        return native.sha256;
+      }
+    }
+  ]
 }));
 
 const targetBytes = 272984176;
@@ -26,20 +32,23 @@ beforeEach(() => {
   native.version = '2.1.306';
   writeFileSync(native.path, '', { mode: 0o700 });
 });
-afterEach(() => { rmSync(root, { recursive: true, force: true }); });
+afterEach(() => {
+  rmSync(root, { recursive: true, force: true });
+});
 
 function image(bytes: number) {
   truncateSync(native.path, bytes);
-  const hash = createHash('sha256'), zeros = Buffer.alloc(65536);
-  for (let offset = 0; offset < bytes; offset += zeros.length)
-    hash.update(zeros.subarray(0, Math.min(zeros.length, bytes - offset)));
+  const hash = createHash('sha256'),
+    zeros = Buffer.alloc(65536);
+  for (let offset = 0; offset < bytes; offset += zeros.length) hash.update(zeros.subarray(0, Math.min(zeros.length, bytes - offset)));
   native.sha256 = hash.digest('hex');
 }
 
 test('accepts a pinned image at the actual 2.1.306 size beyond the old ceiling', () => {
   image(targetBytes);
   expect(readClaudeProcessBinary(process.pid)).toEqual({
-    productVersion: '2.1.306', sha256: native.sha256,
+    productVersion: '2.1.306',
+    sha256: native.sha256
   });
 });
 
@@ -58,7 +67,8 @@ test('keeps a historical pinned image valid below the ceiling', () => {
   image(1024);
   native.version = '2.1.301';
   expect(readClaudeProcessBinary(process.pid)).toEqual({
-    productVersion: '2.1.301', sha256: native.sha256,
+    productVersion: '2.1.301',
+    sha256: native.sha256
   });
 });
 

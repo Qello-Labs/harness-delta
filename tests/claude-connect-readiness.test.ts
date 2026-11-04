@@ -1,5 +1,20 @@
 import { spawnSync } from 'node:child_process';
-import { chmodSync, copyFileSync, cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  copyFileSync,
+  cpSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  renameSync,
+  rmSync,
+  symlinkSync,
+  unlinkSync,
+  writeFileSync
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -26,7 +41,9 @@ afterEach(() => {
 test('ordinary missing installation offers no legacy copy command or writes', () => {
   const f = ordinaryFixture();
   expect(inspectOrdinaryClaudeProjectSkill(f.project)).toEqual({
-    state: 'missing', reason: 'project_skill_missing', install_command: null,
+    state: 'missing',
+    reason: 'project_skill_missing',
+    install_command: null
   });
   expect(existsSync(join(f.project, '.claude'))).toBe(false);
   expect(existsSync(join(f.project, '.harness-delta'))).toBe(false);
@@ -41,10 +58,14 @@ test('current manifest installation is installed despite configured script bytes
   const manifest = join(f.project, '.harness-delta/claude-connect/installation.json');
   const before = readFileSync(manifest);
   expect(inspectOrdinaryClaudeProjectSkill(f.project)).toEqual({
-    state: 'installed', reason: null, install_command: null,
+    state: 'installed',
+    reason: null,
+    install_command: null
   });
   expect(inspectClaudeProjectSkill(f.project)).toEqual({
-    state: 'conflict', reason: 'package_differs', install_command: null,
+    state: 'conflict',
+    reason: 'package_differs',
+    install_command: null
   });
   expect(readFileSync(manifest)).toEqual(before);
   expect(existsSync(join(f.project, '.harness-delta/claude-connect/receipts'))).toBe(false);
@@ -57,7 +78,9 @@ test.each(['changed', 'missing'] as const)('ordinary %s owned file remains a con
   if (kind === 'changed') writeFileSync(path, 'synthetic drift');
   else unlinkSync(path);
   expect(inspectOrdinaryClaudeProjectSkill(f.project)).toEqual({
-    state: 'conflict', reason: 'package_drift', install_command: null,
+    state: 'conflict',
+    reason: 'package_drift',
+    install_command: null
   });
 });
 
@@ -66,10 +89,14 @@ test('ordinary pristine copy without ownership remains a conflict', () => {
   mkdirSync(join(f.project, '.claude/skills'), { recursive: true });
   cpSync(source, f.destination, { recursive: true });
   expect(inspectOrdinaryClaudeProjectSkill(f.project)).toEqual({
-    state: 'conflict', reason: 'package_unowned', install_command: null,
+    state: 'conflict',
+    reason: 'package_unowned',
+    install_command: null
   });
   expect(inspectClaudeProjectSkill(f.project)).toEqual({
-    state: 'installed', reason: null, install_command: null,
+    state: 'installed',
+    reason: null,
+    install_command: null
   });
 });
 
@@ -81,7 +108,9 @@ test('ordinary manifest from a different project root remains a conflict', () =>
   renameSync(join(f.project, '.claude'), join(other, '.claude'));
   renameSync(join(f.project, '.harness-delta'), join(other, '.harness-delta'));
   expect(inspectOrdinaryClaudeProjectSkill(other)).toEqual({
-    state: 'conflict', reason: 'changed_project_root', install_command: null,
+    state: 'conflict',
+    reason: 'changed_project_root',
+    install_command: null
   });
 });
 
@@ -90,7 +119,9 @@ test('ordinary symlink project root remains a conflict', () => {
   const alias = join(f.root, 'alias');
   symlinkSync(f.project, alias);
   expect(inspectOrdinaryClaudeProjectSkill(alias)).toEqual({
-    state: 'conflict', reason: 'unsafe_project_root', install_command: null,
+    state: 'conflict',
+    reason: 'unsafe_project_root',
+    install_command: null
   });
 });
 
@@ -98,7 +129,9 @@ test.each([false, true])('unavailable package source cannot become installed wit
   const f = ordinaryFixture();
   if (installed) expect(installClaudeConnectInstallation(f.project).state).toBe('installed');
   expect(inspectOrdinaryClaudeProjectSkill(f.project, { packageRoot: join(f.root, 'missing-package') })).toEqual({
-    state: 'unavailable', reason: 'package_source_unavailable', install_command: null,
+    state: 'unavailable',
+    reason: 'package_source_unavailable',
+    install_command: null
   });
 });
 
@@ -110,7 +143,9 @@ test('ordinary update requires reviewed update instead of claiming current insta
   writeFileSync(join(packageRoot, 'SKILL.md'), 'synthetic new package');
   expect(statusClaudeConnectInstallation(f.project, { packageRoot }).state).toBe('update_available');
   expect(inspectOrdinaryClaudeProjectSkill(f.project, { packageRoot })).toEqual({
-    state: 'conflict', reason: 'project_skill_update_required', install_command: null,
+    state: 'conflict',
+    reason: 'project_skill_update_required',
+    install_command: null
   });
   expect(installClaudeConnectInstallation(f.project, { packageRoot }).state).toBe('installed');
   expect(inspectOrdinaryClaudeProjectSkill(f.project, { packageRoot }).state).toBe('installed');
@@ -131,10 +166,14 @@ test('legacy drift and missing bundled source keep existing classifications', ()
   cpSync(source, f.destination, { recursive: true });
   writeFileSync(join(f.destination, 'SKILL.md'), 'synthetic drift');
   expect(inspectClaudeProjectSkill(f.project)).toEqual({
-    state: 'conflict', reason: 'package_differs', install_command: null,
+    state: 'conflict',
+    reason: 'package_differs',
+    install_command: null
   });
   expect(inspectClaudeProjectSkill(f.project, join(f.root, 'missing-package'))).toEqual({
-    state: 'unavailable', reason: 'directory_unavailable', install_command: null,
+    state: 'unavailable',
+    reason: 'directory_unavailable',
+    install_command: null
   });
 });
 
@@ -194,8 +233,10 @@ test.each(['different', 'oversized', 'directory'] as const)('invalid expected fi
   const f = fixture();
   install(f.destination);
   const path = join(f.destination, 'SKILL.md');
-  if (kind === 'directory') { unlinkSync(path); mkdirSync(path); }
-  else writeFileSync(path, kind === 'oversized' ? Buffer.alloc(65537) : 'synthetic different bytes');
+  if (kind === 'directory') {
+    unlinkSync(path);
+    mkdirSync(path);
+  } else writeFileSync(path, kind === 'oversized' ? Buffer.alloc(65537) : 'synthetic different bytes');
   const before = lstatSync(path);
   expect(inspectClaudeProjectSkill(f.project).state).toBe('conflict');
   expect(lstatSync(path).size).toBe(before.size);
@@ -224,12 +265,18 @@ test.each(['root', 'ancestor', '.claude', 'skills', 'install', 'scripts', 'refer
     symlinkSync(f.root, alias);
     project = join(alias, f.project.slice(f.root.length + 1));
   } else {
-    const path = kind === '.claude' ? join(f.project, '.claude')
-      : kind === 'skills' ? join(f.project, '.claude', 'skills')
-      : kind === 'install' ? f.destination
-      : kind === 'scripts' ? join(f.destination, 'scripts')
-      : kind === 'references' ? join(f.destination, 'references')
-      : join(f.destination, 'SKILL.md');
+    const path =
+      kind === '.claude'
+        ? join(f.project, '.claude')
+        : kind === 'skills'
+          ? join(f.project, '.claude', 'skills')
+          : kind === 'install'
+            ? f.destination
+            : kind === 'scripts'
+              ? join(f.destination, 'scripts')
+              : kind === 'references'
+                ? join(f.destination, 'references')
+                : join(f.destination, 'SKILL.md');
     mkdirSync(dirname(path), { recursive: true });
     symlinkSync(kind === 'file' ? join(outside, 'sentinel') : outside, path);
   }
@@ -240,29 +287,32 @@ test.each(['root', 'ancestor', '.claude', 'skills', 'install', 'scripts', 'refer
   expect(existsSync(join(outside, 'scripts'))).toBe(false);
 });
 
-test.each(['absent', 'partial', 'symlink', 'scripts-symlink', 'file-symlink', 'oversized'] as const)('unavailable bundled source has no invented command when %s', kind => {
-  const f = fixture();
-  const packageSource = join(f.root, 'package');
-  if (kind === 'symlink') symlinkSync(source, packageSource);
-  if (kind === 'partial') mkdirSync(join(packageSource, 'scripts'), { recursive: true });
-  if (kind === 'scripts-symlink') {
-    mkdirSync(packageSource);
-    symlinkSync(join(source, 'scripts'), join(packageSource, 'scripts'));
+test.each(['absent', 'partial', 'symlink', 'scripts-symlink', 'file-symlink', 'oversized'] as const)(
+  'unavailable bundled source has no invented command when %s',
+  kind => {
+    const f = fixture();
+    const packageSource = join(f.root, 'package');
+    if (kind === 'symlink') symlinkSync(source, packageSource);
+    if (kind === 'partial') mkdirSync(join(packageSource, 'scripts'), { recursive: true });
+    if (kind === 'scripts-symlink') {
+      mkdirSync(packageSource);
+      symlinkSync(join(source, 'scripts'), join(packageSource, 'scripts'));
+    }
+    if (kind === 'file-symlink') {
+      install(packageSource);
+      unlinkSync(join(packageSource, 'SKILL.md'));
+      symlinkSync(join(source, 'SKILL.md'), join(packageSource, 'SKILL.md'));
+    }
+    if (kind === 'oversized') {
+      install(packageSource);
+      writeFileSync(join(packageSource, 'SKILL.md'), Buffer.alloc(65537));
+    }
+    const result = inspectClaudeProjectSkill(f.project, packageSource);
+    expect(result.state).toBe('unavailable');
+    expect(result.install_command).toBeNull();
+    expect(existsSync(join(f.project, '.claude'))).toBe(false);
   }
-  if (kind === 'file-symlink') {
-    install(packageSource);
-    unlinkSync(join(packageSource, 'SKILL.md'));
-    symlinkSync(join(source, 'SKILL.md'), join(packageSource, 'SKILL.md'));
-  }
-  if (kind === 'oversized') {
-    install(packageSource);
-    writeFileSync(join(packageSource, 'SKILL.md'), Buffer.alloc(65537));
-  }
-  const result = inspectClaudeProjectSkill(f.project, packageSource);
-  expect(result.state).toBe('unavailable');
-  expect(result.install_command).toBeNull();
-  expect(existsSync(join(f.project, '.claude'))).toBe(false);
-});
+);
 
 test('an absent registered project root is unavailable rather than installable', () => {
   const f = fixture();
@@ -277,7 +327,7 @@ test('compiled dist module resolves its own bundled skills without repository fa
   const packaged = join(dist, 'skills', 'harness-connect');
   install(packaged);
   const compiled = transpileModule(readFileSync(new URL('../src/claude-connect-readiness.ts', import.meta.url), 'utf8'), {
-    compilerOptions: { module: ModuleKind.ESNext, target: ScriptTarget.ES2023 },
+    compilerOptions: { module: ModuleKind.ESNext, target: ScriptTarget.ES2023 }
   }).outputText;
   const module = join(dist, 'claude-connect-readiness.mjs');
   writeFileSync(module, compiled);
@@ -285,13 +335,22 @@ test('compiled dist module resolves its own bundled skills without repository fa
   symlinkSync(fileURLToPath(new URL('../node_modules', import.meta.url)), join(f.root, 'node_modules'), 'dir');
   for (const name of ['claude-connect-installation', 'harness-application-files', 'harness-config', 'package-paths']) {
     const dependency = transpileModule(readFileSync(new URL(`../src/${name}.ts`, import.meta.url), 'utf8'), {
-      compilerOptions: { module: ModuleKind.ESNext, target: ScriptTarget.ES2023 },
+      compilerOptions: { module: ModuleKind.ESNext, target: ScriptTarget.ES2023 }
     }).outputText;
     writeFileSync(join(dist, `${name}.js`), dependency);
   }
-  const invoke = () => spawnSync(process.execPath, ['--input-type=module', '-e',
-    'const {inspectClaudeProjectSkill}=await import(process.argv[1]); process.stdout.write(JSON.stringify(inspectClaudeProjectSkill(process.argv[2])));',
-    pathToFileURL(module).href, f.project], { encoding: 'utf8', timeout: 10000 });
+  const invoke = () =>
+    spawnSync(
+      process.execPath,
+      [
+        '--input-type=module',
+        '-e',
+        'const {inspectClaudeProjectSkill}=await import(process.argv[1]); process.stdout.write(JSON.stringify(inspectClaudeProjectSkill(process.argv[2])));',
+        pathToFileURL(module).href,
+        f.project
+      ],
+      { encoding: 'utf8', timeout: 10000 }
+    );
   const result = invoke();
   expect(result.status).toBe(0);
   const value: unknown = JSON.parse(result.stdout);
@@ -317,7 +376,9 @@ test('unreadable expected file is unavailable without changing permissions', () 
   try {
     expect(inspectClaudeProjectSkill(f.project).state).toBe('unavailable');
     expect(lstatSync(path).mode & 0o777).toBe(0);
-  } finally { chmodSync(path, 0o600); }
+  } finally {
+    chmodSync(path, 0o600);
+  }
 });
 
 test('quoted local copy command installs only expected bytes without invoking a native CLI', () => {

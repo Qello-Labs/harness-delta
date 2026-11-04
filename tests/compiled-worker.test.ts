@@ -8,7 +8,9 @@ import { ModuleKind, ScriptTarget, transpileModule, version, type CompilerOption
 import { createCompiledWorker } from './helpers/compiled-worker.js';
 
 const roots: string[] = [];
-afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true }); });
+afterEach(() => {
+  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+});
 
 function fixture() {
   const root = mkdtempSync(join(tmpdir(), 'compiled-worker-cache-'));
@@ -23,7 +25,7 @@ function fixture() {
   const compiler = {
     version,
     options: { module: ModuleKind.ESNext, target: ScriptTarget.ES2023 } as CompilerOptions,
-    transpile: vi.fn(transpileModule),
+    transpile: vi.fn(transpileModule)
   };
   const compile = createCompiledWorker(pathToFileURL(sourceRoot), compiler);
   let sequence = 0;
@@ -36,10 +38,13 @@ function fixture() {
 }
 
 function valueAt(compiled: string, file = 'entry.js'): number {
-  return Number(execFileSync(process.execPath, ['--input-type=module', '--eval',
-    'const module = await import(process.argv[1]); console.log(module.value);',
-    pathToFileURL(join(compiled, file)).href,
-  ], { encoding: 'utf8' }).trim());
+  return Number(
+    execFileSync(
+      process.execPath,
+      ['--input-type=module', '--eval', 'const module = await import(process.argv[1]); console.log(module.value);', pathToFileURL(join(compiled, file)).href],
+      { encoding: 'utf8' }
+    ).trim()
+  );
 }
 
 test('unchanged sources compile once and produce separate runnable fixture outputs', () => {

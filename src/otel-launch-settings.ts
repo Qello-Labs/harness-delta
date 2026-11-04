@@ -27,7 +27,9 @@ const endpointPattern = /^http:\/\/127\.0\.0\.1:([0-9]{1,5})$/;
 const headerName = /^[A-Za-z0-9][A-Za-z0-9-]{0,63}$/;
 const headerValue = /^[A-Za-z0-9_-]{1,512}$/;
 
-function invalid(): never { throw new Error('otel_invalid_launch_settings'); }
+function invalid(): never {
+  throw new Error('otel_invalid_launch_settings');
+}
 function checkEndpoint(endpoint: string): void {
   const port = endpointPattern.exec(endpoint)?.[1];
   // A leading zero also rejects port 0.
@@ -79,7 +81,7 @@ export function claudeTelemetryEnv(input: TelemetryDestination): Record<string, 
     OTEL_METRICS_INCLUDE_ENTRYPOINT: 'false',
     // IdSchema characters are all valid unencoded resource attribute characters.
     OTEL_RESOURCE_ATTRIBUTES: `harness_delta.process_id=${processId}`,
-    OTEL_LOGS_EXPORT_INTERVAL: '5000',
+    OTEL_LOGS_EXPORT_INTERVAL: '5000'
   };
   for (const signal of signals) {
     env[`OTEL_EXPORTER_OTLP_${signal}_PROTOCOL`] = 'http/json';
@@ -100,10 +102,14 @@ export function codexOtelOverrides(input: { readonly endpoint: string }): string
   checkEndpoint(input.endpoint);
   return [
     // Whether this inline table replaces or merges a configured exporter table needs a live check.
-    '-c', `otel.exporter={otlp-http={endpoint="${input.endpoint}/v1/logs",protocol="json"}}`,
-    '-c', 'otel.trace_exporter="none"',
-    '-c', 'otel.metrics_exporter="none"',
-    '-c', 'otel.log_user_prompt=false',
+    '-c',
+    `otel.exporter={otlp-http={endpoint="${input.endpoint}/v1/logs",protocol="json"}}`,
+    '-c',
+    'otel.trace_exporter="none"',
+    '-c',
+    'otel.metrics_exporter="none"',
+    '-c',
+    'otel.log_user_prompt=false'
   ];
 }
 

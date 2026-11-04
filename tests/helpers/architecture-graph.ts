@@ -19,9 +19,7 @@ export interface ArchitecturePolicy {
   readonly edges: readonly string[];
 }
 
-export function buildImportGraph(
-  modules: readonly SourceModule[], knownAssets: readonly string[] = [],
-): readonly ImportEdge[] {
+export function buildImportGraph(modules: readonly SourceModule[], knownAssets: readonly string[] = []): readonly ImportEdge[] {
   const paths = new Set(modules.map(module => module.path));
   const assets = new Set(knownAssets);
   const edges = new Map<string, ImportEdge>();
@@ -32,8 +30,7 @@ export function buildImportGraph(
       const target = normalize(join(dirname(module.path), specifier.text));
       if (assets.has(target)) return;
       const path = target.replace(/\.js$/, '.ts');
-      if (!paths.has(path))
-        throw new Error(`Unresolved relative dependency in ${module.path}: ${specifier.text}`);
+      if (!paths.has(path)) throw new Error(`Unresolved relative dependency in ${module.path}: ${specifier.text}`);
       const key = `${module.path} -> ${path}`;
       const previous = edges.get(key);
       edges.set(key, { from: module.path, to: path, typeOnly: typeOnly && (previous?.typeOnly ?? true) });
@@ -48,8 +45,7 @@ export function buildImportGraph(
         add(node.moduleSpecifier, node.isTypeOnly);
       } else if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
         const specifier = node.arguments[0];
-        if (!specifier || !ts.isStringLiteralLike(specifier))
-          throw new Error(`Unresolved module dependency in ${module.path}`);
+        if (!specifier || !ts.isStringLiteralLike(specifier)) throw new Error(`Unresolved module dependency in ${module.path}`);
         add(specifier, false);
       } else if (ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument)) {
         add(node.argument.literal, true);
@@ -85,13 +81,16 @@ export function runtimeCycles(edges: readonly ImportEdge[]): readonly string[] {
 }
 
 export function areaViolations(edges: readonly ImportEdge[], policy: ArchitecturePolicy): readonly string[] {
-  return edges.filter(edge => {
-    const from = policy.area(edge.from);
-    const to = policy.area(edge.to);
-    const fromRank = policy.ranks[from];
-    const toRank = policy.ranks[to];
-    return from !== to && fromRank !== undefined && toRank !== undefined && fromRank <= toRank;
-  }).map(edge => `${edge.typeOnly ? 'type' : 'runtime'} ${edge.from} -> ${edge.to}`).sort();
+  return edges
+    .filter(edge => {
+      const from = policy.area(edge.from);
+      const to = policy.area(edge.to);
+      const fromRank = policy.ranks[from];
+      const toRank = policy.ranks[to];
+      return from !== to && fromRank !== undefined && toRank !== undefined && fromRank <= toRank;
+    })
+    .map(edge => `${edge.typeOnly ? 'type' : 'runtime'} ${edge.from} -> ${edge.to}`)
+    .sort();
 }
 
 export function checkArchitecture(edges: readonly ImportEdge[], policy: ArchitecturePolicy): readonly string[] {
@@ -101,7 +100,7 @@ export function checkArchitecture(edges: readonly ImportEdge[], policy: Architec
   }
   for (const [label, actual, frozen] of [
     ['runtime cycle', runtimeCycles(edges), policy.cycles],
-    ['area edge', areaViolations(edges, policy), policy.edges],
+    ['area edge', areaViolations(edges, policy), policy.edges]
   ] as const) {
     for (const entry of actual) {
       if (!frozen.includes(entry)) failures.push(`New ${label}: ${entry}`);

@@ -14,7 +14,5 @@ export function implementationPath(...parts: readonly string[]): string {
 }
 
 export function packagedSkillPath(name: string): string {
-  return implementationExtension === '.ts'
-    ? packagePath('skills', name)
-    : implementationPath('skills', name);
+  return implementationExtension === '.ts' ? packagePath('skills', name) : implementationPath('skills', name);
 }

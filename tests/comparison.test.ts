@@ -8,7 +8,9 @@ import { registerVariant, registerProtocol, freezeProtocol, showProtocol, showVa
 import { beforeRecruitment, protocol, seedProject, variantA, variantB } from './helpers/comparison-fixture.js';
 
 function registered(store: Store): void {
-  seedProject(store); registerVariant(store, variantA); registerVariant(store, variantB);
+  seedProject(store);
+  registerVariant(store, variantA);
+  registerVariant(store, variantB);
 }
 
 test('configuration registration is immutable and canonical retries are idempotent', () => {
@@ -24,9 +26,16 @@ test('configuration registration is immutable and canonical retries are idempote
     expect(() => registerProtocol(store, { ...protocol, block_size: 8 })).toThrow('protocol_conflict');
     freezeProtocol(store, protocol.id, beforeRecruitment);
     freezeProtocol(store, protocol.id, beforeRecruitment);
-    expect(showProtocol(store, protocol.id)).toMatchObject({ status: 'frozen', real_allocation_enabled: false, experiment_readiness: 'synthetic_only', data_revision: 0 });
+    expect(showProtocol(store, protocol.id)).toMatchObject({
+      status: 'frozen',
+      real_allocation_enabled: false,
+      experiment_readiness: 'synthetic_only',
+      data_revision: 0
+    });
     expect(() => store.execute('UPDATE comparison_variants SET configuration = ? WHERE id = ?', ['{}', 'variant-a'])).toThrow('immutable_comparison_variant');
-  } finally { store.close(); }
+  } finally {
+    store.close();
+  }
 });
 
 test('incomplete drafts cannot freeze and private input never enters storage or errors', () => {
@@ -40,7 +49,9 @@ test('incomplete drafts cannot freeze and private input never enters storage or 
     expect(() => registerVariant(store, { ...variantA, product: 'PRIVATE_SENTINEL' })).toThrow(/^invalid_comparison_input$/);
     expect(JSON.stringify(store.all('SELECT * FROM comparison_protocols'))).not.toContain('PRIVATE_SENTINEL');
     expect(showProtocol(store, 'draft')).toMatchObject({ status: 'draft', real_allocation_enabled: false });
-  } finally { store.close(); }
+  } finally {
+    store.close();
+  }
 });
 
 test('freeze validates block design, eligibility, variants, recruitment and policy without invented defaults', () => {
@@ -55,12 +66,15 @@ test('freeze validates block design, eligibility, variants, recruitment and poli
       { ...protocol, variant_ids: ['variant-a', 'variant-a'] },
       { ...protocol, strata: [...protocol.strata, { ...protocol.strata[0], id: 'overlap' }] },
       { ...protocol, participants: ['user-1'] },
-      { ...protocol, analysis_plan_version: undefined },
+      { ...protocol, analysis_plan_version: undefined }
     ];
     for (const [index, value] of cases.entries()) {
       const id = `invalid-${index}`;
-      try { registerProtocol(store, { ...value, id }); }
-      catch { continue; }
+      try {
+        registerProtocol(store, { ...value, id });
+      } catch {
+        continue;
+      }
       expect(() => freezeProtocol(store, id, beforeRecruitment)).toThrow();
       expect(showProtocol(store, id)).toMatchObject({ status: 'draft' });
     }
@@ -72,7 +86,9 @@ test('freeze validates block design, eligibility, variants, recruitment and poli
     registerVariant(store, { ...variantB, id: 'ineligible', policy_status: 'ineligible' });
     registerProtocol(store, { ...protocol, id: 'policy', variant_ids: ['variant-a', 'ineligible'] });
     expect(() => freezeProtocol(store, 'policy', beforeRecruitment)).toThrow('ineligible_variant');
-  } finally { store.close(); }
+  } finally {
+    store.close();
+  }
 });
 
 test('version-five upgrade preserves data and failed comparison migration is atomic', () => {
@@ -96,15 +112,21 @@ test('version-five upgrade preserves data and failed comparison migration is ato
           expect(check.pragma('user_version', { simple: true })).toBe(5);
           expect(check.prepare("SELECT name FROM sqlite_master WHERE name = 'comparison_protocols'").get()).toBeUndefined();
           expect(check.prepare('SELECT id FROM tasks').all()).toEqual([{ id: 'old-task' }]);
-        } finally { check.close(); }
+        } finally {
+          check.close();
+        }
       } else {
         const store = new Store(file);
         try {
           expect(store.get('SELECT id FROM tasks')).toEqual({ id: 'old-task' });
           registerVariant(store, variantA);
           expect(store.get('SELECT id FROM comparison_variants')).toEqual({ id: 'variant-a' });
-        } finally { store.close(); }
+        } finally {
+          store.close();
+        }
       }
     }
-  } finally { rmSync(root, { recursive: true, force: true }); }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

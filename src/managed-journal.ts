@@ -7,11 +7,17 @@ import { initialFacts, isOpen, ManagedFailure, type Facts, type RunInput, type R
 
 // Database JSON uses snake_case; B1's internal TypeScript fact names stay camelCase.
 const factFields = {
-  scopeBeforeAccess: 'scope_before_access', freshSession: 'fresh_session',
-  readyBeforeFirstRequest: 'ready_before_first_request', continuousObservation: 'continuous_observation',
-  fixedModel: 'fixed_model', boundedTopology: 'bounded_topology', requestUniverse: 'request_universe',
-  terminalAccounting: 'terminal_accounting', immutableIdentity: 'immutable_identity',
-  durableFlush: 'durable_flush', counterSemantics: 'counter_semantics',
+  scopeBeforeAccess: 'scope_before_access',
+  freshSession: 'fresh_session',
+  readyBeforeFirstRequest: 'ready_before_first_request',
+  continuousObservation: 'continuous_observation',
+  fixedModel: 'fixed_model',
+  boundedTopology: 'bounded_topology',
+  requestUniverse: 'request_universe',
+  terminalAccounting: 'terminal_accounting',
+  immutableIdentity: 'immutable_identity',
+  durableFlush: 'durable_flush',
+  counterSemantics: 'counter_semantics'
 } as const;
 function encodeFacts(facts: Facts): string {
   return JSON.stringify(Object.fromEntries(Object.entries(factFields).map(([key, field]) => [field, facts[key as keyof Facts]])));
@@ -37,12 +43,19 @@ export function managedNow(clock: Clock, row?: RunRow): string {
   return now;
 }
 export function assertScope(store: Store, row: RunRow): void {
-  const scope = store.get<{ state: string; generation: number; metadata: string }>(`SELECT t.state,t.generation,t.metadata FROM tasks t
+  const scope = store.get<{ state: string; generation: number; metadata: string }>(
+    `SELECT t.state,t.generation,t.metadata FROM tasks t
     JOIN projects p ON p.id=t.project_id JOIN sessions s ON s.task_id=t.id AND s.project_id=p.id
     WHERE t.id=? AND p.id=? AND p.local_root IS NOT NULL AND s.id=? AND s.parent_id IS NULL
-    AND s.source_path IS NULL AND s.product='synthetic' AND s.product_version='1.0.0'`, [row.task_id, row.project_id, row.session_id]);
+    AND s.source_path IS NULL AND s.product='synthetic' AND s.product_version='1.0.0'`,
+    [row.task_id, row.project_id, row.session_id]
+  );
   if (!scope || scope.state !== 'active' || scope.generation !== row.generation || !isOpen(row)) throw new ManagedFailure('scope_revoked');
-  for (const [kind, id] of [['task', row.task_id], ['project', row.project_id], ['session', row.session_id]]) {
+  for (const [kind, id] of [
+    ['task', row.task_id],
+    ['project', row.project_id],
+    ['session', row.session_id]
+  ]) {
     if (store.get('SELECT id FROM tombstones WHERE kind=? AND id=?', [kind, id])) throw new ManagedFailure('scope_revoked');
   }
   const metadata = TaskMetadataSchema.safeParse(JSON.parse(scope.metadata) as unknown);
@@ -58,12 +71,19 @@ export function beginRun(store: Store, input: RunInput, now: string, model: stri
     if (task.last_transition_at && Date.parse(now) < Date.parse(task.last_transition_at)) throw new ManagedFailure('clock_regressed');
     // An existing session is never adopted, even if it has no observed usage.
     const facts = encodeFacts(initialFacts());
-    store.execute(`INSERT INTO sessions(id,project_id,task_id,product,product_version) VALUES (?,?,?,'synthetic','1.0.0')`,
-      [input.sessionId, task.project_id, task.id]);
-    store.execute(`INSERT INTO observation_runs(id,project_id,task_id,session_id,generation,profile_id,state,started_at,updated_at,input_facts,output_facts)
+    store.execute(`INSERT INTO sessions(id,project_id,task_id,product,product_version) VALUES (?,?,?,'synthetic','1.0.0')`, [
+      input.sessionId,
+      task.project_id,
+      task.id
+    ]);
+    store.execute(
+      `INSERT INTO observation_runs(id,project_id,task_id,session_id,generation,profile_id,state,started_at,updated_at,input_facts,output_facts)
       VALUES (?,?,?,?,?,'synthetic-managed-v1','preparing',?,?,?,?)`,
-      [input.runId, task.project_id, task.id, input.sessionId, task.generation, now, now, facts, facts]);
-    const row = runRow(store, input.runId)!; assertScope(store, row); return row;
+      [input.runId, task.project_id, task.id, input.sessionId, task.generation, now, now, facts, facts]
+    );
+    const row = runRow(store, input.runId)!;
+    assertScope(store, row);
+    return row;
   });
 }
 export function patchFacts(store: Store, row: RunRow, patch: Partial<Facts>): void {
@@ -74,11 +94,12 @@ export function patchFacts(store: Store, row: RunRow, patch: Partial<Facts>): vo
 /** Caller holds the task writer lock. Completed facts never change. */
 export function interruptRun(store: Store, row: RunRow, reason: StopReason, now: string): void {
   if (!isOpen(row)) return;
-  patchFacts(store, row, { continuousObservation: 'violated',
+  patchFacts(store, row, {
+    continuousObservation: 'violated',
     ...(reason === 'identity_conflict' ? { immutableIdentity: 'violated' as const } : {}),
-    ...(reason === 'storage_error' ? { durableFlush: 'violated' as const } : {}) });
-  store.execute("UPDATE observation_runs SET state='interrupted',stop_reason=?,updated_at=?,ended_at=? WHERE id=?",
-    [reason, now, now, row.id]);
+    ...(reason === 'storage_error' ? { durableFlush: 'violated' as const } : {})
+  });
+  store.execute("UPDATE observation_runs SET state='interrupted',stop_reason=?,updated_at=?,ended_at=? WHERE id=?", [reason, now, now, row.id]);
 }
 export function interruptManagedRuns(store: Store, taskId: string, reason: StopReason, now: string): void {
   for (const row of store.all<RunRow>("SELECT * FROM observation_runs WHERE task_id=? AND state NOT IN ('sealed','interrupted')", [taskId])) {
@@ -90,32 +111,80 @@ export function interruptManagedRuns(store: Store, taskId: string, reason: StopR
 export function recoverManagedRuns(store: Store, taskId: string, clock: Clock): void {
   if (!IdSchema.safeParse(taskId).success) throw new ManagedFailure('scope_revoked');
   const now = managedNow(clock);
-  store.transaction(() => { lockTask(store, taskId); interruptManagedRuns(store, taskId, 'restart', now); });
+  store.transaction(() => {
+    lockTask(store, taskId);
+    interruptManagedRuns(store, taskId, 'restart', now);
+  });
 }
-interface RecordRow { sequence: number; request_id: string; occurred_at: string; payload: string }
+interface RecordRow {
+  sequence: number;
+  request_id: string;
+  occurred_at: string;
+  payload: string;
+}
 export function putUsage(store: Store, row: RunRow, usage: UsageEnvelope, now: string): void {
-  const prior = store.all<RecordRow>('SELECT * FROM observation_records WHERE run_id=? AND (sequence=? OR request_id=?)', [row.id, usage.sequence, usage.request_id]);
+  const prior = store.all<RecordRow>('SELECT * FROM observation_records WHERE run_id=? AND (sequence=? OR request_id=?)', [
+    row.id,
+    usage.sequence,
+    usage.request_id
+  ]);
   const encoded = JSON.stringify(usage.payload);
   if (prior.length) {
-    if (prior.length !== 1 || prior[0]!.sequence !== usage.sequence || prior[0]!.request_id !== usage.request_id || prior[0]!.occurred_at !== usage.occurred_at || prior[0]!.payload !== encoded) throw new ManagedFailure('identity_conflict');
+    if (
+      prior.length !== 1 ||
+      prior[0]!.sequence !== usage.sequence ||
+      prior[0]!.request_id !== usage.request_id ||
+      prior[0]!.occurred_at !== usage.occurred_at ||
+      prior[0]!.payload !== encoded
+    )
+      throw new ManagedFailure('identity_conflict');
     return;
   }
   const metadata = TaskMetadataSchema.parse(JSON.parse(store.get<TaskRow>('SELECT * FROM tasks WHERE id=?', [row.task_id])!.metadata) as unknown);
   const payload = usage.payload;
-  if (payload.product !== 'synthetic' || payload.product_version !== '1.0.0' || payload.model !== metadata.model ||
-      !row.submitted_at || Date.parse(usage.occurred_at) < Date.parse(row.submitted_at) || Date.parse(usage.occurred_at) > Date.parse(now)) throw new ManagedFailure('invalid_envelope');
-  if ((payload.input_total.status === 'observed' && payload.cached_input.status === 'observed' && payload.cached_input.value > payload.input_total.value) ||
-      (payload.output_total.status === 'observed' && payload.reasoning_output.status === 'observed' && payload.reasoning_output.value > payload.output_total.value)) throw new ManagedFailure('invalid_envelope');
+  if (
+    payload.product !== 'synthetic' ||
+    payload.product_version !== '1.0.0' ||
+    payload.model !== metadata.model ||
+    !row.submitted_at ||
+    Date.parse(usage.occurred_at) < Date.parse(row.submitted_at) ||
+    Date.parse(usage.occurred_at) > Date.parse(now)
+  )
+    throw new ManagedFailure('invalid_envelope');
+  if (
+    (payload.input_total.status === 'observed' && payload.cached_input.status === 'observed' && payload.cached_input.value > payload.input_total.value) ||
+    (payload.output_total.status === 'observed' &&
+      payload.reasoning_output.status === 'observed' &&
+      payload.reasoning_output.value > payload.output_total.value)
+  )
+    throw new ManagedFailure('invalid_envelope');
   const eventId = randomUUID();
-  store.putEvent({ id: eventId, source_key: eventId, project_id: row.project_id, task_id: row.task_id,
-    session_id: row.session_id, occurred_at: usage.occurred_at, payload });
-  store.execute('INSERT INTO observation_records(run_id,sequence,request_id,occurred_at,event_id,payload) VALUES (?,?,?,?,?,?)',
-    [row.id, usage.sequence, usage.request_id, usage.occurred_at, eventId, encoded]);
+  store.putEvent({
+    id: eventId,
+    source_key: eventId,
+    project_id: row.project_id,
+    task_id: row.task_id,
+    session_id: row.session_id,
+    occurred_at: usage.occurred_at,
+    payload
+  });
+  store.execute('INSERT INTO observation_records(run_id,sequence,request_id,occurred_at,event_id,payload) VALUES (?,?,?,?,?,?)', [
+    row.id,
+    usage.sequence,
+    usage.request_id,
+    usage.occurred_at,
+    eventId,
+    encoded
+  ]);
 }
 export function runEvidence(store: Store, row: RunRow, metric: CoverageMetric): CoverageEvidence {
   const records = store.all<{ payload: string }>('SELECT payload FROM observation_records WHERE run_id=?', [row.id]);
-  return { profileId: 'synthetic-coverage-v1', metric, facts: decodeFacts(metric === 'input_total' ? row.input_facts : row.output_facts),
-    hasObservedValue: records.some(record => (JSON.parse(record.payload) as UsageEnvelope['payload'])[metric].status === 'observed') };
+  return {
+    profileId: 'synthetic-coverage-v1',
+    metric,
+    facts: decodeFacts(metric === 'input_total' ? row.input_facts : row.output_facts),
+    hasObservedValue: records.some(record => (JSON.parse(record.payload) as UsageEnvelope['payload'])[metric].status === 'observed')
+  };
 }
 export function taskManagedEvidence(store: Store, taskId: string, metric: CoverageMetric): CoverageEvidence {
   const rows = store.all<RunRow>('SELECT * FROM observation_runs WHERE task_id=? ORDER BY started_at,id', [taskId]);
@@ -128,6 +197,5 @@ export function taskManagedEvidence(store: Store, taskId: string, metric: Covera
     if (facts.terminalAccounting === 'verified') facts.terminalAccounting = 'unknown';
     if (facts.durableFlush === 'verified') facts.durableFlush = 'unknown';
   }
-  return { profileId: 'synthetic-coverage-v1', metric, facts,
-    hasObservedValue: rows.some(row => runEvidence(store, row, metric).hasObservedValue) };
+  return { profileId: 'synthetic-coverage-v1', metric, facts, hasObservedValue: rows.some(row => runEvidence(store, row, metric).hasObservedValue) };
 }

@@ -41,8 +41,14 @@ test('readable team output preserves component populations, observed zero, event
     expect(JSON.stringify(report)).toBe(before);
     expect(f.dest.all('SELECT * FROM exchange_team_snapshots')).toEqual(persisted);
     expect(renderTeamReport(report, 'json')).toBe(JSON.stringify(report, null, 2) + '\n');
-    expect(renderTeamReport(report, 'markdown')).toBe('# Synthetic team comparison report\n\nTeam completeness: unverified. Declared writer coverage: complete. Partial observations are not complete task totals. Adoption remains inconclusive.\n\n```json\n' + JSON.stringify(report, null, 2) + '\n```\n');
-  } finally { f.close(); }
+    expect(renderTeamReport(report, 'markdown')).toBe(
+      '# Synthetic team comparison report\n\nTeam completeness: unverified. Declared writer coverage: complete. Partial observations are not complete task totals. Adoption remains inconclusive.\n\n```json\n' +
+        JSON.stringify(report, null, 2) +
+        '\n```\n'
+    );
+  } finally {
+    f.close();
+  }
 });
 
 test('readable incomplete writer output keeps pending quality and unequal received arm sizes', () => {
@@ -51,7 +57,10 @@ test('readable incomplete writer output keeps pending quality and unequal receiv
     const p = f.packages[0]!;
     p.assignments = p.assignments.slice(0, 3);
     importExchangePackage(f.dest, p, 'destination', () => f.request.as_of);
-    const text = renderTeamReport(createTeamSnapshot(f.dest, f.request, () => now), 'markdown-readable');
+    const text = renderTeamReport(
+      createTeamSnapshot(f.dest, f.request, () => now),
+      'markdown-readable'
+    );
     expect(text).toContain('| variant-a | 2 | 1 | 1 | 0 |');
     expect(text).toContain('| variant-b | 1 | 1 | 0 | 0 |');
     expect(text).toContain('Provisional: true');
@@ -59,20 +68,30 @@ test('readable incomplete writer output keeps pending quality and unequal receiv
     expect(text).toContain('Declared writer coverage: partial');
     expect(text).toContain(f.packages[1]!.namespace_id);
     expect(text).toContain('Team assignment denominator: unavailable');
-  } finally { f.close(); }
+  } finally {
+    f.close();
+  }
 });
 
 test('readable empty accepted contributions retain empty denominators and complete writer declarations', () => {
   const f = teamFixture();
   try {
-    for (const p of f.packages) { p.assignments = []; importExchangePackage(f.dest, p, 'destination', () => f.request.as_of); }
-    const text = renderTeamReport(createTeamSnapshot(f.dest, f.request, () => now), 'markdown-readable');
+    for (const p of f.packages) {
+      p.assignments = [];
+      importExchangePackage(f.dest, p, 'destination', () => f.request.as_of);
+    }
+    const text = renderTeamReport(
+      createTeamSnapshot(f.dest, f.request, () => now),
+      'markdown-readable'
+    );
     expect(text).toContain('| Imported cohort | 0 | 0 | 0 | 0 |');
     expect(text).toContain('| Imported cohort | Partial combined tokens | 0 | unavailable | unavailable | none |');
     expect(text).toContain('| Imported cohort | Deadline success | 0 | 0 | unavailable | empty\\_denominator |');
     expect(text).toContain('Declared writer coverage: complete');
     expect(text).toContain('Missing namespaces: none');
-  } finally { f.close(); }
+  } finally {
+    f.close();
+  }
 });
 
 test('readable invalidation never reconstructs removed task identities or aggregates', () => {
@@ -87,7 +106,9 @@ test('readable invalidation never reconstructs removed task identities or aggreg
     expect(text).not.toContain('task-1');
     expect(text).not.toContain('| Imported cohort |');
     expect(text).not.toContain('Snapshot hash:');
-  } finally { f.close(); }
+  } finally {
+    f.close();
+  }
 });
 
 test('readable local output retains registration uncertainty and legacy rendering bytes', () => {
@@ -103,9 +124,15 @@ test('readable local output retains registration uncertainty and legacy renderin
     expect(text).toContain('Follow-up seconds: 3600');
     expect(store.all('SELECT * FROM comparison_report_snapshots')).toEqual(persisted);
     expect(renderComparisonReport(report, 'json')).toBe(pretty);
-    expect(renderComparisonReport(report, 'markdown')).toBe('# Assignment comparison report\n\nSynthetic descriptions only. Partial observations are not complete task totals. No inferential adoption decision.\n\n```json\n' + pretty + '```\n');
+    expect(renderComparisonReport(report, 'markdown')).toBe(
+      '# Assignment comparison report\n\nSynthetic descriptions only. Partial observations are not complete task totals. No inferential adoption decision.\n\n```json\n' +
+        pretty +
+        '```\n'
+    );
     expect(() => renderComparisonReport(report, 'bad')).toThrow('invalid_format');
-  } finally { store.close(); }
+  } finally {
+    store.close();
+  }
 });
 
 test('metadata cannot inject table columns, HTML or Markdown into readable output', () => {
@@ -118,9 +145,10 @@ test('metadata cannot inject table columns, HTML or Markdown into readable outpu
     expect(text).toContain('user\\|&lt;script&gt; \\*\\*heading\\*\\*');
     expect(text).not.toContain('<script>');
     expect(text).not.toContain('\n**heading**');
-  } finally { store.close(); }
+  } finally {
+    store.close();
+  }
 });
-
 
 test('readable errors, unmeasurable components and configuration deviations retain their distinct frozen states', () => {
   const f = teamFixture();
@@ -133,10 +161,15 @@ test('readable errors, unmeasurable components and configuration deviations reta
     task.evidence.actual_configuration.has_runtime_drift = true;
     task.evidence.deviations = [{ occurred_at: '2026-01-01T00:03:00.000Z', recorded_at: '2026-01-01T00:04:00.000Z', reason_code: 'version_drift' }];
     for (const p of f.packages) importExchangePackage(f.dest, p, 'destination', () => f.request.as_of);
-    const text = renderTeamReport(createTeamSnapshot(f.dest, f.request, () => now), 'markdown-readable');
+    const text = renderTeamReport(
+      createTeamSnapshot(f.dest, f.request, () => now),
+      'markdown-readable'
+    );
     expect(text).toContain('| task-6 | input\\_total | unavailable | 0 | 0 | 1 | 0 | 0 | source\\_error: 1 |');
     expect(text).toContain('| task-6 | output\\_total | unavailable | 0 | 0 | 0 | 0 | 1 | unsupported: 1 |');
     expect(text).toContain('| task-6 | version\\_drift | 2026-01-01T00:03:00.000Z | 2026-01-01T00:04:00.000Z |');
     expect(text).toContain('| task-6 | variant-b | declared\\_b\\_only | variant-b | false | false | true | 1 | 0 |');
-  } finally { f.close(); }
+  } finally {
+    f.close();
+  }
 });

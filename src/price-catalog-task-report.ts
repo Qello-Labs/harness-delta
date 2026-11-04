@@ -6,8 +6,13 @@ import type { LegacyInputBasis } from './pricing.js';
 import type { Store } from './store.js';
 
 /** Descriptive task cost for the existing admitted task window; callers own any external clock contract. */
-export function readReferenceTaskCostReport(store: Store, taskId: string, cutoff: string,
-  inputBasis: LegacyInputBasis = 'output-only-v1', now = new Date().toISOString()) {
+export function readReferenceTaskCostReport(
+  store: Store,
+  taskId: string,
+  cutoff: string,
+  inputBasis: LegacyInputBasis = 'output-only-v1',
+  now = new Date().toISOString()
+) {
   return store.transaction(() => {
     const selected = selectTaskPriceTable(store, taskId, now);
     const { report, events, runtimeEvidence } = captureObservedCostInput(store, taskId, selected.tableId, cutoff, inputBasis);
@@ -15,8 +20,7 @@ export function readReferenceTaskCostReport(store: Store, taskId: string, cutoff
       return { ...report, price_selection: selected.selection };
     }
     const priced = projectCatalogCost(events, readPriceBasis(store, selected.tableId), taskId, cutoff, inputBasis, { referenceBinding: true, runtimeEvidence });
-    return { ...report, ...priced, reasons: [...new Set([...report.reasons, ...priced.reasons])].sort(),
-      price_selection: selected.selection };
+    return { ...report, ...priced, reasons: [...new Set([...report.reasons, ...priced.reasons])].sort(), price_selection: selected.selection };
   });
 }
 

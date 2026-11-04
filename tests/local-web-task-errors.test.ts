@@ -20,19 +20,34 @@ test.each(['before_start', 'ended'] as const)('task creation retains the recruit
     vi.setSystemTime(now);
     const bootstrap = await app.inject({ url: '/api/bootstrap', headers: { host: '127.0.0.1:4339' } });
     const csrf = bootstrap.json<{ csrf: string }>().csrf;
-    expect(bootstrap.json()).toMatchObject({ data: { setups: [{ recruitment: {
-      starts_at: protocol.recruitment_start, ends_at: protocol.recruitment_end, state: phase,
-    } }] } });
+    expect(bootstrap.json()).toMatchObject({
+      data: {
+        setups: [
+          {
+            recruitment: {
+              starts_at: protocol.recruitment_start,
+              ends_at: protocol.recruitment_end,
+              state: phase
+            }
+          }
+        ]
+      }
+    });
     const response = await app.inject({
-      method: 'POST', url: '/api/tasks',
+      method: 'POST',
+      url: '/api/tasks',
       headers: { host: '127.0.0.1:4339', origin, 'x-harness-csrf': csrf, 'idempotency-key': randomUUID() },
-      payload: { name: 'Synthetic date boundary', project_id: 'project-1', setup_id: fixture.profile.id },
+      payload: { name: 'Synthetic date boundary', project_id: 'project-1', setup_id: fixture.profile.id }
     });
     expect(response.statusCode).toBe(400);
     expect(response.json()).toEqual({ error: 'outside_recruitment' });
     expect(fixture.store.all('SELECT id FROM comparison_assignments')).toHaveLength(0);
     expect(fixture.store.eventCount()).toBe(0);
-  } finally { vi.useRealTimers(); await app.close(); fixture.cleanup(); }
+  } finally {
+    vi.useRealTimers();
+    await app.close();
+    fixture.cleanup();
+  }
 });
 
 test('unrecognized errors do not disclose arbitrary messages', () => {
@@ -48,10 +63,12 @@ test.each([
   ['2098-12-31T23:59:59.999Z', 'before_start'],
   ['2099-01-01T00:00:00Z', 'open'],
   ['2099-01-01T23:59:59.999Z', 'open'],
-  ['2099-01-02T00:00:00Z', 'ended'],
+  ['2099-01-02T00:00:00Z', 'ended']
 ] as const)('recruitment state uses the allocation boundary at %s', (now, state) => {
   expect(localWebRecruitment(recruitment, now)).toEqual({
-    starts_at: recruitment.recruitment_start, ends_at: recruitment.recruitment_end, state,
+    starts_at: recruitment.recruitment_start,
+    ends_at: recruitment.recruitment_end,
+    state
   });
 });
 
@@ -64,11 +81,21 @@ test('shared task records the cause and allows the same task to be prepared when
     const saved = await fixture.domain.saveReviewedSetup(review.token);
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(Date.parse(fixture.input.protocol.recruitment_start) - 1);
-    const task = z.object({ id: z.string() }).passthrough().parse(await fixture.domain.createTask({
-      name: 'Synthetic early task', project_id: 'project-1', setup_id: saved.profile_id,
-    }));
-    expect(task).toMatchObject({ reason: 'outside_recruitment', status: 'blocked_configuration',
-      recruitment: { state: 'before_start', starts_at: fixture.input.protocol.recruitment_start, ends_at: fixture.input.protocol.recruitment_end } });
+    const task = z
+      .object({ id: z.string() })
+      .passthrough()
+      .parse(
+        await fixture.domain.createTask({
+          name: 'Synthetic early task',
+          project_id: 'project-1',
+          setup_id: saved.profile_id
+        })
+      );
+    expect(task).toMatchObject({
+      reason: 'outside_recruitment',
+      status: 'blocked_configuration',
+      recruitment: { state: 'before_start', starts_at: fixture.input.protocol.recruitment_start, ends_at: fixture.input.protocol.recruitment_end }
+    });
     expect(fixture.store.all('SELECT id FROM comparison_assignments')).toHaveLength(0);
     vi.setSystemTime(Date.parse(fixture.input.protocol.recruitment_start));
     expect(fixture.domain.task(task.id)).toMatchObject({ recruitment: { state: 'open' }, reason: 'outside_recruitment' });
@@ -78,5 +105,9 @@ test('shared task records the cause and allows the same task to be prepared when
     expect(fixture.store.all('SELECT id FROM tasks')).toHaveLength(1);
     expect(fixture.store.eventCount()).toBe(0);
     expect(fixture.store.all('SELECT * FROM active_intervals')).toHaveLength(0);
-  } finally { vi.useRealTimers(); await fixture.domain.close?.(); fixture.cleanup(); }
+  } finally {
+    vi.useRealTimers();
+    await fixture.domain.close?.();
+    fixture.cleanup();
+  }
 });

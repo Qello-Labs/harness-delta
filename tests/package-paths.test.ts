@@ -18,7 +18,7 @@ test('source package assets stay relative to the complete source tree', () => {
     catalog: packagePath('config', 'prices', 'catalogs'),
     ui: implementationPath('local-ui'),
     qualificationUi: packagePath('dist', 'local-ui'),
-    extension: implementationExtension,
+    extension: implementationExtension
   }).toEqual({
     root,
     script: join(root, 'scripts', 'owned-cli-pty.py'),
@@ -27,7 +27,7 @@ test('source package assets stay relative to the complete source tree', () => {
     catalog: join(root, 'config', 'prices', 'catalogs'),
     ui: join(root, 'src', 'local-ui'),
     qualificationUi: join(root, 'dist', 'local-ui'),
-    extension: '.ts',
+    extension: '.ts'
   });
 });
 
@@ -39,11 +39,13 @@ test.each(['dist', 'compiled'])('emitted assets resolve from %s with a relocated
     mkdirSync(nested, { recursive: true });
     const source = readFileSync(join(root, 'src', 'package-paths.ts'), 'utf8');
     const emitted = ts.transpileModule(source, {
-      compilerOptions: { target: ts.ScriptTarget.ES2023, module: ts.ModuleKind.ESNext },
+      compilerOptions: { target: ts.ScriptTarget.ES2023, module: ts.ModuleKind.ESNext }
     }).outputText;
     writeFileSync(join(implementation, 'package-paths.mjs'), emitted);
     const caller = join(nested, 'caller.mjs');
-    writeFileSync(caller, `
+    writeFileSync(
+      caller,
+      `
 import { implementationExtension, implementationPath, packagePath, packagedSkillPath } from '../package-paths.mjs';
 process.stdout.write(JSON.stringify({
   root: packagePath(), tree: implementationPath(), extension: implementationExtension,
@@ -52,14 +54,18 @@ process.stdout.write(JSON.stringify({
   migrations: implementationPath('migrations'), catalogs: implementationPath('catalogs'),
   ui: implementationPath('local-ui')
 }));
-`);
+`
+    );
     const actual: unknown = JSON.parse(execFileSync(process.execPath, [caller], { encoding: 'utf8' }));
     expect(actual).toEqual({
-      root: temporary, tree: implementation, extension: '.js',
+      root: temporary,
+      tree: implementation,
+      extension: '.js',
       script: join(temporary, 'scripts', 'owned-cli-pty.py'),
       skill: join(implementation, 'skills', 'harness-connect'),
-      migrations: join(implementation, 'migrations'), catalogs: join(implementation, 'catalogs'),
-      ui: join(implementation, 'local-ui'),
+      migrations: join(implementation, 'migrations'),
+      catalogs: join(implementation, 'catalogs'),
+      ui: join(implementation, 'local-ui')
     });
   } finally {
     rmSync(temporary, { recursive: true, force: true });

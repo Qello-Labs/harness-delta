@@ -6,9 +6,12 @@ import { assessCandidate, assessmentSchema } from '../scripts/tool-update/assess
 import { fixture, now, privateText, release } from './tool-update-discovery-fixture.js';
 
 test.each([
-  null, [], { ...release('1.0.10'), draft: true }, { ...release('1.0.10'), prerelease: true },
+  null,
+  [],
+  { ...release('1.0.10'), draft: true },
+  { ...release('1.0.10'), prerelease: true },
   { ...release('1.0.10'), tag_name: 'rust-v1.0.10-beta' },
-  { ...release('1.0.10'), tag_name: privateText },
+  { ...release('1.0.10'), tag_name: privateText }
 ])('rejects malformed or non-stable official latest %#', async githubLatest => {
   const wire = fixture({ githubLatest });
 
@@ -37,11 +40,12 @@ test.each([1, 2])('preserves observation scope from schema %i in static assessme
   const observation = schema === 1 ? { ...fields, schema_version: 1, checks: [] } : result.observation;
 
   const assessment = await assessCandidate({
-    root: realpathSync(fileURLToPath(new URL('..', import.meta.url))), candidate: result.candidate, observation,
+    root: realpathSync(fileURLToPath(new URL('..', import.meta.url))),
+    candidate: result.candidate,
+    observation
   });
 
-  expect(assessment).toMatchObject({ schema_version: 2,
-    inventory_scope: schema === 1 ? 'legacy_full_inventory' : 'latest_and_npm_review_range' });
+  expect(assessment).toMatchObject({ schema_version: 2, inventory_scope: schema === 1 ? 'legacy_full_inventory' : 'latest_and_npm_review_range' });
   const oldFields = Object.fromEntries(Object.entries(assessment).filter(([key]) => key !== 'inventory_scope'));
   expect(assessmentSchema.safeParse({ ...oldFields, schema_version: 1 }).success).toBe(true);
 });

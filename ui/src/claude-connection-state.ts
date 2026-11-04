@@ -4,18 +4,21 @@ export type ClaudeConnectionStage = 'install' | 'conflict' | 'unknown' | 'blocke
 
 export function claudeConnectionStage(task: Task): ClaudeConnectionStage | null {
   if (!task.connection_readiness || task.binding?.product !== 'claude_code') return null;
-  if (task.mode !== 'ordinary' && (task.support_details?.context !== 'real'
-    || task.support_details.connection_route !== 'family')) return null;
+  if (task.mode !== 'ordinary' && (task.support_details?.context !== 'real' || task.support_details.connection_route !== 'family')) return null;
   if (task.outcome || task.measurement.state === 'measurement_ended') return 'ended';
   if (task.connection_readiness.collection_revoked) return 'revoked';
   if (task.measurement.state === 'active') return 'measuring';
   if (task.measurement.state === 'starting') return 'starting';
   if (task.measurement.state === 'paused' && (task.mode !== 'ordinary' || task.binding.selected_root_id)) return 'paused';
   switch (task.connection_readiness.skill.state) {
-    case 'missing': return 'install';
-    case 'conflict': return 'conflict';
-    case 'unavailable': return 'unknown';
-    case 'installed': return task.actions.some(action => action.code === 'session-connect' && action.enabled) ? 'ready' : 'blocked';
+    case 'missing':
+      return 'install';
+    case 'conflict':
+      return 'conflict';
+    case 'unavailable':
+      return 'unknown';
+    case 'installed':
+      return task.actions.some(action => action.code === 'session-connect' && action.enabled) ? 'ready' : 'blocked';
   }
 }
 
