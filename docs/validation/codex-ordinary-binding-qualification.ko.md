@@ -347,9 +347,9 @@ Claude, IDE/MCP/시스템 에이전트, 전체 비용 또는 추론에 기반한
 네이티브 승인 전에 Node 24에서 무해한 픽스처를 실행하십시오.
 
 ```sh
-npm test -- tests/owned-cli-invocation.test.ts \
-  tests/codex-binding-qualification-versions.test.ts \
-  tests/codex-session-binding-qualification.test.ts \
+npm test -- tests/connect/owned-cli-invocation.test.ts \
+  tests/qualification/codex-binding-qualification-versions.test.ts \
+  tests/qualification/codex-session-binding-qualification.test.ts \
   tests/session-binding-service.test.ts tests/session-binding-api.test.ts
 npm run lint
 npm run typecheck

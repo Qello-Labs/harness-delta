@@ -225,7 +225,7 @@ profiles; `real_allocation`, complete-cost qualification and inference remain
 unavailable for those profiles, and frozen real experiments remain exact.
 
 Verification entry points are `tests/source-compatibility.test.ts`,
-`tests/source-compatibility-cli.test.ts`, `tests/source-trust-report.test.ts`,
+`tests/cli/source-compatibility-cli.test.ts`, `tests/source-trust-report.test.ts`,
 the native workflow adapter/admission tests, and `npm run check` under Node 24.
 
 ## Explicit ordinary-root Codex pilot parser reuse

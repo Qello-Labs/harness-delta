@@ -89,7 +89,7 @@ passing it does not promote a real profile. `completeTotals` remains false and
 Use Node 24 and `npm ci`, then:
 
 ```sh
-npm test -- tests/codex-production.test.ts tests/codex-topology.test.ts tests/codex-readiness.test.ts tests/adapter-profiles.test.ts tests/adapter-profile-isolation.test.ts tests/conformance-admission.test.ts tests/conformance-registration.test.ts tests/coverage.test.ts
+npm test -- tests/codex-production.test.ts tests/codex-topology.test.ts tests/codex-readiness.test.ts tests/adapter-profiles.test.ts tests/adapter-profile-isolation.test.ts tests/conformance-admission.test.ts tests/conformance-registration.test.ts tests/core/coverage.test.ts
 npm run check
 ```
 

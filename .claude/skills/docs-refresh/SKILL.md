@@ -46,7 +46,7 @@ is a symlink to it. Edit the canonical copy only.
    | Ordinary-session pilot profiles and family limits | `src/session-binding-human-pilot.ts`, `src/session-binding-claude-human-pilot.ts`, `src/session-binding-claude.ts` |
    | npm scripts, Node range, CI | `package.json`, `.nvmrc`, `.github/workflows/ci.yml` |
    | Example inputs | `examples/workflow/`, `tests/workflow-examples.test.ts` |
-   | Price catalog statements | `src/price-catalog*.ts`, `docs/development/price-catalog-releases.md` |
+   | Price catalog statements | `src/price-catalog*.ts`, `src/pricing/price-catalog*.ts`, `src/cli/price-catalog-cli.ts`, `docs/development/price-catalog-releases.md` |
 
 3. For a wide scope, give a separate read-only agent the documents you are not
    reading yourself. Ask for confirmed mismatches only, each with the document

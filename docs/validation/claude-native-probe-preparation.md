@@ -180,7 +180,7 @@ checks above and does not authorize a model/API-request retry.
 ## Offline checks
 
 ```sh
-npm test -- tests/claude-native-probe.test.ts tests/claude-probe-coordinator.test.ts
+npm test -- tests/claude-native-probe.test.ts tests/qualification/claude-probe-coordinator.test.ts
 npm run check
 ```
 

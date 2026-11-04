@@ -575,9 +575,9 @@ general user-managed-terminal admission or a way to bypass production gates.
 Before native approval, run harmless fixtures on Node 24:
 
 ```sh
-npm test -- tests/owned-cli-invocation.test.ts \
-  tests/codex-binding-qualification-versions.test.ts \
-  tests/codex-session-binding-qualification.test.ts \
+npm test -- tests/connect/owned-cli-invocation.test.ts \
+  tests/qualification/codex-binding-qualification-versions.test.ts \
+  tests/qualification/codex-session-binding-qualification.test.ts \
   tests/session-binding-service.test.ts tests/session-binding-api.test.ts
 npm run lint
 npm run typecheck
