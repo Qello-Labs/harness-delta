@@ -52,56 +52,67 @@ function prepareTask(deps: LocalWebTaskActionDependencies, request: LocalWebScop
   return taskDto(id);
 }
 
+async function comparisonTaskAction(deps: LocalWebTaskActionDependencies, request: LocalWebScopedTaskAction) {
+  const { action, record, id } = request;
+  if (action === 'prepare' || action === 'apply') return prepareTask(deps, request);
+  if (
+    deps.profileFor(record.profile_id).shared_binding &&
+    !['pause', 'release', 'finish-success', 'finish-failed', 'finish-abandoned', 'rework', 'recover', 'revoke-collection'].includes(action)
+  )
+    assertSharedTask(deps.store, id);
+  return localWebWorkflowAction(deps, request);
+}
+
 export function createLocalWebTaskActions(deps: LocalWebTaskActionDependencies): LocalWebDomain['taskAction'] {
-  const { options, store, row, setupFor, profileFor } = deps;
-  return async (id, action, input) => {
-    if (
-      options.nativePilot &&
-      (id !== options.nativePilot.taskId ||
-        ![
-          'prepare',
-          'apply',
-          'session-connect',
-          'pause',
-          'revoke-collection',
-          'resume-binding',
-          'finish-success',
-          'finish-failed',
-          'finish-abandoned',
-          'release'
-        ].includes(action))
-    )
-      throw new Error('binding_pilot_control_only');
-    if (
-      options.qualificationLease &&
-      (id !== store.get<{ task_id: string }>('SELECT task_id FROM binding_qualification WHERE singleton=1')?.task_id ||
-        !['session-connect', 'pause', 'resume-binding', 'emergency-stop'].includes(action))
-    )
-      throw new Error('binding_qualification_control_only');
-    const record = row(id);
-    if (ordinaryTask(store, id)) return localWebOrdinaryAction(deps, { id, action, input });
-    const setup = setupFor(record);
-    const request = { id, action, input, record, setup };
-    if (['application-start', 'application-execute', 'application-permission-decide', 'application-recover', 'application-publish'].includes(action))
-      throw new Error('application_managed_retired');
-    if (
-      [
-        'application-prepare',
-        'application-open',
-        'application-checkpoint',
-        'application-report',
-        'application-identity',
-        'application-cancel',
-        'application-mode'
-      ].includes(action)
-    )
-      return localWebApplicationAction(deps, request);
-    if (action === 'prepare' || action === 'apply') return prepareTask(deps, request);
-    if (
-      profileFor(record.profile_id).shared_binding &&
-      !['pause', 'release', 'finish-success', 'finish-failed', 'finish-abandoned', 'rework', 'recover', 'revoke-collection'].includes(action)
-    )
-      assertSharedTask(store, id);
-    return localWebWorkflowAction(deps, request);
+  const { options, store, row, setupFor } = deps;
+  return (id, action, input) => {
+    try {
+      if (
+        options.nativePilot &&
+        (id !== options.nativePilot.taskId ||
+          ![
+            'prepare',
+            'apply',
+            'session-connect',
+            'pause',
+            'revoke-collection',
+            'resume-binding',
+            'finish-success',
+            'finish-failed',
+            'finish-abandoned',
+            'release'
+          ].includes(action))
+      )
+        throw new Error('binding_pilot_control_only');
+      if (
+        options.qualificationLease &&
+        (id !== store.get<{ task_id: string }>('SELECT task_id FROM binding_qualification WHERE singleton=1')?.task_id ||
+          !['session-connect', 'pause', 'resume-binding', 'emergency-stop'].includes(action))
+      )
+        throw new Error('binding_qualification_control_only');
+      const record = row(id);
+      if (ordinaryTask(store, id)) return localWebOrdinaryAction(deps, { id, action, input });
+      const setup = setupFor(record);
+      const request = { id, action, input, record, setup };
+      if (['application-start', 'application-execute', 'application-permission-decide', 'application-recover', 'application-publish'].includes(action))
+        throw new Error('application_managed_retired');
+      if (
+        [
+          'application-prepare',
+          'application-open',
+          'application-checkpoint',
+          'application-report',
+          'application-identity',
+          'application-cancel',
+          'application-mode'
+        ].includes(action)
+      )
+        return localWebApplicationAction(deps, request);
+      return comparisonTaskAction(deps, request);
+    } catch (error) {
+      return new Promise(() => {
+        throw error;
+      });
+    }
   };
 }

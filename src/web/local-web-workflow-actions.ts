@@ -185,20 +185,26 @@ async function recordOutcome(deps: LocalWebWorkflowActionDependencies, request: 
   return deps.taskDto(id);
 }
 
-// A redundant async wrapper changes initial observation ordering.
+// Async leaves own the handoff; synchronous failures need the same rejected-promise boundary.
 export function localWebWorkflowAction(deps: LocalWebWorkflowActionDependencies, request: LocalWebScopedTaskAction) {
-  const { id, action, input, setup } = request;
-  const { store, metadata, taskDto } = deps;
-  if (action === 'ticket') {
-    const ticket = issueExternalStartTicket(store, setup);
-    metadata.setStartup(id, { ticket_id: ticket.ticket_id, start_command: ticket.start_command });
-  } else if (action === 'connect') return connectLegacySource(deps, request);
-  else if (action === 'session-connect') return connectBinding(deps, request);
-  else if (action === 'observe') observeLegacySource(deps, request);
-  else if (['pause', 'revoke-collection', 'resume-binding', 'emergency-stop', 'recover'].includes(action)) {
-    return measurementControl(deps, request);
-  } else if (action === 'release') releaseExternalWorkflow(store, id, input.external_session_stopped === true);
-  else if (action === 'rework' || action.startsWith('finish-')) return recordOutcome(deps, request);
-  else throw new Error('invalid_ui_request');
-  return Promise.resolve(taskDto(id));
+  try {
+    const { id, action, input, setup } = request;
+    const { store, metadata, taskDto } = deps;
+    if (action === 'ticket') {
+      const ticket = issueExternalStartTicket(store, setup);
+      metadata.setStartup(id, { ticket_id: ticket.ticket_id, start_command: ticket.start_command });
+    } else if (action === 'connect') return connectLegacySource(deps, request);
+    else if (action === 'session-connect') return connectBinding(deps, request);
+    else if (action === 'observe') observeLegacySource(deps, request);
+    else if (['pause', 'revoke-collection', 'resume-binding', 'emergency-stop', 'recover'].includes(action)) {
+      return measurementControl(deps, request);
+    } else if (action === 'release') releaseExternalWorkflow(store, id, input.external_session_stopped === true);
+    else if (action === 'rework' || action.startsWith('finish-')) return recordOutcome(deps, request);
+    else throw new Error('invalid_ui_request');
+    return Promise.resolve(taskDto(id));
+  } catch (error) {
+    return new Promise(() => {
+      throw error;
+    });
+  }
 }

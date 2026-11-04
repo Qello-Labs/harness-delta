@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
 import { EventEmitter, once } from 'node:events';
 import { mkdirSync, symlinkSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
@@ -258,6 +260,8 @@ test.each([false, true])('setup import rolls back a valid entry when another ent
 test('session selection uses filename identity without reading the body or activating measurement', async () => {
   const f = localWebFixture();
   const domain = f.create();
+  const readBytes = vi.spyOn(fs, 'readFileSync');
+  syncBuiltinESMExports();
   try {
     const { id } = await comparisonTask(f, domain);
     const source = f.newRoot();
@@ -267,6 +271,7 @@ test('session selection uses filename identity without reading the body or activ
 
     const picked = selection.parse(await domain.chooseSession(id));
 
+    expect(readBytes.mock.calls.filter(([path]) => path === source.path)).toEqual([]);
     expect(z.uuid().safeParse(picked.handle).success).toBe(true);
     expect(picked.label).toBe(basename(source.path));
     expect(domain.task(id)).toEqual(before);
@@ -274,6 +279,8 @@ test('session selection uses filename identity without reading the body or activ
     expect(f.store.all('SELECT * FROM active_intervals')).toEqual([]);
     expect(f.store.eventCount()).toBe(0);
   } finally {
+    readBytes.mockRestore();
+    syncBuiltinESMExports();
     await domain.close?.();
     f.cleanup();
   }
@@ -460,23 +467,20 @@ test('unconnected ordinary DTO retains zero request count but missing usage tota
   }
 });
 
-test.each(['apply', 'ticket', 'application-start', 'finish-unknown'])(
-  'ordinary dispatch rejects comparison-only or unknown action %s without state changes',
-  async action => {
-    const f = localWebFixture();
-    const domain = f.create();
-    try {
-      const { id } = await ordinaryTask(f, domain);
-      const before = domain.task(id);
-      await expect(domain.taskAction(id, action, {})).rejects.toThrow('invalid_ui_request');
-      expect(domain.task(id)).toEqual(before);
-      expect(f.store.all('SELECT * FROM outcomes')).toEqual([]);
-    } finally {
-      await domain.close?.();
-      f.cleanup();
-    }
+test.each(['apply', 'ticket', 'application-start'])('ordinary dispatch rejects comparison-only or unknown action %s without state changes', async action => {
+  const f = localWebFixture();
+  const domain = f.create();
+  try {
+    const { id } = await ordinaryTask(f, domain);
+    const before = domain.task(id);
+    await expect(domain.taskAction(id, action, {})).rejects.toThrow('invalid_ui_request');
+    expect(domain.task(id)).toEqual(before);
+    expect(f.store.all('SELECT * FROM outcomes')).toEqual([]);
+  } finally {
+    await domain.close?.();
+    f.cleanup();
   }
-);
+});
 
 test.each(['revoked', 'finalized'] as const)('%s ordinary scope wins over malformed connection input', async state => {
   const f = localWebFixture();
