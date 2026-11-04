@@ -2,11 +2,11 @@ import { afterEach, expect, test } from 'vitest';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { Store } from '../src/store.js';
-import { Lifecycle } from '../src/lifecycle.js';
-import { OtelReceiver } from '../src/otel-receiver.js';
-import { claudeTelemetryEnv, codexOtelOverrides, writeClaudeSettingsFile, type TelemetryDestination } from '../src/otel-launch-settings.js';
-import { launchSessionId, profile, syntheticVersion } from './helpers/otel-fixture.js';
+import { Store } from '../../src/store.js';
+import { Lifecycle } from '../../src/lifecycle.js';
+import { OtelReceiver } from '../../src/sources/otel-receiver.js';
+import { claudeTelemetryEnv, codexOtelOverrides, writeClaudeSettingsFile, type TelemetryDestination } from '../../src/sources/otel-launch-settings.js';
+import { launchSessionId, profile, syntheticVersion } from '../helpers/otel-fixture.js';
 
 const resources: (() => void | Promise<void>)[] = [];
 afterEach(async () => {
@@ -236,6 +236,6 @@ test('rejects a non-loopback Codex endpoint and accepts no credentials', () => {
 });
 
 test('is not exported from the package entry point', async () => {
-  const api = await import('../src/index.js');
+  const api = await import('../../src/index.js');
   expect(Object.keys(api).filter(name => /telemetry|settings|otel/i.test(name))).toEqual([]);
 });

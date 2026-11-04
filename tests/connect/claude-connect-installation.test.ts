@@ -17,14 +17,14 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { afterEach, expect, test, vi } from 'vitest';
-import { hashBytes } from '../src/harness/harness-config.js';
+import { hashBytes } from '../../src/harness/harness-config.js';
 import {
   installClaudeConnectInstallation as install,
   previewClaudeConnectInstallation as preview,
   removeClaudeConnectInstallation as remove,
   statusClaudeConnectInstallation as status
-} from '../src/claude-connect-installation.js';
-import { recoverClaudeConnectInstallationLock as recover } from '../src/claude-connect-installation.js';
+} from '../../src/connect/claude-connect-installation.js';
+import { recoverClaudeConnectInstallationLock as recover } from '../../src/connect/claude-connect-installation.js';
 
 const fault = vi.hoisted(() => ({ manifest: false, drift: false, rollbackDrift: false }));
 vi.mock('node:fs', async importOriginal => {

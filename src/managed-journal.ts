@@ -3,7 +3,16 @@ import { IdSchema, TaskMetadataSchema, TimestampSchema } from './contracts.js';
 import { mergeCoverageFacts, type CoverageEvidence, type CoverageMetric, type EvidenceState } from './coverage.js';
 import type { Clock, TaskRow } from './lifecycle.js';
 import type { Store } from './store.js';
-import { initialFacts, isOpen, ManagedFailure, type Facts, type RunInput, type RunRow, type StopReason, type UsageEnvelope } from './managed-protocol.js';
+import {
+  initialFacts,
+  isOpen,
+  ManagedFailure,
+  type Facts,
+  type RunInput,
+  type RunRow,
+  type StopReason,
+  type UsageEnvelope
+} from './sources/managed-protocol.js';
 
 // Database JSON uses snake_case; B1's internal TypeScript fact names stay camelCase.
 const factFields = {

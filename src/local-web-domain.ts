@@ -84,7 +84,7 @@ import {
 import { ordinaryProjectAction, ordinaryProjectDto } from './local-web-ordinary.js';
 import { createOrdinarySessionBindingService } from './ordinary-session-binding.js';
 import { getClaudeBindingAdmission } from './claude-binding-admission.js';
-import { inspectClaudeProjectSkill, inspectOrdinaryClaudeProjectSkill } from './claude-connect-readiness.js';
+import { inspectClaudeProjectSkill, inspectOrdinaryClaudeProjectSkill } from './connect/claude-connect-readiness.js';
 import { codexReceiptDirectoryState, createCodexProjectSetupManager } from './local-web-codex.js';
 
 const identifier = z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,199}$/);

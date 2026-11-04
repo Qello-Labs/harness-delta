@@ -5,7 +5,7 @@ import { createServer, type Socket } from 'node:net';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { z } from 'zod';
 import { Collector, readSource } from '../collection.js';
-import { BoundedCandidateInvocation, MAX_CANDIDATE_DURATION_MS } from '../bounded-candidate-invocation.js';
+import { BoundedCandidateInvocation, MAX_CANDIDATE_DURATION_MS } from '../workflow/bounded-candidate-invocation.js';
 import { Lifecycle, utcNow } from '../lifecycle.js';
 import { authorizeCandidateScope, type CandidateScope } from '../nested-candidate.js';
 import { parseTaskMetadata } from '../flexible-contracts.js';

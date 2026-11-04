@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { z } from 'zod';
 import { createLocalWebDomain } from '../src/local-web-domain.js';
 import { createLocalWebServer } from '../src/local-web-server.js';
-import { installClaudeConnectInstallation } from '../src/claude-connect-installation.js';
+import { installClaudeConnectInstallation } from '../src/connect/claude-connect-installation.js';
 import { ordinaryBindingFixture } from './helpers/ordinary-session-binding-fixture.js';
 import { ClaudeConnection } from '../ui/src/ClaudeConnection.js';
 import { claudeConnectionStage, claudeConnectPrompt } from '../ui/src/claude-connection-state.js';

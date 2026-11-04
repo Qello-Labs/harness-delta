@@ -1,7 +1,7 @@
 import { closeSync, constants, fstatSync, lstatSync, openSync, readSync } from 'node:fs';
 import { join, parse, resolve, sep } from 'node:path';
 import { statusClaudeConnectInstallation, type ClaudeConnectInstallationOptions } from './claude-connect-installation.js';
-import { packagedSkillPath } from './package-paths.js';
+import { packagedSkillPath } from '../package-paths.js';
 
 export type ClaudeProjectSkillReadiness =
   | { readonly state: 'installed'; readonly reason: null; readonly install_command: null }

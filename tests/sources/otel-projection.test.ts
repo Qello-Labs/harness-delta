@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
-import { decodeLogsRequest, projectRecord } from '../src/otel-projection.js';
-import { apiError, apiRequest, assistantResponse, logRecord, logsRequest, profile, sessionStart, userPrompt } from './helpers/otel-fixture.js';
+import { decodeLogsRequest, projectRecord } from '../../src/sources/otel-projection.js';
+import { apiError, apiRequest, assistantResponse, logRecord, logsRequest, profile, sessionStart, userPrompt } from '../helpers/otel-fixture.js';
 
 const options = { processId: 'process-1' };
 const forbidden = [

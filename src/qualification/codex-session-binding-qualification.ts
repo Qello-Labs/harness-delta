@@ -20,7 +20,7 @@ import {
   codexBindingQualificationCodeModeHost
 } from './codex-binding-qualification-versions.js';
 import { CodexSessionBindingProvider } from '../session-binding-codex.js';
-import { OwnedCliInvocation, type OwnedCliResult } from '../owned-cli-invocation.js';
+import { OwnedCliInvocation, type OwnedCliResult } from '../connect/owned-cli-invocation.js';
 import {
   assertBindingQualification,
   bindingQualificationCompatibility,

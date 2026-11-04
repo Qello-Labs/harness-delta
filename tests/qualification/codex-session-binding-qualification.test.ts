@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { expect, test, vi } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
-import { OwnedCliInvocation } from '../../src/owned-cli-invocation.js';
+import { OwnedCliInvocation } from '../../src/connect/owned-cli-invocation.js';
 import {
   prepareCodexSessionBindingQualification,
   executeCodexSessionBindingQualification,

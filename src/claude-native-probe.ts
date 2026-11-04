@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { closeSync, constants, fsyncSync, lstatSync, openSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { IdSchema } from './contracts.js';
-import { claudeTelemetryEnv, type TelemetryDestination } from './otel-launch-settings.js';
+import { claudeTelemetryEnv, type TelemetryDestination } from './sources/otel-launch-settings.js';
 import { claudeProbeProductVersion, isClaudeWorkflowProductVersion } from './claude-workflow-versions.js';
 
 export interface ClaudeNativeProbeOptions {

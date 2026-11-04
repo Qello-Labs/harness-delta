@@ -8,7 +8,7 @@ import {
   removeClaudeConnectInstallation,
   statusClaudeConnectInstallation,
   recoverClaudeConnectInstallationLock
-} from './claude-connect-installation.js';
+} from './connect/claude-connect-installation.js';
 import { IdSchema } from './contracts.js';
 import { ordinaryProjectSettings, saveOrdinaryProjectSettings } from './ordinary-observation.js';
 import type { Store } from './store.js';

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { IdSchema, ModelSchema, ProductVersionSchema, TimestampSchema, TokenSchema } from './contracts.js';
+import { IdSchema, ModelSchema, ProductVersionSchema, TimestampSchema, TokenSchema } from '../contracts.js';
 
 /** Internal OTLP http/json log decoding and allowlist projection. No product support is claimed:
  * every accepted version needs an injected, separately validated profile. Raw attribute values

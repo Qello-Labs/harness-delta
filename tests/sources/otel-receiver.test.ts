@@ -3,11 +3,11 @@ import { request } from 'node:http';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Store } from '../src/store.js';
-import { Lifecycle } from '../src/lifecycle.js';
-import { Deletion } from '../src/deletion.js';
-import { aggregateTask } from '../src/metrics.js';
-import { OtelReceiver } from '../src/otel-receiver.js';
+import { Store } from '../../src/store.js';
+import { Lifecycle } from '../../src/lifecycle.js';
+import { Deletion } from '../../src/deletion.js';
+import { aggregateTask } from '../../src/metrics.js';
+import { OtelReceiver } from '../../src/sources/otel-receiver.js';
 import {
   apiError,
   apiRequest,
@@ -19,7 +19,7 @@ import {
   sessionStart,
   syntheticVersion,
   userPrompt
-} from './helpers/otel-fixture.js';
+} from '../helpers/otel-fixture.js';
 
 const resources: (() => void | Promise<void>)[] = [];
 afterEach(async () => {
@@ -626,7 +626,7 @@ test('a session owned by another task cannot be adopted at launch', async () => 
 });
 
 test('the receiver is not exported from the package entry point', async () => {
-  const api = await import('../src/index.js');
+  const api = await import('../../src/index.js');
   expect(Object.keys(api).filter(name => /otel/i.test(name))).toEqual([]);
 });
 

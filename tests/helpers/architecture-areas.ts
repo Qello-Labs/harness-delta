@@ -15,13 +15,16 @@ const areas: readonly (readonly [string, RegExp])[] = [
   ['workflow', /^src\/(?:comparison\/)?config-confirmation-write\.ts$/],
   ['comparison', /^src\/(?:comparison\/)?(comparison|allocation|config-confirmation|reports\/|exchange\/)/],
   ['pricing', /^src\/(?:pricing\/)?(price|pricing|cost-coverage|catalog-cost|observed-cost|request-price|report-source-trust|metrics)/],
-  ['connect', /^src\/(codex-connect|claude-connect|claude-process-binary|owned-cli-invocation)/],
+  ['connect', /^src\/(?:connect\/)?(codex-connect|claude-connect|claude-process-binary|owned-cli-invocation)/],
   [
     'workflow',
-    /^src\/(task-workflow|external-session-|codex-workflow-|claude-workflow-|nested-candidate|bounded-candidate|codex-candidate-|codex-continuation)/
+    /^src\/(?:workflow\/)?(task-workflow|external-session-|codex-workflow-|claude-workflow-|nested-candidate|bounded-candidate|codex-candidate-|codex-continuation)/
   ],
   ['binding', /^src\/(session-binding-|ordinary-|binding-|codex-binding-admission|claude-binding-admission)/],
-  ['sources', /^src\/(adapters|adapter-profiles|collection|codex-rollout-policy|otel-|managed-|source-compatibility|agent-metadata|cache-write-ttl)/],
+  [
+    'sources',
+    /^src\/(?:sources\/)?(adapters|adapter-profiles|collection|codex-rollout-policy|otel-|managed-|source-compatibility|agent-metadata|cache-write-ttl)/
+  ],
   ['core', /^src\/(contracts|flexible-contracts|lifecycle|runtime-history|deletion|source-errors|readiness|store)/]
 ];
 

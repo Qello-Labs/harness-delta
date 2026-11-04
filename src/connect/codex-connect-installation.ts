@@ -3,10 +3,10 @@ import { lstatSync, mkdirSync, readdirSync, realpathSync, renameSync, rmdirSync,
 import type { Stats } from 'node:fs';
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { z } from 'zod';
-import { getCodexBindingAdmission } from './codex-binding-admission.js';
-import { durablePrivateBytes } from './harness/harness-application-files.js';
-import { hashBytes, readRepositoryFile, readStrictJson, safeRelativePath } from './harness/harness-config.js';
-import { packagePath, packagedSkillPath } from './package-paths.js';
+import { getCodexBindingAdmission } from '../codex-binding-admission.js';
+import { durablePrivateBytes } from '../harness/harness-application-files.js';
+import { hashBytes, readRepositoryFile, readStrictJson, safeRelativePath } from '../harness/harness-config.js';
+import { packagePath, packagedSkillPath } from '../package-paths.js';
 
 const destination = '.agents/skills/harness-connect';
 const metadata = '.harness-delta/codex-connect';

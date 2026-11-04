@@ -5,7 +5,7 @@ import { parseTaskMetadata } from './flexible-contracts.js';
 import { Lifecycle } from './lifecycle.js';
 import type { Store } from './store.js';
 import type { VerifiedSessionIdentity, BindingUsageRecord } from './session-binding-contract.js';
-import type { OwnedCliInvocation } from './owned-cli-invocation.js';
+import type { OwnedCliInvocation } from './connect/owned-cli-invocation.js';
 import { resolveSourceCompatibility } from './source-compatibility.js';
 import { codexBindingQualificationPolicies, codexBindingQualificationVersions } from './qualification/codex-binding-qualification-versions.js';
 

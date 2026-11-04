@@ -1,7 +1,7 @@
 import { defineConfig } from "vitest/config";
 
 const processBudgetTests = [
-  "tests/owned-cli-invocation.test.ts",
+  "tests/connect/owned-cli-invocation.test.ts",
   "tests/qualification/codex-session-binding-qualification.test.ts",
   "tests/codex-workflow-adapter.test.ts",
   "tests/codex-workflow-native-child.test.ts",

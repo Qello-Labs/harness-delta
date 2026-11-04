@@ -3,7 +3,14 @@ import { z } from 'zod';
 import { addTokens, IdSchema, ProductVersionSchema, TaskMetadataSchema, TimestampSchema } from './contracts.js';
 import { observed, unavailable } from './adapters.js';
 import { lockTask } from './managed-journal.js';
-import { projectRecord, profileSchema, type DecodedRecord, type OtelVersionProfile, type ProjectedRecord, type UsageFields } from './otel-projection.js';
+import {
+  projectRecord,
+  profileSchema,
+  type DecodedRecord,
+  type OtelVersionProfile,
+  type ProjectedRecord,
+  type UsageFields
+} from './sources/otel-projection.js';
 import type { Store } from './store.js';
 
 /** Internal OTel receiver journal. It accepts only the injected profile's version and never

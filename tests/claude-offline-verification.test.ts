@@ -11,7 +11,7 @@ import { EventV2Schema, PriceTableSchema, type EventV2 } from '../src/flexible-c
 import { Lifecycle } from '../src/lifecycle.js';
 import { aggregateTaskCost } from '../src/metrics.js';
 import { ingestOtelLogs, registerOtelProcess } from '../src/otel-journal.js';
-import { decodeLogsRequest } from '../src/otel-projection.js';
+import { decodeLogsRequest } from '../src/sources/otel-projection.js';
 import { Store } from '../src/store.js';
 import { makeFlexibleFixture } from './helpers/flexible-fixture.js';
 import { seedFlexibleComparison } from './helpers/flexible-store.js';

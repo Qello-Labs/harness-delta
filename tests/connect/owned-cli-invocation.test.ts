@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { EventEmitter, once } from 'node:events';
 import { expect, test } from 'vitest';
 import { ModuleKind, ScriptTarget, transpileModule } from 'typescript';
-import { OwnedCliInvocation } from '../src/owned-cli-invocation.js';
+import { OwnedCliInvocation } from '../../src/connect/owned-cli-invocation.js';
 
 test('owned CLI accepts a fifteen-minute duration and verifies immediate normal exit', async () => {
   const result = await new OwnedCliInvocation({
@@ -142,15 +142,16 @@ test('inherited terminal forwards harmless manual input and restores its raw mod
     const dist = join(dir, 'dist');
     mkdirSync(dist);
     writeFileSync(join(dir, 'package.json'), JSON.stringify({ type: 'module' }));
-    symlinkSync(fileURLToPath(new URL('../node_modules', import.meta.url)), join(dir, 'node_modules'), 'dir');
-    symlinkSync(fileURLToPath(new URL('../scripts', import.meta.url)), join(dir, 'scripts'), 'dir');
-    for (const name of ['owned-cli-invocation', 'package-paths']) {
-      const compiled = transpileModule(readFileSync(new URL(`../src/${name}.ts`, import.meta.url), 'utf8'), {
+    symlinkSync(fileURLToPath(new URL('../../node_modules', import.meta.url)), join(dir, 'node_modules'), 'dir');
+    symlinkSync(fileURLToPath(new URL('../../scripts', import.meta.url)), join(dir, 'scripts'), 'dir');
+    for (const name of ['connect/owned-cli-invocation', 'package-paths']) {
+      const compiled = transpileModule(readFileSync(new URL(`../../src/${name}.ts`, import.meta.url), 'utf8'), {
         compilerOptions: { module: ModuleKind.ESNext, target: ScriptTarget.ES2023 }
       }).outputText;
+      mkdirSync(join(dist, name, '..'), { recursive: true });
       writeFileSync(join(dist, `${name}.js`), compiled);
     }
-    const source = join(dist, 'owned-cli-invocation.js');
+    const source = join(dist, 'connect/owned-cli-invocation.js');
     writeFileSync(
       runner,
       `import{OwnedCliInvocation}from${JSON.stringify(source)};const raw=process.stdin.isRaw??false;const result=await new OwnedCliInvocation({command:${JSON.stringify(realpathSync(process.execPath))},args:[${JSON.stringify(payload)}],cwd:${JSON.stringify(dir)},durationMs:4000,terminationMs:1500,termGraceMs:100,stdio:'inherit'}).run();console.log('OWNER-RESULT:'+JSON.stringify({...result,rawRestored:process.stdin.isRaw===raw}));`
@@ -258,7 +259,7 @@ test('slow exact-member metadata during teardown stays within the existing budge
     // Measure in the owner: control delivery, pre-cleanup discovery and Node result
     // scheduling are outside the production teardown budget. Keep its 5s limit.
     // Teardown cost grows per escaped group; three keep slow CI hosts inside it.
-    const source = readFileSync(fileURLToPath(new URL('../scripts/owned-cli-pty.py', import.meta.url)), 'utf8');
+    const source = readFileSync(fileURLToPath(new URL('../../scripts/owned-cli-pty.py', import.meta.url)), 'utf8');
     const metadataSignature = 'def metadata(pid, missing=None):\n';
     expect(source).toContain(metadataSignature);
     writeFileSync(
@@ -364,7 +365,7 @@ test('failed disappearance queries cannot verify termination even after the root
       script,
       `import{writeFileSync}from'node:fs';process.on('SIGTERM',()=>{});writeFileSync(${JSON.stringify(marker)},String(process.pid));setTimeout(()=>process.exit(0),5000);`
     );
-    const source = readFileSync(fileURLToPath(new URL('../scripts/owned-cli-pty.py', import.meta.url)), 'utf8');
+    const source = readFileSync(fileURLToPath(new URL('../../scripts/owned-cli-pty.py', import.meta.url)), 'utf8');
     writeFileSync(
       worker,
       source
@@ -418,7 +419,7 @@ for returncode,expired in [(0,False),(1,False),(2,False),(0,True)]:
  out.append({'returncode':returncode,'expired':expired,'coverage':ns['discover'](),'queries':len(calls)})
 print(json.dumps(out))`;
   const values = JSON.parse(
-    execFileSync(OwnedCliInvocation.pythonExecutable(), ['-c', code, fileURLToPath(new URL('../scripts/owned-cli-pty.py', import.meta.url))], {
+    execFileSync(OwnedCliInvocation.pythonExecutable(), ['-c', code, fileURLToPath(new URL('../../scripts/owned-cli-pty.py', import.meta.url))], {
       encoding: 'utf8'
     })
   ) as unknown;
@@ -454,7 +455,7 @@ for outcome in ['absent','live','timeout','malformed','reused_parent','query_err
  out.append({'outcome':outcome,'coverage':covered,'failed':ns['ownership_failed'],'members':sorted(ns['known']),'proofs':sorted(ns['proofs']),'absent':sorted(ns['absent']),'calls':calls})
 print(json.dumps(out))`;
   const result = JSON.parse(
-    execFileSync(OwnedCliInvocation.pythonExecutable(), ['-c', code, fileURLToPath(new URL('../scripts/owned-cli-pty.py', import.meta.url))], {
+    execFileSync(OwnedCliInvocation.pythonExecutable(), ['-c', code, fileURLToPath(new URL('../../scripts/owned-cli-pty.py', import.meta.url))], {
       encoding: 'utf8'
     })
   ) as unknown;
@@ -507,7 +508,7 @@ for outcome in ['absent','live','timeout','malformed','query_error','reused_pare
  out.append({'outcome':outcome,'coverage':covered,'failed':ns['ownership_failed'],'exhausted':ns['cleanup_exhausted'],'members':sorted(ns['known']),'proofs':sorted(ns['proofs']),'identities_unchanged':ns['known']=={42:root,43:parent},'proofs_unchanged':ns['proofs']=={42:None,43:root},'absent':sorted(ns['absent']),'calls':calls})
 print(json.dumps(out))`;
   const result: unknown = JSON.parse(
-    execFileSync(OwnedCliInvocation.pythonExecutable(), ['-c', code, fileURLToPath(new URL('../scripts/owned-cli-pty.py', import.meta.url))], {
+    execFileSync(OwnedCliInvocation.pythonExecutable(), ['-c', code, fileURLToPath(new URL('../../scripts/owned-cli-pty.py', import.meta.url))], {
       encoding: 'utf8'
     })
   );
@@ -545,7 +546,7 @@ exec(compile(ast.Module(body=[fn],type_ignores=[]),'<synthetic cleanup discovery
 coverage=ns['discover']()
 print(json.dumps({'coverage':coverage,'metadata':metadata_calls,'queries':queries,'members':sorted(ns['known']),'failed':ns['ownership_failed']}))`;
   const result = JSON.parse(
-    execFileSync(OwnedCliInvocation.pythonExecutable(), ['-c', code, fileURLToPath(new URL('../scripts/owned-cli-pty.py', import.meta.url))], {
+    execFileSync(OwnedCliInvocation.pythonExecutable(), ['-c', code, fileURLToPath(new URL('../../scripts/owned-cli-pty.py', import.meta.url))], {
       encoding: 'utf8'
     })
   ) as unknown;
@@ -595,7 +596,7 @@ ns['group_exists']=lambda g:g in alive
 exec(compile(ast.Module(body=cleanup,type_ignores=[]),'<synthetic owner cleanup>','exec'),ns)
 print(json.dumps({'result':result[0],'elapsedMs':round((clock[0]-100)*1000),'killCount':sum(s==signal.SIGKILL for p,s,t in signals),'firstKillMs':round(next(t for p,s,t in signals if s==signal.SIGKILL)*1000)}))`;
   const result = JSON.parse(
-    execFileSync(OwnedCliInvocation.pythonExecutable(), ['-c', code, fileURLToPath(new URL('../scripts/owned-cli-pty.py', import.meta.url))], {
+    execFileSync(OwnedCliInvocation.pythonExecutable(), ['-c', code, fileURLToPath(new URL('../../scripts/owned-cli-pty.py', import.meta.url))], {
       encoding: 'utf8'
     })
   ) as { result: unknown; elapsedMs: number; killCount: number; firstKillMs: number };
@@ -697,7 +698,7 @@ test('separate PTY owner survives observer exit and verifies root/member disappe
     const cfg = { command: realpathSync(process.execPath), args: [payload], cwd: dir, durationMs: 3000, terminationMs: 1500, termGraceMs: 100 };
     writeFileSync(
       observer,
-      `import{spawn}from'node:child_process';import{writeFileSync}from'node:fs';const w=spawn(${JSON.stringify(OwnedCliInvocation.pythonExecutable())},[${JSON.stringify(fileURLToPath(new URL('../scripts/owned-cli-pty.py', import.meta.url)))},${JSON.stringify(JSON.stringify(cfg))}],{stdio:['ignore','ignore','ignore','pipe']});writeFileSync(${JSON.stringify(workerPid)},String(w.pid));setTimeout(()=>process.exit(0),400);`
+      `import{spawn}from'node:child_process';import{writeFileSync}from'node:fs';const w=spawn(${JSON.stringify(OwnedCliInvocation.pythonExecutable())},[${JSON.stringify(fileURLToPath(new URL('../../scripts/owned-cli-pty.py', import.meta.url)))},${JSON.stringify(JSON.stringify(cfg))}],{stdio:['ignore','ignore','ignore','pipe']});writeFileSync(${JSON.stringify(workerPid)},String(w.pid));setTimeout(()=>process.exit(0),400);`
     );
     const observed = spawn(realpathSync(process.execPath), [observer], { stdio: 'ignore' });
     await expect
@@ -813,7 +814,7 @@ for case in ['proved','leaderless','foreign','identity_conflict','wrong_group','
  out.append({'case':case,'members':None if result is None else sorted(result),'failed':ns['ownership_failed']})
 print(json.dumps(out))`;
   const result = JSON.parse(
-    execFileSync(OwnedCliInvocation.pythonExecutable(), ['-c', code, fileURLToPath(new URL('../scripts/owned-cli-pty.py', import.meta.url))], {
+    execFileSync(OwnedCliInvocation.pythonExecutable(), ['-c', code, fileURLToPath(new URL('../../scripts/owned-cli-pty.py', import.meta.url))], {
       encoding: 'utf8'
     })
   ) as unknown;
@@ -836,7 +837,7 @@ present=ns['same'](record);ns['note_group_change'](None,record)
 print(json.dumps({'present':present,'ownership_failed':ns['ownership_failed'],'non_root_observed':ns['escape_seen']}))`;
   expect(
     JSON.parse(
-      execFileSync(OwnedCliInvocation.pythonExecutable(), ['-c', code, fileURLToPath(new URL('../scripts/owned-cli-pty.py', import.meta.url))], {
+      execFileSync(OwnedCliInvocation.pythonExecutable(), ['-c', code, fileURLToPath(new URL('../../scripts/owned-cli-pty.py', import.meta.url))], {
         encoding: 'utf8'
       })
     )
@@ -857,7 +858,7 @@ exec(compile(ast.Module(body=[send],type_ignores=[]),'<synthetic signal>','exec'
 print(json.dumps({'coverage':covered,'child_admitted':43 in ns['proofs'],'failed':ns['ownership_failed'],'individual_signals':signals,'group_signals':group_signals}))`;
   expect(
     JSON.parse(
-      execFileSync(OwnedCliInvocation.pythonExecutable(), ['-c', code, fileURLToPath(new URL('../scripts/owned-cli-pty.py', import.meta.url))], {
+      execFileSync(OwnedCliInvocation.pythonExecutable(), ['-c', code, fileURLToPath(new URL('../../scripts/owned-cli-pty.py', import.meta.url))], {
         encoding: 'utf8'
       })
     )

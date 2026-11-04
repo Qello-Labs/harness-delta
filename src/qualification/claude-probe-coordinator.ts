@@ -9,7 +9,7 @@ import {
   claudeWorkflowProfileId,
   isClaudeWorkflowProductVersion
 } from '../claude-workflow-versions.js';
-import { decodeLogsRequest, type DecodedRecord } from '../otel-projection.js';
+import { decodeLogsRequest, type DecodedRecord } from '../sources/otel-projection.js';
 import { recordObservationGap } from '../runtime-history.js';
 import type { Clock } from '../lifecycle.js';
 import type { Store } from '../store.js';

@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
-import { BoundedCandidateInvocation, MAX_CANDIDATE_DURATION_MS } from '../src/bounded-candidate-invocation.js';
+import { BoundedCandidateInvocation, MAX_CANDIDATE_DURATION_MS } from '../../src/workflow/bounded-candidate-invocation.js';
 
 function fixture() {
   const dir = mkdtempSync(join(tmpdir(), 'bounded-node-synthetic-'));

@@ -2,7 +2,7 @@ import { spawn, execFileSync } from 'node:child_process';
 import { realpathSync } from 'node:fs';
 import { isAbsolute } from 'node:path';
 import { z } from 'zod';
-import { packagePath } from './package-paths.js';
+import { packagePath } from '../package-paths.js';
 
 export interface OwnedCliOptions {
   command: string;

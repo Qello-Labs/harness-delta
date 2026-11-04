@@ -1,7 +1,7 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { IdSchema } from './contracts.js';
+import { IdSchema } from '../contracts.js';
 
 /** Internal per-invocation telemetry settings for one launched product process. It is not
  * exported from the package entry point, launches no process and edits no configuration.

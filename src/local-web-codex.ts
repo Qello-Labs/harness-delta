@@ -10,7 +10,7 @@ import {
   recoverCodexConnectInstallationLock,
   removeCodexConnectInstallation,
   statusCodexConnectInstallation
-} from './codex-connect-installation.js';
+} from './connect/codex-connect-installation.js';
 import { IdSchema } from './contracts.js';
 import { CodexSessionBindingProvider } from './session-binding-codex.js';
 import type { Store } from './store.js';

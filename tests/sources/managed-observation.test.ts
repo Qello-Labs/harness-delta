@@ -2,13 +2,13 @@ import { afterEach, expect, test } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Store } from '../src/store.js';
-import { Lifecycle } from '../src/lifecycle.js';
-import { Deletion } from '../src/deletion.js';
-import { aggregateTask } from '../src/metrics.js';
-import { Collector } from '../src/collection.js';
-import { ManagedObservation, recoverManagedRuns, taskManagedEvidence } from '../src/managed-observation.js';
-import type { ManagedProducer } from '../src/managed-protocol.js';
+import { Store } from '../../src/store.js';
+import { Lifecycle } from '../../src/lifecycle.js';
+import { Deletion } from '../../src/deletion.js';
+import { aggregateTask } from '../../src/metrics.js';
+import { Collector } from '../../src/collection.js';
+import { ManagedObservation, recoverManagedRuns, taskManagedEvidence } from '../../src/sources/managed-observation.js';
+import type { ManagedProducer } from '../../src/sources/managed-protocol.js';
 
 const resources: (() => void)[] = [];
 afterEach(() => {

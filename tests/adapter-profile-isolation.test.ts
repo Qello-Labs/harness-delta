@@ -24,8 +24,8 @@ test('production sources cannot see the conformance candidate', () => {
   expect(source).not.toContain('codex01580Candidate');
   expect(source).not.toContain('dangerously-bypass-hook-trust');
   expect(readFileSync('src/otel-journal.ts', 'utf8')).not.toContain('adapter-profiles');
-  expect(readFileSync('src/otel-projection.ts', 'utf8')).not.toContain('adapter-profiles');
-  expect(readFileSync('src/otel-receiver.ts', 'utf8')).not.toContain('adapter-profiles');
+  expect(readFileSync('src/sources/otel-projection.ts', 'utf8')).not.toContain('adapter-profiles');
+  expect(readFileSync('src/sources/otel-receiver.ts', 'utf8')).not.toContain('adapter-profiles');
   expect(lookupFileProfile('codex', codex01580Candidate.version)).toMatchObject({
     kind: 'registered',
     boundaryMode: 'settings_checkpoint',

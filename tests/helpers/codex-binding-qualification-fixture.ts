@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { vi } from 'vitest';
 import { prepareCodexSessionBindingQualification } from '../../src/qualification/codex-session-binding-qualification.js';
-import { OwnedCliInvocation } from '../../src/owned-cli-invocation.js';
+import { OwnedCliInvocation } from '../../src/connect/owned-cli-invocation.js';
 import { CodexSessionBindingProvider } from '../../src/session-binding-codex.js';
 import { createSessionBindingService } from '../../src/session-binding-service.js';
 import { issueCodexBindingLease } from '../../src/session-binding-qualification-lease.js';

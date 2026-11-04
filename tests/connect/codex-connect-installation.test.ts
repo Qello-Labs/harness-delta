@@ -17,15 +17,15 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, expect, test, vi } from 'vitest';
 import { z } from 'zod';
-import { hashBytes } from '../src/harness/harness-config.js';
+import { hashBytes } from '../../src/harness/harness-config.js';
 import {
   installCodexConnectInstallation as install,
   previewCodexConnectInstallation as preview,
   recoverCodexConnectInstallationLock as recover,
   removeCodexConnectInstallation as remove,
   statusCodexConnectInstallation as status
-} from '../src/codex-connect-installation.js';
-import type { CodexConnectInstallationOptions } from '../src/codex-connect-installation.js';
+} from '../../src/connect/codex-connect-installation.js';
+import type { CodexConnectInstallationOptions } from '../../src/connect/codex-connect-installation.js';
 
 const fault = vi.hoisted(() => ({ commit: false, concurrent: false, rollbackDrift: false }));
 vi.mock('node:fs', async importOriginal => {
