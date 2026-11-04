@@ -52,6 +52,7 @@ function prepareTask(deps: LocalWebTaskActionDependencies, request: LocalWebScop
   return taskDto(id);
 }
 
+// This async declaration owns the comparison promise; removing it changes rejection delivery.
 async function comparisonTaskAction(deps: LocalWebTaskActionDependencies, request: LocalWebScopedTaskAction) {
   const { action, record, id } = request;
   if (action === 'prepare' || action === 'apply') return prepareTask(deps, request);
