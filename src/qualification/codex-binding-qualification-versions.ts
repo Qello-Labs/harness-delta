@@ -1,4 +1,4 @@
-import { pinnedCodexWorkflowBinarySha } from './codex-workflow-adapter.js';
+import { pinnedCodexWorkflowBinarySha } from '../codex-workflow-adapter.js';
 import { createHash } from 'node:crypto';
 import { lstatSync, readFileSync, realpathSync } from 'node:fs';
 import { dirname, join } from 'node:path';

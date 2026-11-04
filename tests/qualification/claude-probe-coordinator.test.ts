@@ -1,9 +1,9 @@
 import { expect, test } from 'vitest';
-import { ClaudeProbeCoordinator, type ClaudeProbeOptions } from '../src/claude-probe-coordinator.js';
-import { Store } from '../src/store.js';
-import { attrs, receivedAt, span, startedAt, traceScope, traces } from './helpers/claude-trace-fixture.js';
-import { sessionCompatibility } from '../src/source-compatibility.js';
-import { claudeWorkflowChildProfileId, claudeWorkflowProfileId } from '../src/claude-workflow-versions.js';
+import { ClaudeProbeCoordinator, type ClaudeProbeOptions } from '../../src/qualification/claude-probe-coordinator.js';
+import { Store } from '../../src/store.js';
+import { attrs, receivedAt, span, startedAt, traceScope, traces } from '../helpers/claude-trace-fixture.js';
+import { sessionCompatibility } from '../../src/source-compatibility.js';
+import { claudeWorkflowChildProfileId, claudeWorkflowProfileId } from '../../src/claude-workflow-versions.js';
 
 const rootScope = { ...traceScope, sessions: traceScope.sessions.slice(0, 1) };
 function fixture(workflow?: ClaudeProbeOptions['workflow'], version = workflow ? '2.1.296' : '2.1.288') {

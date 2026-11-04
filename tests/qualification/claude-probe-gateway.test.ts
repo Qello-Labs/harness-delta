@@ -1,9 +1,9 @@
 import { expect, test } from 'vitest';
-import { startClaudeProbeGateway } from '../src/claude-probe-gateway.js';
-import { projectClaudeProbeHook } from '../src/claude-probe-hook-mediator.js';
-import { ClaudeProbeCoordinator } from '../src/claude-probe-coordinator.js';
-import { Store } from '../src/store.js';
-import { attrs, receivedAt, span, startedAt, traceScope, traces } from './helpers/claude-trace-fixture.js';
+import { startClaudeProbeGateway } from '../../src/qualification/claude-probe-gateway.js';
+import { projectClaudeProbeHook } from '../../src/qualification/claude-probe-hook-mediator.js';
+import { ClaudeProbeCoordinator } from '../../src/qualification/claude-probe-coordinator.js';
+import { Store } from '../../src/store.js';
+import { attrs, receivedAt, span, startedAt, traceScope, traces } from '../helpers/claude-trace-fixture.js';
 
 async function fixture(maxBodyBytes = 1024, hookError?: Error, durationMs = 120000) {
   let revoked = false;

@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Store } from '../src/store.js';
 import { main } from '../src/cli.js';
-import { prepareCodexWorkflowQualification, executeCodexWorkflowQualification } from '../src/codex-workflow-qualification.js';
+import { prepareCodexWorkflowQualification, executeCodexWorkflowQualification } from '../src/qualification/codex-workflow-qualification.js';
 import { expect, test, vi } from 'vitest';
 import { createCodexWorkflowAdapter, createSyntheticCodexWorkflowAdapter, pinnedCodexWorkflowBinarySha } from '../src/codex-workflow-adapter.js';
 import { codexNativeChildFixture as fixture } from './helpers/codex-native-child-fixture.js';

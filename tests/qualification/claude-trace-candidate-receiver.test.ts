@@ -1,8 +1,8 @@
 import { request } from 'node:http';
 import { expect, test } from 'vitest';
-import { ClaudeTraceCandidateReceiver } from '../src/claude-trace-candidate-receiver.js';
-import { Store } from '../src/store.js';
-import { receivedAt, seedTraceScope, startedAt, traceScope, traces } from './helpers/claude-trace-fixture.js';
+import { ClaudeTraceCandidateReceiver } from '../../src/qualification/claude-trace-candidate-receiver.js';
+import { Store } from '../../src/store.js';
+import { receivedAt, seedTraceScope, startedAt, traceScope, traces } from '../helpers/claude-trace-fixture.js';
 
 async function fixture(maxBodyBytes?: number) {
   const store = new Store(':memory:');

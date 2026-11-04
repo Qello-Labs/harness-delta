@@ -4,7 +4,7 @@ import { appendFileSync, mkdtempSync, mkdirSync, realpathSync, rmSync, writeFile
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { vi } from 'vitest';
-import { prepareCodexSessionBindingQualification } from '../../src/codex-session-binding-qualification.js';
+import { prepareCodexSessionBindingQualification } from '../../src/qualification/codex-session-binding-qualification.js';
 import { OwnedCliInvocation } from '../../src/owned-cli-invocation.js';
 import { CodexSessionBindingProvider } from '../../src/session-binding-codex.js';
 import { createSessionBindingService } from '../../src/session-binding-service.js';

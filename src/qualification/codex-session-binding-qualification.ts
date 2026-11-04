@@ -5,22 +5,22 @@ import { dirname, join, resolve } from 'node:path';
 import { z } from 'zod';
 import Database from 'better-sqlite3';
 import { isDeepStrictEqual } from 'node:util';
-import { Store } from './store.js';
-import { Lifecycle } from './lifecycle.js';
-import { registerVariant, freezeProtocol } from './comparison.js';
-import { comparisonProtocol, protocolRow } from './protocol-store.js';
-import { registerProtocolWithCatalogDefaults } from './price-catalog-selection.js';
-import { selectedArtifactSnapshot } from './configuration-evidence.js';
-import { createLocalWebDomain, LocalWebProfileSchema } from './local-web-domain.js';
-import { createLocalWebServer } from './local-web-server.js';
+import { Store } from '../store.js';
+import { Lifecycle } from '../lifecycle.js';
+import { registerVariant, freezeProtocol } from '../comparison.js';
+import { comparisonProtocol, protocolRow } from '../protocol-store.js';
+import { registerProtocolWithCatalogDefaults } from '../price-catalog-selection.js';
+import { selectedArtifactSnapshot } from '../configuration-evidence.js';
+import { createLocalWebDomain, LocalWebProfileSchema } from '../local-web-domain.js';
+import { createLocalWebServer } from '../local-web-server.js';
 import {
   codexBindingQualificationVersions,
   codexBindingQualificationBinarySha,
   codexBindingQualificationPolicies,
   codexBindingQualificationCodeModeHost
 } from './codex-binding-qualification-versions.js';
-import { CodexSessionBindingProvider } from './session-binding-codex.js';
-import { OwnedCliInvocation, type OwnedCliResult } from './owned-cli-invocation.js';
+import { CodexSessionBindingProvider } from '../session-binding-codex.js';
+import { OwnedCliInvocation, type OwnedCliResult } from '../owned-cli-invocation.js';
 import {
   assertBindingQualification,
   bindingQualificationCompatibility,
@@ -37,12 +37,12 @@ import {
   noteBindingQualificationTransition,
   noteQualificationCollectorError,
   type QualificationStopWitness
-} from './session-binding-qualification-lease.js';
-import { assertCompatibilityAllowed, resolveSourceCompatibility, sessionCompatibility } from './source-compatibility.js';
-import { getCodexBindingAdmission, isAdmittedCodexBindingProtocol } from './codex-binding-admission.js';
+} from '../session-binding-qualification-lease.js';
+import { assertCompatibilityAllowed, resolveSourceCompatibility, sessionCompatibility } from '../source-compatibility.js';
+import { getCodexBindingAdmission, isAdmittedCodexBindingProtocol } from '../codex-binding-admission.js';
 import { setTimeout as delay } from 'node:timers/promises';
-import { TimestampSchema } from './contracts.js';
-import { implementationPath, packagePath } from './package-paths.js';
+import { TimestampSchema } from '../contracts.js';
+import { implementationPath, packagePath } from '../package-paths.js';
 
 const hash = (value: string | Buffer) => createHash('sha256').update(value).digest('hex');
 const path = z
@@ -818,7 +818,7 @@ async function independentSourceCheck(
   });
   const identities = store
     .all<{ identity: string }>('SELECT identity FROM session_bindings WHERE task_id=?', [i.task_id])
-    .map(r => JSON.parse(r.identity) as import('./session-binding-contract.js').VerifiedSessionIdentity);
+    .map(r => JSON.parse(r.identity) as import('../session-binding-contract.js').VerifiedSessionIdentity);
   const root = identities.find(r => r.parentSessionId === null);
   if (!root || identities.length !== 1 + i.planned_children || identities.filter(r => r.parentSessionId === root.sessionId).length !== i.planned_children)
     throw new Error('binding_qualification_family_limit');
@@ -844,7 +844,7 @@ async function independentSourceCheck(
       agentId: null
     }))
   };
-  const records: import('./session-binding-contract.js').BindingUsageRecord[] = [];
+  const records: import('../session-binding-contract.js').BindingUsageRecord[] = [];
   for (const identity of identities) {
     active();
     if (JSON.stringify(await provider.resolveCurrent({ receipt: identity.identityEvidenceId })) !== JSON.stringify(identity))
@@ -886,7 +886,7 @@ async function independentSourceCheck(
     if (batch.gaps.length) throw new Error('binding_qualification_final_gap');
     records.push(...batch.records);
   }
-  const byKey = new Map<string, import('./session-binding-contract.js').BindingUsageRecord>();
+  const byKey = new Map<string, import('../session-binding-contract.js').BindingUsageRecord>();
   for (const record of records) {
     if (
       record.payload.model !== i.root_model ||
@@ -1018,7 +1018,7 @@ export async function executeCodexSessionBindingQualification(file: string, cons
     null;
   let stopWitness: QualificationStopWitness | null = null;
   const observerRestart = i.scenario ? { same_source: false, fresh_baseline: false, new_root_context_measured: false } : null;
-  let rootIdentity: import('./session-binding-contract.js').VerifiedSessionIdentity | null = null;
+  let rootIdentity: import('../session-binding-contract.js').VerifiedSessionIdentity | null = null;
   let pausedIdentity: string | null = null;
   let restartGeneration: number | null = null;
   let restartWindow: string | null = null;

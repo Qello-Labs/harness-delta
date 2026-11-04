@@ -15,14 +15,14 @@ import {
 } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { z } from 'zod';
-import { IdSchema, TaskMetadataSchema } from './contracts.js';
-import { RuntimeEvidenceSchema, UsageV2Schema } from './flexible-contracts.js';
-import { selectedArtifactSnapshot } from './configuration-evidence.js';
-import { Lifecycle } from './lifecycle.js';
-import { Store } from './store.js';
-import { pinnedCodexWorkflowBinarySha, runCodexQualificationPhase, verifyCodexWorkflowStartupContract } from './codex-workflow-adapter.js';
-import type { WorkflowAdapterResult, WorkflowExecutionContext } from './task-workflow.js';
-import { implementationExtension, implementationPath } from './package-paths.js';
+import { IdSchema, TaskMetadataSchema } from '../contracts.js';
+import { RuntimeEvidenceSchema, UsageV2Schema } from '../flexible-contracts.js';
+import { selectedArtifactSnapshot } from '../configuration-evidence.js';
+import { Lifecycle } from '../lifecycle.js';
+import { Store } from '../store.js';
+import { pinnedCodexWorkflowBinarySha, runCodexQualificationPhase, verifyCodexWorkflowStartupContract } from '../codex-workflow-adapter.js';
+import type { WorkflowAdapterResult, WorkflowExecutionContext } from '../task-workflow.js';
+import { implementationExtension, implementationPath } from '../package-paths.js';
 
 const hash = (data: string | Buffer) => createHash('sha256').update(data).digest('hex');
 const sha = z.string().regex(/^[a-f0-9]{64}$/);
@@ -125,7 +125,7 @@ function durable(file: string, value: unknown) {
 }
 function implementationDigest() {
   const names = [
-    'codex-workflow-qualification',
+    'qualification/codex-workflow-qualification',
     'codex-workflow-adapter',
     'codex-workflow-journal',
     'codex-candidate-rollout',

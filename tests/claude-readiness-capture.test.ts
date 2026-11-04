@@ -6,7 +6,7 @@ import { join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import Database from 'better-sqlite3';
 import { expect, test } from 'vitest';
-import { createReadinessProbeSink } from '../src/binding-readiness-probe.js';
+import { createReadinessProbeSink } from '../src/qualification/binding-readiness-probe.js';
 
 function fixture() {
   const root = mkdtempSync(join(tmpdir(), 'hd-synthetic-readiness-wrapper-'));
@@ -48,7 +48,7 @@ function fixture() {
   const audit = join(root, 'audit.jsonl');
   writeFileSync(audit, '', { mode: 0o600 });
   const configPath = join(root, 'config.json');
-  const module = resolve('dist/binding-readiness-probe.js');
+  const module = resolve('dist/qualification/binding-readiness-probe.js');
   const config = {
     database,
     databaseModule: resolve('node_modules/better-sqlite3/lib/index.js'),

@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { closeSync, openSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import { IdSchema, ModelSchema } from './contracts.js';
-import { CodexFailureClassifier, type CodexFailureSummary } from './codex-failure-diagnostics.js';
+import { CodexFailureClassifier, type CodexFailureSummary } from './qualification/codex-failure-diagnostics.js';
 
 export const MAX_CANDIDATE_DURATION_MS = 180_000;
 export interface CandidateInvocationExpectation {

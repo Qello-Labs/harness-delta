@@ -8,21 +8,21 @@ import {
   prepareCodexSessionBindingQualification,
   codexBindingQualificationArgv,
   executeCodexSessionBindingQualification
-} from '../src/codex-session-binding-qualification.js';
-import { CodexSessionBindingProvider } from '../src/session-binding-codex.js';
-import { bindingSourceSupported, createSessionBindingService } from '../src/session-binding-service.js';
+} from '../../src/qualification/codex-session-binding-qualification.js';
+import { CodexSessionBindingProvider } from '../../src/session-binding-codex.js';
+import { bindingSourceSupported, createSessionBindingService } from '../../src/session-binding-service.js';
 import {
   checkBindingQualificationIdentity,
   qualificationRecordedRequests,
   qualificationStopReached,
   qualificationStopWitness
-} from '../src/session-binding-qualification-lease.js';
-import { Store } from '../src/store.js';
-import { protocolRow } from '../src/protocol-store.js';
-import { effectiveSourceCompatibility, sessionCompatibility } from '../src/source-compatibility.js';
-import { externalTaskState } from '../src/external-session-service.js';
-import { runExternalWorkflow } from '../src/external-session-workflow.js';
-import { leaseBindingQualificationFixture, prepareBindingQualificationFixture } from './helpers/codex-binding-qualification-fixture.js';
+} from '../../src/session-binding-qualification-lease.js';
+import { Store } from '../../src/store.js';
+import { protocolRow } from '../../src/protocol-store.js';
+import { effectiveSourceCompatibility, sessionCompatibility } from '../../src/source-compatibility.js';
+import { externalTaskState } from '../../src/external-session-service.js';
+import { runExternalWorkflow } from '../../src/external-session-workflow.js';
+import { leaseBindingQualificationFixture, prepareBindingQualificationFixture } from '../helpers/codex-binding-qualification-fixture.js';
 
 const cleanups: (() => void)[] = [];
 afterEach(() => {

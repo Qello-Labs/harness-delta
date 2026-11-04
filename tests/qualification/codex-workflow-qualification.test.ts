@@ -3,10 +3,10 @@ import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { Store } from '../src/store.js';
-import { prepareCodexWorkflowQualification, executeCodexWorkflowQualification } from '../src/codex-workflow-qualification.js';
-import { productionSourceEvidence } from '../src/readiness.js';
-import { compiledWorker } from './helpers/compiled-worker.js';
+import { Store } from '../../src/store.js';
+import { prepareCodexWorkflowQualification, executeCodexWorkflowQualification } from '../../src/qualification/codex-workflow-qualification.js';
+import { productionSourceEvidence } from '../../src/readiness.js';
+import { compiledWorker } from '../helpers/compiled-worker.js';
 
 function fixture(mode = 'success', durationMs = 180000) {
   const root = realpathSync(mkdtempSync('/tmp/hdwq-test-'));
@@ -152,7 +152,7 @@ test('built manual CLI prepare and execute produce the same full synthetic evide
     const entry = join(f.root, 'entry.mjs');
     writeFileSync(
       entry,
-      `import {prepareCodexWorkflowQualification,executeCodexWorkflowQualification} from ${JSON.stringify(join(compiled, 'codex-workflow-qualification.js'))};import {readFileSync} from 'node:fs';const [command,path,json]=process.argv.slice(2);const dependencies=${JSON.stringify(f.dependencies)};console.log(JSON.stringify(command==='prepare'?prepareCodexWorkflowQualification(path,JSON.parse(readFileSync(json,'utf8')),dependencies):await executeCodexWorkflowQualification(path,JSON.parse(readFileSync(json,'utf8')),dependencies)));`
+      `import {prepareCodexWorkflowQualification,executeCodexWorkflowQualification} from ${JSON.stringify(join(compiled, 'qualification/codex-workflow-qualification.js'))};import {readFileSync} from 'node:fs';const [command,path,json]=process.argv.slice(2);const dependencies=${JSON.stringify(f.dependencies)};console.log(JSON.stringify(command==='prepare'?prepareCodexWorkflowQualification(path,JSON.parse(readFileSync(json,'utf8')),dependencies):await executeCodexWorkflowQualification(path,JSON.parse(readFileSync(json,'utf8')),dependencies)));`
     );
     const run = (args: string[]) =>
       new Promise<string>((ok, no) => {

@@ -4,13 +4,18 @@ import { chmodSync, mkdirSync, readFileSync, readdirSync, realpathSync, statSync
 import { createServer, type Socket } from 'node:net';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { z } from 'zod';
-import { Collector, readSource } from './collection.js';
-import { BoundedCandidateInvocation, MAX_CANDIDATE_DURATION_MS } from './bounded-candidate-invocation.js';
-import { Lifecycle, utcNow } from './lifecycle.js';
-import { authorizeCandidateScope, type CandidateScope } from './nested-candidate.js';
-import { parseTaskMetadata } from './flexible-contracts.js';
-import { checkCandidatePermissions, CandidatePermissionFailure, type CandidateWireMode, type CandidatePermissionField } from './codex-candidate-permissions.js';
-import type { Store } from './store.js';
+import { Collector, readSource } from '../collection.js';
+import { BoundedCandidateInvocation, MAX_CANDIDATE_DURATION_MS } from '../bounded-candidate-invocation.js';
+import { Lifecycle, utcNow } from '../lifecycle.js';
+import { authorizeCandidateScope, type CandidateScope } from '../nested-candidate.js';
+import { parseTaskMetadata } from '../flexible-contracts.js';
+import {
+  checkCandidatePermissions,
+  CandidatePermissionFailure,
+  type CandidateWireMode,
+  type CandidatePermissionField
+} from '../codex-candidate-permissions.js';
+import type { Store } from '../store.js';
 
 /** Internal source-qualified 0.160 lane; absent from public exports/CLI/admission.
  * prepare() does no product execution. run() is the explicit paid-run boundary.

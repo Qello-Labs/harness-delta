@@ -1,18 +1,18 @@
-import { resolveSourceCompatibility, pinSessionCompatibility, invalidateCompatibility } from './source-compatibility.js';
+import { resolveSourceCompatibility, pinSessionCompatibility, invalidateCompatibility } from '../source-compatibility.js';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
-import { IdSchema, TimestampSchema } from './contracts.js';
-import { authorizeClaudeTraceScope, ingestClaudeTraceBatch, type ClaudeTraceBatchResult } from './claude-trace-candidate.js';
-import type { CandidateScope, ClaudeTraceProductVersion } from './nested-candidate.js';
+import { IdSchema, TimestampSchema } from '../contracts.js';
+import { authorizeClaudeTraceScope, ingestClaudeTraceBatch, type ClaudeTraceBatchResult } from '../claude-trace-candidate.js';
+import type { CandidateScope, ClaudeTraceProductVersion } from '../nested-candidate.js';
 import {
   claudeProbeProductVersion,
   claudeWorkflowChildProfileId,
   claudeWorkflowProfileId,
   isClaudeWorkflowProductVersion
-} from './claude-workflow-versions.js';
-import { decodeLogsRequest, type DecodedRecord } from './otel-projection.js';
-import { recordObservationGap } from './runtime-history.js';
-import type { Clock } from './lifecycle.js';
-import type { Store } from './store.js';
+} from '../claude-workflow-versions.js';
+import { decodeLogsRequest, type DecodedRecord } from '../otel-projection.js';
+import { recordObservationGap } from '../runtime-history.js';
+import type { Clock } from '../lifecycle.js';
+import type { Store } from '../store.js';
 
 const object = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const hash = (v: string) => createHash('sha256').update(v).digest();

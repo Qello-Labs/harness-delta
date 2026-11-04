@@ -1,11 +1,11 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { closeSync, constants, fstatSync, openSync, readSync, realpathSync, readdirSync, statSync } from 'node:fs';
-import { ClaudeProbeCoordinator } from './claude-probe-coordinator.js';
+import { ClaudeProbeCoordinator } from './qualification/claude-probe-coordinator.js';
 import { prepareClaudeNativeProbe, reserveClaudeProbeAction } from './claude-native-probe.js';
 import type { ClaudeNativeProbeOptions, ClaudeWorkflowInvocation } from './claude-native-probe.js';
-import { prepareClaudeProbeHookMediator } from './claude-probe-hook-mediator.js';
-import { startClaudeProbeGateway, type ClaudeProbeStopDiagnostic } from './claude-probe-gateway.js';
+import { prepareClaudeProbeHookMediator } from './qualification/claude-probe-hook-mediator.js';
+import { startClaudeProbeGateway, type ClaudeProbeStopDiagnostic } from './qualification/claude-probe-gateway.js';
 import type { CandidateScope } from './nested-candidate.js';
 import { claudeProbeProductVersion, isClaudeWorkflowProductVersion } from './claude-workflow-versions.js';
 import { utcNow } from './lifecycle.js';

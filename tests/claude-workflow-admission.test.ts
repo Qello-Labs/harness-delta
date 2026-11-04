@@ -97,14 +97,14 @@ test('workspace-edit refuses harness files the model could edit inside the proje
     symlinkSync(target, join(outside, 'mediator.js'));
     const cases: Record<string, unknown>[] = [
       { workspace: join(f.project, 'workspace') },
-      { mediator_path: join(f.project, 'dist', 'claude-probe-hook-mediator.js') },
+      { mediator_path: join(f.project, 'dist', 'qualification/claude-probe-hook-mediator.js') },
       { prompt_file: prompt },
       { binary: { ...f.execution.binary, path: insideBinary } },
       { mediator_path: join(outside, 'mediator.js') }
     ];
     // A case-insensitive volume reaches the same directory through another spelling.
     const alias = join(dirname(f.project), basename(f.project).toUpperCase());
-    if (existsSync(alias)) cases.push({ mediator_path: join(alias, 'dist', 'claude-probe-hook-mediator.js') });
+    if (existsSync(alias)) cases.push({ mediator_path: join(alias, 'dist', 'qualification/claude-probe-hook-mediator.js') });
     for (const inside of cases)
       await expect(
         runAssignedWorkflow(f.store, f.input, createClaudeWorkflowAdapter(f.store, { ...f.execution, ...inside }), { model: null, effort: null })

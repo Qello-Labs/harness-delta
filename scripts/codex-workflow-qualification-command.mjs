@@ -1,7 +1,7 @@
 // Internal manual entry. prepare never starts a product; execute requires fresh
 // separately obtained model + transient harness/hook + marker-validation consent.
 import {readFileSync} from 'node:fs';
-import {prepareCodexWorkflowQualification,executeCodexWorkflowQualification} from '../dist/codex-workflow-qualification.js';
+import {prepareCodexWorkflowQualification,executeCodexWorkflowQualification} from '../dist/qualification/codex-workflow-qualification.js';
 const [command,...args]=process.argv.slice(2);
 try{
   if(Number(process.versions.node.split('.')[0])!==24)throw new Error('node24_required');

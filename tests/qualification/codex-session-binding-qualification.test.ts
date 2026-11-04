@@ -7,36 +7,36 @@ import { tmpdir } from 'node:os';
 import { expect, test, vi } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
-import { OwnedCliInvocation } from '../src/owned-cli-invocation.js';
+import { OwnedCliInvocation } from '../../src/owned-cli-invocation.js';
 import {
   prepareCodexSessionBindingQualification,
   executeCodexSessionBindingQualification,
   codexBindingQualificationArgv,
   serveCodexSessionBindingQualificationUiPreparation,
   serveCodexSessionBindingQualificationResults
-} from '../src/codex-session-binding-qualification.js';
-import { createLocalWebDomain } from '../src/local-web-domain.js';
+} from '../../src/qualification/codex-session-binding-qualification.js';
+import { createLocalWebDomain } from '../../src/local-web-domain.js';
 import {
   assertBindingQualification,
   issueCodexBindingLease,
   noteQualificationCollectorError,
   qualificationCollectorError
-} from '../src/session-binding-qualification-lease.js';
-import * as qualificationLease from '../src/session-binding-qualification-lease.js';
-import { Store } from '../src/store.js';
-import { EventSchema, SourceCompatibilitySchema } from '../src/contracts.js';
+} from '../../src/session-binding-qualification-lease.js';
+import * as qualificationLease from '../../src/session-binding-qualification-lease.js';
+import { Store } from '../../src/store.js';
+import { EventSchema, SourceCompatibilitySchema } from '../../src/contracts.js';
 import { z } from 'zod';
-import * as priceSelection from '../src/price-catalog-selection.js';
-import * as localWeb from '../src/local-web-domain.js';
-import * as localServer from '../src/local-web-server.js';
-import { command as runFixtureCommand } from '../src/instrumented-codex/instrumented-codex-qualification.js';
-import { createSessionBindingService } from '../src/session-binding-service.js';
-import { CodexSessionBindingProvider } from '../src/session-binding-codex.js';
-import { comparisonProtocol, protocolRow } from '../src/protocol-store.js';
-import * as bindingService from '../src/session-binding-service.js';
+import * as priceSelection from '../../src/price-catalog-selection.js';
+import * as localWeb from '../../src/local-web-domain.js';
+import * as localServer from '../../src/local-web-server.js';
+import { command as runFixtureCommand } from '../../src/instrumented-codex/instrumented-codex-qualification.js';
+import { createSessionBindingService } from '../../src/session-binding-service.js';
+import { CodexSessionBindingProvider } from '../../src/session-binding-codex.js';
+import { comparisonProtocol, protocolRow } from '../../src/protocol-store.js';
+import * as bindingService from '../../src/session-binding-service.js';
 import Database from 'better-sqlite3';
-import { codexBindingAdmission } from '../src/codex-binding-admission.js';
-import { prepareBindingQualificationFixture } from './helpers/codex-binding-qualification-fixture.js';
+import { codexBindingAdmission } from '../../src/codex-binding-admission.js';
+import { prepareBindingQualificationFixture } from '../helpers/codex-binding-qualification-fixture.js';
 
 vi.mock('node:fs', async importOriginal => {
   const actual = await importOriginal<typeof import('node:fs')>();
@@ -1914,7 +1914,7 @@ for (const omitted of ['cost-dependency', 'built-ui'] as const)
   test(`frozen ${omitted} changes block before native reservation`, async () => {
     const f = fixture();
     const target =
-      omitted === 'cost-dependency' ? new URL('../src/catalog-cost-report.ts', import.meta.url) : new URL('../dist/local-ui/index.html', import.meta.url);
+      omitted === 'cost-dependency' ? new URL('../../src/catalog-cost-report.ts', import.meta.url) : new URL('../../dist/local-ui/index.html', import.meta.url);
     const original = readFileSync(target);
     try {
       const p = await prepareCodexSessionBindingQualification(f.dir, { binary: realpathSync(process.execPath), codexHome: f.home }, f.dependency);

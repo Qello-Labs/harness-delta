@@ -34,7 +34,7 @@ function fixture(script = 'process.exit(0);', durationMs = 5000, version = '2.1.
     workspace,
     cwd,
     binary: { path: binary, version, sha256: createHash('sha256').update(bytes).digest('hex') },
-    mediatorPath: join(compiled, 'claude-probe-hook-mediator.js'),
+    mediatorPath: join(compiled, 'qualification/claude-probe-hook-mediator.js'),
     durationMs
   };
   return {
@@ -125,7 +125,7 @@ test.each(['artifact', 'binary', 'credential'] as const)(
           ? `import {selectedArtifactSnapshot} from ${module('configuration-evidence.js')}; try {selectedArtifactSnapshot([{artifactId:'instruction',path:${JSON.stringify(fifo)}}]);process.exitCode=1;}catch {console.log('rejected');}`
           : kind === 'binary'
             ? `import {prepareClaudeProbeSupervisor} from ${module('claude-probe-supervisor.js')};try {await prepareClaudeProbeSupervisor({binary:{version:'2.1.288',sha256:'0'.repeat(64),path:${JSON.stringify(fifo)}}});process.exitCode=1;}catch {console.log('rejected');}`
-            : `import {runClaudeProbeHookMediator} from ${module('claude-probe-hook-mediator.js')}; const code=await runClaudeProbeHookMediator(['http://127.0.0.1:1',${JSON.stringify(fifo)}]);if(code===2)console.log('rejected');else process.exitCode=1;`;
+            : `import {runClaudeProbeHookMediator} from ${module('qualification/claude-probe-hook-mediator.js')}; const code=await runClaudeProbeHookMediator(['http://127.0.0.1:1',${JSON.stringify(fifo)}]);if(code===2)console.log('rejected');else process.exitCode=1;`;
       expect(execFileSync(process.execPath, ['--input-type=module', '-e', script], { encoding: 'utf8', timeout: 3000 })).toContain('rejected');
     } finally {
       rmSync(root, { recursive: true, force: true });

@@ -6,7 +6,7 @@ import { expect, test, vi } from 'vitest';
 import { claudeProbeProductVersion, claudeWorkflowProductVersions } from '../src/claude-workflow-versions.js';
 import { prepareClaudeNativeProbe } from '../src/claude-native-probe.js';
 import { verifyClaudeProbeBinary } from '../src/claude-probe-supervisor.js';
-import { ClaudeProbeCoordinator } from '../src/claude-probe-coordinator.js';
+import { ClaudeProbeCoordinator } from '../src/qualification/claude-probe-coordinator.js';
 import { ingestClaudeTraceBatch } from '../src/claude-trace-candidate.js';
 import { projectCandidateObservation } from '../src/nested-candidate.js';
 import { Store } from '../src/store.js';

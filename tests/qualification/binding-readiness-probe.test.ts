@@ -4,10 +4,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { expect, test } from 'vitest';
-import type { ChildReadinessObservation } from '../src/binding-child-readiness.js';
+import type { ChildReadinessObservation } from '../../src/binding-child-readiness.js';
 
 async function fixture() {
-  const module = await import('../src/binding-readiness-probe.js').catch(() => null);
+  const module = await import('../../src/qualification/binding-readiness-probe.js').catch(() => null);
   expect(module, 'approved private acknowledgment channel is not implemented').not.toBeNull();
   const root = mkdtempSync(join(tmpdir(), 'hd-synthetic-readiness-channel-'));
   const directory = join(root, 'channel');

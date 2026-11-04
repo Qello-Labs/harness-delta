@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { request } from 'node:http';
 import { fileURLToPath } from 'node:url';
-import { IdSchema } from './contracts.js';
+import { IdSchema } from '../contracts.js';
 
 const invalid = (): never => {
   throw new Error('claude_probe_hook_invalid');

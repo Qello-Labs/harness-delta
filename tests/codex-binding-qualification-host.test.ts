@@ -2,7 +2,7 @@ import { chmodSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, t
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import { codexBindingQualificationCodeModeHost } from '../src/codex-binding-qualification-versions.js';
+import { codexBindingQualificationCodeModeHost } from '../src/qualification/codex-binding-qualification-versions.js';
 
 const crypto = vi.hoisted(() => ({
   digest: vi.fn(() => '79f123a85dbc61e8f5d0f0c050dfc3f4b81a8305d33a32b41e008b7f6e035698')

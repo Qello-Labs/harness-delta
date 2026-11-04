@@ -6,7 +6,7 @@ import { vi } from 'vitest';
 import { Store } from '../../src/store.js';
 import { Lifecycle } from '../../src/lifecycle.js';
 import * as collection from '../../src/collection.js';
-import type { CodexQualificationOptions } from '../../src/codex-qualification.js';
+import type { CodexQualificationOptions } from '../../src/qualification/codex-qualification.js';
 const readSyntheticSource = collection.readSource;
 export function codexQualificationFixture(mode = 'success') {
   const dir = realpathSync(mkdtempSync('/tmp/hdcq-'));

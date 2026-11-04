@@ -7,7 +7,7 @@ import ts from 'typescript';
 import { expect, test } from 'vitest';
 import { z } from 'zod';
 
-const root = resolve(fileURLToPath(new URL('../', import.meta.url)));
+const root = resolve(fileURLToPath(new URL('../../', import.meta.url)));
 
 test('relocated binding qualification still freezes implementation siblings outside its folder', () => {
   const temporary = realpathSync(mkdtempSync(join(tmpdir(), 'qualification-scope-')));
@@ -27,24 +27,24 @@ test('relocated binding qualification still freezes implementation siblings outs
     cpSync(join(dist, 'local-ui'), join(dist, 'dist', 'local-ui'), { recursive: true });
 
     const filename = 'codex-session-binding-qualification.js';
-    const source = ts.createSourceFile(filename, readFileSync(join(dist, filename), 'utf8'), ts.ScriptTarget.ES2023, true, ts.ScriptKind.JS);
+    const source = ts.createSourceFile(filename, readFileSync(join(dist, 'qualification', filename), 'utf8'), ts.ScriptTarget.ES2023, true, ts.ScriptKind.JS);
     const relocated = ts.factory.updateSourceFile(
       source,
       source.statements.map(statement => {
-        if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier) || !statement.moduleSpecifier.text.startsWith('./'))
+        if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier) || !statement.moduleSpecifier.text.startsWith('.'))
           return statement;
         return ts.factory.updateImportDeclaration(
           statement,
           statement.modifiers,
           statement.importClause,
-          ts.factory.createStringLiteral('../' + statement.moduleSpecifier.text.slice(2)),
+          ts.factory.createStringLiteral('../' + statement.moduleSpecifier.text),
           statement.attributes
         );
       })
     );
-    const moved = join(dist, 'qualification', filename);
+    const moved = join(dist, 'qualification', 'relocated', filename);
     mkdirSync(dirname(moved));
-    renameSync(join(dist, filename), moved);
+    renameSync(join(dist, 'qualification', filename), moved);
     writeFileSync(moved, ts.createPrinter().printFile(relocated));
     mkdirSync(join(temporary, 'home'));
     mkdirSync(join(temporary, 'home', 'sessions'));
@@ -56,7 +56,7 @@ test('relocated binding qualification still freezes implementation siblings outs
       `
 import { appendFileSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
-import { prepareCodexSessionBindingQualification } from './dist/qualification/${filename}';
+import { prepareCodexSessionBindingQualification } from './dist/qualification/relocated/${filename}';
 const root = ${JSON.stringify(temporary)};
 const input = { binary: realpathSync(process.execPath), codexHome: join(root, 'home') };
 const fixture = { script: join(root, 'fixture.mjs'), durationMs: 5000 };
@@ -97,7 +97,7 @@ test.each(['configuration-evidence', 'comparison/config-confirmation-write'])(
 import { createHash } from 'node:crypto';
 import { appendFileSync, readFileSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
-import { prepareCodexWorkflowQualification } from './dist/codex-workflow-qualification.js';
+import { prepareCodexWorkflowQualification } from './dist/qualification/codex-workflow-qualification.js';
 const root = ${JSON.stringify(temporary)};
 const input = {
   binary: { path: realpathSync(process.execPath), sha256: createHash('sha256').update(readFileSync(process.execPath)).digest('hex') },

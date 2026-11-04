@@ -3,8 +3,8 @@ import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
-import { createClaudeMinimalIntent, executeClaudeMinimalIntent } from '../src/claude-minimal-run.js';
-import { compiledWorker } from './helpers/compiled-worker.js';
+import { createClaudeMinimalIntent, executeClaudeMinimalIntent } from '../../src/qualification/claude-minimal-run.js';
+import { compiledWorker } from '../helpers/compiled-worker.js';
 
 function fixture() {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'claude-minimal-')));
@@ -15,7 +15,7 @@ function fixture() {
   const prepared = createClaudeMinimalIntent(
     join(root, 'intent'),
     { path: executable, version: '2.1.288', sha256: createHash('sha256').update(bytes).digest('hex') },
-    join(compiled, 'claude-probe-hook-mediator.js')
+    join(compiled, 'qualification/claude-probe-hook-mediator.js')
   );
   const consent = { intent_sha256: prepared.sha256, approval_reference: 'synthetic-approval', actual_model_run: true, transient_trace_log_hooks: true };
   return { root, prepared, consent, cleanup: () => rmSync(root, { recursive: true, force: true }) };

@@ -75,7 +75,7 @@ if(${JSON.stringify(mode)}!=='missing-end')hook('SessionEnd');process.exit(0);
     run_id: 'claude-run',
     binary: { path: binary, version, sha256: createHash('sha256').update(readFileSync(binary)).digest('hex') },
     workspace: join(f.root, 'claude-workspace'),
-    mediator_path: join(compiled, 'claude-probe-hook-mediator.js'),
+    mediator_path: join(compiled, 'qualification/claude-probe-hook-mediator.js'),
     prompt_file: f.prompt,
     timeout_ms: 12000,
     max_turns: 3,

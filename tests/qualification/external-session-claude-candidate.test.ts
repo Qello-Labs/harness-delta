@@ -2,9 +2,9 @@ import { expect, test, vi } from 'vitest';
 import { mkdtempSync, mkdirSync, realpathSync, readFileSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import * as supervisor from '../src/claude-probe-supervisor.js';
+import * as supervisor from '../../src/claude-probe-supervisor.js';
 import { randomUUID } from 'node:crypto';
-import { Store } from '../src/store.js';
+import { Store } from '../../src/store.js';
 import {
   createManualClaudeReceiver,
   prepareManualClaudeCandidate,
@@ -14,8 +14,8 @@ import {
   verifyManualClaudeProcess,
   type ManualClaudeInvocation,
   type ManualClaudeProcessObservation
-} from '../src/external-session-claude-candidate.js';
-import { attrs, span, startedAt, receivedAt, traces, traceScope, seedTraceScope } from './helpers/claude-trace-fixture.js';
+} from '../../src/qualification/external-session-claude-candidate.js';
+import { attrs, span, startedAt, receivedAt, traces, traceScope, seedTraceScope } from '../helpers/claude-trace-fixture.js';
 
 function fixture() {
   const store = new Store(':memory:');

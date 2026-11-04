@@ -4,17 +4,17 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { closeSync, constants, fstatSync, openSync, readSync, realpathSync, mkdirSync, lstatSync } from 'node:fs';
 import { join, sep } from 'node:path';
-import { TimestampSchema } from './contracts.js';
-import { sha256 } from './harness/harness-managed-file.js';
+import { TimestampSchema } from '../contracts.js';
+import { sha256 } from '../harness/harness-managed-file.js';
 import { ClaudeProbeCoordinator } from './claude-probe-coordinator.js';
 import { startClaudeProbeGateway, type ClaudeProbeGatewayCoordinator } from './claude-probe-gateway.js';
-import { recordObservationGap } from './runtime-history.js';
-import type { CandidateScope } from './nested-candidate.js';
-import type { Clock } from './lifecycle.js';
-import type { Store } from './store.js';
-import { prepareClaudeNativeProbe } from './claude-native-probe.js';
+import { recordObservationGap } from '../runtime-history.js';
+import type { CandidateScope } from '../nested-candidate.js';
+import type { Clock } from '../lifecycle.js';
+import type { Store } from '../store.js';
+import { prepareClaudeNativeProbe } from '../claude-native-probe.js';
 import { prepareClaudeProbeHookMediator } from './claude-probe-hook-mediator.js';
-import { verifyClaudeProbeBinary } from './claude-probe-supervisor.js';
+import { verifyClaudeProbeBinary } from '../claude-probe-supervisor.js';
 
 const pathSchema = z
   .string()

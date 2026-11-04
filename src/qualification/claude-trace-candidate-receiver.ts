@@ -1,11 +1,11 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { TimestampSchema } from './contracts.js';
-import { utcNow, type Clock } from './lifecycle.js';
-import { authorizeClaudeTraceScope, ingestClaudeTraceBatch } from './claude-trace-candidate.js';
-import type { CandidateScope } from './nested-candidate.js';
-import type { Store } from './store.js';
+import { TimestampSchema } from '../contracts.js';
+import { utcNow, type Clock } from '../lifecycle.js';
+import { authorizeClaudeTraceScope, ingestClaudeTraceBatch } from '../claude-trace-candidate.js';
+import type { CandidateScope } from '../nested-candidate.js';
+import type { Store } from '../store.js';
 
 const tokenHeader = 'x-harness-delta-token';
 const drainLimit = 128 * 1024 * 1024;

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { readFileSync, realpathSync, statSync } from 'node:fs';
 import { Command, Option } from 'commander';
-import { prepareCodexSessionBindingQualification, executeCodexSessionBindingQualification, codexBindingQualificationArgv, serveCodexSessionBindingQualificationUiPreparation, serveCodexSessionBindingQualificationResults } from '../dist/codex-session-binding-qualification.js';
+import { prepareCodexSessionBindingQualification, executeCodexSessionBindingQualification, codexBindingQualificationArgv, serveCodexSessionBindingQualificationUiPreparation, serveCodexSessionBindingQualificationResults } from '../dist/qualification/codex-session-binding-qualification.js';
 
 const program=new Command().name('codex-session-binding-qualification').description('Prepare or explicitly approve one isolated ordinary Codex root/two-direct-children qualification.');
 program.command('prepare').requiredOption('--directory <absolute-path>').requiredOption('--binary <absolute-path>').requiredOption('--codex-home <absolute-path>').addOption(new Option('--route <route>','qualification authority or code-owned ordinary admission').choices(['qualification','ordinary_admission']).default('qualification')).addOption(new Option('--product-version <version>','exact reviewed qualification binary').choices(['0.160.0','0.162.1','0.163.0','0.166.0']).default('0.160.0')).addOption(new Option('--scenario <scenario>','required frozen 0.166.0 ordinary scenario').choices(['root_normal_observer_restart','family_normal_observer_restart'])).addOption(new Option('--start-mode <mode>','automatic initial prompt or manual terminal input').choices(['automatic','manual']).default('automatic')).action(async options=>{

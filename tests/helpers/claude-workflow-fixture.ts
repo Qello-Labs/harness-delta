@@ -62,7 +62,7 @@ export function claudeWorkflowFixture(sourceVersion = '2.1.296') {
     run_id: 'claude-run',
     binary,
     workspace: join(root, 'workspace'),
-    mediator_path: resolve('dist/claude-probe-hook-mediator.js'),
+    mediator_path: resolve('dist/qualification/claude-probe-hook-mediator.js'),
     prompt_file: prompt,
     permissions: 'workspace-edit',
     timeout_ms: 3600000,

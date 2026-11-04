@@ -22,7 +22,7 @@ import {
 import type { Store } from './store.js';
 import { externalContract } from './external-session-contract.js';
 import { codexHumanPilotProfileId, isHumanPilotProtocol } from './session-binding-human-pilot.js';
-import { codexBindingQualificationVersions } from './codex-binding-qualification-versions.js';
+import { codexBindingQualificationVersions } from './qualification/codex-binding-qualification-versions.js';
 import { isAdmittedCodexBindingProtocol } from './codex-binding-admission.js';
 
 interface PreparationRow {

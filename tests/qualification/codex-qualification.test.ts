@@ -8,10 +8,10 @@ import { z } from 'zod';
 
 // Lane budgets below must stay shorter than these timeouts to keep failure reasons visible.
 vi.setConfig({ testTimeout: 30000 });
-import * as collection from '../src/collection.js';
-import { checkCandidatePermissions } from '../src/codex-candidate-permissions.js';
-import { prepareCodexQualification } from '../src/codex-qualification.js';
-import { codexQualificationFixture as fixture } from './helpers/codex-qualification-fixture.js';
+import * as collection from '../../src/collection.js';
+import { checkCandidatePermissions } from '../../src/codex-candidate-permissions.js';
+import { prepareCodexQualification } from '../../src/qualification/codex-qualification.js';
+import { codexQualificationFixture as fixture } from '../helpers/codex-qualification-fixture.js';
 
 vi.mock('node:child_process', async importOriginal => {
   const actual = await importOriginal<typeof import('node:child_process')>();

@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { prepareClaudeNativeProbe } from '../src/claude-native-probe.js';
 import { verifyClaudeProbeBinary } from '../src/claude-probe-supervisor.js';
-import { ClaudeProbeCoordinator, type ClaudeProbeOptions } from '../src/claude-probe-coordinator.js';
+import { ClaudeProbeCoordinator, type ClaudeProbeOptions } from '../src/qualification/claude-probe-coordinator.js';
 import { ingestClaudeTraceBatch } from '../src/claude-trace-candidate.js';
 import { ClaudeWorkflowExecutionSchema, createClaudeWorkflowAdapter } from '../src/claude-workflow-adapter.js';
 import {
@@ -454,7 +454,7 @@ test('conditional Claude child execution remains unsupported', () => {
 
 test.each(['hooks', 'logs', 'traces'])('conditional Claude authenticated malformed %s JSON invalidates prior usage with sanitized diagnostics', async route => {
   const f = coordinator('2.1.297', '2.1.297', true, false);
-  const { startClaudeProbeGateway } = await import('../src/claude-probe-gateway.js');
+  const { startClaudeProbeGateway } = await import('../src/qualification/claude-probe-gateway.js');
   let diagnostic: unknown;
   const gateway = await startClaudeProbeGateway(f.probe, {
     onStop: (_reason, value) => {
