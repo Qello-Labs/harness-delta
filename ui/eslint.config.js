@@ -4,18 +4,18 @@ import { plugin as shadcn } from '@shadcn/lint';
 // Lower these limits as existing functions shrink; new files use 30.
 const complexityLimits = {
   'src/AgentConnectionSetup.tsx': 42,
-  'src/App.tsx': 170,
+  'src/App.tsx': 12,
   'src/ClaudeConnection.tsx': 73,
-  'src/GuidedSetup.tsx': 98,
+  'src/GuidedSetup.tsx': 1,
   'src/HarnessApplication.tsx': 85
 };
 // Keep existing functions bounded while new files use 150 normalized lines.
 const functionLineLimits = {
   'src/AgentConnectionSetup.tsx': 320,
-  'src/App.tsx': 1612,
+  'src/App.tsx': 17,
   'src/ClaudeConnection.tsx': 310,
   'src/GettingStarted.tsx': 350,
-  'src/GuidedSetup.tsx': 798,
+  'src/GuidedSetup.tsx': 24,
   'src/HarnessApplication.tsx': 563,
   'src/MeasurementReview.tsx': 171,
   'src/OrdinaryObservationSetup.tsx': 233,

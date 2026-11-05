@@ -1,3 +1,6 @@
+import type { SetupReviewResult, SetupSaveResult } from '../../src/web/local-web-setup-review.js';
+export type { SetupReviewResult, SetupSaveResult };
+export type { LocalWebSetupImportResult } from '../../src/web/local-web-server.js';
 import type { AgentDisplayMetadata } from './session-labels.js';
 import type { RecruitmentWindow } from '../../src/web/local-web-recruitment.js';
 import type { ApplicationMode } from './application-mode.js';
@@ -184,4 +187,15 @@ export interface Snapshot {
   setups: Setup[];
   tasks: Task[];
   catalog: Catalog | null;
+}
+
+export type Screen = 'tasks' | 'detail' | 'new' | 'setup' | 'intro';
+export type InspectedComparison = Extract<SetupReviewResult, { comparison: unknown }>['comparison'];
+export interface GuidedSetupProps {
+  locale: Locale;
+  project: Project | null;
+  setups: Setup[];
+  busy: boolean;
+  perform: <T>(route: string, input: unknown) => Promise<T | null>;
+  onSaved: (value: SetupSaveResult) => void;
 }
