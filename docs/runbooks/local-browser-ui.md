@@ -308,7 +308,7 @@ not automatically adopt a candidate. Old comparisons and assignments stay fixed.
    writing; never put private paths or participant IDs in a public artifact.
    Its envelope is `kind: "harness-delta.measurement-setup"`,
    `schema_version: 1`, and `input` following `SetupReviewInputSchema` in
-   `src/local-web-setup-review.ts`. Include verified `comparison_path` and
+   `src/web/local-web-setup-review.ts`. Include verified `comparison_path` and
    `project_id`, a reviewed `profile` (or registered `template_id`), complete
    schema-2 `protocol`, approved `policy_status` or `variants` (not both),
    and `price_table` only if needed. The embedded documents use the existing
@@ -358,14 +358,14 @@ The file-import and CLI routes also remain available:
 3. Put only `binary`, `codex_home`, `hook_recorder`, `sandbox`, `timeout_ms`
    and `poll_ms` from the reviewed execution input in `execution`. Do not copy
    an entire launch/session input. Optional session binding must match the
-   [UI manifest schema](../../src/local-web-domain.ts). Keep the file private.
+   [UI manifest schema](../../src/web/local-web-domain.ts). Keep the file private.
 4. After building, check its structure with the loader below, then select
    **Import existing settings file**. This check reads the selected file only; it does not
    register dependencies, launch an agent or qualify collection support.
 
 ```sh
 node --input-type=module <<'JS'
-import { readLocalWebManifest } from './dist/local-web-domain.js';
+import { readLocalWebManifest } from './dist/web/local-web-domain.js';
 readLocalWebManifest('reviewed-ui-setup.json');
 console.log('Setup file structure is valid.');
 JS

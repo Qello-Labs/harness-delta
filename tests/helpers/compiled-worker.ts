@@ -4,23 +4,29 @@ import { fileURLToPath } from 'node:url';
 import { ModuleKind, ScriptTarget, transpileModule, version, type CompilerOptions } from 'typescript';
 
 /** Test-only seam for synthetic source trees and compiler freshness checks. */
-export function createCompiledWorker(sourceRoot: URL, compiler: {
-  version: string;
-  options: CompilerOptions;
-  transpile: typeof transpileModule;
-} = {
-  version,
-  options: { module: ModuleKind.ESNext, target: ScriptTarget.ES2023 },
-  transpile: transpileModule,
-}): (root: string) => string {
+export function createCompiledWorker(
+  sourceRoot: URL,
+  compiler: {
+    version: string;
+    options: CompilerOptions;
+    transpile: typeof transpileModule;
+  } = {
+    version,
+    options: { module: ModuleKind.ESNext, target: ScriptTarget.ES2023 },
+    transpile: transpileModule
+  }
+): (root: string) => string {
   const sourceDirectory = fileURLToPath(sourceRoot);
   // Cache immutable emitted text, never a fixture directory or its mutable files.
-  const sources = new Map<string, {
-    source: Buffer;
-    compilerKey: string;
-    transpile: typeof transpileModule;
-    output: string;
-  }>();
+  const sources = new Map<
+    string,
+    {
+      source: Buffer;
+      compilerKey: string;
+      transpile: typeof transpileModule;
+      output: string;
+    }
+  >();
   return (root: string): string => {
     const compilerKey = JSON.stringify([compiler.version, compiler.options]);
     const transpile = compiler.transpile;
@@ -52,4 +58,6 @@ export function createCompiledWorker(sourceRoot: URL, compiler: {
 const compileLocalWorker = createCompiledWorker(new URL('../../src/', import.meta.url));
 
 /** Compile only current local source for real SQLite worker races; never use stale dist. */
-export function compiledWorker(root: string): string { return compileLocalWorker(root); }
+export function compiledWorker(root: string): string {
+  return compileLocalWorker(root);
+}

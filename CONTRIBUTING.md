@@ -60,7 +60,7 @@ supervisor. This runtime extension is covered by synthetic fixtures, not an
 additional native qualification. Each actual launch still requires its separate
 approval and the existing product/version/source gates.
 
-`npm run check` checks the Git index for local records, runs ESLint and TypeScript
+`npm run check` checks the Git index for local records, verifies formatting, runs ESLint and TypeScript
 checking, builds the package, and executes tests. Run it from a Git checkout.
 Build before focused tests with `npm run build`, then use
 `npm test -- tests/runtime.test.ts`. Binding qualification tests freeze the built
@@ -85,8 +85,27 @@ Run `npm run lint:fix` to apply supported automatic fixes, then inspect the diff
 Normal checks never apply fixes. Warnings fail the lint command. Generated output,
 dependencies, private `.harness-delta/` records, and locally installed
 `.agents/skills/` packages are excluded. Skill packages are not part of the project
-TypeScript program; validate them with their own tooling. Linting is not a
-formatter; no additional formatting conventions or lint-staged dependency are added.
+TypeScript program; validate them with their own tooling. Linting and formatting
+are separate checks; neither check stages files or applies fixes.
+
+Run `npm run format` to apply Prettier, then inspect the diff. Run
+`npm run format:check` for the read-only check used by `npm run check` and the
+pre-commit hook. `.prettierrc.json` uses two spaces, a 160-column target,
+single quotes by default, semicolons, no trailing commas, and optional arrow
+parameter parentheses. Existing double-quote-only files retain that style.
+Property quotes and embedded fixture text are preserved.
+
+Keep the explicit `.prettierignore` exclusions for reviewed byte-sensitive source
+and operation inputs, scripts, skills, documentation, fixtures, generated output,
+and vendored UI components. Do not autoformat pinned inputs or update evidence
+hashes to make a formatter pass. The formatting-only revision is recorded in
+`.git-blame-ignore-revs`; use `git blame --ignore-revs-file .git-blame-ignore-revs`
+when inspecting logic history.
+
+Root and UI ESLint configurations enforce a 150-line function budget, excluding
+blank and comment-only lines. Existing per-file exceptions ratchet at their
+current values, like complexity limits; lower them as functions shrink. New files
+use the default limits. Vendored UI components retain their existing exemption.
 
 TypeScript is pinned to a 6.0 release compatible with the installed typescript-eslint
 peer range. Upgrade both together when newer compiler support is available; do not
@@ -95,8 +114,16 @@ bypass incompatible peer dependencies with force-install flags.
 ## Git hooks
 
 `npm ci` or `npm install` runs `prepare` to install Husky for this checkout.
-The pre-commit hook runs `npm run check`: it rejects indexed local records, runs
-lint and type checks, builds, and executes tests. A failed command stops the commit. Generated Husky
+The pre-commit hook rejects indexed local records, checks formatting, runs lint and type checks,
+then runs Vitest tests related to staged files. Before any test run it rebuilds
+the package and UI, including for test-only changes, because focused tests may
+spawn built output or freeze UI bytes. Root and `docs/` Markdown-only changes
+skip the build and tests; no related tests is also a successful result.
+Source changes additionally select tests and helpers that use filesystem reads,
+subprocesses, or built-output paths, whose dependencies the import graph can miss.
+Deletions and global or opaque inputs (including scripts, test helpers, UI,
+configuration, manifests, and assets) conservatively run the full suite instead.
+A failed command stops the commit. Generated Husky
 files under `.husky/_/` are ignored; `.husky/pre-commit` and `.husky/commit-msg`
 are shared in Git. The commit-msg hook validates the proposed message with commitlint.
 
@@ -108,8 +135,11 @@ Checks run against the working tree; the privacy guard checks the Git index.
 With partially staged changes, also inspect the staged diff because the tested
 working tree can differ from the commit. Hooks do not stage or modify source files.
 They do not enforce commit-message language or replace independent review.
-CI disables hook installation with `HUSKY=0` and runs checks explicitly. Hooks can
-be bypassed locally, so CI and review remain required verification layers.
+Implementation changes still require the full `npm run check` before completion;
+a successful related run is not that completion gate. CI disables hook installation
+with `HUSKY=0` and runs the full checks explicitly, on Node 24 only, not Node 26.
+Hooks can be bypassed locally, so CI and independent review remain required
+verification layers; a passing hook is not proof that the staged snapshot passed.
 
 ## Changes and review
 

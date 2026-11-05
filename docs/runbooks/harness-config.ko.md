@@ -79,7 +79,7 @@ artifact의 `source_path` 파일은 `harness-config/` 디렉토리 전체의 바
 빌드한 Harness Delta checkout에서 실행하세요.
 
 ```sh
-node dist/harness-config-main.js register --root /path/to/project --input /path/to/register-input.json
+node dist/cli/harness-config-main.js register --root /path/to/project --input /path/to/register-input.json
 ```
 
 예상 결과는 `registered`이며, 같은 입력을 반복하면 `already_registered`입니다.
@@ -112,7 +112,7 @@ node dist/harness-config-main.js register --root /path/to/project --input /path/
 ```
 
 ```sh
-node dist/harness-config-main.js compare --root /path/to/project --input /path/to/comparison-input.json
+node dist/cli/harness-config-main.js compare --root /path/to/project --input /path/to/comparison-input.json
 ```
 
 예상 결과는 `generated`이며, 같은 입력을 반복하면 `already_generated`입니다.

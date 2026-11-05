@@ -13,12 +13,21 @@ export function release(version: string, product: Product = 'codex', id = Number
 }
 export function baseline(version: string) {
   return {
-    schema_version: 1, kind: 'baseline',
-    rows: [{
-      product: 'codex', route: 'file', profile_id: 'codex-file-checkpoint-v1',
-      operation: 'collect', topology: 'root', last_reviewed_version: version,
-      contract_revision: 'consumed-v1', evidence_ids: ['b'.repeat(64)], source_digest: 'c'.repeat(64),
-    }],
+    schema_version: 1,
+    kind: 'baseline',
+    rows: [
+      {
+        product: 'codex',
+        route: 'file',
+        profile_id: 'codex-file-checkpoint-v1',
+        operation: 'collect',
+        topology: 'root',
+        last_reviewed_version: version,
+        contract_revision: 'consumed-v1',
+        evidence_ids: ['b'.repeat(64)],
+        source_digest: 'c'.repeat(64)
+      }
+    ]
   };
 }
 
@@ -38,17 +47,30 @@ export function fixture(options: FixtureOptions = {}) {
   const versions = options.versions ?? ['1.0.1', '1.0.2', '1.0.10'];
   const pages = options.pages ?? [versions.map(version => release(version, product))];
   const rows = pages.flat();
-  const githubLatest = options.githubLatest === undefined ? rows.find(row => typeof row === 'object' && row !== null &&
-    'tag_name' in row && ['rust-v1.0.10', 'v1.0.10', '1.0.10'].includes(String(row.tag_name))) ?? rows[0] : options.githubLatest;
+  const githubLatest =
+    options.githubLatest === undefined
+      ? (rows.find(
+          row => typeof row === 'object' && row !== null && 'tag_name' in row && ['rust-v1.0.10', 'v1.0.10', '1.0.10'].includes(String(row.tag_name))
+        ) ?? rows[0])
+      : options.githubLatest;
   const etag = options.etag === undefined ? '"opaque-validator"' : options.etag;
   const calls: { url: string; conditional: string | null; signal: AbortSignal | null | undefined }[] = [];
   const counts = new Map<string, number>();
   const npmBody = {
-    name: packageName, 'dist-tags': { latest: options.latest ?? '1.0.10' },
-    versions: Object.fromEntries(versions.map(version => [version, {
-      name: packageName, version, dist: { integrity, tarball: privateText }, description: privateText,
-    }])),
-    readme: privateText,
+    name: packageName,
+    'dist-tags': { latest: options.latest ?? '1.0.10' },
+    versions: Object.fromEntries(
+      versions.map(version => [
+        version,
+        {
+          name: packageName,
+          version,
+          dist: { integrity, tarball: privateText },
+          description: privateText
+        }
+      ])
+    ),
+    readme: privateText
   };
   const fetchImpl: NonNullable<DiscoveryOptions['fetchImpl']> = async (input, init) => {
     const url = new URL(input);

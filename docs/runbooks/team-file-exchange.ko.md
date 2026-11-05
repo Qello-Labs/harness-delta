@@ -52,7 +52,7 @@ invalid_exchange_package는 비공개·알 수 없는 필드나 잘못된 형식
 네트워크 없이 다음 명령으로 canonical digest를 계산하세요.
 
 ```sh
-node --input-type=module -e 'import {readExchangeFile} from "./dist/exchange/files.js"; import {parseExchangePackage,protocolDigest} from "./dist/exchange/contracts.js"; const p=parseExchangePackage(readExchangeFile("package.json")); if(p.kind!=="assignment_metadata")throw Error("data_required"); console.log(protocolDigest(p));'
+node --input-type=module -e 'import {readExchangeFile} from "./dist/comparison/exchange/files.js"; import {parseExchangePackage,protocolDigest} from "./dist/comparison/exchange/contracts.js"; const p=parseExchangePackage(readExchangeFile("package.json")); if(p.kind!=="assignment_metadata")throw Error("data_required"); console.log(protocolDigest(p));'
 ```
 
 다음 mapping.json의 `REPLACE_WITH_REVIEWED_DIGEST`를 실제 64자리 값으로 바꾸세요.
@@ -154,7 +154,7 @@ node dist/cli.js --db team.db team report team-report-1 --format json
 Node 24 또는 26 저장소에서 npm ci를 실행한 뒤:
 
 ```sh
-npm test -- tests/exchange-boundaries.test.ts tests/team-report.test.ts tests/team-snapshot.test.ts tests/team-deletion.test.ts tests/team-exchange-cli.test.ts
+npm test -- tests/comparison/exchange-boundaries.test.ts tests/comparison/team-report.test.ts tests/comparison/team-snapshot.test.ts tests/team-deletion.test.ts tests/team-exchange-cli.test.ts
 npm run check
 ```
 

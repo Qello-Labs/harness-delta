@@ -3,11 +3,13 @@ import { codexWorkflowFixture } from './codex-workflow-fixture.js';
 import { createSyntheticCodexWorkflowAdapter } from '../../src/codex-workflow-adapter.js';
 import { runAssignedWorkflow } from '../../src/task-workflow.js';
 
-export function codexNativeChildFixture(mode='callback-first', f=codexWorkflowFixture()){
-  const permissions=`permission_profile:{type:'managed',file_system:{type:'restricted',entries:[{path:{type:'special',value:{kind:'root'}},access:'read'}]},network:'restricted'}`;
-  const baseScript=readFileSync(f.script,'utf8');
-  let script=baseScript.replace("multi_agent_version:'disabled'",`multi_agent_version:'v2',${permissions}`);
-  script=script.replace("if(prompt.includes('WAIT'))",`
+export function codexNativeChildFixture(mode = 'callback-first', f = codexWorkflowFixture()) {
+  const permissions = `permission_profile:{type:'managed',file_system:{type:'restricted',entries:[{path:{type:'special',value:{kind:'root'}},access:'read'}]},network:'restricted'}`;
+  const baseScript = readFileSync(f.script, 'utf8');
+  let script = baseScript.replace("multi_agent_version:'disabled'", `multi_agent_version:'v2',${permissions}`);
+  script = script.replace(
+    "if(prompt.includes('WAIT'))",
+    `
 const childModel=JSON.parse(get('agents.default_subagent_model='));const childEffort=JSON.parse(get('agents.default_subagent_reasoning_effort='));
 if(get('agents.enabled=')!=='true'||get('agents.max_depth=')!=='1'||!get('hooks.SubagentStart='))process.exit(5);
 const mode=${JSON.stringify(mode)};const kid=randomUUID();const kidTurn=randomUUID();const kidPath=join(process.env.CODEX_HOME,'sessions',kid+'.jsonl');
@@ -28,16 +30,20 @@ appendFileSync(kidPath,kidRow('token_usage_record',{session_id:native,thread_id:
 if(mode!=='progress-first')progress();
 if(mode==='completed-activity')appendFileSync(path,row('event_msg',{type:'item_completed',thread_id:native,turn_id:turn,item:{type:'SubAgentActivity',kind:'completed',id:'done-1',agent_thread_id:kid}}));
 appendFileSync(path,row('token_usage_record',{session_id:native,thread_id:native,turn_id:turn,root_turn_id:turn,response_id:randomUUID(),usage:{input_tokens:30,cached_input_tokens:5,cache_write_input_tokens:2,output_tokens:3,reasoning_output_tokens:1,total_tokens:33}}));
-if(prompt.includes('WAIT'))`);
-  if(mode.startsWith('native-start')){
+if(prompt.includes('WAIT'))`
+  );
+  if (mode.startsWith('native-start')) {
     // Pinned native SessionStartCommandInput omits turn_id and executes before
     // the first turn_context is necessarily available. Child still carries it.
-    const initial=script.split('\n').find(line=>line.startsWith("appendFileSync(path,row('event_msg',{type:'task_started'"))!;
-    script=script.replace(initial+'\n','').replace("appendFileSync(path,row('token_usage_record'",initial+'\n'+"appendFileSync(path,row('token_usage_record'");
-    if(mode==='native-start-missing-task')script=script.replace("appendFileSync(path,row('event_msg',{type:'task_started',turn_id:turn}));",'');
+    const initial = script.split('\n').find(line => line.startsWith("appendFileSync(path,row('event_msg',{type:'task_started'"))!;
+    script = script
+      .replace(initial + '\n', '')
+      .replace("appendFileSync(path,row('token_usage_record'", initial + '\n' + "appendFileSync(path,row('token_usage_record'");
+    if (mode === 'native-start-missing-task') script = script.replace("appendFileSync(path,row('event_msg',{type:'task_started',turn_id:turn}));", '');
   }
-  writeFileSync(f.script,script);
-  const execution={...f.execution('native-family'),sandbox:'read-only' as const,child_runtime:{model:'child-user-choice',effort:'low'}};
-  const run=()=>runAssignedWorkflow(f.store,f.input,createSyntheticCodexWorkflowAdapter(f.store,execution,f.script),{model:'root-user-choice',effort:'medium'});
-  return {...f,executionFactory:f.execution,execution,run,baseScript,nativeScript:script};
+  writeFileSync(f.script, script);
+  const execution = { ...f.execution('native-family'), sandbox: 'read-only' as const, child_runtime: { model: 'child-user-choice', effort: 'low' } };
+  const run = () =>
+    runAssignedWorkflow(f.store, f.input, createSyntheticCodexWorkflowAdapter(f.store, execution, f.script), { model: 'root-user-choice', effort: 'medium' });
+  return { ...f, executionFactory: f.execution, execution, run, baseScript, nativeScript: script };
 }

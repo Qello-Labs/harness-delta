@@ -1,0 +1,27 @@
+{
+  "singleQuote": true,
+  "semi": true,
+  "trailingComma": "none",
+  "arrowParens": "avoid",
+  "tabWidth": 2,
+  "useTabs": false,
+  "endOfLine": "lf",
+  "embeddedLanguageFormatting": "off",
+  "printWidth": 160,
+  "quoteProps": "preserve",
+  "overrides": [
+    {
+      "files": [
+        "./commitlint.config.js",
+        "./eslint.config.js",
+        "tests/helpers/architecture-baseline.ts",
+        "tests/private-records.test.ts",
+        "tests/runtime.test.ts",
+        "./vitest.config.ts"
+      ],
+      "options": {
+        "singleQuote": false
+      }
+    }
+  ]
+}

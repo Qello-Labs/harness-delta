@@ -1,7 +1,7 @@
 // Manual internal qualification entry. Building/testing/prepare never launches
 // a product. execute requires separately obtained actual user + settings consent.
 import { readFileSync } from 'node:fs';
-import { createClaudeMinimalIntent, executeClaudeMinimalIntent } from '../dist/claude-minimal-run.js';
+import { createClaudeMinimalIntent, executeClaudeMinimalIntent } from '../dist/qualification/claude-minimal-run.js';
 const [command, ...args] = process.argv.slice(2);
 try {
   if (Number(process.versions.node.split('.')[0]) !== 24) throw new Error('node24_required');

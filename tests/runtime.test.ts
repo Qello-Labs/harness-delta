@@ -8,13 +8,13 @@ test("SQLite native binding supports transactions and rollback", () => {
     db.exec("CREATE TABLE probe (id INTEGER PRIMARY KEY, value TEXT NOT NULL)");
     const insert = db.prepare("INSERT INTO probe (id, value) VALUES (?, ?)");
     db.transaction(() => insert.run(1, "synthetic"))();
-    expect(() => db.transaction(() => {
-      insert.run(2, "rollback");
-      insert.run(1, "duplicate");
-    })()).toThrow();
-    expect(db.prepare("SELECT * FROM probe ORDER BY id").all()).toEqual([
-      { id: 1, value: "synthetic" },
-    ]);
+    expect(() =>
+      db.transaction(() => {
+        insert.run(2, "rollback");
+        insert.run(1, "duplicate");
+      })()
+    ).toThrow();
+    expect(db.prepare("SELECT * FROM probe ORDER BY id").all()).toEqual([{ id: 1, value: "synthetic" }]);
   } finally {
     db.close();
   }

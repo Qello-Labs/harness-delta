@@ -155,7 +155,7 @@ permission to execute it.
 Run with Node 24 from this isolated checkout:
 
 ```sh
-npm test -- tests/claude-trace-candidate.test.ts tests/claude-trace-candidate-receiver.test.ts tests/claude-offline-verification.test.ts tests/nested-candidate.test.ts tests/otel-receiver.test.ts tests/otel-projection.test.ts
+npm test -- tests/claude-trace-candidate.test.ts tests/qualification/claude-trace-candidate-receiver.test.ts tests/claude-offline-verification.test.ts tests/nested-candidate.test.ts tests/sources/otel-receiver.test.ts tests/sources/otel-projection.test.ts
 npm run check
 git diff --check
 ```

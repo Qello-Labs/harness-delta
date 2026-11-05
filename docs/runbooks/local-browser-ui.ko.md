@@ -292,7 +292,7 @@ A/B는 고정 버전 이름이 아닌 비교 역할입니다. 사람이 채택�
    `.harness-delta/setup-drafts/` 아래 Git 제외 여부를 확인하고 보관합니다.
    비공개 경로나 참가자 ID를 공개 산출물에 넣지 마세요. 외부 형식은
    `kind: "harness-delta.measurement-setup"`, `schema_version: 1`,
-   `input`이며 input은 `src/local-web-setup-review.ts`의
+   `input`이며 input은 `src/web/local-web-setup-review.ts`의
    `SetupReviewInputSchema`를 따릅니다. 확인한 `comparison_path`·`project_id`,
    검토한 `profile` 또는 등록된 `template_id`, 완전한 schema-2 `protocol`,
    승인한 `policy_status` 또는 `variants` 중 하나, 필요할 때만 `price_table`을
@@ -338,7 +338,7 @@ A/B는 고정 버전 이름이 아닌 비교 역할입니다. 사람이 채택�
 3. 검토한 실행 입력의 `binary`, `codex_home`, `hook_recorder`, `sandbox`,
    `timeout_ms`, `poll_ms`만 `execution`에 넣으세요. launch/session 입력
    전체를 복사하지 마세요. 선택적인 세션 연결 설정은
-   [UI manifest schema](../../src/local-web-domain.ts)를 따라야 합니다.
+   [UI manifest schema](../../src/web/local-web-domain.ts)를 따라야 합니다.
    파일을 비공개로 보관하세요.
 4. 빌드 후 아래 loader로 구조를 확인하고 **기존 설정 파일 불러오기**를 선택하세요.
    이 검사는 선택한 파일만 읽습니다. 기반 등록·에이전트 실행·수집 지원 판정은
@@ -346,7 +346,7 @@ A/B는 고정 버전 이름이 아닌 비교 역할입니다. 사람이 채택�
 
 ```sh
 node --input-type=module <<'JS'
-import { readLocalWebManifest } from './dist/local-web-domain.js';
+import { readLocalWebManifest } from './dist/web/local-web-domain.js';
 readLocalWebManifest('reviewed-ui-setup.json');
 console.log('Setup file structure is valid.');
 JS

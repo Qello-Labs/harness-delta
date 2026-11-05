@@ -9,7 +9,7 @@ export interface ApplicationChoice {
 export async function applyHarness(
   task: Task,
   choice: ApplicationChoice,
-  perform: (route: string, body: unknown, version: string) => Promise<Task | null>,
+  perform: (route: string, body: unknown, version: string) => Promise<Task | null>
 ): Promise<Task | null> {
   if (!task.actions.some(action => action.code === 'application-prepare' && action.enabled)) return null;
   const route = `/api/tasks/${encodeURIComponent(task.id)}`;

@@ -9,11 +9,11 @@ test.each([false, true])('reconciles large release asset metadata with declared 
       if (!url.pathname.endsWith('/releases/latest') || response.status !== 200) return response;
       const body = { ...release('1.0.10'), assets: [{ padding }] };
       const large = json(body, {
-        etag: '"opaque-validator"',
+        etag: '"opaque-validator"'
       });
       if (declared) large.headers.set('content-length', String(Buffer.byteLength(JSON.stringify(body))));
       return large;
-    },
+    }
   });
 
   const result = await discover('codex', { fetchImpl: wire.fetchImpl, now });
@@ -30,7 +30,7 @@ test.each([false, true])('keeps non-release GitHub responses bounded with declar
       const oversized = new Response('x'.repeat(4 * 1024 * 1024 + 1));
       if (declared) oversized.headers.set('content-length', String(4 * 1024 * 1024 + 1));
       return oversized;
-    },
+    }
   });
 
   const result = await discover('codex', { fetchImpl: wire.fetchImpl, now });

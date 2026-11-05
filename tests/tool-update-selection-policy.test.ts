@@ -11,57 +11,96 @@ import type { SourceRegistry } from '../scripts/tool-update/source-snapshot.mjs'
 
 const root = realpathSync(fileURLToPath(new URL('..', import.meta.url)));
 const key = {
-  product: 'codex', route: 'file', profile_id: 'codex-file-checkpoint-v1', operation: 'collect', topology: 'root',
+  product: 'codex',
+  route: 'file',
+  profile_id: 'codex-file-checkpoint-v1',
+  operation: 'collect',
+  topology: 'root'
 } as const;
-afterEach(() => { vi.restoreAllMocks(); });
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 function fixture(target = '0.163.0', product: Product = 'codex', versions = [target]) {
   const identity = {
-    release_id: 1, tag: `${product === 'codex' ? 'rust-v' : 'v'}${target}`, commit: '1'.repeat(40),
-    npm_integrity: `sha512-${Buffer.alloc(64).toString('base64')}`,
+    release_id: 1,
+    tag: `${product === 'codex' ? 'rust-v' : 'v'}${target}`,
+    commit: '1'.repeat(40),
+    npm_integrity: `sha512-${Buffer.alloc(64).toString('base64')}`
   };
   const candidate: Candidate = { schema_version: 1, kind: 'candidate', product, target, ...identity };
   const observation: Observation = {
-    schema_version: 1, kind: 'observation', product, checked_at: '2026-11-02T00:00:00.000Z',
-    result: 'metadata_reconciled', reasons: ['baseline_missing'],
-    heads: { github: target, npm_latest: target, npm_stable: target }, checks: [],
-    releases: versions.map((version, index) => version === target ? { version, ...identity } : {
-      ...identity, version, release_id: index + 2, tag: `${product === 'codex' ? 'rust-v' : 'v'}${version}`,
-      commit: '2'.repeat(40),
-    }), candidate_id: digest(candidate),
+    schema_version: 1,
+    kind: 'observation',
+    product,
+    checked_at: '2026-11-02T00:00:00.000Z',
+    result: 'metadata_reconciled',
+    reasons: ['baseline_missing'],
+    heads: { github: target, npm_latest: target, npm_stable: target },
+    checks: [],
+    releases: versions.map((version, index) =>
+      version === target
+        ? { version, ...identity }
+        : {
+            ...identity,
+            version,
+            release_id: index + 2,
+            tag: `${product === 'codex' ? 'rust-v' : 'v'}${version}`,
+            commit: '2'.repeat(40)
+          }
+    ),
+    candidate_id: digest(candidate)
   };
   return { root, candidate, observation };
 }
 const unusedReview = () => ({
-  ...review(), from: { version: '0.150.0', commit: '2'.repeat(40) },
-  to: { version: '0.151.0', commit: '3'.repeat(40) },
+  ...review(),
+  from: { version: '0.150.0', commit: '2'.repeat(40) },
+  to: { version: '0.151.0', commit: '3'.repeat(40) }
 });
 async function reviewed(input = fixture(), baseline?: Baseline) {
-  const result = await assessCandidate({ ...input, reviews: [unusedReview()], ...baseline ? { baseline } : {} });
+  const result = await assessCandidate({ ...input, reviews: [unusedReview()], ...(baseline ? { baseline } : {}) });
   if (result.schema_version !== 4) throw new Error('schema_4_required');
   return result;
 }
 function syntheticRegistry(base?: string): SourceRegistry {
   return {
-    ruleRevision: 'forward-version-v1', resolve: () => null,
-    windows: base ? [{
-      product: 'codex', source: 'file', base, upper_exclusive: '0.164.0', profile_id: key.profile_id,
-    }] : [],
+    ruleRevision: 'forward-version-v1',
+    resolve: () => null,
+    windows: base
+      ? [
+          {
+            product: 'codex',
+            source: 'file',
+            base,
+            upper_exclusive: '0.164.0',
+            profile_id: key.profile_id
+          }
+        ]
+      : [],
     files: [{ product: 'codex', version: '0.158.0', boundaryMode: 'checkpoint' }],
-    evidence: [], codexAdmissions: [], claudeAdmissions: [],
+    evidence: [],
+    codexAdmissions: [],
+    claudeAdmissions: []
   };
 }
 function useRegistry(source: SourceRegistry) {
   vi.spyOn(snapshots, 'withSourceSnapshot').mockImplementationOnce(async (_root, project) => ({
-    value: await project(source), source_digest: 'b'.repeat(64), source_paths: ['src/source-compatibility.ts'],
+    value: await project(source),
+    source_digest: 'b'.repeat(64),
+    source_paths: ['src/source-compatibility.ts']
   }));
 }
 function review(sourceDigest = 'b'.repeat(64)): ContractReview {
   return {
-    schema_version: 1, kind: 'contract_review', ...key, contract_revision: 'consumed-v1',
+    schema_version: 1,
+    kind: 'contract_review',
+    ...key,
+    contract_revision: 'consumed-v1',
     from: { version: '0.162.1', commit: '2'.repeat(40) },
     to: { version: '0.163.0', commit: '1'.repeat(40) },
     contracts: consumedContracts.map(contract_id => ({ contract_id, judgment: 'unaffected' })),
-    evidence_ids: ['a'.repeat(64)], source_digest: sourceDigest,
+    evidence_ids: ['a'.repeat(64)],
+    source_digest: sourceDigest
   };
 }
 
@@ -70,10 +109,19 @@ test('reviewed schema 4 preserves every schema 3 lane field when selection polic
   const input = fixture();
   const plain = await assessCandidate(input);
   const record = review(plain.source_digest);
-  const baseline: Baseline = { schema_version: 1, kind: 'baseline', rows: [{
-    ...key, last_reviewed_version: '0.163.0', contract_revision: 'consumed-v1',
-    evidence_ids: [digest(record)], source_digest: plain.source_digest,
-  }] };
+  const baseline: Baseline = {
+    schema_version: 1,
+    kind: 'baseline',
+    rows: [
+      {
+        ...key,
+        last_reviewed_version: '0.163.0',
+        contract_revision: 'consumed-v1',
+        evidence_ids: [digest(record)],
+        source_digest: plain.source_digest
+      }
+    ]
+  };
 
   // When
   const result = await assessCandidate({ ...input, baseline, reviews: [record] });
@@ -82,15 +130,19 @@ test('reviewed schema 4 preserves every schema 3 lane field when selection polic
   expect(result.schema_version).toBe(4);
   if (result.schema_version !== 4) throw new Error('schema_4_required');
   expect(result.lanes).toHaveLength(36);
-  const previousLanes = result.lanes.filter(row => row.profile_id !== 'codex-binding-01660-direct-family-v1').map(row => {
-    const { selection_policy, ...previous } = row;
-    expect(selection_policy).toBeDefined();
-    return previous;
-  });
+  const previousLanes = result.lanes
+    .filter(row => row.profile_id !== 'codex-binding-01660-direct-family-v1')
+    .map(row => {
+      const { selection_policy, ...previous } = row;
+      expect(selection_policy).toBeDefined();
+      return previous;
+    });
   expect(previousLanes).toHaveLength(28);
   // Frozen from schema 3 before the descriptive field was implemented.
   expect(digest(previousLanes)).toBe('adcb1651d9942ea5a5e27298cd6fe5be0a43b4a3613d118c875f8af9d8634d90');
-  expect(digest(plain.lanes.filter(row => row.profile_id !== 'codex-binding-01660-direct-family-v1'))).toBe('356ee379727d6dcdfd211428b62ea7ef21151134075979bf40a7a71c8271d228');
+  expect(digest(plain.lanes.filter(row => row.profile_id !== 'codex-binding-01660-direct-family-v1'))).toBe(
+    '356ee379727d6dcdfd211428b62ea7ef21151134075979bf40a7a71c8271d228'
+  );
   expect(plain.schema_version).toBe(2);
   expect(plain.lanes.every(row => !('selection_policy' in row))).toBe(true);
 });
@@ -107,7 +159,7 @@ test.each([
   ['codex', '0.158.0', 'codex-file-checkpoint-v1', 'collect', 'selected_exact', []],
   ['codex', '0.164.0', 'codex-file-checkpoint-v1', 'collect', 'window_extension_required', ['upper_bound']],
   ['codex', '0.165.0', 'codex-file-checkpoint-v1', 'collect', 'window_extension_required', ['out_of_window']],
-  ['codex', '0.163.0', 'codex-file-legacy-v1', 'collect', 'window_rule_required', ['no_window']],
+  ['codex', '0.163.0', 'codex-file-legacy-v1', 'collect', 'window_rule_required', ['no_window']]
 ] as const)('describes %s %s %s %s as %s with first-match precedence', async (product, target, profile, operation, expected, reasons) => {
   // Given
   const input = fixture(target, product);
@@ -126,21 +178,32 @@ test.each([
   ['0.158.0', '0.158.0', 'none', 'none'],
   ['0.163.0', '0.163.0', 'minor', 'none'],
   ['0.163.0', '0.162.1', 'minor', 'minor'],
-  ['1.0.0', '0.163.0', 'major', 'major'],
+  ['1.0.0', '0.163.0', 'major', 'major']
 ] as const)('separates parser and baseline transitions for target %s and baseline %s', async (target, from, parserTransition, baselineTransition) => {
   // Given
   const input = fixture(target, 'codex', from === target ? [target] : [from, target]);
-  const baseline: Baseline = { schema_version: 1, kind: 'baseline', rows: [{
-    ...key, last_reviewed_version: from, contract_revision: 'consumed-v1',
-    evidence_ids: ['a'.repeat(64)], source_digest: 'b'.repeat(64),
-  }] };
+  const baseline: Baseline = {
+    schema_version: 1,
+    kind: 'baseline',
+    rows: [
+      {
+        ...key,
+        last_reviewed_version: from,
+        contract_revision: 'consumed-v1',
+        evidence_ids: ['a'.repeat(64)],
+        source_digest: 'b'.repeat(64)
+      }
+    ]
+  };
 
   // When
   const result = await reviewed(input, baseline);
 
   // Then
-  expect(result.lanes.find(row => row.profile_id === key.profile_id && row.operation === key.operation)?.selection_policy)
-    .toMatchObject({ parser_base_transition: parserTransition, baseline_transition: baselineTransition });
+  expect(result.lanes.find(row => row.profile_id === key.profile_id && row.operation === key.operation)?.selection_policy).toMatchObject({
+    parser_base_transition: parserTransition,
+    baseline_transition: baselineTransition
+  });
 });
 
 test('missing parser and baseline produce null transitions without inventing versions', async () => {
@@ -151,8 +214,14 @@ test('missing parser and baseline produce null transitions without inventing ver
   const result = await reviewed();
 
   // Then
-  expect(result.lanes.every(row => row.selection_policy.parser_base_transition === null &&
-    row.selection_policy.baseline_transition === null && row.selection_policy.next_step === 'window_rule_required')).toBe(true);
+  expect(
+    result.lanes.every(
+      row =>
+        row.selection_policy.parser_base_transition === null &&
+        row.selection_policy.baseline_transition === null &&
+        row.selection_policy.next_step === 'window_rule_required'
+    )
+  ).toBe(true);
 });
 
 test('an unresolved target equal to a window base stays older-version unsupported', async () => {
@@ -186,22 +255,31 @@ test('schema 4 strictly rejects missing fields and unknown policy fields or valu
   const { selection_policy, ...withoutPolicy } = first;
   expect([next_step, parser_base_transition, baseline_transition, selection_policy]).toHaveLength(4);
   const invalidPolicies = [
-    { ...policy, note: 'text' }, { ...policy, next_step: 'supported' }, { ...policy, next_step: null },
-    { ...policy, parser_base_transition: 'patch' }, { ...policy, baseline_transition: 'patch' },
-    { ...policy, parser_base_transition: 0 }, { ...policy, baseline_transition: false },
-    withoutNext, withoutParser, withoutBaseline,
+    { ...policy, note: 'text' },
+    { ...policy, next_step: 'supported' },
+    { ...policy, next_step: null },
+    { ...policy, parser_base_transition: 'patch' },
+    { ...policy, baseline_transition: 'patch' },
+    { ...policy, parser_base_transition: 0 },
+    { ...policy, baseline_transition: false },
+    withoutNext,
+    withoutParser,
+    withoutBaseline
   ];
 
   // When
   const parsed = [
     assessmentSchema.safeParse({ ...result, lanes: [withoutPolicy] }),
     assessmentSchema.safeParse({ ...result, lanes: [{ ...first, extra: 'text' }] }),
-    ...invalidPolicies.map(selection_policy => assessmentSchema.safeParse({
-      ...result, lanes: [{ ...first, selection_policy }],
-    })),
+    ...invalidPolicies.map(selection_policy =>
+      assessmentSchema.safeParse({
+        ...result,
+        lanes: [{ ...first, selection_policy }]
+      })
+    ),
     assessmentSchema.safeParse({ ...result, schema_version: 3 }),
     assessmentSchema.safeParse({ ...result, unused_review_ids: ['f'.repeat(64)] }),
-    assessmentSchema.safeParse({ ...result, review_ids: [...result.review_ids, ...result.review_ids] }),
+    assessmentSchema.safeParse({ ...result, review_ids: [...result.review_ids, ...result.review_ids] })
   ];
 
   // Then
@@ -216,10 +294,23 @@ test('all transition codes including null remain valid strict policy values', as
   const values: readonly SelectionPolicy['parser_base_transition'][] = ['none', 'minor', 'major', null];
 
   // When
-  const parsed = values.flatMap(parser_base_transition => values.map(baseline_transition =>
-    assessmentSchema.safeParse({ ...result, lanes: [{ ...first, selection_policy: {
-      ...first.selection_policy, parser_base_transition, baseline_transition,
-    } }] })));
+  const parsed = values.flatMap(parser_base_transition =>
+    values.map(baseline_transition =>
+      assessmentSchema.safeParse({
+        ...result,
+        lanes: [
+          {
+            ...first,
+            selection_policy: {
+              ...first.selection_policy,
+              parser_base_transition,
+              baseline_transition
+            }
+          }
+        ]
+      })
+    )
+  );
 
   // Then
   expect(parsed.every(value => value.success)).toBe(true);
@@ -230,9 +321,13 @@ test('36-lane assessments fit the unchanged byte limit and oversized records are
   const result = await reviewed();
   const release = fixture().observation.releases[0];
   if (!release) throw new Error('fixture_release_required');
-  const oversized = { ...result, lanes: result.lanes.map(row => ({
-    ...row, review: { ...row.review, releases: Array.from({ length: 256 }, () => release) },
-  })) };
+  const oversized = {
+    ...result,
+    lanes: result.lanes.map(row => ({
+      ...row,
+      review: { ...row.review, releases: Array.from({ length: 256 }, () => release) }
+    }))
+  };
 
   // When
   const parsed = assessmentSchema.safeParse(oversized);

@@ -41,11 +41,22 @@ into a public PR as a substitute for a public requirements summary.
    command, time, and tested revision or working-tree state. The existing runtime
    probes do not prove product acceptance. Distinguish local and remote results.
 
-Husky runs `npm run check` before local commits after dependency installation,
-then validates the proposed message with commitlint through the commit-msg hook.
-The hook checks the working tree, with the privacy guard checking the Git index;
-inspect partial staging separately. It does not run the independent review or
-update handoff records. Do not use a successful hook as the whole completion gate.
+After dependency installation, Husky runs the privacy guard, formatting check, lint, type checks,
+and Vitest tests related to staged files before local commits. It builds the
+package and UI before tests, even for test-only changes, to refresh subprocess
+entry points and frozen UI inputs. Root and `docs/` Markdown-only changes skip
+build and tests; no related tests passes. Source changes also select filesystem
+and subprocess test consumers that import analysis misses. Deletions and global
+or opaque inputs, including scripts, test helpers, UI, configuration, manifests,
+and assets, fall back to the full suite.
+The commit-msg hook validates the proposed message with commitlint.
+Checks use the working tree; only the privacy guard and changed-path selection
+read the Git index. Inspect partial staging separately: hooks do not stage files,
+and the tested working tree can differ from the commit. Hooks can be bypassed.
+CI runs the full gate explicitly with hooks disabled and covers Node 24 only,
+not Node 26. The full `npm run check` remains required for implementation
+completion. A successful hook does not replace that check, independent review,
+or handoff records.
 
 Acceptance table:
 

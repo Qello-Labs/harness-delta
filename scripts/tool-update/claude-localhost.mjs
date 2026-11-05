@@ -63,8 +63,8 @@ export async function runLocalhost({ approvalFile, binary, root, scenario }) {
   const { Store } = await import(join(repository, 'dist/store.js'));
   const { Lifecycle } = await import(join(repository, 'dist/lifecycle.js'));
   const { assertOrdinaryTaskPrepared, revokeOrdinaryObservation } = await import(join(repository, 'dist/ordinary-observation.js'));
-  const { createLocalWebDomain } = await import(join(repository, 'dist/local-web-domain.js'));
-  const { createLocalWebServer } = await import(join(repository, 'dist/local-web-server.js'));
+  const { createLocalWebDomain } = await import(join(repository, 'dist/web/local-web-domain.js'));
+  const { createLocalWebServer } = await import(join(repository, 'dist/web/local-web-server.js'));
   const { ClaudeSessionBindingProvider } = await import(join(repository, 'dist/session-binding-claude.js'));
   const { readClaudeProcessBinary } = await import(join(repository, 'dist/claude-process-binary.js'));
   const project = join(root, 'project'), config = join(root, 'config');

@@ -9,8 +9,8 @@ import { codexBindingAdmission } from '../src/codex-binding-admission.js';
 import { Deletion } from '../src/deletion.js';
 import { Lifecycle } from '../src/lifecycle.js';
 import { Store } from '../src/store.js';
-import { createLocalWebDomain } from '../src/local-web-domain.js';
-import { createLocalWebServer } from '../src/local-web-server.js';
+import { createLocalWebDomain } from '../src/web/local-web-domain.js';
+import { createLocalWebServer } from '../src/web/local-web-server.js';
 import { localWebFixture } from './helpers/local-web-fixture.js';
 
 type Setup = {
@@ -45,10 +45,13 @@ describe('project Codex connection setup HTTP', () => {
     store.close();
     rmSync(root, { recursive: true, force: true });
   });
-  const post = (payload: unknown) => app.inject({
-    method: 'POST', url: route, payload: JSON.stringify(payload),
-    headers: { host: '127.0.0.1:4327', origin, 'content-type': 'application/json', 'x-harness-csrf': csrf, 'idempotency-key': randomUUID() },
-  });
+  const post = (payload: unknown) =>
+    app.inject({
+      method: 'POST',
+      url: route,
+      payload: JSON.stringify(payload),
+      headers: { host: '127.0.0.1:4327', origin, 'content-type': 'application/json', 'x-harness-csrf': csrf, 'idempotency-key': randomUUID() }
+    });
   const inspect = () => app.inject({ url: route, headers: { host: '127.0.0.1:4327' } });
   const configure = () => post({ operation: 'configure', product_version: '0.162.1', source_roots: [sources] });
   async function install() {
@@ -56,8 +59,9 @@ describe('project Codex connection setup HTTP', () => {
     expect(preview.statusCode, preview.body).toBe(200);
     const snapshot = preview.json<Setup>();
     return post({
-      operation: 'install', expected_package_hash: snapshot.installation.packageHash,
-      expected_installed_hash: snapshot.installation.installedHash,
+      operation: 'install',
+      expected_package_hash: snapshot.installation.packageHash,
+      expected_installed_hash: snapshot.installation.installedHash
     });
   }
 
@@ -68,14 +72,17 @@ describe('project Codex connection setup HTTP', () => {
     expect(inspected.statusCode).toBe(200);
     expect(preview.statusCode, preview.body).toBe(200);
     expect(inspected.json()).toMatchObject({
-      configured: false, product: 'codex', product_version: '0.163.0',
+      configured: false,
+      product: 'codex',
+      product_version: '0.163.0',
       unqualified_versions: ['0.166.0'],
       admission: {
-        profile_id: 'codex-binding-01630-direct-family-v1', qualified: true,
-        max_family_members: 3,
+        profile_id: 'codex-binding-01630-direct-family-v1',
+        qualified: true,
+        max_family_members: 3
       },
       readiness: { provider: 'blocked', reason: 'codex_connect_not_configured' },
-      connection: { roots: 0, observing: 0 },
+      connection: { roots: 0, observing: 0 }
     });
     expect(readdirSync(project)).toEqual(before);
     expect(store.all('SELECT * FROM sessions')).toEqual([]);
@@ -86,10 +93,12 @@ describe('project Codex connection setup HTTP', () => {
     const saved = await configure();
     expect(saved.statusCode, saved.body).toBe(200);
     expect(saved.json()).toMatchObject({
-      configured: true, product_version: '0.162.1', source_roots: [sources],
+      configured: true,
+      product_version: '0.162.1',
+      source_roots: [sources],
       installation: { state: 'absent', hookRegistration: 'unverified' },
       readiness: { receipt_directory: 'missing', provider: 'blocked', reason: 'receipt_directory_missing' },
-      connection: { roots: 0, observing: 0 },
+      connection: { roots: 0, observing: 0 }
     });
     expect(existsSync(join(project, '.codex'))).toBe(false);
     expect(store.all('SELECT * FROM tasks')).toEqual([]);
@@ -99,11 +108,15 @@ describe('project Codex connection setup HTTP', () => {
     const saved = await post({ operation: 'configure', source_roots: [sources] });
     expect(saved.statusCode, saved.body).toBe(200);
     expect(saved.json()).toMatchObject({
-      configured: true, product_version: '0.163.0', source_roots: [sources],
-      admission: { profile_id: 'codex-binding-01630-direct-family-v1', qualified: true },
+      configured: true,
+      product_version: '0.163.0',
+      source_roots: [sources],
+      admission: { profile_id: 'codex-binding-01630-direct-family-v1', qualified: true }
     });
     expect((await inspect()).json()).toMatchObject({
-      configured: true, product_version: '0.163.0', source_roots: [sources],
+      configured: true,
+      product_version: '0.163.0',
+      source_roots: [sources]
     });
   });
 
@@ -113,19 +126,22 @@ describe('project Codex connection setup HTTP', () => {
     const saved = await post({ operation: 'configure', source_roots: [project] });
     expect(saved.statusCode, saved.body).toBe(200);
     expect((await inspect()).json()).toMatchObject({
-      configured: true, product_version: productVersion, source_roots: [project],
+      configured: true,
+      product_version: productVersion,
+      source_roots: [project]
     });
     expect(existsSync(join(project, '.codex'))).toBe(false);
   });
 
   it.each(['0.162.0', '0.162.2', '0.163.1', '0.163.0-beta.1', '0.165.0', '0.166.1', '0.166.0-beta.1', '0.167.0', ''])(
-    'refuses unknown setup version %s without changing saved settings', async productVersion => {
+    'refuses unknown setup version %s without changing saved settings',
+    async productVersion => {
       await configure();
       const before = (await inspect()).json<Setup>();
       expect((await post({ operation: 'configure', product_version: productVersion, source_roots: [project] })).statusCode).toBe(400);
       expect((await inspect()).json<Setup>()).toEqual(before);
       expect(existsSync(join(project, '.codex'))).toBe(false);
-    },
+    }
   );
 
   it('requires protected explicit installation with reviewed hashes', async () => {
@@ -140,41 +156,49 @@ describe('project Codex connection setup HTTP', () => {
   it.each([
     { productVersion: '0.162.1', profileId: 'codex-binding-01621-direct-family-v1', qualified: true },
     { productVersion: '0.163.0', profileId: 'codex-binding-01630-direct-family-v1', qualified: true },
-    { productVersion: '0.166.0', profileId: 'codex-binding-01660-direct-family-v1', qualified: false },
-  ])('installs $productVersion prepared files without granting native trust or creating receipts and sessions', async ({ productVersion, profileId, qualified }) => {
-    const configured = await post({ operation: 'configure', product_version: productVersion, source_roots: [sources] });
-    expect(configured.statusCode, configured.body).toBe(200);
-    expect(configured.json()).toMatchObject({
-      product_version: productVersion,
-      admission: { profile_id: profileId, qualified, max_family_members: 3 },
-    });
-    const installed = await install();
-    expect(installed.statusCode, installed.body).toBe(200);
-    expect(installed.json()).toMatchObject({
-      configured: true, installation: { state: 'installed', hookRegistration: 'unverified' },
-      product_version: productVersion,
-      admission: { profile_id: profileId, qualified, max_family_members: 3 },
-      readiness: { receipt_directory: 'ready', provider: 'ready', reason: null, hook_trust: 'manual_confirmation_required', requires_new_session: true },
-      connection: { roots: 0, observing: 0 },
-    });
-    expect(readdirSync(join(project, '.harness-delta/codex-connect/receipts'))).toEqual([]);
-    const { hooks } = z.object({ hooks: z.object({
-      SessionStart: z.array(z.unknown()), SubagentStart: z.array(z.unknown()),
-    }) }).parse(JSON.parse(readFileSync(join(project, '.codex/hooks.json'), 'utf8')) as unknown);
-    expect(hooks.SessionStart).toHaveLength(1);
-    expect(hooks.SubagentStart).toHaveLength(1);
-    const entries = z.array(z.object({ hooks: z.array(z.object({ command: z.string() })) }))
-      .parse([...hooks.SessionStart, ...hooks.SubagentStart]);
-    for (const entry of entries) expect(entry.hooks[0]?.command).toContain(`'--product-version' '${productVersion}'`);
-    expect(existsSync(join(project, '.codex/config.toml'))).toBe(false);
-    expect(store.all('SELECT * FROM sessions')).toEqual([]);
-    expect(store.all('SELECT * FROM active_intervals')).toEqual([]);
-    expect(store.eventCount()).toBe(0);
-  });
+    { productVersion: '0.166.0', profileId: 'codex-binding-01660-direct-family-v1', qualified: false }
+  ])(
+    'installs $productVersion prepared files without granting native trust or creating receipts and sessions',
+    async ({ productVersion, profileId, qualified }) => {
+      const configured = await post({ operation: 'configure', product_version: productVersion, source_roots: [sources] });
+      expect(configured.statusCode, configured.body).toBe(200);
+      expect(configured.json()).toMatchObject({
+        product_version: productVersion,
+        admission: { profile_id: profileId, qualified, max_family_members: 3 }
+      });
+      const installed = await install();
+      expect(installed.statusCode, installed.body).toBe(200);
+      expect(installed.json()).toMatchObject({
+        configured: true,
+        installation: { state: 'installed', hookRegistration: 'unverified' },
+        product_version: productVersion,
+        admission: { profile_id: profileId, qualified, max_family_members: 3 },
+        readiness: { receipt_directory: 'ready', provider: 'ready', reason: null, hook_trust: 'manual_confirmation_required', requires_new_session: true },
+        connection: { roots: 0, observing: 0 }
+      });
+      expect(readdirSync(join(project, '.harness-delta/codex-connect/receipts'))).toEqual([]);
+      const { hooks } = z
+        .object({
+          hooks: z.object({
+            SessionStart: z.array(z.unknown()),
+            SubagentStart: z.array(z.unknown())
+          })
+        })
+        .parse(JSON.parse(readFileSync(join(project, '.codex/hooks.json'), 'utf8')) as unknown);
+      expect(hooks.SessionStart).toHaveLength(1);
+      expect(hooks.SubagentStart).toHaveLength(1);
+      const entries = z.array(z.object({ hooks: z.array(z.object({ command: z.string() })) })).parse([...hooks.SessionStart, ...hooks.SubagentStart]);
+      for (const entry of entries) expect(entry.hooks[0]?.command).toContain(`'--product-version' '${productVersion}'`);
+      expect(existsSync(join(project, '.codex/config.toml'))).toBe(false);
+      expect(store.all('SELECT * FROM sessions')).toEqual([]);
+      expect(store.all('SELECT * FROM active_intervals')).toEqual([]);
+      expect(store.eventCount()).toBe(0);
+    }
+  );
 
   it.each([
     ['0.162.1', '0.163.0'],
-    ['0.163.0', '0.162.1'],
+    ['0.163.0', '0.162.1']
   ])('refuses a %s installation preview after selecting %s', async (beforeVersion, afterVersion) => {
     expect((await post({ operation: 'configure', product_version: beforeVersion, source_roots: [sources] })).statusCode).toBe(200);
     const preview = await post({ operation: 'preview-install' });
@@ -182,8 +206,9 @@ describe('project Codex connection setup HTTP', () => {
     const snapshot = preview.json<Setup>();
     expect((await post({ operation: 'configure', product_version: afterVersion })).statusCode).toBe(200);
     const result = await post({
-      operation: 'install', expected_package_hash: snapshot.installation.packageHash,
-      expected_installed_hash: snapshot.installation.installedHash,
+      operation: 'install',
+      expected_package_hash: snapshot.installation.packageHash,
+      expected_installed_hash: snapshot.installation.installedHash
     });
     expect(result.statusCode).toBe(400);
     expect(result.json()).toEqual({ error: 'installation_preview_changed' });
@@ -197,7 +222,8 @@ describe('project Codex connection setup HTTP', () => {
     chmodSync(join(project, '.harness-delta/codex-connect/receipts'), 0o755);
     const inspected = await inspect();
     expect(inspected.json()).toMatchObject({
-      configured: true, readiness: { receipt_directory: 'unsafe', provider: 'blocked', reason: 'receipt_directory_unsafe' },
+      configured: true,
+      readiness: { receipt_directory: 'unsafe', provider: 'blocked', reason: 'receipt_directory_unsafe' }
     });
   });
 
@@ -206,13 +232,14 @@ describe('project Codex connection setup HTTP', () => {
     expect((await install()).statusCode).toBe(200);
     rmSync(join(project, '.harness-delta/codex-connect/receipts'), { recursive: true });
     expect((await inspect()).json()).toMatchObject({
-      readiness: { provider: 'blocked', reason: 'receipt_directory_missing' },
+      readiness: { provider: 'blocked', reason: 'receipt_directory_missing' }
     });
     const repaired = await install();
     expect(repaired.statusCode, repaired.body).toBe(200);
     expect(repaired.json()).toMatchObject({
-      installation: { state: 'installed' }, readiness: { provider: 'ready', receipt_directory: 'ready' },
-      connection: { roots: 0, observing: 0 },
+      installation: { state: 'installed' },
+      readiness: { provider: 'ready', receipt_directory: 'ready' },
+      connection: { roots: 0, observing: 0 }
     });
     expect(store.eventCount()).toBe(0);
   });
@@ -223,7 +250,7 @@ describe('project Codex connection setup HTTP', () => {
     mkdirSync(join(external, 'codex-connect/receipts'), { recursive: true, mode: 0o700 });
     symlinkSync(external, join(project, '.harness-delta'));
     expect((await inspect()).json()).toMatchObject({
-      readiness: { receipt_directory: 'unsafe', provider: 'blocked' },
+      readiness: { receipt_directory: 'unsafe', provider: 'blocked' }
     });
   });
 
@@ -232,8 +259,9 @@ describe('project Codex connection setup HTTP', () => {
     expect((await install()).statusCode).toBe(200);
     const preview = (await post({ operation: 'preview-remove' })).json<Setup>();
     const removed = await post({
-      operation: 'remove', expected_package_hash: preview.installation.packageHash,
-      expected_installed_hash: preview.installation.installedHash,
+      operation: 'remove',
+      expected_package_hash: preview.installation.packageHash,
+      expected_installed_hash: preview.installation.installedHash
     });
     expect(removed.statusCode, removed.body).toBe(200);
     expect(removed.json()).toMatchObject({ configured: true, installation: { state: 'absent' }, connection: { roots: 0, observing: 0 } });
@@ -251,7 +279,9 @@ describe('project Codex connection setup HTTP', () => {
     const metadata = new Database(join(root, 'metadata.sqlite'), { readonly: true });
     try {
       expect(metadata.prepare('SELECT project_id FROM web_codex_connections').all()).toEqual([]);
-    } finally { metadata.close(); }
+    } finally {
+      metadata.close();
+    }
     expect(existsSync(join(project, '.codex'))).toBe(false);
   });
 });
@@ -259,15 +289,19 @@ describe('project Codex connection setup HTTP', () => {
 it('exposes a missing configured receipt directory instead of a generic provider error', async () => {
   const fixture = localWebFixture();
   fixture.profile.session_binding = {
-    product: 'codex', receipt_directory: join(fixture.root, 'missing-receipts'),
-    source_roots: [join(fixture.home, 'sessions')], project_root: fixture.project,
+    product: 'codex',
+    receipt_directory: join(fixture.root, 'missing-receipts'),
+    source_roots: [join(fixture.home, 'sessions')],
+    project_root: fixture.project
   };
   const domain = fixture.create();
   try {
     const created = await domain.createTask({ name: 'Synthetic missing receipt', project_id: 'project-1', setup_id: fixture.profile.id });
     const { id } = z.object({ id: z.string() }).parse(created);
     expect(domain.task(id).actions).toContainEqual({
-      code: 'session-connect', enabled: false, reason: 'receipt_directory_missing',
+      code: 'session-connect',
+      enabled: false,
+      reason: 'receipt_directory_missing'
     });
     expect(fixture.store.eventCount()).toBe(0);
   } finally {
@@ -280,37 +314,57 @@ it('uses reviewed project connection settings for existing Codex tasks without c
   const fixture = localWebFixture(codexBindingAdmission.profileId, { product: 'codex', productVersion: '0.162.1' });
   const oldReceipts = join(fixture.root, 'old-missing-receipts');
   fixture.profile.session_binding = {
-    product: 'codex', receipt_directory: oldReceipts,
-    source_roots: [join(fixture.home, 'sessions')], project_root: fixture.project,
+    product: 'codex',
+    receipt_directory: oldReceipts,
+    source_roots: [join(fixture.home, 'sessions')],
+    project_root: fixture.project
   };
   const domain = fixture.create();
   try {
-    const created = z.object({ id: z.string() }).parse(await domain.createTask({
-      name: 'Synthetic project preparation', project_id: 'project-1', setup_id: fixture.profile.id,
-    }));
+    const created = z.object({ id: z.string() }).parse(
+      await domain.createTask({
+        name: 'Synthetic project preparation',
+        project_id: 'project-1',
+        setup_id: fixture.profile.id
+      })
+    );
     await domain.taskAction(created.id, 'apply', {});
     const assignment = fixture.store.get('SELECT * FROM comparison_assignments WHERE task_id=?', [created.id]);
     const protocol = fixture.store.all('SELECT * FROM comparison_protocols');
     expect(domain.task(created.id).actions).toContainEqual({
-      code: 'session-connect', enabled: false, reason: 'receipt_directory_missing',
+      code: 'session-connect',
+      enabled: false,
+      reason: 'receipt_directory_missing'
     });
     if (!domain.codexProjectAction) throw new Error('missing_codex_setup');
     await domain.codexProjectAction('project-1', {
-      operation: 'configure', product_version: '0.162.1', source_roots: [join(fixture.home, 'sessions')],
+      operation: 'configure',
+      product_version: '0.162.1',
+      source_roots: [join(fixture.home, 'sessions')]
     });
-    const preview = z.object({ installation: z.object({
-      packageHash: z.string().nullable(), installedHash: z.string().nullable(),
-    }) }).parse(await domain.codexProjectAction('project-1', { operation: 'preview-install' }));
+    const preview = z
+      .object({
+        installation: z.object({
+          packageHash: z.string().nullable(),
+          installedHash: z.string().nullable()
+        })
+      })
+      .parse(await domain.codexProjectAction('project-1', { operation: 'preview-install' }));
     await domain.codexProjectAction('project-1', {
-      operation: 'install', expected_package_hash: preview.installation.packageHash,
-      expected_installed_hash: preview.installation.installedHash,
+      operation: 'install',
+      expected_package_hash: preview.installation.packageHash,
+      expected_installed_hash: preview.installation.installedHash
     });
     expect(domain.task(created.id)).toMatchObject({ binding: { state: 'unconnected' } });
     expect(domain.task(created.id).actions).toContainEqual({
-      code: 'session-connect', enabled: true, reason: null,
+      code: 'session-connect',
+      enabled: true,
+      reason: null
     });
     expect(domain.task(created.id).actions).not.toContainEqual({
-      code: 'session-connect', enabled: false, reason: 'receipt_directory_missing',
+      code: 'session-connect',
+      enabled: false,
+      reason: 'receipt_directory_missing'
     });
     expect(existsSync(oldReceipts)).toBe(false);
     expect(fixture.store.get('SELECT * FROM comparison_assignments WHERE task_id=?', [created.id])).toEqual(assignment);
@@ -330,18 +384,26 @@ it('retains a different frozen-version profile and its noncanonical receipt path
   mkdirSync(receipts, { mode: 0o700 });
   symlinkSync(receipts, alias);
   fixture.profile.session_binding = {
-    product: 'codex', receipt_directory: alias,
-    source_roots: [join(fixture.home, 'sessions')], project_root: fixture.project,
+    product: 'codex',
+    receipt_directory: alias,
+    source_roots: [join(fixture.home, 'sessions')],
+    project_root: fixture.project
   };
   const domain = fixture.create();
   try {
-    const created = z.object({ id: z.string() }).parse(await domain.createTask({
-      name: 'Synthetic legacy profile', project_id: 'project-1', setup_id: fixture.profile.id,
-    }));
+    const created = z.object({ id: z.string() }).parse(
+      await domain.createTask({
+        name: 'Synthetic legacy profile',
+        project_id: 'project-1',
+        setup_id: fixture.profile.id
+      })
+    );
     const before = domain.task(created.id).actions;
     if (!domain.codexProjectAction) throw new Error('missing_codex_setup');
     await domain.codexProjectAction('project-1', {
-      operation: 'configure', product_version: '0.162.1', source_roots: [join(fixture.home, 'sessions')],
+      operation: 'configure',
+      product_version: '0.162.1',
+      source_roots: [join(fixture.home, 'sessions')]
     });
     expect(domain.task(created.id).actions).toEqual(before);
     expect(existsSync(join(fixture.project, '.harness-delta/codex-connect/receipts'))).toBe(false);

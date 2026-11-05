@@ -1,23 +1,40 @@
-import {createHash} from 'node:crypto';
-import {openSync,closeSync,unlinkSync,mkdtempSync,realpathSync,mkdirSync,writeFileSync,rmSync,readFileSync,existsSync,statSync} from 'node:fs';
-import {spawn,type ChildProcess} from 'node:child_process';
-import {join,resolve} from 'node:path';
-import {vi} from 'vitest';
-import {Store} from '../../src/store.js';
-import {Lifecycle} from '../../src/lifecycle.js';
+import { createHash } from 'node:crypto';
+import { openSync, closeSync, unlinkSync, mkdtempSync, realpathSync, mkdirSync, writeFileSync, rmSync, readFileSync, existsSync, statSync } from 'node:fs';
+import { spawn, type ChildProcess } from 'node:child_process';
+import { join, resolve } from 'node:path';
+import { vi } from 'vitest';
+import { Store } from '../../src/store.js';
+import { Lifecycle } from '../../src/lifecycle.js';
 import * as collection from '../../src/collection.js';
-import type {CodexQualificationOptions} from '../../src/codex-qualification.js';
-const readSyntheticSource=collection.readSource;
+import type { CodexQualificationOptions } from '../../src/qualification/codex-qualification.js';
+const readSyntheticSource = collection.readSource;
 export function codexQualificationFixture(mode = 'success') {
   const dir = realpathSync(mkdtempSync('/tmp/hdcq-'));
-  const cwd = join(dir, 'fixture'); const ledger = join(dir, 'ledger'); const codexHome = join(dir, 'codex-home'); mkdirSync(codexHome); const sessionsRoot = join(codexHome, 'sessions');
+  const cwd = join(dir, 'fixture');
+  const ledger = join(dir, 'ledger');
+  const codexHome = join(dir, 'codex-home');
+  mkdirSync(codexHome);
+  const sessionsRoot = join(codexHome, 'sessions');
   for (const path of [cwd, ledger, sessionsRoot]) mkdirSync(path);
-  const store = new Store(join(ledger, 'measurement.sqlite')); const lifecycle = new Lifecycle(store);
+  const store = new Store(join(ledger, 'measurement.sqlite'));
+  const lifecycle = new Lifecycle(store);
   lifecycle.registerProject('p', cwd);
-  lifecycle.createTask('p', 't', { type: 'feature', expected_size: 'small', assignee: 'synthetic-user', product: 'codex', model: 'gpt-6-astra', criterion_ids: ['c'] });
+  lifecycle.createTask('p', 't', {
+    type: 'feature',
+    expected_size: 'small',
+    assignee: 'synthetic-user',
+    product: 'codex',
+    model: 'gpt-6-astra',
+    criterion_ids: ['c']
+  });
   lifecycle.start('t');
-  const script = join(dir, 'fake.mjs'); const executable = join(dir, 'fake-codex'); const hookPreloader=join(dir,'hook-ready.mjs'); const timingPath=join(dir,'synthetic-timing.jsonl');
-  writeFileSync(script, `
+  const script = join(dir, 'fake.mjs');
+  const executable = join(dir, 'fake-codex');
+  const hookPreloader = join(dir, 'hook-ready.mjs');
+  const timingPath = join(dir, 'synthetic-timing.jsonl');
+  writeFileSync(
+    script,
+    `
 import {writeFileSync,appendFileSync,openSync,closeSync,unlinkSync} from 'node:fs';
 import {spawn,spawnSync} from 'node:child_process';
 const trace=${JSON.stringify(timingPath)};
@@ -100,42 +117,145 @@ if(mode==='permission-relaxation'){const relaxed=context(root);relaxed.permissio
 if(mode==='extra'){const extra='00000000-0000-0000-0000-000000000003';create(extra,root);await hook(extra);}
 if(mode==='pause'||mode==='cancel'||mode==='source-error'||mode==='relink')setTimeout(()=>process.exit(0),1000);
 else {response(root,'root-final');process.exit(mode==='nonzero'?2:0);}}
-`);
+`
+  );
   // Activation defers the recorder's own timeout until its real hook invocation.
-  writeFileSync(hookPreloader,"import {once} from 'node:events';\nimport 'node:net';\nconst activated=once(process,'message');\nprocess.send({ready:true});\nawait activated;\n");
-  writeFileSync(executable, `#!/bin/sh\n: > '${join(dir,'shell-ready')}'\nexec '${process.execPath}' '${script}' "$@"\n`, { mode: 0o700 });
+  writeFileSync(
+    hookPreloader,
+    "import {once} from 'node:events';\nimport 'node:net';\nconst activated=once(process,'message');\nprocess.send({ready:true});\nawait activated;\n"
+  );
+  writeFileSync(executable, `#!/bin/sh\n: > '${join(dir, 'shell-ready')}'\nexec '${process.execPath}' '${script}' "$@"\n`, { mode: 0o700 });
   const sha256 = createHash('sha256').update(readFileSync(executable)).digest('hex');
-  const options = { store, projectId: 'p', taskId: 't', cwd, ledgerDirectory: ledger, codexHome, sessionsRoot, executable, executableSha256: sha256,
-    nodeExecutable: process.execPath, hookRecorder: resolve('scripts/conformance/candidate-start-recorder.mjs'), rootModel: 'gpt-6-astra', childModel: 'gpt-6.1-sol', rootEffort: 'high', childEffort: 'high', durationMs: 15000, handshakeTimeoutMs: 10000, pollMs: 10 } satisfies CodexQualificationOptions;
+  const options = {
+    store,
+    projectId: 'p',
+    taskId: 't',
+    cwd,
+    ledgerDirectory: ledger,
+    codexHome,
+    sessionsRoot,
+    executable,
+    executableSha256: sha256,
+    nodeExecutable: process.execPath,
+    hookRecorder: resolve('scripts/conformance/candidate-start-recorder.mjs'),
+    rootModel: 'gpt-6-astra',
+    childModel: 'gpt-6.1-sol',
+    rootEffort: 'high',
+    childEffort: 'high',
+    durationMs: 15000,
+    handshakeTimeoutMs: 10000,
+    pollMs: 10
+  } satisfies CodexQualificationOptions;
   // Guard/identity tests need both fake Node launches to reach their assertion;
   // the default budgets leave room for slow CI runners and stay below the test
   // timeouts, so a stuck lane reports its own reason. Explicit
   // deadline/missing-handshake cases retain their original budgets.
-  if(mode==='missing'){options.handshakeTimeoutMs=2000;options.durationMs=4500;}
-  if(mode.startsWith('timing-')){options.handshakeTimeoutMs=1800;options.durationMs=mode==='timing-no-progress'||mode==='timing-unknown'?4300:9500;}
+  if (mode === 'missing') {
+    options.handshakeTimeoutMs = 2000;
+    options.durationMs = 4500;
+  }
+  if (mode.startsWith('timing-')) {
+    options.handshakeTimeoutMs = 1800;
+    options.durationMs = mode === 'timing-no-progress' || mode === 'timing-unknown' ? 4300 : 9500;
+  }
   // Keep real bounded reader/permission guards; serialize only the fake writer.
-  const realNow=Date.now;let clockJump=0;
-  const clockSpy=mode==='timing-late-reader'?vi.spyOn(Date,'now').mockImplementation(()=>realNow()+clockJump):null;
-  const sourceReadSpy=vi.spyOn(collection,'readSource').mockImplementation(path=>{
-    const lock=join(sessionsRoot,'synthetic-source.lock');let fd:number|undefined;const deadline=Date.now()+3000;
-    while(fd===undefined){try{fd=openSync(lock,'wx');}catch(error){if(!(error instanceof Error)||!('code' in error)||error.code!=='EEXIST'||Date.now()>deadline)throw error;Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,1);}}
-    try{if(mode==='timing-late-reader'&&path===join(sessionsRoot,'00000000-0000-0000-0000-000000000002.jsonl'))clockJump=2000;return readSyntheticSource(path);}finally{closeSync(fd);unlinkSync(lock);}
+  const realNow = Date.now;
+  let clockJump = 0;
+  const clockSpy = mode === 'timing-late-reader' ? vi.spyOn(Date, 'now').mockImplementation(() => realNow() + clockJump) : null;
+  const sourceReadSpy = vi.spyOn(collection, 'readSource').mockImplementation(path => {
+    const lock = join(sessionsRoot, 'synthetic-source.lock');
+    let fd: number | undefined;
+    const deadline = Date.now() + 3000;
+    while (fd === undefined) {
+      try {
+        fd = openSync(lock, 'wx');
+      } catch (error) {
+        if (!(error instanceof Error) || !('code' in error) || error.code !== 'EEXIST' || Date.now() > deadline) throw error;
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1);
+      }
+    }
+    try {
+      if (mode === 'timing-late-reader' && path === join(sessionsRoot, '00000000-0000-0000-0000-000000000002.jsonl')) clockJump = 2000;
+      return readSyntheticSource(path);
+    } finally {
+      closeSync(fd);
+      unlinkSync(lock);
+    }
   });
-  let primedNative:ChildProcess|undefined;
-  async function primeNative(argv:readonly string[],startupDelayMs=0){
+  let primedNative: ChildProcess | undefined;
+  async function primeNative(argv: readonly string[], startupDelayMs = 0) {
     // Interpreter startup is fixture setup; the real runner still owns its
     // reservation, process-group teardown and unchanged handoff/deadline clocks.
-    const native=spawn(process.execPath,[script],{detached:true,stdio:['ignore','ignore','pipe','ipc'],env:{...process.env,HD_SYNTHETIC_SETUP_DELAY_MS:String(startupDelayMs),HD_SYNTHETIC_PRIME_ARGS:JSON.stringify(argv),HD_SYNTHETIC_HOOK_READY_IMPORT:hookPreloader}});primedNative=native;
-    await new Promise<void>((ok,no)=>{
-      const clear=()=>{clearTimeout(timer);native.off('message',ready);native.off('error',failed);native.off('exit',exited);};
-      const ready=()=>{clear();ok();};const failed=(error:Error)=>{clear();no(error);};
-      const exited=()=>failed(new Error('synthetic_fixture_exited_before_ready'));
-      const timer=setTimeout(()=>failed(new Error('synthetic_fixture_startup_timeout')),15000);
-      native.once('message',ready);native.once('error',failed);native.once('exit',exited);
+    const native = spawn(process.execPath, [script], {
+      detached: true,
+      stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
+      env: {
+        ...process.env,
+        HD_SYNTHETIC_SETUP_DELAY_MS: String(startupDelayMs),
+        HD_SYNTHETIC_PRIME_ARGS: JSON.stringify(argv),
+        HD_SYNTHETIC_HOOK_READY_IMPORT: hookPreloader
+      }
     });
-    vi.mocked(spawn).mockImplementationOnce((command,args)=>{if(command!==executable)throw new Error('unexpected_fixture_executable');native.send({args,startedAt:Date.now()});return native;});
+    primedNative = native;
+    await new Promise<void>((ok, no) => {
+      const clear = () => {
+        clearTimeout(timer);
+        native.off('message', ready);
+        native.off('error', failed);
+        native.off('exit', exited);
+      };
+      const ready = () => {
+        clear();
+        ok();
+      };
+      const failed = (error: Error) => {
+        clear();
+        no(error);
+      };
+      const exited = () => failed(new Error('synthetic_fixture_exited_before_ready'));
+      const timer = setTimeout(() => failed(new Error('synthetic_fixture_startup_timeout')), 15000);
+      native.once('message', ready);
+      native.once('error', failed);
+      native.once('exit', exited);
+    });
+    vi.mocked(spawn).mockImplementationOnce((command, args) => {
+      if (command !== executable) throw new Error('unexpected_fixture_executable');
+      native.send({ args, startedAt: Date.now() });
+      return native;
+    });
     return native;
   }
-  const timing=()=>({shellReadyAt:existsSync(join(dir,'shell-ready'))?statSync(join(dir,'shell-ready')).birthtimeMs:null,marks:existsSync(timingPath)?readFileSync(timingPath,'utf8').trim().split('\n').map((line):unknown=>JSON.parse(line)):[]});
-  return { dir, store, lifecycle, options, sourceReadSpy, timingPath, timing, primeNative, cleanup: () => { if(primedNative?.pid){try{process.kill(-primedNative.pid,'SIGKILL');}catch(error){if(!(error instanceof Error)||!('code' in error)||error.code!=='ESRCH')throw error;}}vi.mocked(spawn).mockReset();sourceReadSpy.mockRestore();clockSpy?.mockRestore();store.close(); rmSync(dir, { recursive: true, force: true }); } };
+  const timing = () => ({
+    shellReadyAt: existsSync(join(dir, 'shell-ready')) ? statSync(join(dir, 'shell-ready')).birthtimeMs : null,
+    marks: existsSync(timingPath)
+      ? readFileSync(timingPath, 'utf8')
+          .trim()
+          .split('\n')
+          .map((line): unknown => JSON.parse(line))
+      : []
+  });
+  return {
+    dir,
+    store,
+    lifecycle,
+    options,
+    sourceReadSpy,
+    timingPath,
+    timing,
+    primeNative,
+    cleanup: () => {
+      if (primedNative?.pid) {
+        try {
+          process.kill(-primedNative.pid, 'SIGKILL');
+        } catch (error) {
+          if (!(error instanceof Error) || !('code' in error) || error.code !== 'ESRCH') throw error;
+        }
+      }
+      vi.mocked(spawn).mockReset();
+      sourceReadSpy.mockRestore();
+      clockSpy?.mockRestore();
+      store.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
 }

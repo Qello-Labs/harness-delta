@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createLocalWebServer } from '../../../dist/local-web-server.js';
+import { createLocalWebServer } from '../../../dist/web/local-web-server.js';
 import { run } from '../scripts/connect.mjs';
 
 // Real current-main HTTP schema/idempotency/If-Match/CSRF gates via injection.

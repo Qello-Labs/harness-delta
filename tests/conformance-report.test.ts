@@ -7,7 +7,13 @@ import { classifyCounters, classifyTopology, type CheckMap, type CounterVector }
 import { projectReport, writeRestrictedReport } from '../scripts/conformance/report.js';
 
 const vector = (values: Partial<CounterVector> = {}): CounterVector => ({
-  input: null, cached: null, output: null, reasoning: null, cacheWrite: null, totalTokens: null, ...values,
+  input: null,
+  cached: null,
+  output: null,
+  reasoning: null,
+  cacheWrite: null,
+  totalTokens: null,
+  ...values
 });
 const counters = (values: {
   total?: CounterVector | null;
@@ -15,19 +21,23 @@ const counters = (values: {
   exec?: CounterVector | null;
   priorTotal?: CounterVector | null;
   inputIncludesCacheWrite?: boolean;
-}) => classifyCounters({
-  total: values.total ?? null,
-  last: values.last ?? null,
-  exec: values.exec ?? null,
-  priorTotal: values.priorTotal ?? null,
-  inputIncludesCacheWrite: values.inputIncludesCacheWrite ?? false,
-});
+}) =>
+  classifyCounters({
+    total: values.total ?? null,
+    last: values.last ?? null,
+    exec: values.exec ?? null,
+    priorTotal: values.priorTotal ?? null,
+    inputIncludesCacheWrite: values.inputIncludesCacheWrite ?? false
+  });
 
 test('catalog traversal keeps approved paths and drops private names and values', () => {
-  const row = traverseCatalog({
-    type: 'session_meta',
-    payload: { id: 's1', session_id: 's1', creator_account_id: 'SECRET_ACCOUNT', private_note: 'SECRET_NOTE' },
-  }, admissionCatalog);
+  const row = traverseCatalog(
+    {
+      type: 'session_meta',
+      payload: { id: 's1', session_id: 's1', creator_account_id: 'SECRET_ACCOUNT', private_note: 'SECRET_NOTE' }
+    },
+    admissionCatalog
+  );
   expect(row.matchedPaths).toEqual(['session_meta.id', 'session_meta.session_id', 'session_meta.creator_account_id']);
   expect(row.unknownNameCount).toBeGreaterThanOrEqual(1);
   expect(row.recordCounts).toEqual({ session_meta: 1 });
@@ -35,29 +45,50 @@ test('catalog traversal keeps approved paths and drops private names and values'
   expect(body).not.toContain('SECRET_ACCOUNT');
   expect(body).not.toContain('SECRET_NOTE');
   expect(body).not.toContain('private_note');
-  const nested = traverseCatalog({
-    type: 'token_usage_record', payload: { amount: 99999, note: 'SECRET_NESTED' },
-  }, admissionCatalog);
+  const nested = traverseCatalog(
+    {
+      type: 'token_usage_record',
+      payload: { amount: 99999, note: 'SECRET_NESTED' }
+    },
+    admissionCatalog
+  );
   expect(nested.matchedPaths).toEqual(['token_usage_record']);
   const nestedBody = JSON.stringify(nested);
   expect(nestedBody).not.toContain('amount');
   expect(nestedBody).not.toContain('99999');
   expect(nestedBody).not.toContain('note');
   expect(nestedBody).not.toContain('SECRET_NESTED');
-  const limited = traverseCatalog({
-    type: 'session_meta', payload: { id: 's1', private_overflow: 'SECRET_OVER' },
-  }, admissionCatalog, { maxDepth: 8, maxNodes: 1 });
+  const limited = traverseCatalog(
+    {
+      type: 'session_meta',
+      payload: { id: 's1', private_overflow: 'SECRET_OVER' }
+    },
+    admissionCatalog,
+    { maxDepth: 8, maxNodes: 1 }
+  );
   expect(limited.limitExceeded).toBe(true);
   expect(JSON.stringify(limited)).not.toContain('private_overflow');
   expect(JSON.stringify(limited)).not.toContain('SECRET_OVER');
-  const turns = Array.from({ length: 60 }, (_, index) => ([
+  const turns = Array.from({ length: 60 }, (_, index) => [
     { type: 'event_msg', payload: { type: 'task_started', turn_id: `turn${index}` } },
     { type: 'turn_context', payload: { model: 'synthetic', turn_id: `turn${index}`, root_turn_id: `turn${index}` } },
-    { type: 'event_msg', payload: { type: 'token_count', info: { total_token_usage: {
-      input_tokens: index, cached_input_tokens: 0, output_tokens: 1, reasoning_output_tokens: 0, cache_write_input_tokens: 0,
-    } } } },
-    { type: 'event_msg', payload: { type: 'task_complete', turn_id: `turn${index}` } },
-  ])).flat();
+    {
+      type: 'event_msg',
+      payload: {
+        type: 'token_count',
+        info: {
+          total_token_usage: {
+            input_tokens: index,
+            cached_input_tokens: 0,
+            output_tokens: 1,
+            reasoning_output_tokens: 0,
+            cache_write_input_tokens: 0
+          }
+        }
+      }
+    },
+    { type: 'event_msg', payload: { type: 'task_complete', turn_id: `turn${index}` } }
+  ]).flat();
   expect(traverseCatalog(turns, admissionCatalog).limitExceeded).toBe(false);
   const wide = { type: 'session_meta', payload: Object.fromEntries(Array.from({ length: 300 }, (_, index) => [`k${index}`, 'x'])) };
   expect(traverseCatalog(wide, admissionCatalog).limitExceeded).toBe(true);
@@ -104,28 +135,58 @@ test('counter classification stores outcomes only', () => {
 });
 
 test('topology classification does not retain identity values', () => {
-  expect(classifyTopology({
-    taskStartedTurnId: 'turn1', taskCompleteTurnId: 'turn1', turnId: 'turn1', rootTurnId: null,
-    collaborationModePresent: false, multiAgentVersionPresent: false, threadSettingsApplied: 'absent',
-    sessionMetaId: 'SECRET_SESSION', sessionMetaSessionId: 'SECRET_SESSION', linkedSessionId: 'SECRET_SESSION',
-  })).toMatchObject({
-    paired_turn_ids: 'pass', root_turn_topology: 'not_observed', thread_settings_applied: 'not_observed',
-    session_id_matches_id: 'pass',
+  expect(
+    classifyTopology({
+      taskStartedTurnId: 'turn1',
+      taskCompleteTurnId: 'turn1',
+      turnId: 'turn1',
+      rootTurnId: null,
+      collaborationModePresent: false,
+      multiAgentVersionPresent: false,
+      threadSettingsApplied: 'absent',
+      sessionMetaId: 'SECRET_SESSION',
+      sessionMetaSessionId: 'SECRET_SESSION',
+      linkedSessionId: 'SECRET_SESSION'
+    })
+  ).toMatchObject({
+    paired_turn_ids: 'pass',
+    root_turn_topology: 'not_observed',
+    thread_settings_applied: 'not_observed',
+    session_id_matches_id: 'pass'
   });
   const secret = classifyTopology({
-    taskStartedTurnId: null, taskCompleteTurnId: 'turn1', turnId: 'turn1', rootTurnId: 'turn1',
-    collaborationModePresent: false, multiAgentVersionPresent: false, threadSettingsApplied: 'ambiguous',
-    sessionMetaId: 'SECRET_SESSION', sessionMetaSessionId: 'OTHER', linkedSessionId: 'SECRET_SESSION',
+    taskStartedTurnId: null,
+    taskCompleteTurnId: 'turn1',
+    turnId: 'turn1',
+    rootTurnId: 'turn1',
+    collaborationModePresent: false,
+    multiAgentVersionPresent: false,
+    threadSettingsApplied: 'ambiguous',
+    sessionMetaId: 'SECRET_SESSION',
+    sessionMetaSessionId: 'OTHER',
+    linkedSessionId: 'SECRET_SESSION'
   });
   expect(secret).toMatchObject({
-    paired_turn_ids: 'fail', root_turn_topology: 'pass', thread_settings_applied: 'fail', session_id_matches_id: 'fail',
+    paired_turn_ids: 'fail',
+    root_turn_topology: 'pass',
+    thread_settings_applied: 'fail',
+    session_id_matches_id: 'fail'
   });
   expect(JSON.stringify(secret)).not.toContain('SECRET_SESSION');
-  expect(classifyTopology({
-    taskStartedTurnId: '', taskCompleteTurnId: '', turnId: null, rootTurnId: 'root',
-    collaborationModePresent: true, multiAgentVersionPresent: false, threadSettingsApplied: 'absent',
-    sessionMetaId: null, sessionMetaSessionId: null, linkedSessionId: null,
-  })).toMatchObject({ paired_turn_ids: 'invalid', root_turn_topology: 'fail', session_id_matches_id: 'not_observed' });
+  expect(
+    classifyTopology({
+      taskStartedTurnId: '',
+      taskCompleteTurnId: '',
+      turnId: null,
+      rootTurnId: 'root',
+      collaborationModePresent: true,
+      multiAgentVersionPresent: false,
+      threadSettingsApplied: 'absent',
+      sessionMetaId: null,
+      sessionMetaSessionId: null,
+      linkedSessionId: null
+    })
+  ).toMatchObject({ paired_turn_ids: 'invalid', root_turn_topology: 'fail', session_id_matches_id: 'not_observed' });
 });
 
 test('the projector reports labels and outcome differences without token numbers', () => {
@@ -133,16 +194,23 @@ test('the projector reports labels and outcome differences without token numbers
   const checks = counters({ total: vector({ input: 1, output: 1, cached: 0, reasoning: 0, cacheWrite: 0, totalTokens: 2 }) });
   const priorChecks: CheckMap = { ...checks, nonzero_reasoning: 'pass' };
   const report = projectReport({
-    version: '0.158.0', scenario: 'initial-resume', traversal, checks,
+    version: '0.158.0',
+    scenario: 'initial-resume',
+    traversal,
+    checks,
     expectations: { total_equals_input_plus_output: 'fail' },
     prior: { checks: priorChecks },
-    blocked: false,
+    blocked: false
   });
   expect(report.version).toBe('0.158.0');
   expect(report.scenario).toBe('initial-resume');
-  expect(report.expectationDifferences).toEqual([{
-    check: 'total_equals_input_plus_output', expected: 'fail', actual: 'pass',
-  }]);
+  expect(report.expectationDifferences).toEqual([
+    {
+      check: 'total_equals_input_plus_output',
+      expected: 'fail',
+      actual: 'pass'
+    }
+  ]);
   expect(report.priorDifferences).toEqual([{ check: 'nonzero_reasoning', expected: 'pass', actual: 'not_observed' }]);
   expect(JSON.stringify(report)).not.toContain('SECRET_');
   expect(JSON.stringify(report)).not.toContain('99999');

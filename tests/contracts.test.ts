@@ -13,8 +13,15 @@ test('zero is observed and unavailable readings cannot contain invented values',
 });
 
 test('events reject content, unknown fields, non-UTC dates, and invalid identities', () => {
-  const event = { id: 'e1', project_id: 'p1', task_id: 't1', session_id: 's1',
-    source_key: 'source:1', occurred_at: '2026-01-01T00:00:00Z', payload: { kind: 'session_linked' } };
+  const event = {
+    id: 'e1',
+    project_id: 'p1',
+    task_id: 't1',
+    session_id: 's1',
+    source_key: 'source:1',
+    occurred_at: '2026-01-01T00:00:00Z',
+    payload: { kind: 'session_linked' }
+  };
   expect(EventSchema.safeParse(event).success).toBe(true);
   expect(EventSchema.safeParse({ ...event, payload: { kind: 'session_linked', prompt: 'synthetic' } }).success).toBe(false);
   expect(EventSchema.safeParse({ ...event, local_path: '/synthetic' }).success).toBe(false);
@@ -41,21 +48,50 @@ test('shared monetary values are decimal strings, not floats or content', async 
 });
 
 test('usage accepts observed product versions but rejects nested private fields', () => {
-  const reading={status:'observed',value:0,reason:null};
-  const event={id:'e1',project_id:'p1',task_id:'t1',session_id:'s1',source_key:'source:1',occurred_at:'2026-01-01T00:00:00Z',payload:{kind:'usage',input_total:reading,cached_input:reading,output_total:reading,reasoning_output:reading,product:'codex',product_version:'0.156.1',model:'gpt-6-astra',epoch:'epoch1'}};
+  const reading = { status: 'observed', value: 0, reason: null };
+  const event = {
+    id: 'e1',
+    project_id: 'p1',
+    task_id: 't1',
+    session_id: 's1',
+    source_key: 'source:1',
+    occurred_at: '2026-01-01T00:00:00Z',
+    payload: {
+      kind: 'usage',
+      input_total: reading,
+      cached_input: reading,
+      output_total: reading,
+      reasoning_output: reading,
+      product: 'codex',
+      product_version: '0.156.1',
+      model: 'gpt-6-astra',
+      epoch: 'epoch1'
+    }
+  };
   expect(EventSchema.safeParse(event).success).toBe(true);
-  expect(EventSchema.safeParse({...event,payload:{...event.payload,product:'claude_code',product_version:'2.1.283',model:'claude-sonnet-4.5'}}).success).toBe(true);
-  expect(EventSchema.safeParse({...event,payload:{...event.payload,input_total:{...reading,content:'SYNTHETIC_PRIVATE'}}}).success).toBe(false);
+  expect(
+    EventSchema.safeParse({ ...event, payload: { ...event.payload, product: 'claude_code', product_version: '2.1.283', model: 'claude-sonnet-4.5' } }).success
+  ).toBe(true);
+  expect(EventSchema.safeParse({ ...event, payload: { ...event.payload, input_total: { ...reading, content: 'SYNTHETIC_PRIVATE' } } }).success).toBe(false);
 });
 
 test('shared task and outcome allowlists exclude local data and criterion prose', async () => {
-  const {SharedTaskSchema,SharedOutcomeSchema}=await import('../src/contracts.js');
-  const task={id:'t1',project_id:'p1',type:'feature',expected_size:'small',assignee:'u1',product:'codex',model:'gpt-6-astra',criterion_ids:['c1']};
+  const { SharedTaskSchema, SharedOutcomeSchema } = await import('../src/contracts.js');
+  const task = {
+    id: 't1',
+    project_id: 'p1',
+    type: 'feature',
+    expected_size: 'small',
+    assignee: 'u1',
+    product: 'codex',
+    model: 'gpt-6-astra',
+    criterion_ids: ['c1']
+  };
   expect(SharedTaskSchema.safeParse(task).success).toBe(true);
-  for(const key of ['local_root','criteria_text','prompt','api_key']) {
-    expect(SharedTaskSchema.safeParse({...task,[key]:'SYNTHETIC_PRIVATE'}).success).toBe(false);
+  for (const key of ['local_root', 'criteria_text', 'prompt', 'api_key']) {
+    expect(SharedTaskSchema.safeParse({ ...task, [key]: 'SYNTHETIC_PRIVATE' }).success).toBe(false);
   }
-  const outcome={task_id:'t1',status:'success',criteria_met:['c1'],first_success:null,assessed_at:'2026-01-01T00:00:00Z'};
+  const outcome = { task_id: 't1', status: 'success', criteria_met: ['c1'], first_success: null, assessed_at: '2026-01-01T00:00:00Z' };
   expect(SharedOutcomeSchema.safeParse(outcome).success).toBe(true);
-  expect(SharedOutcomeSchema.safeParse({...outcome,criteria_met:[{id:'c1',text:'SYNTHETIC_PRIVATE'}]}).success).toBe(false);
+  expect(SharedOutcomeSchema.safeParse({ ...outcome, criteria_met: [{ id: 'c1', text: 'SYNTHETIC_PRIVATE' }] }).success).toBe(false);
 });

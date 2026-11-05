@@ -1,5 +1,21 @@
 import { defineConfig } from "vitest/config";
 
+const processBudgetTests = [
+  "tests/connect/owned-cli-invocation.test.ts",
+  "tests/qualification/codex-session-binding-qualification.test.ts",
+  "tests/codex-workflow-adapter.test.ts",
+  "tests/codex-workflow-native-child.test.ts",
+  "tests/minimal-diagnostic-runner.test.ts",
+  "tests/qualification/claude-minimal-run.test.ts",
+  "tests/harness/harness-application-results.test.ts",
+  "tests/harness/harness-application-restoration.test.ts",
+  "tests/harness/harness-application-restoration-cli.test.ts",
+  "tests/harness/harness-application-restoration-safety.test.ts",
+  "tests/instrumented-codex/instrumented-codex-qualification.test.ts",
+  "tests/tool-update-conformance.test.ts",
+  "tests/tool-update-conformance-lifecycle.test.ts"
+];
+
 export default defineConfig({
   test: {
     environment: "node",
@@ -10,24 +26,10 @@ export default defineConfig({
         test: {
           name: "process-budget",
           environment: "node",
-          include: [
-            "tests/owned-cli-invocation.test.ts",
-            "tests/codex-session-binding-qualification.test.ts",
-            "tests/codex-workflow-adapter.test.ts",
-            "tests/codex-workflow-native-child.test.ts",
-            "tests/minimal-diagnostic-runner.test.ts",
-            "tests/claude-minimal-run.test.ts",
-            "tests/harness-application-results.test.ts",
-            "tests/harness-application-restoration.test.ts",
-            "tests/harness-application-restoration-cli.test.ts",
-            "tests/harness-application-restoration-safety.test.ts",
-            "tests/instrumented-codex-qualification.test.ts",
-            "tests/tool-update-conformance.test.ts",
-            "tests/tool-update-conformance-lifecycle.test.ts",
-          ],
+          include: processBudgetTests,
           fileParallelism: false,
-          sequence: { groupOrder: 1 },
-        },
+          sequence: { groupOrder: 1 }
+        }
       },
       {
         extends: false,
@@ -36,24 +38,10 @@ export default defineConfig({
           name: "default",
           environment: "node",
           include: ["tests/**/*.test.ts", "ui/src/**/*.test.ts"],
-          exclude: [
-            "tests/owned-cli-invocation.test.ts",
-            "tests/codex-session-binding-qualification.test.ts",
-            "tests/codex-workflow-adapter.test.ts",
-            "tests/codex-workflow-native-child.test.ts",
-            "tests/minimal-diagnostic-runner.test.ts",
-            "tests/claude-minimal-run.test.ts",
-            "tests/harness-application-results.test.ts",
-            "tests/harness-application-restoration.test.ts",
-            "tests/harness-application-restoration-cli.test.ts",
-            "tests/harness-application-restoration-safety.test.ts",
-            "tests/instrumented-codex-qualification.test.ts",
-            "tests/tool-update-conformance.test.ts",
-            "tests/tool-update-conformance-lifecycle.test.ts",
-          ],
-          sequence: { groupOrder: 2 },
-        },
-      },
-    ],
-  },
+          exclude: processBudgetTests,
+          sequence: { groupOrder: 2 }
+        }
+      }
+    ]
+  }
 });

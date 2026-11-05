@@ -12,11 +12,13 @@ export const SetupBundleSchema = z.strictObject({
     profile: document.optional(),
     protocol: document.optional(),
     variants: z.array(document).max(2).optional(),
-    policy_status: z.strictObject({
-      arm_a: z.enum(['eligible', 'ineligible']),
-      arm_b: z.enum(['eligible', 'ineligible']),
-    }).optional(),
+    policy_status: z
+      .strictObject({
+        arm_a: z.enum(['eligible', 'ineligible']),
+        arm_b: z.enum(['eligible', 'ineligible'])
+      })
+      .optional(),
     price_table: document.optional(),
-    application_mode: z.enum(['selected_markdown_only', 'agent_applied']).optional(),
-  }),
+    application_mode: z.enum(['selected_markdown_only', 'agent_applied']).optional()
+  })
 });

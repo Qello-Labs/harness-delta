@@ -6,15 +6,21 @@ test('lookup returns only exact registered profiles', () => {
   expect(registeredFileProfiles.map(profile => [profile.product, profile.version])).toEqual([
     ['codex', '0.156.1'],
     ['claude_code', '2.1.283'],
-    ['codex', '0.158.0'],
+    ['codex', '0.158.0']
   ]);
   expect(lookupFileProfile('codex', '0.156.1')).toMatchObject({
-    kind: 'registered', product: 'codex', version: '0.156.1', counterMode: 'cumulative_total',
-    evidence: { completeTotals: false, reasoning: 'explicit_zero_observed_nonzero_unmeasurable' },
+    kind: 'registered',
+    product: 'codex',
+    version: '0.156.1',
+    counterMode: 'cumulative_total',
+    evidence: { completeTotals: false, reasoning: 'explicit_zero_observed_nonzero_unmeasurable' }
   });
   expect(lookupFileProfile('claude_code', '2.1.283')).toMatchObject({
-    kind: 'registered', product: 'claude_code', version: '2.1.283', counterMode: 'message_components',
-    evidence: { completeTotals: false, reasoning: 'unmeasurable' },
+    kind: 'registered',
+    product: 'claude_code',
+    version: '2.1.283',
+    counterMode: 'message_components',
+    evidence: { completeTotals: false, reasoning: 'unmeasurable' }
   });
   for (const version of ['0.159.0', '0.158.0-rc.1', '0.158.0+build.1', '0.156.1-rc.1', '0.156.1+build.1', '0.156.10', '0.156.1 ', '2.1.283']) {
     expect(lookupFileProfile('codex', version)).toBe('unsupported');
@@ -25,21 +31,14 @@ test('lookup returns only exact registered profiles', () => {
   const codex = lookupFileProfile('codex', '0.156.1');
   expect(codex).not.toBe('unsupported');
   if (codex !== 'unsupported' && codex.product === 'codex') {
-    expect(codex.recognizedTypes).toEqual([
-      'session_meta', 'event_msg', 'response_item', 'world_state',
-      'turn_context', 'token_usage_record', 'compacted',
-    ]);
-    expect(codex.counterFields).toEqual([
-      'input_tokens', 'cached_input_tokens', 'output_tokens', 'reasoning_output_tokens',
-    ]);
+    expect(codex.recognizedTypes).toEqual(['session_meta', 'event_msg', 'response_item', 'world_state', 'turn_context', 'token_usage_record', 'compacted']);
+    expect(codex.counterFields).toEqual(['input_tokens', 'cached_input_tokens', 'output_tokens', 'reasoning_output_tokens']);
     expect(codex.allowedSources).toEqual(['cli', 'exec']);
   }
   const claude = lookupFileProfile('claude_code', '2.1.283');
   if (claude !== 'unsupported' && claude.product === 'claude_code') {
     expect(claude.identityTypes).toEqual(['assistant', 'user', 'attachment']);
-    expect(claude.componentFields).toEqual([
-      'input_tokens', 'cache_creation_input_tokens', 'cache_read_input_tokens',
-    ]);
+    expect(claude.componentFields).toEqual(['input_tokens', 'cache_creation_input_tokens', 'cache_read_input_tokens']);
   }
 });
 

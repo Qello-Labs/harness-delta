@@ -144,7 +144,7 @@ identity가 확인되지 않은 동안 사용량 본문 읽기나 cursor 저장�
 보냅니다. 같은 시도, 원래 receipt, 루트와 generation을 유지합니다. 진단 준비나
 전달 실패는 미확인이며 원래 거절이나 수집 허용 조건을 바꾸지 않습니다.
 
-`src/binding-readiness-probe.ts`의 `createReadinessProbeSink`와
+`src/qualification/binding-readiness-probe.ts`의 `createReadinessProbeSink`와
 `waitForReadinessProbeHold`는 선택적 비공개 제어 채널입니다. 정확히 하나의
 Start를 위해 새 소유자 전용 디렉터리와 관측기 instance UUID를 사용합니다.
 원래 receipt UUID, instance, 시도, generation과 원래 Start+2초 기한을 함께
@@ -194,7 +194,7 @@ Node 24 또는 26 checkout에서 실행합니다.
 ```sh
 npm run build
 npm test -- tests/claude-hook-diagnostics.test.ts tests/session-binding-claude.test.ts tests/session-binding-claude-api.test.ts
-npm test -- tests/binding-readiness-probe.test.ts tests/claude-readiness-capture.test.ts
+npm test -- tests/qualification/binding-readiness-probe.test.ts tests/claude-readiness-capture.test.ts
 npm test -- tests/claude-family-diagnostics.test.ts tests/binding-family-diagnostic-sink.test.ts tests/session-binding-human-pilot.test.ts tests/claude-child-start-readiness.test.ts
 node --test skills/harness-connect/tests/*.mjs
 npm run check

@@ -17,30 +17,40 @@ function fixture() {
 }
 function records(directory: string, file: string): Record<string, unknown>[] {
   return readFileSync(join(directory, '.harness-delta/ci-results/default', file), 'utf8')
-    .trim().split('\n').map((line) => JSON.parse(line) as Record<string, unknown>);
+    .trim()
+    .split('\n')
+    .map(line => JSON.parse(line) as Record<string, unknown>);
 }
 async function within<T>(work: Promise<T>, milliseconds: number, reason: string): Promise<T> {
   const timer = new AbortController();
   try {
-    return await Promise.race([work, setTimeout(milliseconds, undefined, { signal: timer.signal }).then(() => {
-      throw new Error(reason);
-    })]);
+    return await Promise.race([
+      work,
+      setTimeout(milliseconds, undefined, { signal: timer.signal }).then(() => {
+        throw new Error(reason);
+      })
+    ]);
   } finally {
     timer.abort();
   }
 }
-afterEach(() => { for (const directory of directories.splice(0)) rmSync(directory, { recursive: true, force: true }); });
+afterEach(() => {
+  for (const directory of directories.splice(0)) rmSync(directory, { recursive: true, force: true });
+});
 
 test('phase timing preserves successful and failing child exit codes without storing child output', () => {
   const directory = fixture();
   for (const code of [0, 7]) {
-    const run = spawnSync(process.execPath, [phase, 'default', 'build', process.execPath, '-e',
-      `console.error('synthetic-private-marker'); process.exit(${code})`], { cwd: directory, encoding: 'utf8' });
+    const run = spawnSync(
+      process.execPath,
+      [phase, 'default', 'build', process.execPath, '-e', `console.error('synthetic-private-marker'); process.exit(${code})`],
+      { cwd: directory, encoding: 'utf8' }
+    );
     expect(run.status).toBe(code);
   }
   const phases = records(directory, 'phases.jsonl');
-  expect(phases.map((row) => row.status)).toEqual(['running', 'passed', 'running', 'failed']);
-  expect(phases.filter((row) => row.status !== 'running').map((row) => row.exitCode)).toEqual([0, 7]);
+  expect(phases.map(row => row.status)).toEqual(['running', 'passed', 'running', 'failed']);
+  expect(phases.filter(row => row.status !== 'running').map(row => row.exitCode)).toEqual([0, 7]);
   expect(phases[1]?.durationMs).toEqual(expect.any(Number));
   expect(JSON.stringify(phases)).not.toContain('synthetic-private-marker');
 });
@@ -49,28 +59,33 @@ test('phase timing reports launch errors and signal termination as failures', ()
   const directory = fixture();
   const missing = spawnSync(process.execPath, [phase, 'default', 'build', './missing-ci-command'], { cwd: directory });
   expect(missing.status).toBe(1);
-  const signal = spawnSync(process.execPath, [phase, 'default', 'build', process.execPath, '-e',
-    "process.kill(process.pid, 'SIGTERM')"], { cwd: directory });
+  const signal = spawnSync(process.execPath, [phase, 'default', 'build', process.execPath, '-e', "process.kill(process.pid, 'SIGTERM')"], { cwd: directory });
   expect(signal.status).not.toBe(0);
-  expect(records(directory, 'phases.jsonl').map((row) => row.status)).toEqual(['running', 'failed', 'running', 'failed']);
+  expect(records(directory, 'phases.jsonl').map(row => row.status)).toEqual(['running', 'failed', 'running', 'failed']);
 });
 
 test('reporter persists only identities statuses durations and runner metadata on assertion failure', () => {
   const directory = fixture();
   writeFileSync(join(directory, 'vitest.config.mjs'), 'export default { test: { include: ["*.test.mjs"] } };');
-  writeFileSync(join(directory, 'synthetic.test.mjs'), `
+  writeFileSync(
+    join(directory, 'synthetic.test.mjs'),
+    `
     import { test, expect } from ${JSON.stringify(vitestImport)};
     test('synthetic pass', () => { console.log('synthetic-console-secret'); expect(1).toBe(1); });
     test('synthetic failure', () => { expect('synthetic-response-body').toBe('synthetic-expected'); });
-  `);
-  const run = spawnSync(process.execPath, [phase, 'default', 'tests', process.execPath, vitest, 'run',
-    '--config', join(directory, 'vitest.config.mjs'), '--reporter', reporter], { cwd: directory, encoding: 'utf8' });
+  `
+  );
+  const run = spawnSync(
+    process.execPath,
+    [phase, 'default', 'tests', process.execPath, vitest, 'run', '--config', join(directory, 'vitest.config.mjs'), '--reporter', reporter],
+    { cwd: directory, encoding: 'utf8' }
+  );
   expect(run.status).toBe(1);
   const results = records(directory, 'tests.jsonl');
-  const cases = results.filter((row) => row.type === 'test');
-  expect(cases.map((row) => [row.file, row.name, row.status])).toEqual([
+  const cases = results.filter(row => row.type === 'test');
+  expect(cases.map(row => [row.file, row.name, row.status])).toEqual([
     ['synthetic.test.mjs', 'synthetic pass', 'passed'],
-    ['synthetic.test.mjs', 'synthetic failure', 'failed'],
+    ['synthetic.test.mjs', 'synthetic failure', 'failed']
   ]);
   for (const row of cases) {
     expect(Object.keys(row).sort()).toEqual(['durationMs', 'file', 'id', 'name', 'project', 'status', 'type']);
@@ -84,11 +99,14 @@ test('reporter captures collection failure without serializing its error', () =>
   const directory = fixture();
   writeFileSync(join(directory, 'vitest.config.mjs'), 'export default { test: { include: ["*.test.mjs"] } };');
   writeFileSync(join(directory, 'synthetic.test.mjs'), "throw new Error('synthetic-import-secret');");
-  const run = spawnSync(process.execPath, [phase, 'default', 'tests', process.execPath, vitest, 'run',
-    '--config', join(directory, 'vitest.config.mjs'), '--reporter', reporter], { cwd: directory, encoding: 'utf8' });
+  const run = spawnSync(
+    process.execPath,
+    [phase, 'default', 'tests', process.execPath, vitest, 'run', '--config', join(directory, 'vitest.config.mjs'), '--reporter', reporter],
+    { cwd: directory, encoding: 'utf8' }
+  );
   expect(run.status).toBe(1);
   const results = records(directory, 'tests.jsonl');
-  expect(results.some((row) => row.type === 'file' && row.file === 'synthetic.test.mjs' && row.status === 'failed')).toBe(true);
+  expect(results.some(row => row.type === 'file' && row.file === 'synthetic.test.mjs' && row.status === 'failed')).toBe(true);
   expect(results.at(-1)).toEqual({ type: 'run', status: 'failed' });
   expect(JSON.stringify(results)).not.toContain('synthetic-import-secret');
 }, 15000);
@@ -96,16 +114,22 @@ test('reporter captures collection failure without serializing its error', () =>
 test('unhandled rejection fails the terminal report even when every test passes without serializing errors', () => {
   const directory = fixture();
   writeFileSync(join(directory, 'vitest.config.mjs'), 'export default { test: { include: ["*.test.mjs"] } };');
-  writeFileSync(join(directory, 'synthetic.test.mjs'), `
+  writeFileSync(
+    join(directory, 'synthetic.test.mjs'),
+    `
     import { test, expect } from ${JSON.stringify(vitestImport)};
     test('synthetic passing assertion', async () => {
       void Promise.reject(new Error('synthetic-unhandled-secret'));
       await new Promise(resolve => setTimeout(resolve, 50));
       expect(1).toBe(1);
     });
-  `);
-  const run = spawnSync(process.execPath, [phase, 'default', 'tests', process.execPath, vitest, 'run',
-    '--config', join(directory, 'vitest.config.mjs'), '--reporter', reporter], { cwd: directory, encoding: 'utf8' });
+  `
+  );
+  const run = spawnSync(
+    process.execPath,
+    [phase, 'default', 'tests', process.execPath, vitest, 'run', '--config', join(directory, 'vitest.config.mjs'), '--reporter', reporter],
+    { cwd: directory, encoding: 'utf8' }
+  );
   expect(run.status).toBe(1);
   const results = records(directory, 'tests.jsonl');
   expect(results).toContainEqual(expect.objectContaining({ type: 'test', status: 'passed' }));
@@ -115,10 +139,18 @@ test('unhandled rejection fails the terminal report even when every test passes 
 
 test('terminal interruption takes precedence over unhandled errors', () => {
   const directory = fixture();
-  const run = spawnSync(process.execPath, ['--input-type=module', '-e', `
+  const run = spawnSync(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      `
     import Reporter from ${JSON.stringify(reporter)};
     new Reporter().onTestRunEnd([], [new Error('synthetic-interrupted-secret')], 'interrupted');
-  `], { cwd: directory, encoding: 'utf8', env: { ...process.env, CI_RESULTS_JOB: 'default' } });
+  `
+    ],
+    { cwd: directory, encoding: 'utf8', env: { ...process.env, CI_RESULTS_JOB: 'default' } }
+  );
   expect(run.status).toBe(0);
   expect(records(directory, 'tests.jsonl')).toEqual([{ type: 'run', status: 'interrupted' }]);
 });
@@ -129,7 +161,9 @@ test('completed test records survive an interrupted run and phase cancellation r
   writeFileSync(join(directory, 'vitest.config.mjs'), 'export default { test: { include: ["*.test.mjs"], testTimeout: 100 } };');
   const readyMarker = 'ci-fixture-record-ready\n';
   const interruptionReporter = join(directory, 'interruption-reporter.mjs');
-  writeFileSync(interruptionReporter, `
+  writeFileSync(
+    interruptionReporter,
+    `
     import Reporter from ${JSON.stringify(reporter)};
     export default class extends Reporter {
       onTestCaseResult(test) {
@@ -137,20 +171,29 @@ test('completed test records survive an interrupted run and phase cancellation r
         if (test.fullName === 'completed before interruption') process.stdout.write(${JSON.stringify(readyMarker)});
       }
     }
-  `);
-  writeFileSync(join(directory, 'synthetic.test.mjs'), `
+  `
+  );
+  writeFileSync(
+    join(directory, 'synthetic.test.mjs'),
+    `
     import { test, expect } from ${JSON.stringify(vitestImport)};
     test('completed before interruption', () => { expect(1).toBe(1); });
     // This synthetic test must remain pending until the parent interrupts it.
     test('waiting at interruption', { timeout: 0 }, async () => { await new Promise(() => {}); });
-  `);
-  const child = spawn(process.execPath, [phase, 'default', 'tests', process.execPath, vitest, 'run',
-    '--config', join(directory, 'vitest.config.mjs'), '--reporter', interruptionReporter],
-  { cwd: directory, detached: true, stdio: ['ignore', 'pipe', 'ignore'] });
+  `
+  );
+  const child = spawn(
+    process.execPath,
+    [phase, 'default', 'tests', process.execPath, vitest, 'run', '--config', join(directory, 'vitest.config.mjs'), '--reporter', interruptionReporter],
+    { cwd: directory, detached: true, stdio: ['ignore', 'pipe', 'ignore'] }
+  );
   let ended = false;
   const closed = new Promise<number | null>((done, reject) => {
     child.once('error', reject);
-    child.once('close', (code) => { ended = true; done(code); });
+    child.once('close', code => {
+      ended = true;
+      done(code);
+    });
   });
   const ready = new Promise<void>((done, reject) => {
     let output = '';
@@ -159,7 +202,9 @@ test('completed test records survive an interrupted run and phase cancellation r
       if (output.includes(readyMarker)) done();
     });
     child.once('error', reject);
-    child.once('exit', () => { reject(new Error('ci_fixture_exited_before_ready')); });
+    child.once('exit', () => {
+      reject(new Error('ci_fixture_exited_before_ready'));
+    });
   });
   try {
     await within(ready, 10000, 'ci_fixture_readiness_timeout');
@@ -174,13 +219,21 @@ test('completed test records survive an interrupted run and phase cancellation r
     } finally {
       // The fixture owns its fresh process group; reclaim workers even if graceful shutdown fails.
       if (child.pid !== undefined) {
-        try { process.kill(-child.pid, 'SIGKILL'); } catch { /* The fixture group is already gone. */ }
+        try {
+          process.kill(-child.pid, 'SIGKILL');
+        } catch {
+          /* The fixture group is already gone. */
+        }
       }
       await within(closed, 2000, 'ci_fixture_reap_timeout');
     }
   }
-  expect(records(directory, 'tests.jsonl')).toContainEqual(expect.objectContaining({
-    type: 'test', name: 'completed before interruption', status: 'passed',
-  }));
+  expect(records(directory, 'tests.jsonl')).toContainEqual(
+    expect.objectContaining({
+      type: 'test',
+      name: 'completed before interruption',
+      status: 'passed'
+    })
+  );
   expect(records(directory, 'phases.jsonl').at(-1)?.status).toBe('interrupted');
 }, 15000);

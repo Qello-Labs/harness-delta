@@ -428,7 +428,7 @@ this registration rule.
 
 The execution document specifies `operation: "launch"`, `run_id`, the pinned binary
 path/version/SHA, a private `workspace` (canonical, mode 0700), the built
-`mediator_path` (`dist/claude-probe-hook-mediator.js`), `prompt_file`, `permissions`,
+`mediator_path` (`dist/qualification/claude-probe-hook-mediator.js`), `prompt_file`, `permissions`,
 `timeout_ms`, `max_turns` and `request_limit`. See
 [the example](../../examples/workflow/claude-launch.json). The protocol's
 `source_profiles` and `workflow.json` use `product: "claude_code"` and
