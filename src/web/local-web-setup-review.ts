@@ -10,7 +10,8 @@ import { LocalWebProfileSchema, type LocalWebProfile } from './local-web-profile
 import type { createSharedSetupManager } from './local-web-shared.js';
 import { localWebError } from './local-web-server.js';
 import type { Store } from '../store.js';
-import { comparisonRelativePath, hashBytes, readComparison } from '../harness/harness-config.js';
+import { comparisonRelativePath, readComparison } from '../harness/harness-config.js';
+import { hashBytes } from '../core/repository-files.js';
 
 // This envelope is private UI input. Its contents use the existing production contracts.
 export const SetupReviewInputSchema = z.strictObject({

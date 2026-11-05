@@ -91,7 +91,7 @@ import { aggregateTask } from '../src/metrics.js';
 import { freezePeriod, periodReport } from '../src/comparison/reports/period.js';
 import { invalidateCompatibility, pinSessionCompatibility, resolveSourceCompatibility } from '../src/source-compatibility.js';
 import { preparePriceBasis } from '../src/price-catalog-store.js';
-import { captureTaskCostSnapshot, createPriceRevaluation, readPriceRevaluation } from '../src/pricing/price-revaluation.js';
+import { captureTaskCostSnapshot, createPriceRevaluation, readPriceRevaluation } from '../src/comparison/reports/price-revaluation.js';
 
 test('task, period and retained repricing honor later invalidation without rewriting event or snapshot bytes', () => {
   const store = new Store(':memory:');

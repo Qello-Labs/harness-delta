@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { closeSync, constants, fchmodSync, fstatSync, fsyncSync, ftruncateSync, openSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { canonicalJson, ensureRepositoryDirectory, hashBytes } from './harness-config.js';
+import { canonicalJson, ensureRepositoryDirectory, hashBytes } from '../core/repository-files.js';
 
 export type RestorationFile = {
   readonly path: string;

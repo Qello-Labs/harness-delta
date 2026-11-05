@@ -17,7 +17,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, expect, test, vi } from 'vitest';
 import { z } from 'zod';
-import { hashBytes } from '../../src/harness/harness-config.js';
+import { hashBytes } from '../../src/core/repository-files.js';
 import {
   installCodexConnectInstallation as install,
   previewCodexConnectInstallation as preview,

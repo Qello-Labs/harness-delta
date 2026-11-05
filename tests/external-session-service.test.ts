@@ -19,7 +19,7 @@ import {
 } from '../src/external-session-service.js';
 import { externalInstructionFragment, verifyExternalContext } from '../src/external-session-context.js';
 import { externalContract } from '../src/external-session-contract.js';
-import { sha256 } from '../src/harness/harness-managed-file.js';
+import { sha256 } from '../src/workflow/external-session-managed-file.js';
 import { aggregateFlexibleTaskReport } from '../src/comparison/reports/flexible-comparison.js';
 import { Deletion } from '../src/deletion.js';
 import { Lifecycle } from '../src/lifecycle.js';

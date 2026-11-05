@@ -2,7 +2,8 @@ import { applicationRequired, assertAppliedHarness } from '../harness-applicatio
 import { z } from 'zod';
 import { Lifecycle, utcNow, type Clock } from '../lifecycle.js';
 import type { Store } from '../store.js';
-import { readRepositoryFile, readStrictJson, hashBytes, readComparison, checkOriginalTools } from '../harness/harness-config.js';
+import { readComparison, checkOriginalTools } from '../harness/harness-config.js';
+import { readRepositoryFile, readStrictJson, hashBytes } from '../core/repository-files.js';
 import { recordObservationGap } from '../runtime-history.js';
 const digest = z.string().regex(/^[a-f0-9]{64}$/);
 export const SharedBindingSchema = z.strictObject({

@@ -1,4 +1,4 @@
-import type { CodexFailureSummary } from './codex-failure-diagnostics.js';
+import type { CodexFailureSummary } from '../workflow/bounded-candidate-diagnostics.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { chmodSync, mkdirSync, readFileSync, readdirSync, realpathSync, statSync, writeFileSync } from 'node:fs';
 import { createServer, type Socket } from 'node:net';

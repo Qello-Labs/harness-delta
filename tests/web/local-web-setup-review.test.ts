@@ -8,6 +8,7 @@ import { registerVariant } from '../../src/comparison.js';
 import { createLocalWebDomain, LocalWebProfileSchema } from '../../src/web/local-web-domain.js';
 import { createLocalWebServer } from '../../src/web/local-web-server.js';
 import * as harnessConfig from '../../src/harness/harness-config.js';
+import * as repositoryFiles from '../../src/core/repository-files.js';
 import { Lifecycle } from '../../src/lifecycle.js';
 import type { SetupSaveResult } from '../../src/web/local-web-setup-review.js';
 
@@ -324,7 +325,7 @@ test('a changed portable descriptor invalidates review before any registrations 
     // Keep the test descriptor valid by updating its canonical hash through the production hash function.
     const { settings_hash: ignored, ...fields } = descriptor;
     void ignored;
-    const { canonicalJson, hashBytes } = await import('../../src/harness/harness-config.js');
+    const { canonicalJson, hashBytes } = await import('../../src/core/repository-files.js');
     writeFileSync(f.input.comparison_path, JSON.stringify({ ...fields, settings_hash: hashBytes(`harness-delta:comparison:v1\n${canonicalJson(fields)}`) }));
     expect(() => f.domain.saveReviewedSetup!(reviewed.token)).toThrow('shared_preview_changed');
     expect(f.store.all('SELECT * FROM comparison_variants')).toHaveLength(0);
@@ -483,7 +484,7 @@ test('snapshot write failure rolls back registrations and the provisional profil
   try {
     const review = await f.domain.reviewSetup!(f.input);
     if (!review.ready) throw new Error('review_failed');
-    const directory = vi.spyOn(harnessConfig, 'ensureRepositoryDirectory').mockImplementation(() => {
+    const directory = vi.spyOn(repositoryFiles, 'ensureRepositoryDirectory').mockImplementation(() => {
       throw new Error('synthetic_write_failure');
     });
     try {

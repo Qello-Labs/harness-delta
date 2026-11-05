@@ -7,7 +7,8 @@ import { expect, test } from 'vitest';
 import { Store } from '../../src/store.js';
 import { Lifecycle } from '../../src/lifecycle.js';
 import { assignTask } from '../../src/comparison/allocation.js';
-import { freezeProtocol, registerProtocol, registerVariant, showProtocol } from '../../src/comparison.js';
+import { freezeProtocol, registerProtocol, registerVariant } from '../../src/comparison.js';
+import { showProtocol } from '../../src/readiness-store.js';
 import { assignmentInput, assignmentTime, beforeRecruitment, metadata, protocol, seedProject, variantA, variantB } from '../helpers/comparison-fixture.js';
 
 function setup(store: Store): void {

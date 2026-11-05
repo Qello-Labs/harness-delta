@@ -9,7 +9,7 @@ import { Store } from '../src/store.js';
 import { Lifecycle } from '../src/lifecycle.js';
 import { putUsageWithEvidence } from '../src/runtime-history.js';
 import { preparePriceBasis, readPriceBasis, refreshPriceCatalog } from '../src/price-catalog-store.js';
-import { captureTaskCostSnapshot, createPriceRevaluation, readPriceRevaluation } from '../src/pricing/price-revaluation.js';
+import { captureTaskCostSnapshot, createPriceRevaluation, readPriceRevaluation } from '../src/comparison/reports/price-revaluation.js';
 import { preparePriceCatalogRelease } from '../src/pricing/price-catalog-release.js';
 import { refreshOnlinePriceCatalog } from '../src/pricing/price-catalog-online.js';
 import { resolveSourceCompatibility } from '../src/source-compatibility.js';

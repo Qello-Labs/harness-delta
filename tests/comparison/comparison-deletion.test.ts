@@ -4,7 +4,8 @@ import { Lifecycle } from '../../src/lifecycle.js';
 import { Deletion } from '../../src/deletion.js';
 import { assignTask } from '../../src/comparison/allocation.js';
 import { confirmConfiguration } from '../../src/comparison/config-confirmation-write.js';
-import { freezeProtocol, registerProtocol, registerVariant, showProtocol } from '../../src/comparison.js';
+import { freezeProtocol, registerProtocol, registerVariant } from '../../src/comparison.js';
+import { showProtocol } from '../../src/readiness-store.js';
 import { assignmentInput, assignmentTime, beforeRecruitment, protocol, seedProject, variantA, variantB } from '../helpers/comparison-fixture.js';
 
 const dependencies = { clock: () => assignmentTime, shuffle: (values: readonly string[]) => values };

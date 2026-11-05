@@ -2,16 +2,8 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, expect, test } from 'vitest';
-import {
-  canonicalJson,
-  registerHarness,
-  generateComparison,
-  readComparison,
-  readRepositoryFile,
-  readStrictJson,
-  checkOriginalTools,
-  hashBytes
-} from '../../src/harness/harness-config.js';
+import { registerHarness, generateComparison, readComparison, checkOriginalTools } from '../../src/harness/harness-config.js';
+import { canonicalJson, readRepositoryFile, readStrictJson, hashBytes } from '../../src/core/repository-files.js';
 const roots: string[] = [];
 function fixture() {
   const root = mkdtempSync(join(tmpdir(), 'harness-config-synthetic-'));

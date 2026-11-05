@@ -7,15 +7,8 @@ import { LocalWebProfileSchema, type LocalWebProfile } from './local-web-profile
 import { comparisonProtocol, comparisonVariant, protocolRow } from '../core/protocol-store.js';
 import { buildExternalTaskSetup } from '../external-session-service.js';
 import type { Store } from '../store.js';
-import {
-  comparisonRelativePath,
-  ensureRepositoryDirectory,
-  hashBytes,
-  readComparison,
-  readRepositoryFile,
-  readStrictJson,
-  checkOriginalTools
-} from '../harness/harness-config.js';
+import { comparisonRelativePath, readComparison, checkOriginalTools } from '../harness/harness-config.js';
+import { ensureRepositoryDirectory, hashBytes, readRepositoryFile, readStrictJson } from '../core/repository-files.js';
 import { checkSharedBinding } from './local-web-shared-guard.js';
 import { readPriceTable } from '../pricing.js';
 import { withLiveWebMetadataScope } from './local-web-metadata.js';

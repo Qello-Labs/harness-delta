@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { IdSchema } from './contracts.js';
+import { preparePriceBasis } from './price-catalog-store.js';
 import { FlexibleVariantSchema, FlexibleProtocolDraftSchema, FlexibleProtocolSchema, PriceTableSchema } from './flexible-contracts.js';
 import { lookupFileProfile } from './adapter-profiles.js';
 import { comparisonTimestamp, parseComparison, ProtocolDraftSchema, ProtocolSchema, VariantSchema } from './comparison-contracts.js';
@@ -8,7 +10,6 @@ import type { ProtocolRow } from './core/protocol-store.js';
 export { comparisonProtocol, protocolRow };
 import type { Store } from './store.js';
 import { requireLatestClaudeWorkflowProfile } from './claude-workflow-versions.js';
-import { comparisonReadiness } from './readiness-store.js';
 
 export function registerVariant(store: Store, input: unknown): void {
   const config = parseComparison(z.union([VariantSchema, FlexibleVariantSchema]), input);
@@ -39,6 +40,23 @@ export function registerProtocol(store: Store, input: unknown): void {
     if (config.schema_version === 2 && config.purpose !== 'synthetic_validation')
       requireLatestClaudeWorkflowProfile(config.source_profiles ?? [], undefined, config.purpose === 'functional_pilot');
     store.execute('INSERT INTO comparison_protocols(id,project_id,settings) VALUES (?,?,?)', [config.id, config.project_id, serialized]);
+  });
+}
+
+/** Fill only the new preparation's missing reference. Repeated registration retains its first pin. */
+export function registerProtocolWithCatalogDefaults(store: Store, input: unknown, now = new Date().toISOString()): void {
+  store.immediateTransaction(() => {
+    let prepared = input;
+    if (input !== null && typeof input === 'object' && !Array.isArray(input)) {
+      const draft = input as Record<string, unknown>;
+      if (draft.schema_version === 2 && draft.price_table_id === undefined) {
+        const id = IdSchema.parse(draft.id);
+        const existing = store.get<{ settings: string }>('SELECT settings FROM comparison_protocols WHERE id=?', [id]);
+        const prior = existing ? (JSON.parse(existing.settings) as { price_table_id?: string }) : null;
+        prepared = { ...draft, price_table_id: prior?.price_table_id ?? preparePriceBasis(store, now).table.id };
+      }
+    }
+    registerProtocol(store, prepared);
   });
 }
 
@@ -100,29 +118,5 @@ export function showVariant(store: Store, id: string) {
         : lookupFileProfile(configuration.product, configuration.product_version) === 'unsupported'
           ? 'unsupported'
           : 'registered_partial'
-  };
-}
-
-export function showProtocol(store: Store, id: string) {
-  const row = protocolRow(store, id);
-  const configuration = parseComparison(z.union([ProtocolDraftSchema, FlexibleProtocolDraftSchema]), JSON.parse(row.settings) as unknown);
-  const realAllocation =
-    configuration.schema_version === 2 &&
-    configuration.purpose !== 'synthetic_validation' &&
-    row.status === 'frozen' &&
-    comparisonReadiness(store, id).real_allocation;
-  return {
-    schema_version: configuration.schema_version,
-    configuration,
-    status: row.status,
-    frozen_at: row.frozen_at,
-    data_revision: row.data_revision,
-    invalidated_reason: row.invalidated_reason,
-    real_allocation_enabled: realAllocation,
-    experiment_readiness: realAllocation
-      ? 'source_qualified_partial'
-      : configuration.schema_version === 1 || configuration.purpose === 'synthetic_validation'
-        ? 'synthetic_only'
-        : 'source_unqualified'
   };
 }

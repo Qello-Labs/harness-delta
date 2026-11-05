@@ -4,7 +4,8 @@ import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import { expect, test } from 'vitest';
 import { Store } from '../src/store.js';
-import { registerVariant, registerProtocol, freezeProtocol, showProtocol, showVariant } from '../src/comparison.js';
+import { registerVariant, registerProtocol, freezeProtocol, showVariant } from '../src/comparison.js';
+import { showProtocol } from '../src/readiness-store.js';
 import { beforeRecruitment, protocol, seedProject, variantA, variantB } from './helpers/comparison-fixture.js';
 
 function registered(store: Store): void {
