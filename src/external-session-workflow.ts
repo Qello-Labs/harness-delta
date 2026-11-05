@@ -19,7 +19,7 @@ import {
   sha256,
   verifyCommonArtifacts,
   type ExternalPreparationSpec
-} from './harness/harness-managed-file.js';
+} from './workflow/external-session-managed-file.js';
 import type { Store } from './store.js';
 import { externalContract } from './external-session-contract.js';
 import { codexHumanPilotProfileId, isHumanPilotProtocol } from './session-binding-human-pilot.js';

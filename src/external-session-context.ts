@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { TimestampSchema } from './contracts.js';
-import { sha256 } from './harness/harness-managed-file.js';
+import { sha256 } from './workflow/external-session-managed-file.js';
 
 export interface ExternalStartupExpectation {
   ticketId: string;

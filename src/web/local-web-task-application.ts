@@ -5,7 +5,7 @@ import { bindingCollectionControl } from '../external-session-contract.js';
 import { applicationRequired, requireApplication } from '../harness-application.js';
 import { durablePrivateBytes } from '../harness/harness-application-files.js';
 import { hashBytes, readRepositoryFile } from '../core/repository-files.js';
-import { verifyCommonArtifacts, type ExternalPreparationSpec } from '../harness/harness-managed-file.js';
+import { verifyCommonArtifacts, type ExternalPreparationSpec } from '../workflow/external-session-managed-file.js';
 import { assertSharedTask, sharedTaskPair } from './local-web-shared-guard.js';
 import { utcNow, type Clock } from '../lifecycle.js';
 import type { Store } from '../store.js';
