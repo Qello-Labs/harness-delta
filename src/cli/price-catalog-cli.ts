@@ -6,7 +6,12 @@ import { bundledCatalogBytes, catalogByteLimit, digest } from '../pricing/price-
 import { preparePriceBasis, refreshPriceCatalog } from '../price-catalog-store.js';
 import { readOnlinePriceCatalogStatus, refreshOnlinePriceCatalog } from '../pricing/price-catalog-online.js';
 import { selectTaskPriceTable } from '../price-catalog-selection.js';
-import { captureComparisonCostSnapshot, captureTaskCostSnapshot, createPriceRevaluation, readPriceRevaluation } from '../pricing/price-revaluation.js';
+import {
+  captureComparisonCostSnapshot,
+  captureTaskCostSnapshot,
+  createPriceRevaluation,
+  readPriceRevaluation
+} from '../comparison/reports/price-revaluation.js';
 import { captureInstrumentedCostSnapshot, createInstrumentedValuation, readInstrumentedValuation } from '../instrumented-codex/instrumented-codex-cost.js';
 import type { LegacyInputBasis } from '../pricing.js';
 import type { Store } from '../store.js';

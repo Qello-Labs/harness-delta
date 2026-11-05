@@ -6,7 +6,8 @@ import { expect, test } from 'vitest';
 
 test.each([
   ['harness/harness-managed-file', 'workflow/external-session-managed-file'],
-  ['qualification/codex-failure-diagnostics', 'workflow/bounded-candidate-diagnostics']
+  ['qualification/codex-failure-diagnostics', 'workflow/bounded-candidate-diagnostics'],
+  ['pricing/price-revaluation', 'comparison/reports/price-revaluation']
 ])('rebuilding removes retired %s outputs without deleting current modules', (retired, current) => {
   const root = mkdtempSync(join(tmpdir(), 'copy-assets-synthetic-'));
   const put = (path: string, bytes: string) => {

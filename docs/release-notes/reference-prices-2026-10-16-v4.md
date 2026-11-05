@@ -78,7 +78,7 @@ candidate/test/documentation diff with no actionable findings.
 Reproduce the checks and local immutable asset preparation:
 
 ```sh
-npm test -- tests/reference-price-update.test.ts tests/cache-ttl-pricing.test.ts tests/pricing/price-catalog-online.test.ts tests/pricing/price-revaluation.test.ts
+npm test -- tests/reference-price-update.test.ts tests/cache-ttl-pricing.test.ts tests/pricing/price-catalog-online.test.ts tests/comparison/reports/price-revaluation.test.ts
 npm run check
 node scripts/prepare-price-catalog-release.mjs config/prices/catalogs/reference-catalog-2026-10-16-v4.json .harness-delta/catalog-release-v4-20261016
 ```

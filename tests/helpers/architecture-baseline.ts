@@ -30,8 +30,6 @@ export const frozenEdges: readonly string[] = [
   "type src/ordinary-session-binding.ts -> src/nested-candidate.ts",
   "runtime src/price-catalog-selection.ts -> src/comparison.ts",
   "runtime src/price-catalog-selection.ts -> src/ordinary-observation.ts",
-  "runtime src/pricing/price-revaluation.ts -> src/comparison/reports/comparison-snapshot.ts",
-  "runtime src/pricing/price-revaluation.ts -> src/comparison/reports/flexible-comparison.ts",
   "runtime src/session-binding-claude.ts -> src/claude-process-binary.ts",
   "type src/session-binding-claude.ts -> src/nested-candidate.ts",
   "runtime src/session-binding-codex.ts -> src/codex-candidate-rollout.ts",
