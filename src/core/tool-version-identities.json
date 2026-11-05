@@ -1,0 +1,118 @@
+{
+  "readCeilings": {
+    "claudeProcessImage": 272984176
+  },
+  "entries": [
+    {
+      "id": "claude-2.1.296-ordinary-image",
+      "product": "claude_code",
+      "version": "2.1.296",
+      "kind": "native_image",
+      "sha256": "c9b5341637becbd423ddffc5b254afb645682a3868cb708bbc6cc0e7bb419937"
+    },
+    {
+      "id": "claude-2.1.301-ordinary-image",
+      "product": "claude_code",
+      "version": "2.1.301",
+      "kind": "native_image",
+      "sha256": "1f04c69e1c24e4d0a716a863af0aad8fc64d49a499334c29701f073700276b99"
+    },
+    {
+      "id": "claude-2.1.306-ordinary-image",
+      "product": "claude_code",
+      "version": "2.1.306",
+      "kind": "native_image",
+      "sha256": "b5d795b7760032d79954b55a9cd1876dcf3a8dc9608fd6bb9f618593f69fd44b"
+    },
+    {
+      "id": "codex-0.160.0-cli",
+      "product": "codex",
+      "version": "0.160.0",
+      "kind": "native_image",
+      "sha256": "112fae7a5a1223e673c8a1791d32338f37df8b527ff1159bb8adac6c4dbf1b4b",
+      "maxBytes": 268435456
+    },
+    {
+      "id": "codex-0.162.1-cli",
+      "product": "codex",
+      "version": "0.162.1",
+      "kind": "native_image",
+      "sha256": "74c6a6d263f40d65f99c27a815275f5b4ed0bcc2baecc396b4cf3255498bdfc0",
+      "maxBytes": 268435456
+    },
+    {
+      "id": "codex-0.163.0-cli",
+      "product": "codex",
+      "version": "0.163.0",
+      "kind": "native_image",
+      "sha256": "8813367285524ac798dd96d1b071aea30d58708c7226fd236cd275cf1cfdee31",
+      "maxBytes": 268435456
+    },
+    {
+      "id": "codex-0.163.0-code-mode-host",
+      "product": "codex",
+      "version": "0.163.0",
+      "kind": "component",
+      "sha256": "79f123a85dbc61e8f5d0f0c050dfc3f4b81a8305d33a32b41e008b7f6e035698",
+      "maxBytes": 134217728
+    },
+    {
+      "id": "codex-0.166.0-cli",
+      "product": "codex",
+      "version": "0.166.0",
+      "kind": "native_image",
+      "sha256": "39acf979729dd290f9a24ee38b2914e036c91b65952872e28ae2a6b88a7db7c1",
+      "maxBytes": 268972064,
+      "exactBytes": 268972064,
+      "exactSizeMode": "native_only"
+    },
+    {
+      "id": "codex-0.166.0-code-mode-host",
+      "product": "codex",
+      "version": "0.166.0",
+      "kind": "component",
+      "sha256": "fd37051bfdce0b65cf22a7077e265720a7bd6709d5e400dcbc26197f3041400a",
+      "maxBytes": 134217728,
+      "exactBytes": 69182864,
+      "exactSizeMode": "always"
+    },
+    {
+      "id": "codex-01600-workflow-recorder",
+      "product": "codex",
+      "version": "0.160.0",
+      "kind": "recorder",
+      "sha256": "e20dc70b2864cead9819cbb4f6717164778121b4aef510c820e795eb19835bf0"
+    },
+    {
+      "id": "claude-02188-manual-image",
+      "product": "claude_code",
+      "version": "2.1.288",
+      "kind": "native_image",
+      "sha256": "bbe93063f7a0879a1021b2891e5c9354e5b3b98433e32efe6750f7710afed750"
+    },
+    {
+      "id": "claude-2.1.306-localhost-image",
+      "product": "claude_code",
+      "version": "2.1.306",
+      "kind": "native_image",
+      "sha256": "b5d795b7760032d79954b55a9cd1876dcf3a8dc9608fd6bb9f618593f69fd44b",
+      "maxBytes": 272984176,
+      "exactBytes": 272984176,
+      "exactSizeMode": "always"
+    },
+    {
+      "id": "rust-1950-manifest",
+      "product": "codex",
+      "version": "0.162.1",
+      "kind": "toolchain",
+      "sha256": "821ff14e4c4a1cbe1e8915f35aff0a3fbbdf8d293ad48ab8f31e3b0440c581f9"
+    },
+    {
+      "id": "rust-1950-tree",
+      "product": "codex",
+      "version": "0.162.1",
+      "kind": "toolchain",
+      "sha256": "04052d94aa9c3f55c1f162486258f1a4e475ddd6d5908f80426032d586ca1590"
+    }
+  ]
+}
