@@ -2,7 +2,6 @@ export const frozenCycles: readonly string[] = [];
 
 export const frozenEdges: readonly string[] = [
   "runtime src/comparison/allocation.ts -> src/readiness-store.ts",
-  "runtime src/workflow/bounded-candidate-invocation.ts -> src/qualification/codex-failure-diagnostics.ts",
   "runtime src/claude-process-binary.ts -> src/claude-binding-admission.ts",
   "runtime src/claude-workflow-adapter.ts -> src/claude-native-probe.ts",
   "runtime src/claude-workflow-adapter.ts -> src/claude-probe-supervisor.ts",

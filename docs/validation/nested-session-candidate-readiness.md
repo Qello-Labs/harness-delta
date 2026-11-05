@@ -105,7 +105,7 @@ diagnostics and public fixtures.
 Run offline synthetic checks with Node 24:
 
 ```sh
-npm test -- tests/nested-candidate.test.ts tests/codex-candidate-collection.test.ts tests/qualification/codex-qualification.test.ts tests/workflow/bounded-candidate-invocation.test.ts tests/qualification/codex-failure-diagnostics.test.ts
+npm test -- tests/nested-candidate.test.ts tests/codex-candidate-collection.test.ts tests/qualification/codex-qualification.test.ts tests/workflow/bounded-candidate-invocation.test.ts tests/workflow/bounded-candidate-diagnostics.test.ts
 npm run check
 git diff --cached --check
 ```

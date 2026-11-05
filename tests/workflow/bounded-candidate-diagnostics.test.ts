@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { CodexFailureClassifier } from '../../src/qualification/codex-failure-diagnostics.js';
+import { CodexFailureClassifier } from '../../src/workflow/bounded-candidate-diagnostics.js';
 function classify(...chunks: string[]) {
   const parser = new CodexFailureClassifier();
   for (const chunk of chunks) parser.push(Buffer.from(chunk));
