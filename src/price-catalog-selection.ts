@@ -1,4 +1,3 @@
-import { registerProtocol } from './comparison.js';
 import { protocolRow } from './core/protocol-store.js';
 import { IdSchema } from './contracts.js';
 import { parseProtocol } from './flexible-contracts.js';
@@ -6,22 +5,6 @@ import { preparePriceBasis } from './price-catalog-store.js';
 import { ordinaryTask } from './ordinary-observation.js';
 import type { Store } from './store.js';
 
-/** Fill only the new preparation's missing reference. Repeated registration retains its first pin. */
-export function registerProtocolWithCatalogDefaults(store: Store, input: unknown, now = new Date().toISOString()): void {
-  store.immediateTransaction(() => {
-    let prepared = input;
-    if (input !== null && typeof input === 'object' && !Array.isArray(input)) {
-      const draft = input as Record<string, unknown>;
-      if (draft.schema_version === 2 && draft.price_table_id === undefined) {
-        const id = IdSchema.parse(draft.id);
-        const existing = store.get<{ settings: string }>('SELECT settings FROM comparison_protocols WHERE id=?', [id]);
-        const prior = existing ? (JSON.parse(existing.settings) as { price_table_id?: string }) : null;
-        prepared = { ...draft, price_table_id: prior?.price_table_id ?? preparePriceBasis(store, now).table.id };
-      }
-    }
-    registerProtocol(store, prepared);
-  });
-}
 export function selectTaskPriceTable(store: Store, taskId: string, now = new Date().toISOString()) {
   IdSchema.parse(taskId);
   if (!store.get('SELECT id FROM tasks WHERE id=?', [taskId])) throw new Error('unknown_task');

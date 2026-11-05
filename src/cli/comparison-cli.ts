@@ -10,8 +10,7 @@ import { renderComparisonReport } from '../comparison/reports/comparison-render.
 import type { ComparisonSnapshotRequest } from '../comparison/reports/comparison-contracts.js';
 import type { Command } from 'commander';
 import { assignTask } from '../comparison/allocation.js';
-import { freezeProtocol, registerVariant, showProtocol, showVariant } from '../comparison.js';
-import { registerProtocolWithCatalogDefaults } from '../price-catalog-selection.js';
+import { freezeProtocol, registerVariant, registerProtocolWithCatalogDefaults, showProtocol, showVariant } from '../comparison.js';
 import { registerPriceCatalogCommands } from './price-catalog-cli.js';
 import { configurationHistory } from '../core/configuration-evidence.js';
 import { confirmConfiguration } from '../comparison/config-confirmation-write.js';
