@@ -254,6 +254,35 @@ test.each(['0.162.0', '0.162.1'])('default provider does not opt into %s candida
   await expect(provider.resolveCurrent({ receipt })).rejects.toThrow('binding_identity_unavailable');
 });
 
+test.each([
+  ['0.160.0', false],
+  ['0.162.0', false],
+  ['0.162.1', true],
+  ['0.163.0', true],
+  ['0.166.0', false]
+] as const)('family qualification reader for %s is independent of recipe membership', async (productVersion, permitted) => {
+  const f = fixture(productVersion);
+  const create = () =>
+    new CodexSessionBindingProvider({
+      receiptDirectory: f.journal,
+      sourceRoots: [f.dir],
+      projectRoot: f.dir,
+      productVersion,
+      ordinaryFamilyQualification: true,
+      maxDepth: 1,
+      maxFamilyMembers: 3,
+      clock: () => at(10)
+    });
+  if (!permitted) {
+    expect(create).toThrow('binding_configuration_invalid');
+    return;
+  }
+  const provider = create();
+  const identity = await provider.resolveCurrent({ receipt: f.receipt('root') });
+  expect(identity.productVersion).toBe(productVersion);
+  expect(provider.admissionProfile()).toBeNull();
+});
+
 test.each(['0.160.0', '0.162.0'])('application identity for %s retains strict requests and root-only checks', async productVersion => {
   const f = fixture(productVersion);
   const receipt = f.receipt('root');
