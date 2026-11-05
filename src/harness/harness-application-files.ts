@@ -1,6 +1,6 @@
 import { constants, closeSync, fsyncSync, lstatSync, openSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { ensureRepositoryDirectory, hashBytes, readRepositoryFile, safeRelativePath } from './harness-config.js';
+import { ensureRepositoryDirectory, hashBytes, readRepositoryFile, safeRelativePath } from '../core/repository-files.js';
 export function applicationPath(path: string): void {
   const parts = path.toLowerCase().split('/');
   if (

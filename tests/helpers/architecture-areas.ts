@@ -2,7 +2,7 @@ const areas: readonly (readonly [string, RegExp])[] = [
   ['ops', /^src\/(deletion|readiness|readiness-store)\.ts$/],
   [
     'core',
-    /^src\/(?:core\/)?(canonical-json|protocol-store|assignment-contract|configuration-evidence|comparison-contracts|report-source-trust-contracts|external-session-contract|session-binding-contract|source-errors|source-compatibility|runtime-history|coverage|package-paths)\.ts$/
+    /^src\/(?:core\/)?(canonical-json|repository-files|protocol-store|assignment-contract|configuration-evidence|comparison-contracts|report-source-trust-contracts|external-session-contract|session-binding-contract|source-errors|source-compatibility|runtime-history|coverage|package-paths)\.ts$/
   ],
   ['entry', /^src\/(?:cli\/)?(cli|cli-errors|index|.*-cli|.*-main)\.ts$/],
   ['web', /^src\/(?:web\/)?local-web-/],

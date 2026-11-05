@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { assertAppliedHarness } from '../../src/harness-application.js';
-import { hashBytes } from '../../src/harness/harness-config.js';
+import { hashBytes } from '../../src/core/repository-files.js';
 import { releaseExternalWorkflow } from '../../src/external-session-workflow.js';
 import { Lifecycle } from '../../src/lifecycle.js';
 import { apply, begin, bytes, fixture, git, restore } from '../helpers/harness-application-restoration-fixture.js';

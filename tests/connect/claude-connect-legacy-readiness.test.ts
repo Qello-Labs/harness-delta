@@ -183,6 +183,7 @@ test('compiled dist module resolves its own bundled skills without repository fa
     'connect/claude-connect-installation',
     'harness/harness-application-files',
     'harness/harness-config',
+    'core/repository-files',
     'package-paths'
   ]) {
     const compiled = transpileModule(readFileSync(new URL(`../../src/${name}.ts`, import.meta.url), 'utf8'), {

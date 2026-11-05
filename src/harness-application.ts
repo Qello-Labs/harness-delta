@@ -5,7 +5,8 @@ import { lstatSync, realpathSync } from 'node:fs';
 import { z } from 'zod';
 import type { Store } from './store.js';
 import { IdSchema } from './contracts.js';
-import { canonicalJson, hashBytes, readHarness, readRepositoryFile, readStrictJson } from './harness/harness-config.js';
+import { readHarness } from './harness/harness-config.js';
+import { canonicalJson, hashBytes, readRepositoryFile, readStrictJson } from './core/repository-files.js';
 import { assertApplicationWorkspace, inspectApplicationWorkspace } from './harness/harness-application-workspace.js';
 import { applicationPath, durablePrivateBytes, optionalApplicationBytes, outputDigest } from './harness/harness-application-files.js';
 import {

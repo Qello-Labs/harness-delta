@@ -3,7 +3,7 @@ import { lstatSync, mkdirSync, readdirSync, realpathSync, renameSync, rmdirSync,
 import { join, resolve } from 'node:path';
 import { z } from 'zod';
 import { durablePrivateBytes } from '../harness/harness-application-files.js';
-import { hashBytes, readRepositoryFile, readStrictJson, safeRelativePath } from '../harness/harness-config.js';
+import { hashBytes, readRepositoryFile, readStrictJson, safeRelativePath } from '../core/repository-files.js';
 import { packagedSkillPath } from '../package-paths.js';
 
 const destination = '.claude/skills/harness-connect';
