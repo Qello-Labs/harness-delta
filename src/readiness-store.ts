@@ -1,8 +1,10 @@
+import { z } from 'zod';
+import { parseComparison, ProtocolDraftSchema } from './comparison-contracts.js';
 import { resolveSourceCompatibility, assertCompatibilityAllowed } from './source-compatibility.js';
 import type { FlexibleProtocol } from './flexible-contracts.js';
 import type { Store } from './store.js';
 import { protocolRow } from './core/protocol-store.js';
-import { parseProtocol, type CostCoverageEvidence } from './flexible-contracts.js';
+import { parseProtocol, FlexibleProtocolDraftSchema, type CostCoverageEvidence } from './flexible-contracts.js';
 import { codexWorkflowCostFacts } from './codex-workflow-journal.js';
 import { evaluateCostCoverage } from './cost-coverage.js';
 import { evaluateReadiness, productionSourceEvidence, syntheticSourceEvidence } from './readiness.js';
@@ -72,4 +74,28 @@ export function functionalWorkflowEligible(store: Store, protocol: FlexibleProto
       return false;
     }
   });
+}
+
+export function showProtocol(store: Store, id: string) {
+  const row = protocolRow(store, id);
+  const configuration = parseComparison(z.union([ProtocolDraftSchema, FlexibleProtocolDraftSchema]), JSON.parse(row.settings) as unknown);
+  const realAllocation =
+    configuration.schema_version === 2 &&
+    configuration.purpose !== 'synthetic_validation' &&
+    row.status === 'frozen' &&
+    comparisonReadiness(store, id).real_allocation;
+  return {
+    schema_version: configuration.schema_version,
+    configuration,
+    status: row.status,
+    frozen_at: row.frozen_at,
+    data_revision: row.data_revision,
+    invalidated_reason: row.invalidated_reason,
+    real_allocation_enabled: realAllocation,
+    experiment_readiness: realAllocation
+      ? 'source_qualified_partial'
+      : configuration.schema_version === 1 || configuration.purpose === 'synthetic_validation'
+        ? 'synthetic_only'
+        : 'source_unqualified'
+  };
 }

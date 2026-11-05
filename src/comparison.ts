@@ -10,7 +10,6 @@ import type { ProtocolRow } from './core/protocol-store.js';
 export { comparisonProtocol, protocolRow };
 import type { Store } from './store.js';
 import { requireLatestClaudeWorkflowProfile } from './claude-workflow-versions.js';
-import { comparisonReadiness } from './readiness-store.js';
 
 export function registerVariant(store: Store, input: unknown): void {
   const config = parseComparison(z.union([VariantSchema, FlexibleVariantSchema]), input);
@@ -119,29 +118,5 @@ export function showVariant(store: Store, id: string) {
         : lookupFileProfile(configuration.product, configuration.product_version) === 'unsupported'
           ? 'unsupported'
           : 'registered_partial'
-  };
-}
-
-export function showProtocol(store: Store, id: string) {
-  const row = protocolRow(store, id);
-  const configuration = parseComparison(z.union([ProtocolDraftSchema, FlexibleProtocolDraftSchema]), JSON.parse(row.settings) as unknown);
-  const realAllocation =
-    configuration.schema_version === 2 &&
-    configuration.purpose !== 'synthetic_validation' &&
-    row.status === 'frozen' &&
-    comparisonReadiness(store, id).real_allocation;
-  return {
-    schema_version: configuration.schema_version,
-    configuration,
-    status: row.status,
-    frozen_at: row.frozen_at,
-    data_revision: row.data_revision,
-    invalidated_reason: row.invalidated_reason,
-    real_allocation_enabled: realAllocation,
-    experiment_readiness: realAllocation
-      ? 'source_qualified_partial'
-      : configuration.schema_version === 1 || configuration.purpose === 'synthetic_validation'
-        ? 'synthetic_only'
-        : 'source_unqualified'
   };
 }

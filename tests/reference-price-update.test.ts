@@ -4,7 +4,8 @@ import { bundledCatalogBytes, compilePriceBasis, digest, matchCatalogComponent, 
 import { preparePriceCatalogRelease } from '../src/pricing/price-catalog-release.js';
 import { preparePriceBasis, readPriceBasis, readPriceCatalogStatus, refreshPriceCatalog } from '../src/price-catalog-store.js';
 import { selectTaskPriceTable } from '../src/price-catalog-selection.js';
-import { registerProtocolWithCatalogDefaults, freezeProtocol, registerVariant, showProtocol } from '../src/comparison.js';
+import { registerProtocolWithCatalogDefaults, freezeProtocol, registerVariant } from '../src/comparison.js';
+import { showProtocol } from '../src/readiness-store.js';
 import { assignTask } from '../src/comparison/allocation.js';
 import { projectCatalogCost } from '../src/catalog-cost-report.js';
 import { Store } from '../src/store.js';

@@ -3,7 +3,8 @@ export { ReadingSchema, EventSchema, ComparisonModeSchema, MonetaryAmountSchema,
 export type { Reading, Event } from './contracts.js';
 
 export { VariantSchema, ProtocolDraftSchema, ProtocolSchema, AssignmentInputSchema, ConfirmationInputSchema } from './comparison-contracts.js';
-export { registerVariant, registerProtocol, freezeProtocol, showVariant, showProtocol } from './comparison.js';
+export { registerVariant, registerProtocol, freezeProtocol, showVariant } from './comparison.js';
+export { showProtocol } from './readiness-store.js';
 export { assignTask } from './comparison/allocation.js';
 export type { AllocationDependencies, AssignmentReceipt } from './comparison/allocation.js';
 export { configurationHistory, bindConfigurationToSession } from './core/configuration-evidence.js';

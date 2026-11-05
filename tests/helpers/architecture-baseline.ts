@@ -15,7 +15,6 @@ export const frozenEdges: readonly string[] = [
   "runtime src/collection.ts -> src/codex-candidate-rollout.ts",
   "runtime src/collection.ts -> src/codex-continuation.ts",
   "runtime src/collection.ts -> src/nested-candidate.ts",
-  "runtime src/comparison.ts -> src/readiness-store.ts",
   "runtime src/external-session-service.ts -> src/harness-application.ts",
   "runtime src/external-session-workflow.ts -> src/qualification/codex-binding-qualification-versions.ts",
   "runtime src/external-session-workflow.ts -> src/harness-application.ts",
