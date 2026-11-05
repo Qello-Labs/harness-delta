@@ -6,9 +6,9 @@ import { z } from 'zod';
 import type { Store } from './store.js';
 import { IdSchema } from './contracts.js';
 import { readHarness } from './harness/harness-config.js';
-import { canonicalJson, hashBytes, readRepositoryFile, readStrictJson } from './core/repository-files.js';
+import { durablePrivateBytes, canonicalJson, hashBytes, readRepositoryFile, readStrictJson } from './core/repository-files.js';
 import { assertApplicationWorkspace, inspectApplicationWorkspace } from './harness/harness-application-workspace.js';
-import { applicationPath, durablePrivateBytes, optionalApplicationBytes, outputDigest } from './harness/harness-application-files.js';
+import { applicationPath, optionalApplicationBytes, outputDigest } from './harness/harness-application-files.js';
 import {
   ApplicationContextSchema,
   ApplicationSelectionSchema,

@@ -1,6 +1,6 @@
-import { constants, closeSync, fsyncSync, lstatSync, openSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { ensureRepositoryDirectory, hashBytes, readRepositoryFile, safeRelativePath } from '../core/repository-files.js';
+import { lstatSync } from 'node:fs';
+import { join } from 'node:path';
+import { hashBytes, readRepositoryFile, safeRelativePath } from '../core/repository-files.js';
 export function applicationPath(path: string): void {
   const parts = path.toLowerCase().split('/');
   if (
@@ -25,16 +25,6 @@ export function optionalApplicationBytes(root: string, path: string): Buffer | n
     }
   }
   return readRepositoryFile(root, path);
-}
-export function durablePrivateBytes(root: string, path: string, bytes: Buffer): void {
-  if (dirname(path) !== '.') ensureRepositoryDirectory(root, dirname(path));
-  const fd = openSync(join(root, path), constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | constants.O_NOFOLLOW, 0o600);
-  try {
-    writeFileSync(fd, bytes);
-    fsyncSync(fd);
-  } finally {
-    closeSync(fd);
-  }
 }
 export function outputDigest(root: string, path: string): string | null {
   const bytes = optionalApplicationBytes(root, path);

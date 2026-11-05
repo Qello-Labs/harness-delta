@@ -3,7 +3,6 @@ export const frozenCycles: readonly string[] = [];
 export const frozenEdges: readonly string[] = [
   "runtime src/comparison/allocation.ts -> src/readiness-store.ts",
   "runtime src/workflow/bounded-candidate-invocation.ts -> src/qualification/codex-failure-diagnostics.ts",
-  "runtime src/connect/claude-connect-installation.ts -> src/harness/harness-application-files.ts",
   "runtime src/claude-process-binary.ts -> src/claude-binding-admission.ts",
   "runtime src/claude-workflow-adapter.ts -> src/claude-native-probe.ts",
   "runtime src/claude-workflow-adapter.ts -> src/claude-probe-supervisor.ts",
@@ -11,7 +10,6 @@ export const frozenEdges: readonly string[] = [
   "runtime src/claude-workflow-adapter.ts -> src/config-confirmation.ts",
   "runtime src/claude-workflow-versions.ts -> src/readiness.ts",
   "runtime src/connect/codex-connect-installation.ts -> src/codex-binding-admission.ts",
-  "runtime src/connect/codex-connect-installation.ts -> src/harness/harness-application-files.ts",
   "runtime src/qualification/codex-session-binding-qualification.ts -> src/web/local-web-domain.ts",
   "runtime src/qualification/codex-session-binding-qualification.ts -> src/web/local-web-server.ts",
   "runtime src/codex-workflow-adapter.ts -> src/config-confirmation.ts",

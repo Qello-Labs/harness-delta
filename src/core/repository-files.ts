@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
-import { closeSync, constants, fstatSync, lstatSync, mkdirSync, openSync, readSync, realpathSync } from 'node:fs';
-import { join } from 'node:path';
+import { closeSync, constants, fstatSync, fsyncSync, lstatSync, mkdirSync, openSync, readSync, realpathSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 
 const fail = (code = 'invalid_shared_config'): never => {
   throw new Error(code);
@@ -167,4 +167,15 @@ export function ensureRepositoryDirectory(root: string, relativePath: string): s
     if (stat.isSymbolicLink() || !stat.isDirectory() || realpathSync(current) !== current) fail('shared_path_invalid');
   }
   return current;
+}
+
+export function durablePrivateBytes(root: string, path: string, bytes: Buffer): void {
+  if (dirname(path) !== '.') ensureRepositoryDirectory(root, dirname(path));
+  const fd = openSync(join(root, path), constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | constants.O_NOFOLLOW, 0o600);
+  try {
+    writeFileSync(fd, bytes);
+    fsyncSync(fd);
+  } finally {
+    closeSync(fd);
+  }
 }
