@@ -10,7 +10,7 @@ export const scopeSourceDigests = Object.freeze({
   'src/session-binding-contract.ts': '003d15592f34aa377d777fd730986e74ceff37b9db529f53c57a99af653c3b13',
   'src/ordinary-session-binding.ts': '850b5144be17b0327b5f2c4cd04f348cd6cf90cc6ddbe54239de6c554bda0099',
   'src/session-binding-service.ts': 'b17352f8936406f76e45e8a9be028fd0f14b66055d4a3cb9813f56a16bd71c85',
-  'src/claude-workflow-versions.ts': 'bfb41c173c161823ce8b851bf38807e0c27fb177023dac6b41838534d68c5239',
+  'src/claude-workflow-versions.ts': '2fdf54d333aa7d9ca8f298ad0757e85a2c2eed10472106a07387d36d7511bd3b',
   'src/session-binding-codex.ts': '1e2fff315b9aafb4d92bd137d2d36cb112fd65883397d1c4239277829ebf8552',
   'src/session-binding-claude.ts': '5165b416cc6e58010b1cbbb39ff9d07fc7b5870418b1e7f8025e1ddea3898729',
 });

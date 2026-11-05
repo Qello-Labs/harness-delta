@@ -141,12 +141,19 @@ function implementationDigest() {
     'config-confirmation',
     'core/configuration-evidence',
     'comparison/config-confirmation-write',
-    'package-paths'
+    'package-paths',
+    'core/tool-version-profiles'
   ];
   return hash(
     JSON.stringify(
       names
         .map(name => ({ name, sha256: hash(readFileSync(implementationPath(name + implementationExtension))) }))
+        .concat(
+          ['core/tool-version-profiles.json', 'core/tool-version-recipes.json', 'core/tool-version-identities.json'].map(name => ({
+            name,
+            sha256: hash(readFileSync(implementationPath(name)))
+          }))
+        )
         .concat([
           { name: 'migration014', sha256: hash(readFileSync(implementationPath('migrations', '014_codex_workflow.sql'))) },
           { name: 'migration015', sha256: hash(readFileSync(implementationPath('migrations', '015_codex_workflow_child.sql'))) },

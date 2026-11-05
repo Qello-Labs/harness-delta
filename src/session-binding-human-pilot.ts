@@ -1,7 +1,8 @@
+import { lookupToolVersionProfile, orderedToolVersionProfiles } from './core/tool-version-profiles.js';
 import { Lifecycle } from './lifecycle.js';
 import { comparisonProtocol, protocolRow } from './core/protocol-store.js';
 import { parseTaskMetadata } from './flexible-contracts.js';
-import { CodexSessionBindingProvider, codexRootPilotVersions } from './session-binding-codex.js';
+import { CodexSessionBindingProvider } from './session-binding-codex.js';
 import { bindingIdentityKey, VerifiedSessionIdentitySchema, type SessionBindingProvider, type VerifiedSessionIdentity } from './session-binding-contract.js';
 import type { Store } from './store.js';
 import type { FlexibleProtocol } from './flexible-contracts.js';
@@ -11,8 +12,10 @@ import { effectiveTaskWorkspace } from './harness-application.js';
 import { resolveSourceCompatibility } from './source-compatibility.js';
 
 /** Candidate evidence only; this identifier is not a production admission. */
-export const codexHumanPilotProfileId = 'codex-01600-ordinary-human-pilot';
-export const codexRootHumanPilotProfileId = 'codex-01620-ordinary-root-human-pilot';
+const pilotProfiles = orderedToolVersionProfiles('humanPilot', 'codex');
+const codexRootPilotVersions = pilotProfiles.filter(profile => profile.humanPilot?.maxFamilyMembers === 1).map(profile => profile.version);
+export const codexHumanPilotProfileId = lookupToolVersionProfile('codex', '0.160.0')?.humanPilot?.profileId as 'codex-01600-ordinary-human-pilot';
+export const codexRootHumanPilotProfileId = lookupToolVersionProfile('codex', '0.162.0')?.humanPilot?.profileId as 'codex-01620-ordinary-root-human-pilot';
 export interface CodexHumanPilotScope {
   readonly taskId: string;
 }
@@ -33,10 +36,7 @@ export function isCodexHumanPilotProtocol(protocol: FlexibleProtocol): boolean {
     protocol.purpose === 'functional_pilot' &&
     protocol.source_profiles.length === 1 &&
     protocol.source_profiles.every(
-      p =>
-        p.product === 'codex' &&
-        ((p.product_version === '0.160.0' && p.profile_id === codexHumanPilotProfileId) ||
-          (codexRootPilotVersions.some(version => version === p.product_version) && p.profile_id === codexRootHumanPilotProfileId))
+      p => p.product === 'codex' && pilotProfiles.some(profile => profile.version === p.product_version && profile.humanPilot?.profileId === p.profile_id)
     )
   );
 }

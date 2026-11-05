@@ -65,6 +65,7 @@ async function reviewed(input = fixture(), baseline?: Baseline) {
 function syntheticRegistry(base?: string): SourceRegistry {
   return {
     ruleRevision: 'forward-version-v1',
+    retiredClaudeWorkflowVersions: [],
     resolve: () => null,
     windows: base
       ? [

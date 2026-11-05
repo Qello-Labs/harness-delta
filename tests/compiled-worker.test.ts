@@ -121,13 +121,19 @@ test('fresh source discovery includes additions and omits deletions from new fix
 
 test('each fixture copies current admissions and migrations without changing older assets', () => {
   const f = fixture();
+  writeFileSync(join(f.sourceRoot, 'nested', 'data.json'), '{"value":11}');
+  writeFileSync(join(f.sourceRoot, 'nested', 'other.ts'), "import data from './data.json' with { type: 'json' }; export const value = data.value;");
   const first = f.emit();
+  expect(valueAt(first, 'nested/other.js')).toBe(11);
+  writeFileSync(join(f.sourceRoot, 'nested', 'data.json'), '{"value":22}');
   writeFileSync(join(f.sourceRoot, 'codex-admissions.json'), '{"revision":2}');
   writeFileSync(join(f.sourceRoot, 'migrations', '002.sql'), 'SELECT 2;');
   rmSync(join(f.sourceRoot, 'migrations', '001.sql'));
   const second = f.emit();
   expect(readFileSync(join(first, 'codex-admissions.json'), 'utf8')).toBe('{"revision":1}');
   expect(readFileSync(join(second, 'codex-admissions.json'), 'utf8')).toBe('{"revision":2}');
+  expect(valueAt(second, 'nested/other.js')).toBe(22);
+  expect(valueAt(first, 'nested/other.js')).toBe(11);
   expect(readFileSync(join(second, 'migrations', '002.sql'), 'utf8')).toBe('SELECT 2;');
   expect(existsSync(join(second, 'migrations', '001.sql'))).toBe(false);
   expect(readFileSync(join(first, 'migrations', '001.sql'), 'utf8')).toBe('SELECT 1;');

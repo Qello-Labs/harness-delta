@@ -41,9 +41,12 @@ function implementationDigest(): string {
     'flexible-contracts',
     'lifecycle',
     'store',
-    'package-paths'
+    'package-paths',
+    'core/tool-version-profiles'
   ];
   const files = names.map(name => ({ name, sha256: digest(readFileSync(implementationPath(name + implementationExtension))) }));
+  for (const name of ['core/tool-version-profiles.json', 'core/tool-version-recipes.json', 'core/tool-version-identities.json'])
+    files.push({ name, sha256: digest(readFileSync(implementationPath(name))) });
   for (const name of readdirSync(implementationPath('migrations'))
     .filter(n => n.endsWith('.sql'))
     .sort())

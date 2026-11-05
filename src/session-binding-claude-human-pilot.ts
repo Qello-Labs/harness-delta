@@ -1,14 +1,16 @@
+import { lookupToolVersionProfile, orderedToolVersionProfiles } from './core/tool-version-profiles.js';
 import { familyProviderError } from './binding-family-diagnostics.js';
 import { comparisonProtocol, protocolRow } from './core/protocol-store.js';
 import { Lifecycle } from './lifecycle.js';
 import { parseTaskMetadata, type FlexibleProtocol } from './flexible-contracts.js';
-import { claudeBindingProfiles, ClaudeSessionBindingProvider } from './session-binding-claude.js';
+import { ClaudeSessionBindingProvider } from './session-binding-claude.js';
 import { bindingCollectionControl, registerBindingCollectionControl } from './external-session-contract.js';
 import { bindingIdentityKey, VerifiedSessionIdentitySchema, type SessionBindingProvider, type VerifiedSessionIdentity } from './session-binding-contract.js';
 import type { Store } from './store.js';
 
 /** Isolated descriptive pilot, never an ordinary production admission. */
-export const claudeHumanPilotProfileId = 'claude-ordinary-human-pilot';
+const pilotProfiles = orderedToolVersionProfiles('humanPilot', 'claude_code');
+export const claudeHumanPilotProfileId = lookupToolVersionProfile('claude_code', '2.1.294')?.humanPilot?.profileId as 'claude-ordinary-human-pilot';
 export interface ClaudeHumanPilotScope {
   readonly taskId: string;
 }
@@ -29,10 +31,7 @@ export function isClaudeHumanPilotProtocol(protocol: FlexibleProtocol): boolean 
     protocol.purpose === 'functional_pilot' &&
     protocol.source_profiles.length === 1 &&
     protocol.source_profiles.every(
-      p =>
-        p.product === 'claude_code' &&
-        p.profile_id === claudeHumanPilotProfileId &&
-        claudeBindingProfiles.some(candidate => candidate.version === p.product_version)
+      p => p.product === 'claude_code' && p.profile_id === claudeHumanPilotProfileId && pilotProfiles.some(candidate => candidate.version === p.product_version)
     )
   );
 }

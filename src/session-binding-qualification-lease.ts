@@ -7,7 +7,7 @@ import type { Store } from './store.js';
 import type { VerifiedSessionIdentity, BindingUsageRecord } from './session-binding-contract.js';
 import type { OwnedCliInvocation } from './connect/owned-cli-invocation.js';
 import { resolveSourceCompatibility } from './source-compatibility.js';
-import { codexBindingQualificationPolicies, codexBindingQualificationVersions } from './qualification/codex-binding-qualification-versions.js';
+import { codexBindingQualificationPolicies, codexBindingQualificationVersions } from './core/tool-version-profiles.js';
 
 /** Opaque, process-local native qualification capability. No browser/profile flag. */
 export interface BindingQualificationLease {

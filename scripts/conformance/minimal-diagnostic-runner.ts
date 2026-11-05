@@ -5,7 +5,7 @@ import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { StringDecoder } from 'node:string_decoder';
 import { pathToFileURL } from 'node:url';
-import { createResumeWarningGuard, isolationArguments, makeGuardDiagnostic, runDiagnostic, type DiagnosticDeps, type GuardDiagnostic, type ResumeWarningContext } from './minimal-diagnostic.js';
+import { createResumeWarningGuard, diagnosticVersion, isolationArguments, makeGuardDiagnostic, runDiagnostic, type DiagnosticDeps, type GuardDiagnostic, type ResumeWarningContext } from './minimal-diagnostic.js';
 export { isolationArguments } from './minimal-diagnostic.js';
 export interface SpawnOptions {cwd:string;timeoutMs:number;env:NodeJS.ProcessEnv;stdoutLimit?:number;observeEvents?:boolean;resumeWarningContext?:ResumeWarningContext}
 export interface SpawnResult {code:number|null;timedOut:boolean;spawnError:boolean;stdout:string;streamStopped?:boolean;guardDiagnostic?:GuardDiagnostic;warningCounts?:{resume_model_changed:number}}
@@ -92,7 +92,7 @@ function instructionBytes(home:string,fixture:string):number {
   return [...paths].reduce((sum,path) => sum + (existsSync(path) ? statSync(path).size : 0),0);
 }
 export function createDiagnosticEnvironment(options:EnvironmentOptions):DiagnosticEnvironment {
-  const binary = options.binary ?? join(options.home,'.codex/packages/app-server-daemon/releases/0.160.0-aarch64-apple-darwin/bin/codex');
+  const binary = options.binary ?? join(options.home,`.codex/packages/app-server-daemon/releases/${diagnosticVersion}-aarch64-apple-darwin/bin/codex`);
   return {cwd:options.cwd,binary,write:options.write,execute:async () => {
     const out = join(options.cwd,'.harness-delta/work/minimal-live-collection-cost-validation-2026-10-03');
     mkdirSync(out,{recursive:true,mode:0o700});
@@ -106,7 +106,7 @@ export function createDiagnosticEnvironment(options:EnvironmentOptions):Diagnost
       preflight:async () => {
         const version = await product(['--version'],currentFixture,30_000);
         // A failed support probe stops before any other product invocation.
-        const exact = version.code === 0 && !version.timedOut && !version.spawnError && version.stdout.trim() === 'codex-cli 0.160.0';
+        const exact = version.code === 0 && !version.timedOut && !version.spawnError && version.stdout.trim() === `codex-cli ${diagnosticVersion}`;
         const mcp = exact ? await product(['mcp','list','--json'],currentFixture,30_000) : null;
         const disabled = mcp !== null && mcp.code === 0 && !mcp.timedOut && !mcp.spawnError && allMcpDisabled(mcp.stdout);
         const raw = existsSync(config) ? readFileSync(config,'utf8') : '';

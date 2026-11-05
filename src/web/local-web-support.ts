@@ -1,3 +1,4 @@
+import { lookupToolVersionProfile } from '../core/tool-version-profiles.js';
 import type { Store } from '../store.js';
 import type { LocalWebProfile } from './local-web-profile.js';
 import { protocolRow } from '../core/protocol-store.js';
@@ -64,7 +65,8 @@ export function localWebSupport(store: Store, profile: LocalWebProfile) {
     launch,
     ticket: synthetic
       ? 'synthetic_validation_only'
-      : workflow.assignment.metadata.product === 'codex' && workflow.product_version === '0.160.0'
+      : workflow.assignment.metadata.product === 'codex' &&
+          lookupToolVersionProfile('codex', workflow.product_version)?.externalTicket?.mode === 'codex_01600_ticket_v1'
         ? 'exact_version_only'
         : 'unsupported',
     family: familySupport(),

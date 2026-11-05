@@ -1,3 +1,4 @@
+import { toolVersionProfiles } from './core/tool-version-profiles.js';
 import { z } from 'zod';
 import { createHash } from 'node:crypto';
 import { IdSchema } from './contracts.js';
@@ -10,23 +11,14 @@ export interface SourceReadinessEvidence {id:string;product:'synthetic'|'codex'|
 // Registries are code-owned evidence, never writable protocol flags or imported claims.
 // Exact root workflow operational evidence; see validation/codex-workflow-01600-source-readiness.md.
 // Separate exact root/direct-child partial sources; never complete cost or inference.
-export const productionSourceEvidence:readonly SourceReadinessEvidence[]=Object.freeze([Object.freeze({
-  id:'codex-workflow-01600-root-native-v1',product:'codex',product_version:'0.160.0',profile_id:'codex-workflow-own-response-v1',
-  semantics_digest:'f97979e1c7878fc8b54a9ab004f7cf69ddd9df39f409f357104f72317937aa8b',validation_kind:'real_operations',complete_cost:false,
-}),Object.freeze({
-  id:'codex-workflow-01600-direct-child-native-v1',product:'codex',product_version:'0.160.0',profile_id:'codex-workflow-direct-child-v1',
-  semantics_digest:'f60bfac70ddc3c4054d0f104386a07d438dab5d2bc4a1ebbfb297a9fbc6a839b',validation_kind:'real_operations',complete_cost:false,
-}),Object.freeze({
-  // Parent-only fresh launch. Replaces claude-workflow-02191-root-native-v1 (2.1.291, retired from
-  // the workflow on 2026-10-13); see validation/claude-workflow-02196-source-readiness.md.
-  id:'claude-workflow-02196-root-native-v1',product:'claude_code',product_version:'2.1.296',profile_id:'claude-workflow-own-trace-v1',
-  semantics_digest:'27298b4ecb2fc8c2982afc6307268a19ccf2652db787c96dff4b52321526333a',validation_kind:'real_operations',complete_cost:false,
-}),Object.freeze({
-  // Separate exact profile: a fresh read-only root with one fresh direct child;
-  // see validation/claude-workflow-02196-direct-child-source-readiness.md.
-  id:'claude-workflow-02196-direct-child-native-v1',product:'claude_code',product_version:'2.1.296',profile_id:'claude-workflow-direct-child-v1',
-  semantics_digest:'dfe01a0be5489858a2d60cf2dc0076073296e2f34d11ca62f5b184e4b37690d8',validation_kind:'real_operations',complete_cost:false,
-}),...codexBindingAdmissions.flatMap(admission=>'qualified' in admission && !admission.qualified ? [] : [Object.freeze({
+export const productionSourceEvidence:readonly SourceReadinessEvidence[]=Object.freeze([...toolVersionProfiles.flatMap(profile => (profile.readiness ?? []).filter(evidence =>
+  profile.workflow?.some(workflow => workflow.status === 'admitted' && workflow.profileId === evidence.profileId)
+).map(evidence => ({ profile, evidence })))
+  .sort((a, b) => a.evidence.order - b.evidence.order)
+  .map(({ profile, evidence }) => Object.freeze({
+    id:evidence.id,product:profile.product,product_version:profile.version,profile_id:evidence.profileId,
+    semantics_digest:evidence.semanticsDigest,validation_kind:evidence.validationKind,complete_cost:evidence.completeCost,
+  })),...codexBindingAdmissions.flatMap(admission=>'qualified' in admission && !admission.qualified ? [] : [Object.freeze({
   id:admission.evidenceId,product:'codex' as const,product_version:admission.productVersion,
   profile_id:admission.profileId,semantics_digest:createHash('sha256').update(JSON.stringify(admission)).digest('hex'),
   validation_kind:'real_operations' as const,complete_cost:false,

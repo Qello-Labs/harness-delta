@@ -30,6 +30,8 @@ for (const first of ['snapshot', 'deletion']) {
         writeFileSync(join(compiled, name.replace(/\.ts$/, '.js')), output);
       }
       cpSync(new URL('../../src/codex-admissions.json', import.meta.url), join(compiled, 'codex-admissions.json'));
+      for (const name of ['tool-version-profiles', 'tool-version-recipes', 'tool-version-identities'])
+        cpSync(new URL(`../../src/core/${name}.json`, import.meta.url), join(compiled, 'core', name + '.json'));
       cpSync(new URL('../../src/migrations/', import.meta.url), join(compiled, 'migrations'), { recursive: true });
       const barrier = new SharedArrayBuffer(8);
       const flags = new Int32Array(barrier);

@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { readFile, lstat, realpath, mkdtemp, mkdir, writeFile, symlink, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, posix, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { digest, fail, ToolUpdateError } from './manifest.mjs';
 import { scopeSourceDigests } from './lanes.mjs';
@@ -11,15 +11,42 @@ export const assessmentRuleRevision = 'static-assessment-v1';
 const modules = [
   'adapter-profiles', 'codex-rollout-policy', 'source-compatibility', 'contracts', 'readiness',
   'comparison-contracts', 'flexible-contracts', 'cost-coverage', 'report-source-trust-contracts',
-  'codex-binding-admission', 'claude-binding-admission', 'claude-workflow-versions',
+  'codex-binding-admission', 'claude-binding-admission', 'claude-workflow-versions', 'core/tool-version-profiles',
 ];
 const scopePaths = Object.keys(scopeSourceDigests);
 const hashOnlyPaths = ['src/nested-candidate.ts', 'src/codex-candidate-rollout.ts'];
 export const sourcePathAllowlist = Object.freeze([
-  ...new Set([...modules.map(name => `src/${name}.ts`), 'src/codex-admissions.json', ...scopePaths, ...hashOnlyPaths]),
+  ...new Set([...modules.map(name => `src/${name}.ts`), 'src/codex-admissions.json',
+    'src/core/tool-version-profiles.json', 'src/core/tool-version-recipes.json', 'src/core/tool-version-identities.json', ...scopePaths, ...hashOnlyPaths]),
   'package.json', 'package-lock.json',
 ].sort());
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
+
+function snapshotImports(ts, path, output) {
+  const pending = [];
+  const parsed = ts.createSourceFile(path, output, ts.ScriptTarget.ES2023, true, ts.ScriptKind.JS);
+  const visit = node => {
+    if (ts.isCallExpression(node) && (node.expression.kind === ts.SyntaxKind.ImportKeyword ||
+        ts.isIdentifier(node.expression) && node.expression.text === 'require')) fail('source_snapshot_unavailable');
+    if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node) && node.moduleSpecifier) {
+      if (!ts.isStringLiteral(node.moduleSpecifier)) fail('source_snapshot_unavailable');
+      const specifier = node.moduleSpecifier.text;
+      if (specifier.startsWith('./') || specifier.startsWith('../')) {
+        const child = posix.normalize(posix.join(posix.dirname(path), specifier)).replace(/\.js$/, '.ts');
+        if (!child.startsWith('src/') || !sourcePathAllowlist.includes(child) || hashOnlyPaths.includes(child)) fail('source_snapshot_unavailable');
+        pending.push(child);
+      } else if (specifier === 'node:fs') {
+        const bindings = node.importClause?.namedBindings;
+        if (node.importClause?.name || !bindings || !ts.isNamedImports(bindings) ||
+          bindings.elements.some(item => (item.propertyName ?? item.name).text !== 'realpathSync'))
+          fail('source_snapshot_unavailable');
+      } else if (!['zod', 'node:crypto', 'node:path'].includes(specifier)) fail('source_snapshot_unavailable');
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(parsed);
+  return pending;
+}
 
 /** Only the finite static registry closure is loaded; Store is a stripped type import. */
 export async function withSourceSnapshot(root, project) {
@@ -37,7 +64,9 @@ export async function withSourceSnapshot(root, project) {
       const bytes = await readFile(full);
       total += bytes.length;
       if (total > 16 * 1024 * 1024) fail('source_snapshot_unavailable');
-      inputs.set(path, bytes);
+      const captured = inputs.get(path);
+      if (captured && !captured.equals(bytes)) fail('source_drift');
+      if (!captured) inputs.set(path, bytes);
       return bytes.toString('utf8');
     };
     const metadata = JSON.parse(await take('package.json'));
@@ -74,6 +103,7 @@ export async function withSourceSnapshot(root, project) {
       if (compiled.size >= 32) fail('source_snapshot_unavailable');
       compiled.add(path);
       const text = await take(path);
+      await mkdir(dirname(join(temporary, path)), { recursive: true, mode: 0o700 });
       if (path.endsWith('.json')) {
         JSON.parse(text);
         await writeFile(join(temporary, path), text, { mode: 0o600 });
@@ -84,27 +114,7 @@ export async function withSourceSnapshot(root, project) {
       } });
       if (result.diagnostics?.some(d => d.category === ts.DiagnosticCategory.Error)) fail('source_snapshot_unavailable');
       const output = result.outputText;
-      const parsed = ts.createSourceFile(path, output, ts.ScriptTarget.ES2023, true, ts.ScriptKind.JS);
-      const visit = node => {
-        if (ts.isCallExpression(node) && (node.expression.kind === ts.SyntaxKind.ImportKeyword ||
-            ts.isIdentifier(node.expression) && node.expression.text === 'require')) fail('source_snapshot_unavailable');
-        if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node) && node.moduleSpecifier) {
-          if (!ts.isStringLiteral(node.moduleSpecifier)) fail('source_snapshot_unavailable');
-          const specifier = node.moduleSpecifier.text;
-          if (specifier.startsWith('./')) {
-            const child = `src/${specifier.slice(2).replace(/\.js$/, '.ts')}`;
-            if (!sourcePathAllowlist.includes(child) || hashOnlyPaths.includes(child)) fail('source_snapshot_unavailable');
-            pending.push(child);
-          } else if (specifier === 'node:fs') {
-            const bindings = node.importClause?.namedBindings;
-            if (node.importClause?.name || !bindings || !ts.isNamedImports(bindings) ||
-              bindings.elements.some(item => (item.propertyName ?? item.name).text !== 'realpathSync'))
-              fail('source_snapshot_unavailable');
-          } else if (!['zod', 'node:crypto', 'node:path'].includes(specifier)) fail('source_snapshot_unavailable');
-        }
-        ts.forEachChild(node, visit);
-      };
-      visit(parsed);
+      pending.push(...snapshotImports(ts, path, output));
       await writeFile(join(temporary, path.replace(/\.ts$/, '.js')), output, { mode: 0o600 });
     }
     for (const path of hashOnlyPaths) await take(path);
@@ -113,15 +123,15 @@ export async function withSourceSnapshot(root, project) {
       if (hash(Buffer.from(text)) !== scopeSourceDigests[path]) fail('source_scope_changed');
     }
     const load = name => import(pathToFileURL(join(temporary, `src/${name}.js`)).href);
-    const [compatibility, profiles, readiness, codex, claude] = await Promise.all([
+    const [compatibility, profiles, readiness, codex, claude, core] = await Promise.all([
       load('source-compatibility'), load('adapter-profiles'), load('readiness'),
-      load('codex-binding-admission'), load('claude-binding-admission'),
+      load('codex-binding-admission'), load('claude-binding-admission'), load('core/tool-version-profiles'),
     ]);
     const value = await project({
       resolve: compatibility.resolveSourceCompatibility, ruleRevision: compatibility.compatibilityRuleRevision,
       windows: compatibility.sourceCompatibilityWindows, files: profiles.registeredFileProfiles,
       evidence: readiness.productionSourceEvidence, codexAdmissions: codex.codexBindingAdmissions,
-      claudeAdmissions: claude.claudeBindingAdmissions,
+      claudeAdmissions: claude.claudeBindingAdmissions, retiredClaudeWorkflowVersions: core.retiredClaudeWorkflowVersions,
     });
     for (const [path, bytes] of inputs)
       if (!bytes.equals(await readFile(join(base, path)))) fail('source_drift');

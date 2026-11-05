@@ -1,12 +1,17 @@
 import { childActivity, checkpointAllowed } from './codex-rollout-policy.js';
 import { realpathSync } from 'node:fs';
-import candidates from './flexible-candidates.json' with { type: 'json' };
+import { orderedToolVersionProfiles } from './core/tool-version-profiles.js';
 import { resolve } from 'node:path';
 import { z } from 'zod';
 import { metadataKey, observed, parseSnapshot, type SourceScope } from './adapters.js';
 import { addTokens, IdSchema, ModelSchema, TimestampSchema, TokenSchema } from './contracts.js';
 import { EventV2Schema, RuntimeEvidenceSchema, type UsageEvent, type RuntimeEvidence } from './flexible-contracts.js';
 import { SourceFailure } from './source-errors.js';
+const candidates = orderedToolVersionProfiles('syntheticCandidate').map(profile => ({
+  product: profile.product,
+  version: profile.version,
+  admitted: profile.syntheticCandidate?.admitted
+}));
 export interface FlexibleSnapshot {
   records: UsageEvent[];
   runtime: RuntimeEvidence[];

@@ -1,6 +1,7 @@
 import { lookupCandidate } from './candidate.js';
 import { evidenceIdentity } from './evidence.js';
 import { lookupFileProfile } from '../../src/adapter-profiles.js';
+import { toolVersionRecipe } from '../../src/core/tool-version-profiles.js';
 import { spawn } from 'node:child_process';
 import { existsSync, realpathSync, statSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
@@ -122,7 +123,7 @@ function realExisting(path: string): string {
  * any option that skips confirmation. Prints only the plan, the stop reason and the report location.
  */
 export async function main(argv: readonly string[], environment: RunnerEnvironment): Promise<number> {
-  const requested = argv.length === 4 && argv[0] === '--candidate' ? argv[1] : '0.158.0';
+  const requested = argv.length === 4 && argv[0] === '--candidate' ? argv[1] : toolVersionRecipe('codex-file-conformance-01580').version;
   const candidate = lookupCandidate(requested ?? '');
   if (!candidate || lookupFileProfile('codex', candidate.previousVersion) === 'unsupported') {
     environment.write('unknown_candidate_or_previous_profile\n'); return 2;

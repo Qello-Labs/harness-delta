@@ -3,7 +3,7 @@ import {
   boundedParse, compareVersions, digest, fail, parseBaseline, shaSchema, ToolUpdateError, versionSchema,
 } from './manifest.mjs';
 import { candidateSchema, observationSchema } from './discovery.mjs';
-import { laneKey, laneSchema, sourceLanes, retiredClaudeWorkflowVersions } from './lanes.mjs';
+import { laneKey, laneSchema, sourceLanes } from './lanes.mjs';
 import { assessmentRuleRevision, sourcePathAllowlist, withSourceSnapshot } from './source-snapshot.mjs';
 
 export const consumedContracts = [
@@ -156,7 +156,7 @@ function projectLane(lane, source, candidate, observation, baseline, reviewed) {
       source.resolve(lane.product, row.version, lane.route, lane.profile_id)?.state === 'verified')?.version;
   const parserBase = compatibility?.parser_version ?? window?.base ?? admission?.productVersion ?? registered ?? null;
   const required = ['contracts_unknown'];
-  if (lane.route === 'claude_workflow' && retiredClaudeWorkflowVersions.includes(candidate.target))
+  if (lane.route === 'claude_workflow' && source.retiredClaudeWorkflowVersions.includes(candidate.target))
     required.push('retired');
   if (!row) required.push('baseline_missing');
   if (!operationAllowed) required.push('unsupported_operation');

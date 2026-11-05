@@ -518,6 +518,9 @@ export const toolVersionProfiles = registry.profiles;
 export const toolVersionRecipes = registry.recipes;
 export const toolVersionIdentities = registry.identities;
 export const toolVersionReadCeilings = identityDocument.readCeilings;
+export function lookupToolVersionProfile(product: 'codex', productVersion: string): Extract<ToolVersionProfile, { product: 'codex' }> | undefined;
+export function lookupToolVersionProfile(product: 'claude_code', productVersion: string): Extract<ToolVersionProfile, { product: 'claude_code' }> | undefined;
+export function lookupToolVersionProfile(product: string, productVersion: string): ToolVersionProfile | undefined;
 export function lookupToolVersionProfile(product: string, productVersion: string) {
   return toolVersionProfiles.find(profile => profile.product === product && profile.version === productVersion);
 }
@@ -532,6 +535,67 @@ export function orderedToolVersionProfiles(view: ToolVersionView, product?: Tool
     .filter(profile => profile.exportOrder[view] !== undefined && (product === undefined || profile.product === product))
     .sort((a, b) => (a.exportOrder[view] ?? 0) - (b.exportOrder[view] ?? 0));
 }
+const bindingRecipes = orderedToolVersionProfiles('qualificationRecipe', 'codex').map(profile => {
+  const recipe = profile.qualificationRecipes.map(toolVersionRecipe).find(value => value.kind === 'codex_binding');
+  return recipe ?? reject('binding_recipe_reference');
+});
+// JSON projections retain the legacy declaration types at their public boundaries.
+export const codexBindingQualificationVersions: readonly ['0.160.0', '0.162.1', '0.163.0', '0.166.0'] = z
+  .tuple([z.literal('0.160.0'), z.literal('0.162.1'), z.literal('0.163.0'), z.literal('0.166.0')])
+  .parse(bindingRecipes.map(recipe => recipe.version));
+export const codexBindingQualificationBinarySha = Object.freeze(
+  Object.fromEntries(bindingRecipes.map(recipe => [recipe.version, toolVersionIdentity(recipe.imageIdentity).sha256]))
+) as Readonly<{
+  '0.160.0': '112fae7a5a1223e673c8a1791d32338f37df8b527ff1159bb8adac6c4dbf1b4b';
+  '0.162.1': '74c6a6d263f40d65f99c27a815275f5b4ed0bcc2baecc396b4cf3255498bdfc0';
+  '0.163.0': '8813367285524ac798dd96d1b071aea30d58708c7226fd236cd275cf1cfdee31';
+  '0.166.0': '39acf979729dd290f9a24ee38b2914e036c91b65952872e28ae2a6b88a7db7c1';
+}>;
+export const codexBindingQualificationHosts = z
+  .object({
+    '0.163.0': z
+      .object({
+        sha256: z.literal('79f123a85dbc61e8f5d0f0c050dfc3f4b81a8305d33a32b41e008b7f6e035698'),
+        maxBytes: z.literal(134217728)
+      })
+      .readonly(),
+    '0.166.0': z
+      .object({
+        sha256: z.literal('fd37051bfdce0b65cf22a7077e265720a7bd6709d5e400dcbc26197f3041400a'),
+        maxBytes: z.literal(134217728),
+        exactBytes: z.literal(69182864)
+      })
+      .readonly()
+  })
+  .readonly()
+  .parse(Object.fromEntries(bindingRecipes.flatMap(recipe => (recipe.hostIdentity ? [[recipe.version, toolVersionIdentity(recipe.hostIdentity)]] : []))));
+type BindingPolicy<Root extends number, Total extends number, Tokens extends number, Duration extends number, Network extends string> = {
+  readonly rootRequestStop: Root;
+  readonly totalRequestStop: Total;
+  readonly tokenStop: Tokens;
+  readonly durationMs: Duration;
+  readonly helperNetworkPermission: Network;
+};
+export const codexBindingQualificationPolicies = Object.freeze(
+  Object.fromEntries(
+    bindingRecipes.map(recipe => [
+      recipe.version,
+      {
+        rootRequestStop: recipe.rootRequestStop,
+        totalRequestStop: recipe.totalRequestStop,
+        tokenStop: recipe.tokenStop,
+        durationMs: recipe.durationMs,
+        helperNetworkPermission: recipe.helperNetworkPermission
+      }
+    ])
+  )
+) as Readonly<{
+  '0.160.0': BindingPolicy<4, 6, 100000, 120000, 'none'>;
+  '0.162.1': BindingPolicy<8, 10, 200000, 900000, 'single_command_network_only'>;
+  '0.163.0': BindingPolicy<8, 10, 200000, 900000, 'single_command_network_only'>;
+  '0.166.0': BindingPolicy<10, 12, 300000, 900000, 'single_command_network_only'>;
+}>;
+export const retiredClaudeWorkflowVersions = orderedToolVersionProfiles('retiredWorkflow', 'claude_code').map(profile => profile.version);
 type LegacyCodexBindingAdmission = {
   readonly profileId: string;
   readonly productVersion: string;
