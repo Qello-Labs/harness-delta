@@ -17,6 +17,7 @@ import { Deletion } from './deletion.js';
 import { Collector } from './collection.js';
 import { aggregateFlexibleTaskReport } from './comparison/reports/flexible-comparison.js';
 import { aggregateOrdinaryTaskReport } from './comparison/reports/ordinary-task.js';
+import { registerOrdinaryWindowReportCommand } from './cli/ordinary-window-cli.js';
 import { ordinaryTask } from './ordinary-observation.js';
 import { parseTaskMetadata } from './flexible-contracts.js';
 import { aggregateTask } from './metrics.js';
@@ -174,7 +175,7 @@ export async function main(argv: string[], workflowDependencies: WorkflowCommand
     .action((options: { config: string }) => {
       freezePeriod(db(), JSON.parse(readFileSync(options.config, 'utf8')) as unknown, new Date().toISOString());
     });
-  const report = program.command('report');
+  const report = registerOrdinaryWindowReportCommand(program, db);
   report
     .command('task <id>')
     .requiredOption('--cutoff <UTC>')

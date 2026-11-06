@@ -11,7 +11,7 @@ import { overlayEventCompatibility } from './source-compatibility.js';
 import { readRuntimeHistory } from './runtime-history.js';
 import { linkedRequestPriceEvidence } from './pricing/request-price-evidence.js';
 import { observedCostCoverage } from './pricing/observed-cost-coverage.js';
-import { assertOrdinaryWindowSurfaceClosed } from './core/ordinary-window-store.js';
+import { assertOrdinaryWindowSurfaceClosed, ordinaryWindowSelection } from './core/ordinary-window-store.js';
 
 /** Metadata-only descriptive projection; no coverage or source admission implied. */
 export function projectObservedCost(
@@ -98,6 +98,17 @@ export function projectObservedCost(
 
 export function captureObservedCostInput(store: Store, taskId: string, tableId: string, cutoff: string, inputBasis: LegacyInputBasis) {
   assertOrdinaryWindowSurfaceClosed(store, taskId);
+  return captureCostInput(store, taskId, tableId, cutoff, inputBasis);
+}
+
+/** Window reports reuse interval eligibility without opening the legacy report surface. */
+export function captureOrdinaryWindowCostInput(store: Store, taskId: string, cutoff: string) {
+  const selection = ordinaryWindowSelection(store, taskId);
+  if (!selection) throw new Error('ordinary_preparation_required');
+  return captureCostInput(store, taskId, selection.priceTableId, cutoff, 'output-only-v1');
+}
+
+function captureCostInput(store: Store, taskId: string, tableId: string, cutoff: string, inputBasis: LegacyInputBasis) {
   return store.transaction(() => {
     const task = new Lifecycle(store).task(taskId);
     const end = parseComparison(TimestampSchema, cutoff);
