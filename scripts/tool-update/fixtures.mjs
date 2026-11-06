@@ -45,7 +45,8 @@ export function snapshotPins(binary) {
   return {
     binary: hashFile(binary), runtime: hashFile(realpathSync(process.execPath)),
     source: treeDigest(join(repository, 'src')), build: treeDigest(join(repository, 'dist')),
-    instrument: treeDigest(join(repository, 'scripts/tool-update')),
+    instrument: sha256(JSON.stringify([treeDigest(join(repository, 'scripts/tool-update')),
+      treeDigest(join(repository, 'scripts/generated'))])),
     skill: treeDigest(join(repository, 'skills/harness-connect')),
     lockfile: hashFile(join(repository, 'package-lock.json')),
     package: hashFile(join(repository, 'package.json')),

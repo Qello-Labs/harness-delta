@@ -91,8 +91,10 @@ manual review; recovery never discards that evidence or releases a live lock.
 
 ## Codex 0.163.0 bounded ordinary profile
 
+<!-- tool-version-assets:codex-ordinary-profile:start -->
 The exact `codex-binding-01630-direct-family-v1` source admits one fresh CLI root
 and up to two fresh direct children in a registered frozen `functional_pilot`.
+<!-- tool-version-assets:codex-ordinary-profile:end -->
 It preserves the [historical profile's](#codex-01621-bounded-ordinary-profile)
 GPT-family/observed-effort policy, receipt-before-access, no-backfill, replay and
 topology fences. Select the version explicitly in project connection setup.

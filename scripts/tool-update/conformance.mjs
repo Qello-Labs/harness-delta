@@ -3,11 +3,11 @@ import { lstatSync, mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs
 import { join, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
+import { claudeLocalhostImage, claudeLocalhostRecipe } from '../generated/tool-version-data.mjs';
 import { assertPins, awaitSupervisor, ConformanceError, failureCodes, observedProcess, prepareFixture, privateDirectory,
   privateRead, repository, requireCondition, safeCode, snapshotPins, verifySystemPs, writePrivateJson } from './fixtures.mjs';
 
-export const admittedImage = Object.freeze({ version: '2.1.306',
-  sha256: 'b5d795b7760032d79954b55a9cd1876dcf3a8dc9608fd6bb9f618593f69fd44b', size: 272984176 });
+export const admittedImage = claudeLocalhostImage;
 const digest = z.string().regex(/^[a-f0-9]{64}$/);
 const pinKeys = ['binary', 'runtime', 'source', 'build', 'instrument', 'skill', 'lockfile',
   'package', 'supervisor', 'python', 'ps', 'pgrep', 'git'];
@@ -16,16 +16,16 @@ export const approvalSchema = z.strictObject({
   approved_at: z.iso.datetime(), expires_at: z.iso.datetime(),
   product: z.literal('claude_code'), version: z.literal(admittedImage.version),
   binary_sha256: z.literal(admittedImage.sha256), binary_size: z.literal(admittedImage.size),
-  route: z.literal('claude_binding'), profile_id: z.literal('claude-binding-2-1-306-family-v1'),
+  route: z.literal('claude_binding'), profile_id: z.literal(claudeLocalhostRecipe.profileId),
   runtime: z.strictObject({ version: z.string().regex(/^v24\.\d+\.\d+$/), sha256: digest,
     platform: z.literal('darwin'), arch: z.literal('arm64') }),
-  scope: z.strictObject({ kind: z.literal('localhost_synthetic_print'), roots: z.literal(1),
-    members: z.literal(2), scenarios: z.tuple([z.literal('normal'), z.literal('sigint')]),
-    model: z.literal('claude-sonnet-5-5') }),
+  scope: z.strictObject({ kind: z.literal('localhost_synthetic_print'), roots: z.literal(claudeLocalhostRecipe.roots),
+    members: z.literal(claudeLocalhostRecipe.members), scenarios: z.tuple(claudeLocalhostRecipe.scenarios.map(value => z.literal(value))),
+    model: z.literal(claudeLocalhostRecipe.model) }),
   mode: z.enum(['manual', 'unattended']), localhost_only_not_isolated: z.literal(true),
-  budgets: z.strictObject({ duration_ms: z.number().int().min(10000).max(120000),
-    termination_ms: z.number().int().min(1000).max(10000),
-    term_grace_ms: z.number().int().min(100).max(2000) }),
+  budgets: z.strictObject({ duration_ms: z.number().int().min(claudeLocalhostRecipe.durationMinMs).max(claudeLocalhostRecipe.durationMaxMs),
+    termination_ms: z.number().int().min(claudeLocalhostRecipe.terminationMinMs).max(claudeLocalhostRecipe.terminationMaxMs),
+    term_grace_ms: z.number().int().min(claudeLocalhostRecipe.graceMinMs).max(claudeLocalhostRecipe.graceMaxMs) }),
   pins: z.strictObject(Object.fromEntries(pinKeys.map(key => [key, digest]))),
 });
 export const failureEvidenceSchema = z.strictObject({
@@ -57,7 +57,7 @@ export function validateApproval(input, context) {
   requireCondition(approval.mode === 'manual', 'unattended_isolation_unverified');
   requireCondition(Date.parse(approval.approved_at) <= context.now &&
     Date.parse(approval.expires_at) > context.now &&
-    Date.parse(approval.expires_at) - Date.parse(approval.approved_at) <= 3600000, 'approval_expired');
+    Date.parse(approval.expires_at) - Date.parse(approval.approved_at) <= claudeLocalhostRecipe.approvalLifetimeMaxMs, 'approval_expired');
   requireCondition(approval.budgets.term_grace_ms < approval.budgets.termination_ms, 'approval_invalid');
   requireCondition(context.version === approval.runtime.version && context.platform === approval.runtime.platform &&
     context.arch === approval.runtime.arch && context.runtimeSha256 === approval.runtime.sha256, 'runtime_mismatch');
@@ -84,7 +84,7 @@ export async function preflight(path, binary) {
   const { getClaudeBindingAdmission } = await import(join(repository, 'dist/claude-binding-admission.js'));
   const admission = getClaudeBindingAdmission(approval.version);
   requireCondition(admission?.admitted === true && admission.binarySha256 === approval.binary_sha256 &&
-    admission.profileId === approval.profile_id && admission.maxFamilyMembers === 3 &&
+    admission.profileId === approval.profile_id && admission.maxFamilyMembers === claudeLocalhostRecipe.roots + claudeLocalhostRecipe.members &&
     admission.qualified === false, 'admission_missing');
   verifySystemPs();
   assertPins(approval.pins, binary);

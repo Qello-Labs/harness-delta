@@ -87,8 +87,10 @@ hook이나 skill 파일을 교체하지 않고 복구합니다. Node runtime을 
 
 ## Codex 0.163.0 제한 일반 profile
 
+<!-- tool-version-assets:codex-ordinary-profile:start -->
 정확한 `codex-binding-01630-direct-family-v1` 소스는 등록된 동결 `functional_pilot`에서
 새 CLI 부모 한 개와 새 직접 자식 최대 두 개를 허용합니다.
+<!-- tool-version-assets:codex-ordinary-profile:end -->
 [기존 profile](#codex-01621-제한-일반-profile)의 GPT 계열·관측 effort 정책,
 접근 전 receipt 검증, 과거 구간 제외, replay 및 토폴로지 제한을 유지합니다.
 프로젝트 연결 설정에서 버전을 명시적으로 선택하세요.

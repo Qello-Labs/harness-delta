@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { getCodexBindingAdmission } from '../codex-binding-admission.js';
 
 import { durablePrivateBytes, hashBytes, readRepositoryFile, readStrictJson, safeRelativePath } from '../core/repository-files.js';
-import { packagePath, packagedSkillPath } from '../package-paths.js';
+import { implementationExtension, implementationPath, packagePath, packagedSkillPath } from '../package-paths.js';
 
 const destination = '.agents/skills/harness-connect';
 const metadata = '.harness-delta/codex-connect';
@@ -298,7 +298,11 @@ function packageSource(root: string, options: CodexConnectInstallationOptions) {
   for (const path of ['SKILL.md', 'scripts/connect.mjs']) {
     if (!files.has(`${destination}/${path}`)) fail('package_invalid');
   }
-  const hookSource = options.hookSource ?? packagePath('scripts', 'session-binding-codex-hook.mjs');
+  const hookSource =
+    options.hookSource ??
+    (implementationExtension === '.ts'
+      ? packagePath('scripts', 'session-binding-codex-hook.mjs')
+      : implementationPath('assets', 'session-binding-codex-hook.mjs'));
   rootIdentity(dirname(hookSource), true);
   const hookBytes = bytesAt(dirname(hookSource), basename(hookSource));
   if (!hookBytes) return fail('package_source_unavailable');
