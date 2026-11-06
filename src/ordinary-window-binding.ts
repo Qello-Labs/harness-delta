@@ -63,7 +63,7 @@ export async function readOrdinaryWindowBatch(options: {
   readonly taskId: string;
   readonly rootSessionId: string;
   readonly baseline: boolean;
-  readonly provider: (authorizeSource: (identity: VerifiedSessionIdentity) => void) => SessionBindingProvider | undefined;
+  readonly provider: (authorizeSource: (identity: VerifiedSessionIdentity) => void, scope: OrdinaryWindowScope) => SessionBindingProvider | undefined;
   readonly clock: () => string;
 }): Promise<void> {
   const { store, taskId, rootSessionId, baseline, clock } = options;
@@ -116,7 +116,7 @@ export async function readOrdinaryWindowBatch(options: {
     }
   };
   try {
-    const provider = options.provider(authorize);
+    const provider = options.provider(authorize, scope);
     authorize();
     if (!provider) throw new Error('binding_provider_unavailable');
     if (

@@ -20,6 +20,9 @@ import type { UsageEvent } from './flexible-contracts.js';
 import type { Store } from './store.js';
 import { assertOrdinaryWindowSurfaceClosed, ordinaryWindowSelection } from './core/ordinary-window-store.js';
 import { readOrdinaryWindowBatch } from './ordinary-window-binding.js';
+import { CodexWindowSessionBindingProvider, type CodexWindowPendingReceipt } from './session-binding-codex.js';
+import { assertOrdinaryWindowAuthority, issueCodexWindowSourceAuthorization, pauseOrdinaryWindowSegment, recordOrdinaryWindowSegment,
+  type CodexWindowSourceAuthorization, type OrdinaryWindowScope } from './core/ordinary-window-store.js';
 
 interface BindingRow {
   session_id: string; task_id: string; root_id: string; identity: string;
@@ -623,3 +626,209 @@ export function createOrdinarySessionBindingService(options: {
     assertSource, memberEligible };
 }
 export type OrdinarySessionBindingService = ReturnType<typeof createOrdinarySessionBindingService>;
+
+export interface OrdinaryCodexWindowBindingOptions {
+  readonly store: Store;
+  readonly taskId: string;
+  readonly receiptDirectory: string;
+  readonly sourceRoots: readonly string[];
+  readonly clock?: Clock;
+}
+interface CodexWindowSelectedRoot {
+  readonly root_session_id: string;
+  readonly native_root_id: string;
+  readonly state: string;
+  readonly revision: number;
+  readonly generation: number | null;
+  readonly cursor: string | null;
+}
+function selectedCodexWindowRoot(store: Store, taskId: string): CodexWindowSelectedRoot | undefined {
+  return store.get<CodexWindowSelectedRoot>(
+    `SELECT s.root_session_id,s.native_root_id,s.state,s.revision,b.generation,b.cursor FROM ordinary_tasks t
+    JOIN binding_root_segments s ON s.root_session_id=t.selected_root_id
+    LEFT JOIN session_bindings b ON b.session_id=s.root_session_id WHERE t.task_id=?`,
+    [taskId]
+  );
+}
+function codexWindowProvider(options: OrdinaryCodexWindowBindingOptions, authorization: CodexWindowSourceAuthorization) {
+  return new CodexWindowSessionBindingProvider({
+    authorization,
+    receiptDirectory: options.receiptDirectory,
+    sourceRoots: options.sourceRoots,
+    projectRoot: authorization().projectRoot,
+    clock: options.clock ?? utcNow
+  });
+}
+function reserveCodexWindowRoot(
+  options: OrdinaryCodexWindowBindingOptions,
+  pending: CodexWindowPendingReceipt,
+  generation: number,
+  authorization: CodexWindowSourceAuthorization,
+  previous: CodexWindowSelectedRoot | undefined,
+  at: string
+): { readonly rootSessionId: string; readonly rejected: boolean } {
+  const { store, taskId } = options;
+  return store.immediateTransaction(() => {
+    const context = authorization();
+    if (JSON.stringify(selectedCodexWindowRoot(store, taskId)) !== JSON.stringify(previous)) throw new Error('binding_scope_revoked');
+    if (pending.event !== 'SessionStart' || pending.nativeRootSessionId !== pending.nativeSessionId || pending.agentId !== null || pending.turnId !== null) {
+      throw new Error('binding_root_only_required');
+    }
+    const rejected = pending.lifecycle !== 'startup' || pending.sourceRef === null;
+    if (rejected && previous?.native_root_id === pending.nativeSessionId) {
+      pauseOrdinaryWindowSegment(store, taskId, at, 'binding_fresh_root_required');
+      return { rootSessionId: previous.root_session_id, rejected };
+    }
+    if (previous && previous.state !== 'paused' && previous.state !== 'closed' && (previous.generation === null || previous.generation === generation)) {
+      throw new Error('binding_fresh_root_required');
+    }
+    if (
+      store.get('SELECT 1 FROM binding_root_segments WHERE product=? AND native_root_id=?', ['codex', pending.nativeSessionId]) ||
+      store.get("SELECT 1 FROM ordinary_window_segments WHERE json_extract(proof,'$.product')='codex' AND json_extract(proof,'$.sourceRef')=?", [
+        pending.sourceRef
+      ])
+    ) {
+      throw new Error('binding_fresh_root_required');
+    }
+    if (previous) {
+      store.execute(
+        "UPDATE binding_root_segments SET state='closed',closed_at=?,revision=revision+1,observer_identity=NULL WHERE root_session_id=? AND state!='closed'",
+        [at, previous.root_session_id]
+      );
+      store.execute("UPDATE session_bindings SET state='stopped' WHERE root_id=?", [previous.root_session_id]);
+    }
+    const rootSessionId = randomUUID();
+    store.execute('INSERT INTO sessions(id,project_id,task_id,product,product_version) VALUES (?,?,?,?,?)', [
+      rootSessionId,
+      context.selection.projectId,
+      taskId,
+      'codex',
+      context.selection.declaredVersion
+    ]);
+    store.execute(
+      `INSERT INTO binding_root_segments(root_session_id,task_id,product,native_root_id,project_root,state,opened_at)
+      VALUES (?,?,?,?,?,'acquiring',?)`,
+      [rootSessionId, taskId, 'codex', pending.nativeSessionId, context.projectRoot, at]
+    );
+    store.execute('UPDATE ordinary_tasks SET selected_root_id=? WHERE task_id=?', [rootSessionId, taskId]);
+    issueCodexWindowSourceAuthorization(
+      store,
+      {
+        taskId,
+        rootSessionId,
+        generation,
+        segmentRevision: 0
+      },
+      'acquiring'
+    );
+    if (rejected) {
+      pauseOrdinaryWindowSegment(store, taskId, at, 'binding_fresh_root_required');
+    }
+    return { rootSessionId, rejected };
+  });
+}
+
+export async function collectOrdinaryCodexWindow(options: OrdinaryCodexWindowBindingOptions, rootSessionId: string, baseline = false): Promise<void> {
+  await readOrdinaryWindowBatch({
+    store: options.store,
+    taskId: options.taskId,
+    rootSessionId,
+    baseline,
+    clock: options.clock ?? utcNow,
+    provider: (_authorizeSource, scope) => codexWindowProvider(options, issueCodexWindowSourceAuthorization(options.store, scope, 'observing'))
+  });
+}
+
+export async function connectOrdinaryCodexWindow(
+  options: OrdinaryCodexWindowBindingOptions,
+  input: CurrentIdentityRequest
+): Promise<{ readonly rootSessionId: string; readonly automatic_children: false }> {
+  const { store, taskId } = options;
+  const clock = options.clock ?? utcNow;
+  const generation = new Lifecycle(store, clock).task(taskId).generation;
+  const metadataAuthorization = issueCodexWindowSourceAuthorization(
+    store,
+    {
+      taskId,
+      generation
+    },
+    'metadata'
+  );
+  const previous = selectedCodexWindowRoot(store, taskId);
+  const pending = codexWindowProvider(options, metadataAuthorization).pendingReceipt(input);
+  const at = TimestampSchema.parse(clock());
+  const reservation = reserveCodexWindowRoot(options, pending, generation, metadataAuthorization, previous, at);
+  if (reservation.rejected) throw new Error('binding_fresh_root_required');
+  const scope: OrdinaryWindowScope = {
+    taskId,
+    rootSessionId: reservation.rootSessionId,
+    generation,
+    segmentRevision: 0
+  };
+  const authorization = issueCodexWindowSourceAuthorization(store, scope, 'acquiring');
+  try {
+    const proof = await codexWindowProvider(options, authorization).inspectWindowCurrent(input);
+    store.immediateTransaction(() => {
+      authorization();
+      if (proof.mode !== 'codex_source_only') {
+        throw new Error('binding_identity_mismatch');
+      }
+      if (
+        store.get(
+          `SELECT 1 FROM ordinary_window_segments WHERE json_extract(proof,'$.product')='codex'
+        AND (json_extract(proof,'$.sourceIdentity')=? OR json_extract(proof,'$.sourceRef')=?)`,
+          [proof.sourceIdentity, proof.sourceRef]
+        )
+      ) {
+        throw new Error('binding_fresh_root_required');
+      }
+      recordOrdinaryWindowSegment(store, scope, proof);
+      const identity = VerifiedSessionIdentitySchema.parse({
+        product: 'codex',
+        productVersion: proof.productVersion,
+        sessionId: proof.nativeSessionId,
+        sourceRef: proof.sourceRef,
+        sourceIdentity: proof.sourceIdentity,
+        cwd: proof.cwd,
+        identityEvidenceId: proof.receipt,
+        parentSessionId: null,
+        createdAt: proof.recordedAt,
+        nativeMapping: {
+          nativeSessionId: proof.nativeSessionId,
+          processId: null,
+          agentId: null
+        }
+      });
+      store.execute(
+        `INSERT INTO session_bindings(session_id,task_id,root_id,identity,connect_receipt,observed_since,generation,state,cursor)
+        VALUES (?,?,?,?,?,?,?,'observing',NULL)`,
+        [reservation.rootSessionId, taskId, reservation.rootSessionId, JSON.stringify(identity), proof.receipt, at, generation]
+      );
+      store.execute("UPDATE binding_root_segments SET state='observing',revision=revision+1 WHERE root_session_id=?", [reservation.rootSessionId]);
+    });
+    await collectOrdinaryCodexWindow(options, reservation.rootSessionId, true);
+    assertOrdinaryWindowAuthority(store, {
+      taskId,
+      rootSessionId: reservation.rootSessionId,
+      generation
+    });
+    return {
+      rootSessionId: reservation.rootSessionId,
+      automatic_children: false
+    };
+  } catch (error) {
+    store.immediateTransaction(() => {
+      let current = false;
+      try {
+        authorization();
+        current = true;
+      } catch (failure) {
+        if (!(failure instanceof Error)) throw failure;
+      }
+      if (current) {
+        pauseOrdinaryWindowSegment(store, taskId, TimestampSchema.parse(clock()), 'binding_scope_revoked');
+      }
+    });
+    throw error;
+  }
+}
