@@ -9,6 +9,7 @@ import { putUsageWithEvidence, requireActiveScope } from './runtime-history.js';
 import type { Store } from './store.js';
 import { claudeProbeProductVersion, claudeWorkflowProductVersions, type ClaudeWorkflowProductVersion } from './claude-workflow-versions.js';
 import { toolVersionRecipe } from './core/tool-version-profiles.js';
+import { resolveOrdinaryWindow } from './core/ordinary-window-policy.js';
 
 const historicalCandidateRecipe = toolVersionRecipe('codex-historical-one-child-01600');
 if (historicalCandidateRecipe.kind !== 'codex_historical_candidate') throw new Error('codex_historical_candidate_recipe_mismatch');
@@ -225,6 +226,13 @@ export function projectCandidateObservation(inputScope: CandidateScope, sourceId
   throw new Error('candidate_scope_mismatch');
 }
 function checkWorkflowCompatibility(scope:CandidateScope,compatibility:SourceCompatibility):void {
+  if(compatibility.source==='codex_binding'&&compatibility.profile_id==='codex-binding-root-window-v1'){
+    const resolved=resolveOrdinaryWindow('codex',compatibility.product_version,compatibility.profile_id);
+    if(!resolved||JSON.stringify(resolved.compatibility)!==JSON.stringify(compatibility)||scope.sessions.length!==1||
+      scope.sessions.some(s=>s.product!=='codex'||s.parentSessionId!==null||s.processId!==null||s.agentId!==null))
+      throw new Error('candidate_scope_mismatch');
+    return;
+  }
   const source=compatibility.source==='codex_binding'?'codex_binding':scope.sessions[0]?.product==='codex'?'codex_workflow':'claude_workflow';
   const resolved=resolveSourceCompatibility(compatibility.product,compatibility.product_version,source,compatibility.profile_id);
   const admission=source==='codex_binding'?getCodexBindingAdmission(compatibility.product_version):undefined;
@@ -233,6 +241,8 @@ function checkWorkflowCompatibility(scope:CandidateScope,compatibility:SourceCom
     source!=='codex_binding'&&compatibility.state==='compatibility_unverified'&&(source==='claude_workflow'?scope.sessions.length!==1:scope.sessions.length>2||scope.sessions.some(s=>s.parentSessionId!==null&&s.parentSessionId!==s.rootSessionId)))throw new Error('candidate_scope_mismatch');
 }
 export function authorizeCandidateScope(store: Store, scope: CandidateScope, compatibility?:SourceCompatibility): void {
+  // Window writes require the staged coordinator's Store authority and provenance.
+  if(compatibility?.source==='codex_binding'&&compatibility.profile_id==='codex-binding-root-window-v1')throw new Error('candidate_scope_mismatch');
   if(compatibility){checkWorkflowCompatibility(scope,compatibility);assertCompatibilityAllowed(store,compatibility);}
   for (const s of scope.sessions) {
     let active;

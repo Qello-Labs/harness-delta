@@ -1,4 +1,5 @@
 import { appendFamilyDiagnostic } from '../binding-family-diagnostics.js';
+import { assertOrdinaryWindowSurfaceClosed } from '../core/ordinary-window-store.js';
 import type { ExternalTaskSetup } from '../external-session-service.js';
 import { ordinaryTask } from '../ordinary-observation.js';
 import { createOrdinarySessionBindingService } from '../ordinary-session-binding.js';
@@ -69,7 +70,10 @@ export function createLocalWebBindingSelection(dependencies: BindingSelectionDep
     providersForTask,
     syntheticProviderForTask: () => options.bindingProviders !== undefined || options.bindingProviderFactory !== undefined
   });
-  const selectedService = (id: string) => (ordinaryTask(store, id) ? ordinaryBindings : legacyBindings);
+  const selectedService = (id: string) => {
+    assertOrdinaryWindowSurfaceClosed(store, id);
+    return ordinaryTask(store, id) ? ordinaryBindings : legacyBindings;
+  };
   const bindings = {
     status: (id: string) => selectedService(id).status(id),
     pause: (id: string) => selectedService(id).pause(id),

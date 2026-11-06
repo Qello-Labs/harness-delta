@@ -9,6 +9,7 @@ import { inspectOrdinaryClaudeProjectSkill } from '../connect/claude-connect-rea
 import { effectiveTaskWorkspace } from '../harness-application.js';
 import { ordinaryTaskVersion } from './local-web-task-projection.js';
 import { localWebError } from './local-web-server.js';
+import { assertOrdinaryWindowSurfaceClosed } from '../core/ordinary-window-store.js';
 export function readOrdinaryTask(
   context: LocalWebTaskReadContext,
   id: string,
@@ -35,6 +36,7 @@ export function readOrdinaryTask(
   readonly skill: ReturnType<typeof inspectOrdinaryClaudeProjectSkill>;
 } {
   const { store, life, ordinaryBindings } = context;
+  assertOrdinaryWindowSurfaceClosed(store, id);
   const task = life.task(id);
   const preparation: ReturnType<typeof ordinaryTask> = ordinaryTask(store, id);
   if (!preparation) throw new Error('ordinary_preparation_required');

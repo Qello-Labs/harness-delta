@@ -1,4 +1,5 @@
 import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
+import { open as openWindowSource } from 'node:fs/promises';
 import { constants, closeSync, fstatSync, linkSync, lstatSync, mkdirSync, openSync, readSync, readdirSync, realpathSync, unlinkSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { z } from 'zod';
@@ -9,6 +10,9 @@ import { checkedCandidateScope, type CandidateScope } from './nested-candidate.j
 import { resolveSourceCompatibility } from './source-compatibility.js';
 import { getCodexBindingAdmission, isCodexGptModel } from './codex-binding-admission.js';
 import { lookupToolVersionProfile, orderedToolVersionProfiles } from './core/tool-version-profiles.js';
+import { emptyOrdinaryWindowCoverage, OrdinaryWindowConnectionProofSchema, resolveOrdinaryWindow, type OrdinaryWindowConnectionProof } from './core/ordinary-window-policy.js';
+import { assertCodexWindowSourceAuthorization, type CodexWindowSourceAuthorization } from './core/ordinary-window-store.js';
+import type { OrdinaryWindowReadBoundary, OrdinaryWindowUsageBatch } from './session-binding-contract.js';
 import { bindingIdentityKey, CurrentIdentityRequestSchema, VerifiedSessionIdentitySchema, type BindingCapabilities, type BindingReadBoundary, type ChildDiscovery,
   type SessionBindingProvider, type UsageBatch, type VerifiedSessionIdentity } from './session-binding-contract.js';
 
@@ -507,5 +511,619 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
     return await Promise.resolve({ records, ...(excludedRecords.length ? {excludedRecords} : {}), gaps: [...gaps], cursor: this.encodeCursor({ session: session.sessionId, sourceIdentity: session.sourceIdentity,
       scope: scopeHash, baselineAt: previous ? previous.baselineAt : boundary?.baseline === false ? null : now,
       lastAt: now, size: bytes.length, prefix: hash(bytes), settled: [...settled] }) });
+  }
+}
+
+export const CodexWindowPendingReceiptSchema = z.strictObject({
+  schemaVersion: z.literal(2),
+  kind: z.literal('codex_window_pending'),
+  receipt: z.uuid(),
+  product: z.literal('codex'),
+  event: z.enum(['SessionStart', 'SubagentStart']),
+  lifecycle: z.enum(['startup', 'resume', 'clear', 'compact', 'unsupported']).nullable(),
+  nativeSessionId: IdSchema,
+  nativeRootSessionId: IdSchema,
+  agentId: IdSchema.nullable(),
+  turnId: IdSchema.nullable(),
+  cwd: z.string().min(1).max(4096),
+  sourceRef: z.string().min(1).max(4096).nullable(),
+  recordedAt: TimestampSchema
+});
+export type CodexWindowPendingReceipt = z.infer<typeof CodexWindowPendingReceiptSchema>;
+export interface CodexWindowSessionBindingOptions {
+  readonly authorization: CodexWindowSourceAuthorization;
+  readonly receiptDirectory: string;
+  readonly sourceRoots: readonly string[];
+  readonly projectRoot: string;
+  readonly clock?: () => string;
+  readonly maxReceipts?: number;
+  readonly maxSourceBytes?: number;
+}
+const windowCursorSchema = z.strictObject({
+  schemaVersion: z.literal(2),
+  session: IdSchema,
+  sourceIdentity: IdSchema,
+  scope: z.string().length(64),
+  baselineAt: TimestampSchema.nullable(),
+  lastAt: TimestampSchema,
+  size: z.number().int().nonnegative(),
+  prefix: z.string().length(64),
+  settled: z.array(z.string().length(64)).max(65536)
+});
+const windowHeaderSchema = z.object({
+  type: z.literal('session_meta'),
+  payload: z.object({
+    id: IdSchema,
+    session_id: IdSchema,
+    cli_version: z.string(),
+    cwd: z.string(),
+    source: z.literal('cli'),
+    parent_thread_id: IdSchema.nullish(),
+    forked_from_id: z.unknown().optional(),
+    forked_from_ordinal_exclusive: z.unknown().optional(),
+    history_base: z.unknown().optional(),
+    subagent_history_start_ordinal: z.unknown().optional(),
+    history_mode: z.unknown().optional()
+  })
+});
+const windowFailureCodes = new Set([
+  'binding_window_activation_required',
+  'binding_scope_revoked',
+  'compatibility_invalidated',
+  'ordinary_configuration_changed',
+  'ordinary_preparation_required',
+  'binding_window_unavailable',
+  'binding_configuration_invalid',
+  'binding_scope_mismatch',
+  'binding_identity_mismatch',
+  'binding_metadata_untrusted',
+  'binding_identity_unavailable',
+  'binding_receipt_limit',
+  'binding_receipt_stale',
+  'binding_fresh_root_required',
+  'binding_source_unapproved',
+  'binding_source_unavailable',
+  'binding_source_changed',
+  'binding_source_limit',
+  'binding_metadata_unavailable',
+  'binding_cursor_invalid',
+  'binding_clock_regressed',
+  'binding_turn_limit',
+  'binding_usage_invalid',
+  'binding_contract_failed',
+  'binding_runtime_unsupported',
+  'candidate_invalid_metadata',
+  'candidate_invalid_mapping',
+  'candidate_scope_mismatch',
+  'candidate_conflict',
+  'candidate_unsupported_history',
+  'token_overflow',
+  'deleted_identifier'
+]);
+const windowFailure = (error: unknown, fallback: string): string =>
+  error instanceof Error && windowFailureCodes.has(error.message) ? error.message : fallback;
+const windowInside = (root: string, path: string): boolean => {
+  const value = relative(root, path);
+  return value !== '' && value !== '..' && !value.startsWith(`..${sep}`) && !isAbsolute(value);
+};
+
+export class CodexWindowSessionBindingProvider implements SessionBindingProvider {
+  readonly product = 'codex' as const;
+  private readonly clock: () => string;
+  private readonly maxReceipts: number;
+  private readonly maxSourceBytes: number;
+  constructor(private readonly options: CodexWindowSessionBindingOptions) {
+    const context = this.access('metadata');
+    const paths = [options.receiptDirectory, options.projectRoot, ...options.sourceRoots];
+    if (
+      options.projectRoot !== context.projectRoot ||
+      options.sourceRoots.length === 0 ||
+      paths.some(path => !isAbsolute(path) || resolve(path) !== path || path.length > 4096 || /[\r\n\0]/.test(path)) ||
+      !windowInside(join(options.projectRoot, '.harness-delta'), options.receiptDirectory)
+    ) {
+      throw new Error('binding_configuration_invalid');
+    }
+    this.clock = options.clock ?? (() => new Date().toISOString());
+    this.maxReceipts = options.maxReceipts ?? 1024;
+    this.maxSourceBytes = options.maxSourceBytes ?? 8 * 1024 * 1024;
+    if (
+      !Number.isSafeInteger(this.maxReceipts) ||
+      this.maxReceipts < 1 ||
+      this.maxReceipts > 65536 ||
+      !Number.isSafeInteger(this.maxSourceBytes) ||
+      this.maxSourceBytes < 1 ||
+      this.maxSourceBytes > 8 * 1024 * 1024
+    ) {
+      throw new Error('binding_configuration_invalid');
+    }
+  }
+  private access(kind: 'metadata' | 'source' | 'observe') {
+    return assertCodexWindowSourceAuthorization(this.options.authorization, kind);
+  }
+  capabilities(): BindingCapabilities {
+    this.access('metadata');
+    return {
+      currentIdentity: 'native_hook',
+      ancestry: 'unavailable',
+      usage: 'root_source_reference',
+      productionSupported: false,
+      maxDepth: 0,
+      reasons: ['codex_source_only', 'root_ownership_unverified', 'writer_version_unverified', 'children_unobserved']
+    };
+  }
+  private sourceAuthority(record: { nativeSessionId: string; sourceRef: string | null; sourceIdentity?: string; cwd: string }): void {
+    const context = this.access('source');
+    if (
+      record.nativeSessionId !== context.nativeRootId ||
+      record.cwd !== context.projectRoot ||
+      record.sourceRef === null ||
+      (context.sourceRef !== null && context.sourceRef !== record.sourceRef) ||
+      (context.sourceIdentity !== null && context.sourceIdentity !== record.sourceIdentity)
+    ) {
+      throw new Error('binding_scope_mismatch');
+    }
+  }
+  private metadataDirectory(): void {
+    const ancestors: string[] = [];
+    for (let path = this.options.receiptDirectory; ; path = resolve(path, '..')) {
+      ancestors.push(path);
+      if (resolve(path, '..') === path) break;
+    }
+    for (const path of ancestors.reverse()) {
+      this.access('metadata');
+      const stat = lstatSync(path);
+      if (!stat.isDirectory() || stat.isSymbolicLink() || path === this.options.receiptDirectory &&
+        ((stat.mode & 0o077) !== 0 || stat.uid !== process.getuid?.())) throw new Error('binding_metadata_untrusted');
+    }
+  }
+  private receipt(id: string): CodexWindowPendingReceipt {
+    this.metadataDirectory();
+    const name = z.uuid().safeParse(id);
+    if (!name.success) throw new Error('binding_identity_unavailable');
+    this.access('metadata');
+    const fd = openSync(join(this.options.receiptDirectory, `${name.data}.json`), constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+    try {
+      this.access('metadata');
+      const stat = fstatSync(fd);
+      if (!stat.isFile() || stat.size > 16384 || (stat.mode & 0o077) !== 0 || stat.uid !== process.getuid?.()) {
+        throw new Error('binding_metadata_untrusted');
+      }
+      const bytes = Buffer.alloc(stat.size);
+      this.access('metadata');
+      if (readSync(fd, bytes, 0, bytes.length, 0) !== bytes.length) {
+        throw new Error('binding_metadata_untrusted');
+      }
+      const record = CodexWindowPendingReceiptSchema.safeParse(JSON.parse(bytes.toString('utf8')));
+      if (!record.success || record.data.receipt !== id) {
+        throw new Error('binding_metadata_untrusted');
+      }
+      return record.data;
+    } finally {
+      closeSync(fd);
+    }
+  }
+  pendingReceipt(input: { receipt: string }): CodexWindowPendingReceipt {
+    let failure: string;
+    try {
+      const record = this.receipt(CurrentIdentityRequestSchema.parse(input).receipt);
+      const selection = this.access('metadata').selection;
+      if (
+        record.cwd !== this.options.projectRoot ||
+        Date.parse(record.recordedAt) < Date.parse(selection.preparedAt) ||
+        Date.parse(record.recordedAt) > Date.parse(this.clock())
+      ) {
+        throw new Error('binding_receipt_stale');
+      }
+      return record;
+    } catch (error) {
+      failure = windowFailure(error, 'binding_metadata_untrusted');
+    }
+    throw new Error(failure);
+  }
+  private records(): CodexWindowPendingReceipt[] {
+    this.metadataDirectory();
+    this.access('metadata');
+    const names = readdirSync(this.options.receiptDirectory).filter(name => name !== 'ordinary-window-control.json');
+    if (names.length > this.maxReceipts) {
+      throw new Error('binding_receipt_limit');
+    }
+    return names.map(name => {
+      if (!/^[0-9a-f-]{36}\.json$/.test(name)) {
+        throw new Error('binding_metadata_untrusted');
+      }
+      return this.receipt(name.slice(0, -5));
+    });
+  }
+  private rootReceipt(input: { receipt: string }): CodexWindowPendingReceipt {
+    const record = this.pendingReceipt(input);
+    if (
+      record.event !== 'SessionStart' ||
+      record.agentId !== null ||
+      record.turnId !== null ||
+      record.nativeRootSessionId !== record.nativeSessionId ||
+      record.lifecycle !== 'startup' ||
+      record.sourceRef === null
+    ) {
+      throw new Error('binding_fresh_root_required');
+    }
+    const roots = this.records().filter(value => value.event === 'SessionStart' && value.nativeSessionId === record.nativeSessionId);
+    if (
+      roots.some(
+        value =>
+          value.receipt !== record.receipt ||
+          value.lifecycle !== 'startup' ||
+          value.sourceRef === null ||
+          value.cwd !== record.cwd ||
+          value.sourceRef !== record.sourceRef
+      )
+    ) {
+      throw new Error('binding_fresh_root_required');
+    }
+    return record;
+  }
+  private sourceMetadata(record: CodexWindowPendingReceipt, sourceIdentity?: string) {
+    this.sourceAuthority({
+      ...record,
+      ...(sourceIdentity === undefined ? {} : { sourceIdentity })
+    });
+    const path = record.sourceRef;
+    if (path === null || !isAbsolute(path) || resolve(path) !== path) {
+      throw new Error('binding_source_unapproved');
+    }
+    const root = this.options.sourceRoots.find(root => windowInside(root, path));
+    if (!root) throw new Error('binding_source_unapproved');
+    this.sourceAuthority({
+      ...record,
+      ...(sourceIdentity === undefined ? {} : { sourceIdentity })
+    });
+    if (realpathSync(root) !== root) {
+      throw new Error('binding_source_unapproved');
+    }
+    this.sourceAuthority({
+      ...record,
+      ...(sourceIdentity === undefined ? {} : { sourceIdentity })
+    });
+    if (realpathSync(path) !== path) {
+      throw new Error('binding_source_unapproved');
+    }
+    this.sourceAuthority({
+      ...record,
+      ...(sourceIdentity === undefined ? {} : { sourceIdentity })
+    });
+    const stat = lstatSync(path);
+    if (!stat.isFile() || stat.isSymbolicLink() || (sourceIdentity !== undefined && `${stat.dev}:${stat.ino}` !== sourceIdentity)) {
+      throw new Error('binding_source_changed');
+    }
+    return { path, sourceIdentity: `${stat.dev}:${stat.ino}` };
+  }
+  private header(record: CodexWindowPendingReceipt, source: { path: string; sourceIdentity: string }) {
+    const authorize = () =>
+      this.sourceAuthority({
+        ...record,
+        sourceIdentity: source.sourceIdentity
+      });
+    authorize();
+    const fd = openSync(source.path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+    try {
+      authorize();
+      const stat = fstatSync(fd);
+      if (!stat.isFile() || `${stat.dev}:${stat.ino}` !== source.sourceIdentity) throw new Error('binding_source_changed');
+      const bytes: number[] = [];
+      const byte = Buffer.alloc(1);
+      while (bytes.length < 65536) {
+        authorize();
+        if (readSync(fd, byte, 0, 1, bytes.length) !== 1) break;
+        if (byte[0] === 10) {
+          const parsed = windowHeaderSchema.safeParse(JSON.parse(Buffer.from(bytes).toString('utf8')));
+          if (!parsed.success) {
+            throw new Error('binding_metadata_unavailable');
+          }
+          return parsed.data.payload;
+        }
+        if (byte[0] === undefined) {
+          throw new Error('binding_metadata_unavailable');
+        }
+        bytes.push(byte[0]);
+      }
+      throw new Error('binding_metadata_unavailable');
+    } finally {
+      closeSync(fd);
+    }
+  }
+  async inspectWindowCurrent(input: { receipt: string }): Promise<OrdinaryWindowConnectionProof> {
+    let failure: string;
+    try {
+      const record = this.rootReceipt(input);
+      const context = this.access('source');
+      const source = this.sourceMetadata(record, context.sourceIdentity ?? undefined);
+      const header = this.header(record, source);
+      if (
+        header.id !== record.nativeSessionId ||
+        header.session_id !== record.nativeSessionId ||
+        header.cwd !== this.options.projectRoot ||
+        header.cli_version !== context.selection.declaredVersion ||
+        header.parent_thread_id != null
+      ) {
+        throw new Error('binding_scope_mismatch');
+      }
+      if (
+        header.forked_from_id != null ||
+        header.forked_from_ordinal_exclusive != null ||
+        header.history_base != null ||
+        header.subagent_history_start_ordinal != null ||
+        header.history_mode === 'paginated'
+      ) {
+        throw new Error('binding_fresh_root_required');
+      }
+      return await Promise.resolve(OrdinaryWindowConnectionProofSchema.parse({
+        schemaVersion: 2,
+        mode: 'codex_source_only',
+        product: 'codex',
+        receipt: record.receipt,
+        recordedAt: record.recordedAt,
+        nativeSessionId: record.nativeSessionId,
+        sourceRef: source.path,
+        sourceIdentity: source.sourceIdentity,
+        cwd: record.cwd,
+        productVersion: header.cli_version,
+        agentId: null,
+        processId: null,
+        processStart: null,
+        nativePinDigest: null,
+        sourceVersionBasis: 'root_creation_header',
+        lifecycle: 'startup',
+        writerVersion: 'unverified',
+        publisherProof: 'unavailable',
+        mappedImageProof: 'unverified',
+        rootOwnership: 'unverified',
+        possibleChildContribution: 'unknown'
+      }));
+    } catch (error) {
+      failure = windowFailure(error, 'binding_source_unavailable');
+    }
+    throw new Error(failure);
+  }
+  async resolveCurrent(input: { receipt: string }): Promise<VerifiedSessionIdentity> {
+    const proof = await this.inspectWindowCurrent(input);
+    this.access('source');
+    return VerifiedSessionIdentitySchema.parse({
+      product: 'codex',
+      productVersion: proof.productVersion,
+      sessionId: proof.nativeSessionId,
+      sourceRef: proof.sourceRef,
+      sourceIdentity: proof.sourceIdentity,
+      cwd: proof.cwd,
+      identityEvidenceId: proof.receipt,
+      parentSessionId: null,
+      createdAt: proof.recordedAt,
+      nativeMapping: {
+        nativeSessionId: proof.nativeSessionId,
+        processId: null,
+        agentId: null
+      }
+    });
+  }
+  async revalidateBound(input: { receipt: string }, expected: VerifiedSessionIdentity): Promise<VerifiedSessionIdentity> {
+    this.access('observe');
+    const identity = await this.resolveCurrent(input);
+    this.access('observe');
+    if (bindingIdentityKey(identity) !== bindingIdentityKey(expected)) {
+      throw new Error('binding_source_changed');
+    }
+    return identity;
+  }
+  discoverChildren(parent: VerifiedSessionIdentity): Promise<ChildDiscovery> {
+    this.access('observe');
+    this.sourceAuthority({
+      nativeSessionId: parent.sessionId,
+      sourceRef: parent.sourceRef,
+      sourceIdentity: parent.sourceIdentity,
+      cwd: parent.cwd
+    });
+    return Promise.resolve({ children: [], gaps: [] });
+  }
+  readUsage(): Promise<UsageBatch> {
+    return Promise.reject(new Error('binding_window_unavailable'));
+  }
+  private validateSource(record: CodexWindowPendingReceipt, sourceIdentity: string) {
+    const current = this.rootReceipt({ receipt: record.receipt });
+    if (JSON.stringify(current) !== JSON.stringify(record)) throw new Error('binding_source_changed');
+    const source = this.sourceMetadata(current, sourceIdentity);
+    this.sourceAuthority({ ...current, sourceIdentity });
+    return source;
+  }
+  private async sourceBytes(record: CodexWindowPendingReceipt, sourceIdentity: string): Promise<Buffer> {
+    let failure: string;
+    try {
+      const source = this.validateSource(record, sourceIdentity);
+      const authorize = () => this.validateSource(record, sourceIdentity);
+      authorize();
+      const file = await openWindowSource(source.path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+      try {
+        authorize();
+        const before = await file.stat();
+        authorize();
+        if (!before.isFile() || `${before.dev}:${before.ino}` !== sourceIdentity) throw new Error('binding_source_changed');
+        if (before.size > this.maxSourceBytes) throw new Error('binding_source_limit');
+        const bytes = Buffer.alloc(before.size);
+        authorize();
+        const result = await file.read(bytes, 0, bytes.length, 0);
+        authorize();
+        if (result.bytesRead !== bytes.length) throw new Error('binding_source_changed');
+        const after = await file.stat();
+        authorize();
+        if (after.size !== before.size || after.mtimeMs !== before.mtimeMs || after.ctimeMs !== before.ctimeMs) throw new Error('binding_source_changed');
+        return bytes;
+      } finally {
+        await file.close();
+      }
+    } catch (error) {
+      failure = windowFailure(error, 'binding_source_unavailable');
+    }
+    throw new Error(failure);
+  }
+  private decodeWindowCursor(value: string | null, session: VerifiedSessionIdentity, scopeHash: string) {
+    if (value === null) return null;
+    if (value.length > 6 * 1024 * 1024) throw new Error('binding_cursor_invalid');
+    try {
+      const parsed = windowCursorSchema.parse(JSON.parse(value));
+      if (parsed.session !== session.sessionId || parsed.sourceIdentity !== session.sourceIdentity || parsed.scope !== scopeHash) {
+        throw new Error('binding_cursor_invalid');
+      }
+      return parsed;
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
+    }
+    throw new Error('binding_cursor_invalid');
+  }
+  async readWindowUsage(
+    session: VerifiedSessionIdentity,
+    cursor: string | null,
+    inputScope: CandidateScope,
+    boundary: OrdinaryWindowReadBoundary
+  ): Promise<OrdinaryWindowUsageBatch> {
+    let failure: string;
+    try {
+      boundary.authorizeSource(session);
+      const context = this.access('observe');
+      const scope = checkedCandidateScope(inputScope);
+      const mapping = scope.sessions[0];
+      if (
+        !mapping ||
+        scope.sessions.length !== 1 ||
+        scope.taskId !== context.selection.taskId ||
+        scope.projectId !== context.selection.projectId ||
+        mapping.sessionId !== context.rootSessionId ||
+        mapping.rootSessionId !== context.rootSessionId ||
+        mapping.parentSessionId !== null ||
+        mapping.nativeSessionId !== session.sessionId ||
+        mapping.sourceId !== session.sessionId ||
+        mapping.product !== 'codex' ||
+        mapping.agentId !== null ||
+        mapping.processId !== null ||
+        cursor !== context.cursor
+      ) {
+        throw new Error('binding_scope_mismatch');
+      }
+      if (boundary.baseline && cursor !== null || !boundary.baseline && cursor === null) {
+        throw new Error('binding_fresh_root_required');
+      }
+      const record = this.rootReceipt({
+        receipt: session.identityEvidenceId
+      });
+      const scopeHash = hash(JSON.stringify([scope.taskId, scope.projectId, mapping]));
+      const previous = this.decodeWindowCursor(cursor, session, scopeHash);
+      boundary.authorizeSource(session);
+      const bytes = await this.sourceBytes(record, session.sourceIdentity);
+      boundary.authorizeSource(session);
+      this.access('observe');
+      this.validateSource(record, session.sourceIdentity);
+      const at = TimestampSchema.parse(this.clock());
+      if (previous && (bytes.length < previous.size || hash(bytes.subarray(0, previous.size)) !== previous.prefix)) throw new Error('binding_source_changed');
+      if (previous && Date.parse(at) < Date.parse(previous.lastAt)) {
+        throw new Error('binding_clock_regressed');
+      }
+      const turns = new Set<string>();
+      for (const line of bytes.toString('utf8').split('\n').slice(0, -1)) {
+        const row: unknown = JSON.parse(line);
+        const lifecycle = z.object({ type: z.string() }).safeParse(row);
+        if (lifecycle.success && ['compacted', 'retained_context'].includes(lifecycle.data.type)) throw new Error('binding_fresh_root_required');
+        const turn = turnIdentitySchema.safeParse(row);
+        if (turn.success && turn.data.payload.turn_id != null) {
+          turns.add(turn.data.payload.turn_id);
+        }
+        const request = requestIdentitySchema.safeParse(row);
+        if (
+          request.success &&
+          request.data.payload.thread_id === session.sessionId &&
+          request.data.payload.session_id === session.sessionId &&
+          request.data.payload.turn_id === request.data.payload.root_turn_id
+        ) {
+          turns.add(request.data.payload.root_turn_id);
+        }
+      }
+      if (turns.size > 64) throw new Error('binding_turn_limit');
+      const resolved = resolveOrdinaryWindow('codex', context.selection.declaredVersion, context.selection.policy.policyId);
+      if (!resolved) throw new Error('binding_scope_mismatch');
+      const snapshot = parseCodexCandidateRollout(
+        bytes.toString('utf8'),
+        {
+          ...scope,
+          allowedRootTurnIds: turns.size ? [...turns] : ['binding-observation']
+        },
+        mapping.sourceId,
+        this.options.projectRoot,
+        at,
+        resolved.compatibility
+      );
+      const settled = new Set(previous?.settled ?? []);
+      const records: UsageBatch['records'] = [];
+      const excludedRecords: UsageBatch['records'] = [];
+      const gaps = new Set(snapshot.hasGap ? ['incomplete_request'] : []);
+      for (const { projection, contextAt } of snapshot.records) {
+        if (settled.has(projection.event.id)) continue;
+        if (Date.parse(projection.event.occurred_at) > Date.parse(at)) {
+          throw new Error('binding_usage_invalid');
+        }
+        settled.add(projection.event.id);
+        const { runtime_evidence_id: runtimeEvidenceId, ...payload } = projection.event.payload;
+        void runtimeEvidenceId;
+        if (!isCodexGptModel(payload.model) || projection.runtime.request_id === null) throw new Error('binding_runtime_unsupported');
+        const excluded = previous?.baselineAt != null && Date.parse(contextAt) <= Date.parse(previous.baselineAt);
+        if (excluded) gaps.add('binding_unobserved_context');
+        (excluded ? excludedRecords : records).push({
+          requestId: projection.runtime.request_id,
+          sessionId: session.sessionId,
+          occurredAt: projection.event.occurred_at,
+          turnId: projection.runtime.turn_id,
+          effort: projection.runtime.effort,
+          payload
+        });
+      }
+      if (settled.size > 65536) throw new Error('binding_cursor_invalid');
+      const children = new Map(
+        this.records()
+          .filter(value => value.event === 'SubagentStart' && value.nativeRootSessionId === session.sessionId && value.cwd === this.options.projectRoot)
+          .map(value => [
+            value.nativeSessionId,
+            {
+              identity: value.nativeSessionId,
+              firstSeenAt: value.recordedAt,
+              basis: 'root_linked_receipt' as const,
+              parentRelation: 'unverified' as const,
+              usage: null,
+              cost: null
+            }
+          ])
+      );
+      boundary.authorizeSource(session);
+      this.validateSource(record, session.sourceIdentity);
+      return {
+        records,
+        ...(excludedRecords.length ? { excludedRecords } : {}),
+        gaps: [...gaps],
+        cursor: JSON.stringify(
+          windowCursorSchema.parse({
+            schemaVersion: 2,
+            session: session.sessionId,
+            sourceIdentity: session.sourceIdentity,
+            scope: scopeHash,
+            baselineAt: previous ? previous.baselineAt : boundary.baseline ? at : null,
+            lastAt: at,
+            size: bytes.length,
+            prefix: hash(bytes),
+            settled: [...settled]
+          })
+        ),
+        coverage: {
+          ...emptyOrdinaryWindowCoverage(),
+          status: 'partial',
+          detectedChildren: [...children.values()]
+        }
+      };
+    } catch (error) {
+      failure = windowFailure(error, 'binding_usage_invalid');
+    }
+    throw new Error(failure);
   }
 }

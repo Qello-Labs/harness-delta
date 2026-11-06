@@ -11,7 +11,7 @@ import {
   resolveOrdinaryWindow
 } from './ordinary-window-policy.js';
 
-export const ordinaryWindowRuntimeRevision = 'ordinary-window-runtime-v1';
+export const ordinaryWindowRuntimeRevision = 'ordinary-window-runtime-v2';
 export const ordinaryWindowSelectionHash = (value: OrdinaryWindowSelection): string => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 export function ordinaryWindowSelection(store: Store, taskId: string): OrdinaryWindowSelection | undefined {
   const row = store.get<{ selection: string; selection_hash: string }>('SELECT selection,selection_hash FROM ordinary_window_selections WHERE task_id=?', [
@@ -276,7 +276,15 @@ export function ordinaryWindowStatus(store: Store, taskId: string) {
   };
 }
 export function assertOrdinaryWindowSurfaceClosed(store: Store, taskId: string): void {
-  if (!ordinaryWindowSelection(store, taskId)) return;
+  if (!ordinaryWindowSelection(store, taskId)) {
+    const orphan = store.get(
+      `SELECT 1 FROM ordinary_tasks WHERE task_id=? AND json_extract(settings,'$.mode')='ordinary_window'
+      UNION ALL SELECT 1 FROM ordinary_window_forget_fences WHERE task_id=? LIMIT 1`,
+      [taskId, taskId]
+    );
+    if (orphan) throw new Error('binding_window_unavailable');
+    return;
+  }
   const status = ordinaryWindowStatus(store, taskId);
   throw new Error(status.reason);
 }
@@ -336,4 +344,111 @@ export function ordinaryWindowCompatibility(store: Store, taskId: string) {
   const resolved = resolveOrdinaryWindow(selection.policy.product, selection.declaredVersion, selection.policy.policyId);
   if (!resolved) throw new Error('binding_version_out_of_window');
   return resolved.compatibility;
+}
+
+type CodexWindowSourcePhase = 'metadata' | 'acquiring' | 'observing';
+export interface CodexWindowSourceContext {
+  readonly selection: OrdinaryWindowSelection;
+  readonly projectRoot: string;
+  readonly rootSessionId: string | null;
+  readonly cursor: string | null;
+  readonly nativeRootId: string | null;
+  readonly sourceRef: string | null;
+  readonly sourceIdentity: string | null;
+}
+export type CodexWindowSourceAuthorization = () => CodexWindowSourceContext;
+const codexWindowSourceAuthorizations = new WeakMap<
+  CodexWindowSourceAuthorization,
+  {
+    readonly phase: CodexWindowSourcePhase;
+    readonly authorize: CodexWindowSourceAuthorization;
+  }
+>();
+
+export function issueCodexWindowSourceAuthorization(
+  store: Store,
+  inputScope: OrdinaryWindowScope,
+  phase: CodexWindowSourcePhase
+): CodexWindowSourceAuthorization {
+  const scope = Object.freeze({ ...inputScope });
+  const generation = scope.generation;
+  if (phase === 'observing' && scope.cursor === undefined) {
+    throw new Error('binding_scope_revoked');
+  }
+  if (generation === undefined || (phase !== 'metadata' && (!scope.rootSessionId || scope.segmentRevision === undefined))) {
+    throw new Error('binding_scope_revoked');
+  }
+  const authorize = (): CodexWindowSourceContext => {
+    const selection = assertOrdinaryWindowAuthority(store, {
+      taskId: scope.taskId,
+      generation,
+      ...(phase === 'observing' ? scope : {})
+    });
+    if (selection.policy.product !== 'codex' || selection.policy.evidenceMode !== 'source_only') {
+      throw new Error('binding_window_unavailable');
+    }
+    const projectRoot = store.get<{ local_root: string }>('SELECT local_root FROM projects WHERE id=?', [selection.projectId])?.local_root;
+    if (!projectRoot) throw new Error('binding_scope_mismatch');
+    let nativeRootId: string | null = null;
+    let sourceRef: string | null = null;
+    let sourceIdentity: string | null = null;
+    if (phase === 'acquiring') {
+      const segment = store.get<{
+        root_session_id: string;
+        product: string;
+        native_root_id: string;
+        project_root: string;
+        revision: number;
+      }>(
+        `SELECT s.* FROM binding_root_segments s
+        JOIN ordinary_tasks t ON t.task_id=s.task_id AND t.selected_root_id=s.root_session_id
+        WHERE s.root_session_id=? AND s.task_id=? AND s.state='acquiring'`,
+        [scope.rootSessionId, scope.taskId]
+      );
+      if (!segment || segment.product !== 'codex' || segment.revision !== scope.segmentRevision || segment.project_root !== projectRoot) {
+        throw new Error('binding_scope_revoked');
+      }
+      assertOrdinaryWindowDeletionFence(store, segment);
+      if (
+        store.get('SELECT 1 FROM binding_root_segments WHERE product=? AND native_root_id=? AND root_session_id!=?', [
+          segment.product,
+          segment.native_root_id,
+          segment.root_session_id
+        ])
+      ) {
+        throw new Error('binding_fresh_root_required');
+      }
+      nativeRootId = segment.native_root_id;
+    } else if (phase === 'observing') {
+      const row = store.get<{ proof: string }>('SELECT proof FROM ordinary_window_segments WHERE root_session_id=?', [scope.rootSessionId]);
+      if (!row) throw new Error('binding_scope_revoked');
+      const proof = OrdinaryWindowConnectionProofSchema.parse(JSON.parse(row.proof));
+      nativeRootId = proof.nativeSessionId;
+      sourceRef = proof.sourceRef;
+      sourceIdentity = proof.sourceIdentity;
+    }
+    return {
+      selection,
+      projectRoot,
+      rootSessionId: scope.rootSessionId ?? null,
+      cursor: scope.cursor ?? null,
+      nativeRootId,
+      sourceRef,
+      sourceIdentity
+    };
+  };
+  authorize();
+  codexWindowSourceAuthorizations.set(authorize, { phase, authorize });
+  return authorize;
+}
+
+export function assertCodexWindowSourceAuthorization(
+  authorization: CodexWindowSourceAuthorization,
+  access: 'metadata' | 'source' | 'observe'
+): CodexWindowSourceContext {
+  const issued = codexWindowSourceAuthorizations.get(authorization);
+  if (!issued || (access !== 'metadata' && issued.phase === 'metadata') || (access === 'observe' && issued.phase !== 'observing')) {
+    throw new Error('binding_scope_revoked');
+  }
+  return issued.authorize();
 }

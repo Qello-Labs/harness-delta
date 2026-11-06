@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { OrdinaryWindowSelectionSchema } from '../core/ordinary-window-policy.js';
 import { projectOrdinaryActions } from './local-web-task-actions-projection.js';
 import type { Lifecycle } from '../lifecycle.js';
 import type { ordinaryTask } from '../ordinary-observation.js';
@@ -63,6 +64,7 @@ function projectOrdinaryPrice(data: OrdinaryTaskData) {
 }
 
 export function projectOrdinaryTask(data: OrdinaryTaskData) {
+  if (OrdinaryWindowSelectionSchema.safeParse(JSON.parse(data.preparation.settings)).success) throw new Error('binding_window_unavailable');
   const { id, record, task, version, finalized, summary, active, connected, skill, settings, revoked, metadata, binding, admission } = data;
   const actions = projectOrdinaryActions(data);
   return {
