@@ -1,3 +1,5 @@
+import { hasOrdinaryWindowEvidence } from './core/ordinary-window-evidence.js';
+import { aggregateOrdinaryWindowMetrics } from './pricing/metrics-ordinary-window.js';
 import { partitionCost, reportCompatibility, reportSourceTrust } from './report-source-trust.js';
 import { overlayEventCompatibility } from './source-compatibility.js';
 import { CostCoverageEvidenceSchema, CostFactsSchema, PriceTableSchema, type UsageEvent, type PriceTable, type CostCoverageEvidence, type TaskCost, type RuntimeEvidence, parseTaskMetadata } from './flexible-contracts.js';
@@ -113,4 +115,9 @@ export function aggregateTaskCost(events: readonly UsageEvent[], inputTable: Pri
   const total = partial.length > 0 ? sumAmounts(partial) : null;
   return { currency: table.currency, price_table_id: table.id, complete_amount: decision.eligible && usageComplete && priceComplete ? total : null,
     partial_amount: total, ...(!historicalReplay && allRows.some(row => row.payload.product !== 'synthetic') ? trust : {}), usage_complete: usageComplete, price_complete: priceComplete, reasons };
+}
+
+/** Explicit versioned dispatch keeps window references out of legacy token sums. */
+export function aggregateTaskReportV2(store: Store, taskId: string, cutoff: string) {
+  return hasOrdinaryWindowEvidence(store, taskId) ? aggregateOrdinaryWindowMetrics(store, taskId, cutoff) : aggregateTask(store, taskId, cutoff);
 }

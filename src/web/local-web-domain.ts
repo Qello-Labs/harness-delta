@@ -11,6 +11,7 @@ import { createLocalWebSetupHandlers } from './local-web-setup-handlers.js';
 import { createLocalWebApplicationHandlers } from './local-web-application-handlers.js';
 import { createLocalWebTaskActions } from './local-web-task-actions.js';
 import { createLocalWebTaskReader } from './local-web-task-read.js';
+import { readLocalWebOrdinaryWindowReport } from './local-web-ordinary-window-report.js';
 import { createLocalWebMetadata } from './local-web-metadata-store.js';
 import type { ChildReadinessObservation } from '../binding-child-readiness.js';
 
@@ -120,6 +121,7 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
     metadataStore: store,
     ...createLocalWebProjectHandlers(options, { life, metadata, taskDto, bindings, providers, codexProjects, picker }),
     task: taskDto,
+    ordinaryWindowReport: (taskId, cutoff) => readLocalWebOrdinaryWindowReport(store, taskId, cutoff),
     createTask: createLocalWebTaskCreation(options, { profileFor, taskDto, sharedSetups, metadata }),
     ...createLocalWebSetupHandlers(options, { picker, row, metadata, sharedSetups, setupReviews }),
     ...createLocalWebApplicationHandlers(row, applications),

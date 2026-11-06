@@ -3,6 +3,7 @@ import { Lifecycle } from '../../src/lifecycle.js';
 import { Store } from '../../src/store.js';
 import { createOrdinaryWindowTask } from '../../src/ordinary-observation.js';
 import { emptyOrdinaryWindowCoverage } from '../../src/core/ordinary-window-policy.js';
+import { activateOrdinaryWindowDecision } from '../../src/core/ordinary-window-activation.js';
 import { ordinaryWindowRuntimeRevision, ordinaryWindowSelection, recordOrdinaryWindowSegment } from '../../src/core/ordinary-window-store.js';
 import type {
   BindingUsageRecord,
@@ -33,24 +34,26 @@ export function ordinaryWindowFixture(product: 'codex' | 'claude_code' = 'codex'
   const selection = ordinaryWindowSelection(store, taskId);
   if (!selection) throw new Error('fixture_selection_missing');
   const activate = () =>
-    store.execute(
-      `INSERT INTO ordinary_window_activations(project_id,product,source,policy_id,policy_revision,policy_digest,evidence_mode,
-      accepted_risks,implementation_revision,evidence_ref,review_ref,decided_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
-      [
-        selection.projectId,
+    activateOrdinaryWindowDecision(
+      store,
+      {
+        schema_version: 1,
+        kind: 'ordinary_window_activation',
+        decision_kind: 'product',
+        decision_ref: 'synthetic-decision',
+        project_id: selection.projectId,
         product,
-        selection.policy.source,
-        selection.policy.policyId,
-        selection.policy.ruleRevision,
-        selection.policyDigest,
-        selection.policy.evidenceMode,
-        JSON.stringify(['source_identity_limits', 'root_ownership_unverified']),
-        ordinaryWindowRuntimeRevision,
-        'synthetic-evidence',
-        'synthetic-review',
-        clock()
-      ]
+        source: selection.policy.source,
+        policy_id: selection.policy.policyId,
+        policy_revision: selection.policy.ruleRevision,
+        policy_digest: selection.policyDigest,
+        evidence_mode: selection.policy.evidenceMode,
+        accepted_risks: ['source_identity_limits', 'root_ownership_unverified'],
+        implementation_revision: ordinaryWindowRuntimeRevision,
+        evidence_ref: 'synthetic-evidence',
+        review_ref: 'synthetic-review'
+      },
+      clock()
     );
   const identity: VerifiedSessionIdentity = {
     product,
@@ -120,7 +123,7 @@ export function ordinaryWindowFixture(product: 'codex' | 'claude_code' = 'codex'
       [rootId, taskId, product, identity.sessionId, identity.cwd, clock()]
     );
     store.execute('UPDATE ordinary_tasks SET selected_root_id=? WHERE task_id=?', [rootId, taskId]);
-    recordOrdinaryWindowSegment(store, { taskId, rootSessionId: rootId }, proof);
+    recordOrdinaryWindowSegment(store, { taskId, rootSessionId: rootId, clock }, proof);
     store.execute(
       `INSERT INTO session_bindings(session_id,task_id,root_id,identity,connect_receipt,observed_since,generation,state,cursor)
       VALUES (?,?,?,?,?,?,?,'observing','initial')`,

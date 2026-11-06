@@ -90,7 +90,8 @@ for (const name of [
   'core/tool-version-profiles.json',
   'core/tool-version-recipes.json',
   'core/tool-version-identities.json',
-  'migrations/036_ordinary_window_observation.sql'
+  'migrations/036_ordinary_window_observation.sql',
+  'migrations/037_ordinary_window_decisions.sql'
 ])
   loadedReceiverDigests.push({ name, digest: sha(readFileSync(implementationPath(name))) });
 

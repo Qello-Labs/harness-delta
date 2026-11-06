@@ -4,7 +4,8 @@ import {
 } from './manifest.mjs';
 import { candidateSchema, observationSchema } from './discovery.mjs';
 import { laneKey, laneSchema, sourceLanes } from './lanes.mjs';
-import { assessmentRuleRevision, sourcePathAllowlist, withSourceSnapshot } from './source-snapshot.mjs';
+import { assessmentRuleRevision, assessmentSourcePathLimit, legacyAssessmentRuleRevision, legacySourcePathAllowlist,
+  sourcePathAllowlist, withSourceSnapshot } from './source-snapshot.mjs';
 
 export const consumedContracts = [
   'identity_source_mapping', 'fields_types_enums', 'partial_rotation_checkpoint',
@@ -87,9 +88,13 @@ const laneAssessment = reviewed => laneSchema.extend({
 const assessmentFields = {
   kind: z.literal('assessment'),
   candidate_id: shaSchema, observation_id: shaSchema, baseline_digest: shaSchema.nullable(),
-  source_digest: shaSchema, source_paths: z.array(z.enum(sourcePathAllowlist)).min(1).max(32),
+  source_digest: shaSchema, source_paths: z.array(z.enum(legacySourcePathAllowlist)).min(1).max(32),
   review_sources: z.array(reviewSourceSchema).min(1).max(1024),
-  rule_revision: z.literal(assessmentRuleRevision), lanes: z.array(laneAssessment(false)).min(1).max(128),
+  rule_revision: z.literal(legacyAssessmentRuleRevision), lanes: z.array(laneAssessment(false)).min(1).max(128),
+};
+const expandedAssessmentFields = {
+  ...assessmentFields, source_paths: z.array(z.enum(sourcePathAllowlist)).min(1).max(assessmentSourcePathLimit),
+  rule_revision: z.literal(assessmentRuleRevision),
 };
 const inventoryScope = z.enum(['legacy_full_inventory', 'latest_and_npm_review_range']);
 const transitionSchema = z.enum(['none', 'minor', 'major']).nullable();
@@ -116,10 +121,15 @@ export const assessmentSchema = z.discriminatedUnion('schema_version', [
     schema_version: z.literal(4), ...reviewFields, ...assessmentFields,
     lanes: z.array(laneAssessment(true).extend({ selection_policy: selectionPolicySchema })).min(1).max(128),
   }),
+  z.strictObject({ schema_version: z.literal(5), inventory_scope: inventoryScope, ...expandedAssessmentFields }),
+  z.strictObject({
+    schema_version: z.literal(6), ...reviewFields, ...expandedAssessmentFields,
+    lanes: z.array(laneAssessment(true).extend({ selection_policy: selectionPolicySchema })).min(1).max(128),
+  }),
 ]).superRefine((value, context) => {
   if (new Set(value.lanes.map(laneKey)).size !== value.lanes.length ||
       new Set(value.source_paths).size !== value.source_paths.length ||
-      (value.schema_version === 3 || value.schema_version === 4) && (!sortedUnique(value.review_ids) || !sortedUnique(value.unused_review_ids) ||
+      [3, 4, 6].includes(value.schema_version) && (!sortedUnique(value.review_ids) || !sortedUnique(value.unused_review_ids) ||
         value.unused_review_ids.some(id => !value.review_ids.includes(id)) ||
         value.lanes.some(row => row.gates.contracts_reviewed !== gateOf(row.review.contracts))))
     context.addIssue({ code: 'custom', message: 'invalid_assessment' });
@@ -328,7 +338,7 @@ export async function assessCandidate({
     lane.reasons.sort();
   }
   return boundedParse({
-    schema_version: rows ? 4 : 2, kind: 'assessment',
+    schema_version: rows ? 6 : 5, kind: 'assessment',
     inventory_scope: observation.schema_version === 2 ? observation.inventory_scope : 'legacy_full_inventory',
     candidate_id: digest(candidate), observation_id: digest(observation),
     baseline_digest: baseline ? digest(baseline) : null, source_digest: snapshot.source_digest,

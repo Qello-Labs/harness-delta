@@ -160,7 +160,8 @@ function implementationDigest() {
           { name: 'migration014', sha256: hash(readFileSync(implementationPath('migrations', '014_codex_workflow.sql'))) },
           { name: 'migration015', sha256: hash(readFileSync(implementationPath('migrations', '015_codex_workflow_child.sql'))) },
           { name: 'migration016', sha256: hash(readFileSync(implementationPath('migrations', '016_claude_workflow.sql'))) },
-          { name: 'migration036', sha256: hash(readFileSync(implementationPath('migrations', '036_ordinary_window_observation.sql'))) }
+          { name: 'migration036', sha256: hash(readFileSync(implementationPath('migrations', '036_ordinary_window_observation.sql'))) },
+          { name: 'migration037', sha256: hash(readFileSync(implementationPath('migrations', '037_ordinary_window_decisions.sql'))) }
         ])
     )
   );

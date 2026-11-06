@@ -7,14 +7,67 @@ import { pathToFileURL } from 'node:url';
 import { digest, fail, ToolUpdateError } from './manifest.mjs';
 import { scopeSourceDigests } from './lanes.mjs';
 
-export const assessmentRuleRevision = 'static-assessment-v1';
+export const legacyAssessmentRuleRevision = 'static-assessment-v1';
+export const assessmentRuleRevision = 'static-assessment-v2';
+export const assessmentSourcePathLimit = 44;
+export const legacySourcePathAllowlist = Object.freeze([
+  "package-lock.json",
+  "package.json",
+  "src/adapter-profiles.ts",
+  "src/claude-binding-admission.ts",
+  "src/claude-workflow-adapter.ts",
+  "src/claude-workflow-versions.ts",
+  "src/codex-admissions.json",
+  "src/codex-binding-admission.ts",
+  "src/codex-candidate-rollout.ts",
+  "src/codex-rollout-policy.ts",
+  "src/codex-workflow-adapter.ts",
+  "src/comparison-contracts.ts",
+  "src/contracts.ts",
+  "src/core/ordinary-window-policy.ts",
+  "src/core/ordinary-window-store.ts",
+  "src/core/tool-version-identities.json",
+  "src/core/tool-version-profiles.json",
+  "src/core/tool-version-profiles.ts",
+  "src/core/tool-version-recipes.json",
+  "src/cost-coverage.ts",
+  "src/flexible-contracts.ts",
+  "src/nested-candidate.ts",
+  "src/ordinary-session-binding.ts",
+  "src/ordinary-window-binding.ts",
+  "src/readiness.ts",
+  "src/report-source-trust-contracts.ts",
+  "src/session-binding-claude.ts",
+  "src/session-binding-codex.ts",
+  "src/session-binding-contract.ts",
+  "src/session-binding-service.ts",
+  "src/source-compatibility.ts"
+]);
 const modules = [
   'adapter-profiles', 'codex-rollout-policy', 'source-compatibility', 'contracts', 'readiness',
   'comparison-contracts', 'flexible-contracts', 'cost-coverage', 'report-source-trust-contracts',
   'codex-binding-admission', 'claude-binding-admission', 'claude-workflow-versions', 'core/tool-version-profiles', 'core/ordinary-window-policy',
 ];
 const scopePaths = Object.keys(scopeSourceDigests);
-const hashOnlyPaths = ['src/nested-candidate.ts', 'src/codex-candidate-rollout.ts', 'src/core/ordinary-window-store.ts', 'src/ordinary-window-binding.ts'];
+const hashOnlyPaths = [
+  "src/nested-candidate.ts",
+  "src/codex-candidate-rollout.ts",
+  "src/core/ordinary-window-store.ts",
+  "src/ordinary-window-binding.ts",
+  "src/ordinary-observation.ts",
+  "src/store.ts",
+  "src/migrations/036_ordinary_window_observation.sql",
+  "src/migrations/037_ordinary_window_decisions.sql",
+  "src/cli/source-compatibility-cli.ts",
+  "src/cli/ordinary-window-activation-cli.ts",
+  "src/core/ordinary-window-decision.ts",
+  "src/core/ordinary-window-activation.ts",
+  "src/core/ordinary-window-trial.ts",
+  "src/ordinary-window-emission.ts",
+  "src/core/ordinary-window-evidence.ts",
+  "src/pricing/metrics-ordinary-window.ts",
+  "scripts/session-binding-codex-window-hook.mjs"
+];
 export const sourcePathAllowlist = Object.freeze([
   ...new Set([...modules.map(name => `src/${name}.ts`), 'src/codex-admissions.json',
     'src/core/tool-version-profiles.json', 'src/core/tool-version-recipes.json', 'src/core/tool-version-identities.json', ...scopePaths, ...hashOnlyPaths]),

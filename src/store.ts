@@ -61,6 +61,7 @@ export class Store {
       ];
       migrations.push('035_local_web_metadata_cleanup.sql');
       migrations.push('036_ordinary_window_observation.sql');
+      migrations.push('037_ordinary_window_decisions.sql');
       if (typeof version !== 'number' || !Number.isInteger(version) || version < 0 || version > migrations.length) {
         throw new Error('unsupported_schema_version');
       }

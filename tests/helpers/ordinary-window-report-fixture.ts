@@ -73,5 +73,13 @@ export function windowReportFixture(product: 'codex' | 'claude_code' = 'codex') 
       ]);
     }
   };
-  return { ...f, put };
+  const reportSnapshot = () =>
+    f.store.all<{ name: string }>("SELECT name FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").map(row => ({
+      table: row.name,
+      rows: f.store
+        .all(`SELECT * FROM "${row.name}"`)
+        .map(value => JSON.stringify(value))
+        .sort()
+    }));
+  return { ...f, put, reportSnapshot };
 }

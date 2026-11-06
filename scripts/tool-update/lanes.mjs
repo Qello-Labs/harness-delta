@@ -8,7 +8,7 @@ export const scopeSourceDigests = Object.freeze({
   'src/codex-workflow-adapter.ts': '1dc6552eb9d59f176bfbff3252d8902d63b92599c56c8aa23ba1c10dab3508d7',
   'src/claude-workflow-adapter.ts': '0d8314a3ae76357ab9b585fae4ad1f20b540666c478c1d0dac7bf0fc6b9ef93b',
   'src/session-binding-contract.ts': '4d21a5f6668d7d1356a45928386908921dc65d78fc81901036914e5ad42704a1',
-  'src/ordinary-session-binding.ts': '8312b9fef7497193cbc3ccd80b9c8fa565535dda2746e3c1ee4f8aa943c0c2b5',
+  'src/ordinary-session-binding.ts': '02c56277732a0472d8a57c5d52131b8c4d6aa2fd93be4c9f24f79ecdc5b77fca',
   'src/session-binding-service.ts': '0254dd5e64832b5629244c16c86e6452ec9f20b8793561f5d3c05512930a0cfb',
   'src/claude-workflow-versions.ts': '2fdf54d333aa7d9ca8f298ad0757e85a2c2eed10472106a07387d36d7511bd3b',
   'src/session-binding-codex.ts': '02aa7a37de315e91fa401498f5075eb01a05ecea2e55ad2182014a426dd24c32',

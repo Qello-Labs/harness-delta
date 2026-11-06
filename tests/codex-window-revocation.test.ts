@@ -9,6 +9,8 @@ import { CodexWindowSessionBindingProvider } from '../src/session-binding-codex.
 import { OrdinaryWindowConnectionProofSchema } from '../src/core/ordinary-window-policy.js';
 import { runCodexWindowHook } from './helpers/codex-window-hook-fixture.js';
 import { codexWindowJsonl, createCodexWindowProviderFixture } from './helpers/codex-window-provider-fixture.js';
+import { activateOrdinaryWindowDecision } from '../src/core/ordinary-window-activation.js';
+import { windowTrialPacket } from './helpers/ordinary-window-decision-fixture.js';
 
 vi.mock('node:fs', { spy: true });
 vi.mock('node:fs/promises', { spy: true });
@@ -17,9 +19,10 @@ afterEach(() => {
   vi.restoreAllMocks();
   for (const f of fixtures.splice(0)) f.cleanup();
 });
-async function fixture() {
-  const f = await createCodexWindowProviderFixture();
+async function fixture(trial = false) {
+  const f = await createCodexWindowProviderFixture({ activate: !trial });
   fixtures.push(f);
+  if (trial) activateOrdinaryWindowDecision(f.store, windowTrialPacket(f.selection), f.clock());
   f.lifecycle.start(f.taskId);
   return f;
 }
@@ -313,5 +316,61 @@ test('rejects pathname rotation after an authorized source handle opens but befo
   } finally {
     gate.release();
     await running.catch(() => undefined);
+  }
+});
+
+test('trial expiry during an authorized real-provider open durably closes the owned segment before any next read', async () => {
+  const f = await fixture(true);
+  const root = await f.connect();
+  const cursor = f.store.get<{ cursor: string | null }>('SELECT cursor FROM session_bindings')?.cursor;
+  const proof = f.store.all('SELECT proof FROM ordinary_window_segments');
+  const gate = await holdOpenedSource();
+  const running = f.collect();
+  const rejected = expect(running).rejects.toThrow(/binding_metadata_untrusted|binding_source_unavailable|binding_window_trial_expired/);
+  try {
+    await Promise.race([
+      gate.entered,
+      running.then(() => {
+        throw new Error('fixture_read_open_not_observed');
+      })
+    ]);
+    f.advance(60_000);
+    const io = fsCalls();
+    gate.release();
+    await rejected;
+    gate.assertNoNextRead();
+    expect(fsCalls()).toEqual(io);
+    expect(f.store.get('SELECT revoked_at,revocation_reason FROM ordinary_window_activations')).toEqual({
+      revoked_at: f.clock(),
+      revocation_reason: 'trial_expired'
+    });
+    expect(f.lifecycle.state(f.taskId)).toBe('paused');
+    expect(f.store.get<{ state: string }>('SELECT state FROM binding_root_segments WHERE root_session_id=?', [root.rootSessionId])?.state).toBe('paused');
+    expect(f.store.get<{ cursor: string | null }>('SELECT cursor FROM session_bindings')?.cursor).toBe(cursor);
+    expect(f.store.all('SELECT proof FROM ordinary_window_segments')).toEqual(proof);
+    expect(f.store.eventCount()).toBe(0);
+  } finally {
+    gate.release();
+    await running.catch(() => undefined);
+  }
+});
+
+test('connect expiry cannot finalize with a pre-baseline cursor after the cursor advances', async () => {
+  const f = await fixture(true);
+  const execute = f.store.execute.bind(f.store);
+  const update = vi.spyOn(f.store, 'execute').mockImplementation((sql, params) => {
+    const result = execute(sql, params);
+    if (sql === 'UPDATE session_bindings SET cursor=? WHERE session_id=?') f.advance(60_000);
+    return result;
+  });
+  try {
+    await expect(f.connect()).rejects.toThrow('binding_window_trial_expired');
+    expect(f.store.get<{ cursor: string | null }>('SELECT cursor FROM session_bindings')?.cursor).not.toBeNull();
+    expect(f.store.get<{ revoked_at: string | null }>('SELECT revoked_at FROM ordinary_window_activations')?.revoked_at).toBeNull();
+    expect(f.lifecycle.state(f.taskId)).toBe('active');
+    expect(f.store.get<{ state: string }>('SELECT state FROM binding_root_segments')?.state).toBe('observing');
+    expect(f.store.eventCount()).toBe(0);
+  } finally {
+    update.mockRestore();
   }
 });

@@ -4,6 +4,9 @@ import { addTokens, IdSchema, ModelSchema, TimestampSchema } from '../../contrac
 import { aggregateTask, type TaskReport } from '../../metrics.js';
 import { Store } from '../../store.js';
 import { type TaskRow } from '../../lifecycle.js';
+import { hasOrdinaryWindowEvidence } from '../../core/ordinary-window-evidence.js';
+import { aggregateOrdinaryWindowMetrics } from '../../pricing/metrics-ordinary-window.js';
+import { parseTaskMetadata } from '../../flexible-contracts.js';
 const ids = z
   .array(IdSchema)
   .min(1)
@@ -115,9 +118,11 @@ export function periodReport(store: Store, configId: string, cutoff: string) {
     const stored = z.strictObject({ config: PeriodConfigSchema, registered_at: TimestampSchema }).parse(JSON.parse(row.settings) as unknown);
     const config = stored.config;
     if (Date.parse(end) < Date.parse(stored.registered_at)) throw new Error('invalid_cutoff');
-    const tasks = store.all<TaskRow>('SELECT * FROM tasks WHERE project_id=? AND started_at IS NOT NULL ORDER BY id', [config.project_id]);
+    const tasks = store.all<TaskRow>('SELECT * FROM tasks WHERE project_id=? ORDER BY id', [config.project_id]);
+    const windows = tasks.filter(task => hasOrdinaryWindowEvidence(store, task.id));
     const cohort = (window: { start: string; end: string }) =>
       tasks
+        .filter(task => !hasOrdinaryWindowEvidence(store, task.id))
         .filter(
           task =>
             task.started_at &&
@@ -138,9 +143,45 @@ export function periodReport(store: Store, configId: string, cutoff: string) {
         );
     const before = summarize(cohort(config.before));
     const after = summarize(cohort(config.after));
+    const windowReferences = windows.map(task => {
+      const metadata = parseTaskMetadata(JSON.parse(task.metadata) as unknown);
+      const started = task.started_at === null ? null : Date.parse(task.started_at);
+      const member = (window: { start: string; end: string }) => started !== null && started >= Date.parse(window.start) && started < Date.parse(window.end);
+      const cohort =
+        started === null
+          ? 'not_started'
+          : started > Date.parse(end)
+            ? 'after_cutoff'
+            : member(config.before)
+              ? 'before'
+              : member(config.after)
+                ? 'after'
+                : 'outside_period';
+      const metadataEligible =
+        config.types.includes(metadata.type) &&
+        config.sizes.includes(metadata.expected_size) &&
+        config.assignees.includes(metadata.assignee) &&
+        config.products.includes(metadata.product);
+      return {
+        task_id: task.id,
+        cohort,
+        initial_model: null,
+        model_classification: 'unknown_task_start_model',
+        cohort_eligible: false,
+        exclusion_reason: metadataEligible ? 'unknown_task_start_model' : 'outside_frozen_metadata',
+        report: aggregateOrdinaryWindowMetrics(
+          store,
+          task.id,
+          new Date(started === null ? Date.parse(end) : Math.min(Date.parse(end), started + config.followup_hours * 3600000)).toISOString()
+        )
+      };
+    });
     const data = {
-      schema_version: 1,
-      analysis_version: 'descriptive-1',
+      schema_version: windows.length ? 2 : 1,
+      analysis_version: windows.length ? 'ordinary-window-period-v1' : 'descriptive-1',
+      ...(windows.length
+        ? { ordinary_window_references: windowReferences, inference: false, exchange: { supported: false, reason: 'native_window_exchange_unsupported' } }
+        : {}),
       mode: 'observational_period',
       settings: config,
       registered_at: stored.registered_at,
