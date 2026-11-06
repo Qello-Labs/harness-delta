@@ -1,18 +1,28 @@
-import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { IdSchema, TimestampSchema } from '../contracts.js';
 import type { Store } from '../store.js';
 import {
+  assertOrdinaryWindowDecision,
+  matchingOrdinaryWindowRevocation,
+  ordinaryWindowDecisionKeyForSelection,
+  readOrdinaryWindowDecision,
+  revokeOrdinaryWindowDecisionRow
+} from './ordinary-window-activation.js';
+import { OrdinaryWindowRevocationPacketSchema, type OrdinaryWindowScope } from './ordinary-window-decision.js';
+export type { OrdinaryWindowScope } from './ordinary-window-decision.js';
+import { assertOrdinaryWindowSegment, assertOrdinaryWindowDeletionFence, pauseOrdinaryWindowSegment } from './ordinary-window-trial.js';
+export { ordinaryWindowRuntimeRevision } from './ordinary-window-decision.js';
+export { pauseOrdinaryWindowSegment, terminateOrdinaryWindowTrial } from './ordinary-window-trial.js';
+import {
   emptyOrdinaryWindowCoverage,
   OrdinaryWindowConnectionProofSchema,
-  OrdinaryWindowCoverageSchema,
+  ordinaryWindowSelectionHash,
   type OrdinaryWindowSelection,
   OrdinaryWindowSelectionSchema,
   resolveOrdinaryWindow
 } from './ordinary-window-policy.js';
 
-export const ordinaryWindowRuntimeRevision = 'ordinary-window-runtime-v2';
-export const ordinaryWindowSelectionHash = (value: OrdinaryWindowSelection): string => createHash('sha256').update(JSON.stringify(value)).digest('hex');
+export { ordinaryWindowSelectionHash } from './ordinary-window-policy.js';
 export function ordinaryWindowSelection(store: Store, taskId: string): OrdinaryWindowSelection | undefined {
   const row = store.get<{ selection: string; selection_hash: string }>('SELECT selection,selection_hash FROM ordinary_window_selections WHERE task_id=?', [
     IdSchema.parse(taskId)
@@ -61,13 +71,6 @@ export function assertOrdinaryWindowPrepared(store: Store, taskId: string): Ordi
   }
   return selection;
 }
-export interface OrdinaryWindowScope {
-  readonly taskId: string;
-  readonly rootSessionId?: string;
-  readonly generation?: number;
-  readonly segmentRevision?: number;
-  readonly cursor?: string | null;
-}
 export function assertOrdinaryWindowAuthority(store: Store, scope: OrdinaryWindowScope): OrdinaryWindowSelection {
   const selection = assertOrdinaryWindowPrepared(store, scope.taskId);
   const task = store.get<{ state: string; generation: number }>('SELECT state,generation FROM tasks WHERE id=?', [scope.taskId]);
@@ -83,146 +86,27 @@ export function assertOrdinaryWindowAuthority(store: Store, scope: OrdinaryWindo
   ) {
     throw new Error('compatibility_invalidated');
   }
-  const decision = store.get<{
-    accepted_risks: string;
-    implementation_revision: string;
-    evidence_ref: string;
-    review_ref: string;
-  }>(
-    `SELECT accepted_risks,implementation_revision,evidence_ref,review_ref FROM ordinary_window_activations
-    WHERE project_id=? AND product=? AND source=? AND policy_id=? AND policy_revision=? AND policy_digest=?
-      AND evidence_mode=? AND revoked_at IS NULL`,
-    [
-      selection.projectId,
-      selection.policy.product,
-      selection.policy.source,
-      selection.policy.policyId,
-      selection.policy.ruleRevision,
-      selection.policyDigest,
-      selection.policy.evidenceMode
-    ]
-  );
-  if (
-    !decision ||
-    decision.implementation_revision !== ordinaryWindowRuntimeRevision ||
-    !IdSchema.safeParse(decision.evidence_ref).success ||
-    !IdSchema.safeParse(decision.review_ref).success
-  ) {
-    throw new Error('binding_window_activation_required');
-  }
-  const risks = z.array(z.enum(['source_identity_limits', 'root_ownership_unverified'])).safeParse(JSON.parse(decision.accepted_risks));
-  if (!risks.success || new Set(risks.data).size !== 2) {
-    throw new Error('binding_window_activation_required');
-  }
+  const nativeRootId =
+    scope.nativeRootId ??
+    (scope.rootSessionId === undefined
+      ? undefined
+      : store.get<{ native_root_id: string }>('SELECT native_root_id FROM binding_root_segments WHERE root_session_id=?', [scope.rootSessionId])
+          ?.native_root_id);
+  assertOrdinaryWindowDecision(store, selection, { ...scope, ...(nativeRootId === undefined ? {} : { nativeRootId }) });
   if (scope.rootSessionId !== undefined) {
     assertOrdinaryWindowSegment(store, scope, selection);
   }
   return selection;
-}
-function assertOrdinaryWindowSegment(store: Store, scope: OrdinaryWindowScope, selection: OrdinaryWindowSelection): void {
-  const row = store.get<{
-    root_session_id: string;
-    product: string;
-    native_root_id: string;
-    state: string;
-    revision: number;
-    project_root: string;
-    proof: string;
-    selection_hash: string;
-    cursor: string | null;
-    generation: number;
-    identity: string;
-    connect_receipt: string | null;
-  }>(
-    `SELECT s.*,w.proof,w.selection_hash,b.cursor,b.generation,b.identity,b.connect_receipt FROM binding_root_segments s
-    JOIN ordinary_window_segments w ON w.root_session_id=s.root_session_id
-    JOIN ordinary_tasks t ON t.task_id=s.task_id AND t.selected_root_id=s.root_session_id
-    JOIN session_bindings b ON b.session_id=s.root_session_id AND b.root_id=s.root_session_id
-    WHERE s.root_session_id=? AND s.task_id=? AND b.state='observing'`,
-    [scope.rootSessionId, scope.taskId]
-  );
-  if (
-    !row ||
-    !['acquiring', 'observing'].includes(row.state) ||
-    (scope.segmentRevision !== undefined && row.revision !== scope.segmentRevision) ||
-    (scope.generation !== undefined && row.generation !== scope.generation) ||
-    (scope.cursor !== undefined && row.cursor !== scope.cursor)
-  ) {
-    throw new Error('binding_scope_revoked');
-  }
-  const proof = OrdinaryWindowConnectionProofSchema.parse(JSON.parse(row.proof));
-  const identity = z
-    .object({
-      sessionId: IdSchema,
-      sourceRef: z.string(),
-      sourceIdentity: IdSchema,
-      product: z.string(),
-      productVersion: z.string(),
-      parentSessionId: z.null(),
-      cwd: z.string(),
-      nativeMapping: z.object({
-        nativeSessionId: IdSchema,
-        processId: IdSchema.nullable(),
-        agentId: z.null()
-      })
-    })
-    .parse(JSON.parse(row.identity));
-  if (
-    row.selection_hash !== ordinaryWindowSelectionHash(selection) ||
-    row.product !== selection.policy.product ||
-    proof.product !== row.product ||
-    proof.productVersion !== selection.declaredVersion ||
-    proof.nativeSessionId !== row.native_root_id ||
-    proof.cwd !== row.project_root ||
-    row.project_root !== store.get<{ local_root: string }>('SELECT local_root FROM projects WHERE id=?', [selection.projectId])?.local_root ||
-    identity.cwd !== proof.cwd ||
-    row.connect_receipt !== proof.receipt ||
-    identity.nativeMapping.nativeSessionId !== proof.nativeSessionId ||
-    identity.nativeMapping.processId !== proof.processId ||
-    identity.sessionId !== row.native_root_id ||
-    identity.product !== row.product ||
-    identity.productVersion !== proof.productVersion ||
-    identity.sourceRef !== proof.sourceRef ||
-    identity.sourceIdentity !== proof.sourceIdentity
-  ) {
-    throw new Error('binding_identity_mismatch');
-  }
-  assertOrdinaryWindowDeletionFence(store, row);
-}
-function assertOrdinaryWindowDeletionFence(
-  store: Store,
-  segment: {
-    readonly root_session_id: string;
-    readonly product: string;
-    readonly native_root_id: string;
-  }
-): void {
-  if (
-    store.get(
-      `SELECT 1 FROM tombstones WHERE kind='session' AND (id=? OR (id=? AND NOT EXISTS(
-      SELECT 1 FROM binding_native_tombstones WHERE native_session_id=?
-    )))
-    UNION ALL SELECT 1 FROM binding_native_tombstones WHERE product=? AND native_session_id=?
-    UNION ALL SELECT 1 FROM session_binding_forgets WHERE product=? AND native_session_id=?`,
-      [
-        segment.root_session_id,
-        segment.native_root_id,
-        segment.native_root_id,
-        segment.product,
-        segment.native_root_id,
-        segment.product,
-        segment.native_root_id
-      ]
-    )
-  )
-    throw new Error('deleted_identifier');
 }
 export function recordOrdinaryWindowSegment(store: Store, scope: OrdinaryWindowScope, proofInput: unknown): void {
   const proof = OrdinaryWindowConnectionProofSchema.parse(proofInput);
   store.immediateTransaction(() => {
     const selection = assertOrdinaryWindowAuthority(store, {
       taskId: scope.taskId,
-      ...(scope.generation === undefined ? {} : { generation: scope.generation })
+      nativeRootId: proof.nativeSessionId,
+      ...(scope.generation === undefined ? {} : { generation: scope.generation }),
+      ...(scope.clock === undefined ? {} : { clock: scope.clock }),
+      ...(scope.decisionRef === undefined ? {} : { decisionRef: scope.decisionRef })
     });
     if (!scope.rootSessionId || proof.product !== selection.policy.product || proof.productVersion !== selection.declaredVersion) {
       throw new Error('binding_identity_mismatch');
@@ -261,7 +145,17 @@ export function ordinaryWindowStatus(store: Store, taskId: string) {
     assertOrdinaryWindowAuthority(store, { taskId });
   } catch (error) {
     if (!(error instanceof Error)) throw error;
-    if (!['binding_scope_revoked', 'compatibility_invalidated', 'binding_window_activation_required'].includes(error.message)) throw error;
+    if (
+      ![
+        'binding_scope_revoked',
+        'binding_scope_mismatch',
+        'compatibility_invalidated',
+        'binding_window_activation_required',
+        'binding_window_trial_expired',
+        'binding_window_trial_budget_exhausted'
+      ].includes(error.message)
+    )
+      throw error;
     reason = error.message;
   }
   return {
@@ -290,54 +184,42 @@ export function assertOrdinaryWindowSurfaceClosed(store: Store, taskId: string):
 }
 export function revokeOrdinaryWindowActivation(store: Store, taskId: string, at: string): void {
   const selection = assertOrdinaryWindowPrepared(store, taskId);
+  const key = ordinaryWindowDecisionKeyForSelection(selection);
+  const decision = readOrdinaryWindowDecision(store, key);
+  if (!decision) throw new Error('binding_window_activation_required');
+  revokeOrdinaryWindowDecision(
+    store,
+    { schema_version: 1, kind: 'ordinary_window_revocation', ...key, decision_ref: decision.decision_ref, reason: 'operator_revoked' },
+    at
+  );
+}
+export function revokeOrdinaryWindowDecision(store: Store, input: unknown, at: string) {
+  const packet = OrdinaryWindowRevocationPacketSchema.parse(input);
   const timestamp = TimestampSchema.parse(at);
-  store.immediateTransaction(() => {
-    store.execute(
-      `UPDATE ordinary_window_activations SET revoked_at=? WHERE project_id=? AND product=? AND source=?
-      AND policy_id=? AND policy_revision=? AND policy_digest=? AND evidence_mode=? AND revoked_at IS NULL`,
-      [
-        timestamp,
-        selection.projectId,
-        selection.policy.product,
-        selection.policy.source,
-        selection.policy.policyId,
-        selection.policy.ruleRevision,
-        selection.policyDigest,
-        selection.policy.evidenceMode
-      ]
-    );
+  return store.immediateTransaction(() => {
+    const decision = matchingOrdinaryWindowRevocation(store, packet);
+    if (decision.revoked_at !== null) return decision;
+    revokeOrdinaryWindowDecisionRow(store, decision, { at: timestamp, reason: packet.reason });
     const affected = store.all<{ task_id: string }>(
       `SELECT task_id FROM ordinary_window_selections WHERE
-      json_extract(selection,'$.projectId')=? AND json_extract(selection,'$.policyDigest')=?`,
-      [selection.projectId, selection.policyDigest]
+      json_extract(selection,'$.projectId')=? AND json_extract(selection,'$.policyDigest')=? AND (? IS NULL OR task_id=?)
+      AND (? IS NULL OR task_id IN (SELECT t.task_id FROM ordinary_tasks t
+        JOIN binding_root_segments s ON s.root_session_id=t.selected_root_id WHERE s.native_root_id=? AND s.project_root=?))`,
+      [
+        decision.project_id,
+        decision.policy_digest,
+        decision.trial_task_id,
+        decision.trial_task_id,
+        decision.trial_native_root_id,
+        decision.trial_native_root_id,
+        decision.trial_project_root
+      ]
     );
     for (const row of affected) {
       pauseOrdinaryWindowSegment(store, row.task_id, timestamp, 'binding_scope_revoked');
     }
+    return { ...decision, revoked_at: timestamp, revocation_reason: packet.reason };
   });
-}
-export function pauseOrdinaryWindowSegment(store: Store, taskId: string, at: string, reason: string): void {
-  const timestamp = TimestampSchema.parse(at);
-  const root = store.get<{ selected_root_id: string | null }>('SELECT selected_root_id FROM ordinary_tasks WHERE task_id=?', [taskId])?.selected_root_id;
-  if (!root) return;
-  store.execute("UPDATE binding_root_segments SET state='paused',revision=revision+1,observer_identity=NULL WHERE root_session_id=? AND state!='closed'", [
-    root
-  ]);
-  store.execute("UPDATE session_bindings SET state='stopped' WHERE root_id=?", [root]);
-  store.execute("UPDATE tasks SET state='paused',generation=generation+1,last_transition_at=? WHERE id=? AND state='active'", [timestamp, taskId]);
-  store.execute('UPDATE active_intervals SET ended_at=? WHERE task_id=? AND ended_at IS NULL', [timestamp, taskId]);
-  const existing = store.get<{ coverage: string }>('SELECT coverage FROM ordinary_window_segments WHERE root_session_id=?', [root]);
-  if (existing) {
-    const coverage = OrdinaryWindowCoverageSchema.parse(JSON.parse(existing.coverage));
-    store.execute('UPDATE ordinary_window_segments SET coverage=? WHERE root_session_id=?', [
-      JSON.stringify({
-        ...coverage,
-        status: reason === 'compatibility_invalidated' ? 'invalidated' : 'partial',
-        reason
-      }),
-      root
-    ]);
-  }
 }
 export function ordinaryWindowCompatibility(store: Store, taskId: string) {
   const selection = assertOrdinaryWindowPrepared(store, taskId);
@@ -349,6 +231,7 @@ export function ordinaryWindowCompatibility(store: Store, taskId: string) {
 type CodexWindowSourcePhase = 'metadata' | 'acquiring' | 'observing';
 export interface CodexWindowSourceContext {
   readonly selection: OrdinaryWindowSelection;
+  readonly decisionRef: string;
   readonly projectRoot: string;
   readonly rootSessionId: string | null;
   readonly cursor: string | null;
@@ -370,7 +253,14 @@ export function issueCodexWindowSourceAuthorization(
   inputScope: OrdinaryWindowScope,
   phase: CodexWindowSourcePhase
 ): CodexWindowSourceAuthorization {
-  const scope = Object.freeze({ ...inputScope });
+  const prepared = assertOrdinaryWindowAuthority(store, {
+    taskId: inputScope.taskId,
+    ...(inputScope.generation === undefined ? {} : { generation: inputScope.generation }),
+    ...(inputScope.clock === undefined ? {} : { clock: inputScope.clock }),
+    ...(inputScope.decisionRef === undefined ? {} : { decisionRef: inputScope.decisionRef })
+  });
+  const decision = assertOrdinaryWindowDecision(store, prepared, inputScope);
+  const scope = Object.freeze({ ...inputScope, decisionRef: decision.decision_ref });
   const generation = scope.generation;
   if (phase === 'observing' && scope.cursor === undefined) {
     throw new Error('binding_scope_revoked');
@@ -382,6 +272,8 @@ export function issueCodexWindowSourceAuthorization(
     const selection = assertOrdinaryWindowAuthority(store, {
       taskId: scope.taskId,
       generation,
+      decisionRef: scope.decisionRef,
+      ...(scope.clock === undefined ? {} : { clock: scope.clock }),
       ...(phase === 'observing' ? scope : {})
     });
     if (selection.policy.product !== 'codex' || selection.policy.evidenceMode !== 'source_only') {
@@ -409,6 +301,13 @@ export function issueCodexWindowSourceAuthorization(
         throw new Error('binding_scope_revoked');
       }
       assertOrdinaryWindowDeletionFence(store, segment);
+      assertOrdinaryWindowAuthority(store, {
+        taskId: scope.taskId,
+        generation,
+        nativeRootId: segment.native_root_id,
+        decisionRef: scope.decisionRef,
+        ...(scope.clock === undefined ? {} : { clock: scope.clock })
+      });
       if (
         store.get('SELECT 1 FROM binding_root_segments WHERE product=? AND native_root_id=? AND root_session_id!=?', [
           segment.product,
@@ -429,6 +328,7 @@ export function issueCodexWindowSourceAuthorization(
     }
     return {
       selection,
+      decisionRef: scope.decisionRef,
       projectRoot,
       rootSessionId: scope.rootSessionId ?? null,
       cursor: scope.cursor ?? null,

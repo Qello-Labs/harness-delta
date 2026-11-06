@@ -12,14 +12,19 @@ import { digest } from '../scripts/tool-update/manifest.mjs';
 import type { Baseline } from '../scripts/tool-update/manifest.mjs';
 import type { Candidate, Observation, Product, Release } from '../scripts/tool-update/discovery.mjs';
 import { laneSchema, sourceLanes } from '../scripts/tool-update/lanes.mjs';
-import { sourcePathAllowlist, withSourceSnapshot } from '../scripts/tool-update/source-snapshot.mjs';
+import { legacySourcePathAllowlist, sourcePathAllowlist, withSourceSnapshot } from '../scripts/tool-update/source-snapshot.mjs';
 
 const root = realpathSync(fileURLToPath(new URL('..', import.meta.url)));
 const parserPaths = [
   'src/nested-candidate.ts',
   'src/codex-candidate-rollout.ts',
   'src/core/ordinary-window-store.ts',
-  'src/ordinary-window-binding.ts'
+  'src/ordinary-window-binding.ts',
+  'src/store.ts',
+  'src/core/ordinary-window-activation.ts',
+  'src/core/ordinary-window-decision.ts',
+  'src/cli/ordinary-window-activation-cli.ts',
+  'scripts/session-binding-codex-window-hook.mjs'
 ] as const;
 const temporary: string[] = [];
 afterEach(async () => {
@@ -86,7 +91,7 @@ async function sourceFixture() {
   return directory;
 }
 
-test('projects the actual current source without Store or private paths', async () => {
+test('projects the actual current source without loading Store or private paths', async () => {
   const snapshot = await withSourceSnapshot(root, source => ({
     windows: source.windows,
     lanes: sourceLanes(source),
@@ -101,8 +106,8 @@ test('projects the actual current source without Store or private paths', async 
   });
   expect(snapshot.value.child?.state).toBe('verified');
   expect(snapshot.source_paths).toContain('src/codex-admissions.json');
-  expect(snapshot.source_paths).not.toContain('src/store.ts');
-  expect(snapshot.source_paths.every(path => sourcePathAllowlist.includes(path))).toBe(true);
+  expect(snapshot.source_paths).toContain('src/store.ts');
+  expect(snapshot.source_paths).toEqual(sourcePathAllowlist);
   expect(snapshot.value.lanes.every(row => laneSchema.safeParse(row).success)).toBe(true);
 });
 
@@ -322,19 +327,20 @@ test.each(parserPaths)('a one-byte change in %s invalidates baseline and review 
     source_digest: snapshot.source_digest
   };
   const before = await assessCandidate({ ...input, baseline: currentBaseline, reviews: [record] });
-  if (before.schema_version !== 4) throw new Error('schema_4_required');
+  if (before.schema_version !== 6) throw new Error('schema_6_required');
   expect(lane(before, row.profile_id).gates.contracts_reviewed).toBe('closed');
   expect(lane(before, row.profile_id).reasons).not.toContain('baseline_source_changed');
   expect(
     assessmentSchema.safeParse({
       ...before,
       schema_version: 3,
+      rule_revision: 'static-assessment-v1',
       lanes: before.lanes.map(current => {
         const { selection_policy, ...previous } = current;
         expect(selection_policy).toBeDefined();
         return previous;
       }),
-      source_paths: before.source_paths.filter(path => !parserPaths.some(parser => parser === path))
+      source_paths: legacySourcePathAllowlist
     }).success
   ).toBe(true);
   const path = join(directory, parserPath);
@@ -359,7 +365,7 @@ test.each(parserPaths)('rejects a registry import of hash-only input %s', async 
   const directory = await sourceFixture();
   await writeFile(join(directory, parserPath), 'export const x = 1;\n');
   const path = join(directory, 'src/source-compatibility.ts');
-  const specifier = `./${parserPath.slice(4).replace(/\.ts$/, '.js')}`;
+  const specifier = parserPath.startsWith('src/') ? `./${parserPath.slice(4).replace(/\.ts$/, '.js')}` : `../${parserPath}`;
   await writeFile(path, `import '${specifier}';\n${await readFile(path, 'utf8')}`);
   await expect(assessCandidate({ ...fixture(), root: directory })).rejects.toMatchObject({ code: 'source_snapshot_unavailable' });
 });
@@ -384,9 +390,28 @@ test.each(parserPaths)('rejects projection-time drift in hash-only input %s', as
     })
   ).rejects.toMatchObject({ code: 'source_drift' });
 });
-test('the runtime foundation snapshot stays inside the existing 32-path contract', async () => {
+test('captures an 8 MiB hash-only input without loading it', async () => {
+  const directory = await sourceFixture();
+  await writeFile(join(directory, 'src/store.ts'), Buffer.alloc(8 * 1024 * 1024));
+  const snapshot = await withSourceSnapshot(directory, () => 'projected');
+  expect(snapshot.value).toBe('projected');
+  expect(snapshot.source_paths).toContain('src/store.ts');
+});
+test('rejects aggregate capture above 16 MiB even when each hash-only input fits 8 MiB', async () => {
+  const directory = await sourceFixture();
+  for (const path of ['src/nested-candidate.ts', 'src/codex-candidate-rollout.ts', 'src/core/ordinary-window-store.ts'])
+    await writeFile(join(directory, path), Buffer.alloc(6 * 1024 * 1024));
+  let projected = false;
+  await expect(
+    withSourceSnapshot(directory, () => {
+      projected = true;
+    })
+  ).rejects.toMatchObject({ code: 'source_snapshot_unavailable' });
+  expect(projected).toBe(false);
+});
+test('the expanded snapshot consumes the approved finite 44-path contract', async () => {
   const snapshot = await withSourceSnapshot(root, () => null);
-  expect(snapshot.source_paths).toHaveLength(31);
+  expect(snapshot.source_paths).toHaveLength(44);
 });
 test('loads nested source imports and retirement metadata without dist', async () => {
   const directory = await sourceFixture();
@@ -398,15 +423,8 @@ test('loads nested source imports and retirement metadata without dist', async (
   }));
   expect(snapshot.value.retired).toEqual(['2.1.288', '2.1.291']);
   expect(snapshot.value.admitted?.state).toBe('verified');
-  expect(snapshot.source_paths.filter(path => path.startsWith('src/core/'))).toEqual([
-    'src/core/ordinary-window-policy.ts',
-    'src/core/ordinary-window-store.ts',
-    'src/core/tool-version-identities.json',
-    'src/core/tool-version-profiles.json',
-    'src/core/tool-version-profiles.ts',
-    'src/core/tool-version-recipes.json'
-  ]);
-  expect(snapshot.source_paths).toHaveLength(31);
+  expect(snapshot.source_paths).toEqual(sourcePathAllowlist);
+  expect(snapshot.source_paths).toHaveLength(44);
 });
 test.each([
   ['escape', "import '../../package.json' with { type: 'json' };"],
@@ -430,8 +448,16 @@ test.each([
 });
 test('legacy schema 1 and 2 assessments parse without the hash-only parser paths', async () => {
   const current = await assessCandidate(fixture());
-  if (current.schema_version !== 2) throw new Error('schema_2_required');
-  const legacy = { ...current, source_paths: current.source_paths.filter(path => !parserPaths.some(parser => parser === path)) };
+  if (current.schema_version !== 5) throw new Error('schema_5_required');
+  const legacy = {
+    ...current,
+    schema_version: 2,
+    rule_revision: 'static-assessment-v1',
+    source_paths: legacySourcePathAllowlist.filter(
+      path =>
+        !['src/nested-candidate.ts', 'src/codex-candidate-rollout.ts', 'src/core/ordinary-window-store.ts', 'src/ordinary-window-binding.ts'].includes(path)
+    )
+  };
   expect(assessmentSchema.safeParse(legacy).success).toBe(true);
   const { inventory_scope: scope, ...fields } = legacy;
   expect(scope).toBe('legacy_full_inventory');

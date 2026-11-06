@@ -13,6 +13,7 @@ import { canonical, digest, publishRecord } from '../scripts/tool-update/manifes
 import type { Baseline } from '../scripts/tool-update/manifest.mjs';
 import { candidateSchema, observationSchema } from '../scripts/tool-update/discovery.mjs';
 import type { Candidate, Observation, Product, Release } from '../scripts/tool-update/discovery.mjs';
+import { legacySourcePathAllowlist } from '../scripts/tool-update/source-snapshot.mjs';
 
 const root = realpathSync(fileURLToPath(new URL('..', import.meta.url)));
 const temporary: string[] = [];
@@ -178,9 +179,9 @@ test('record-review rejects malformed input without publishing and requires both
 test('a lane closes only when every edge has a matching all-unaffected record', async () => {
   const plain = await assess(null);
   const result = await assess([second(), first()]);
-  if (result.schema_version !== 4) throw new Error('schema_4_required');
+  if (result.schema_version !== 6) throw new Error('schema_6_required');
   const selected = lane(result);
-  expect(result.schema_version).toBe(4);
+  expect(result.schema_version).toBe(6);
   expect(selected.review.edges.every(edge => edge.contracts.every(row => row.judgment === 'unaffected'))).toBe(true);
   expect(selected.review.contracts).toEqual(contracts('unaffected'));
   expect(selected.gates.contracts_reviewed).toBe('closed');
@@ -282,7 +283,7 @@ test('a source digest mismatch keeps the edge unknown and marks the lane', async
   expect(selected.review.edges.map(edge => edge.contracts[0]?.judgment)).toEqual(['unknown', 'unaffected']);
   expect(selected.gates.contracts_reviewed).toBe('unknown');
   expect(selected.reasons).toEqual(expect.arrayContaining(['review_source_changed', 'contracts_unknown']));
-  if (result.schema_version !== 4) throw new Error('schema_4_required');
+  if (result.schema_version !== 6) throw new Error('schema_6_required');
   expect(result.unused_review_ids).toEqual([]);
   expect(result.review_ids).toContain(digest(stale));
 });
@@ -298,7 +299,7 @@ test('records that match no lane or edge are listed as unused', async () => {
     review('0.158.0', '0.162.1')
   ];
   const result = await assess([...unmatched, first()]);
-  if (result.schema_version !== 4) throw new Error('schema_4_required');
+  if (result.schema_version !== 6) throw new Error('schema_6_required');
   expect(result.unused_review_ids).toEqual(unmatched.map(digest).sort());
   expect(lane(result).gates.contracts_reviewed).toBe('unknown');
   expect(lane(result, 'codex-file-legacy-v1').gates.contracts_reviewed).toBe('unknown');
@@ -417,7 +418,7 @@ test('a record alone cannot close a lane the baseline does not bind', async () =
   const result = await zero(record, ['a'.repeat(64)]);
   expect(lane(result).gates.contracts_reviewed).toBe('unknown');
   expect(lane(result).reasons).toContain('contracts_unknown');
-  if (result.schema_version !== 4) throw new Error('schema_4_required');
+  if (result.schema_version !== 6) throw new Error('schema_6_required');
   expect(result.unused_review_ids).toEqual([digest(record)]);
 });
 
@@ -441,7 +442,7 @@ test('lanes without a baseline row stay unknown whatever is supplied', async () 
   expect(selected.gates.contracts_reviewed).toBe('unknown');
   expect(selected.reasons).toContain('baseline_missing');
   expect(selected.review.contracts).toEqual(contracts('unknown'));
-  if (result.schema_version !== 4) throw new Error('schema_4_required');
+  if (result.schema_version !== 6) throw new Error('schema_6_required');
   expect(result.unused_review_ids).toEqual([digest(legacy)]);
 });
 
@@ -461,7 +462,7 @@ test('parser comparison needs a contiguous chain from the parser base to the tar
     to: { version: '0.163.0' },
     contracts: contracts('unaffected')
   });
-  if (closed.schema_version !== 4) throw new Error('schema_4_required');
+  if (closed.schema_version !== 6) throw new Error('schema_6_required');
   expect(closed.unused_review_ids).toEqual([]);
   const mixed = await assess(
     [
@@ -480,7 +481,7 @@ test('parser comparison needs a contiguous chain from the parser base to the tar
 test('parser comparison cannot skip an observed release', async () => {
   const result = await assess([review('0.158.0', '0.163.0')], fixture(['0.158.0', '0.162.1', '0.163.0']));
   expect(lane(result).review.parser_comparison?.contracts).toEqual(contracts('unknown'));
-  if (result.schema_version !== 4) throw new Error('schema_4_required');
+  if (result.schema_version !== 6) throw new Error('schema_6_required');
   expect(result.unused_review_ids).toEqual([digest(review('0.158.0', '0.163.0'))]);
 });
 
@@ -497,15 +498,17 @@ test('parser comparison cannot trust a base or intermediate commit absent from t
   expect(lane(missingBase).review.parser_comparison?.contracts).toEqual(contracts('unknown'));
 });
 
-test('without reviews the assessment stays schema 2 and old schemas stay readable', async () => {
+test('without reviews the assessment writes schema 5 and old schemas stay readable', async () => {
   const plain = await assess(null);
-  expect(plain.schema_version).toBe(2);
+  expect(plain.schema_version).toBe(5);
   expect(plain).not.toHaveProperty('review_ids');
   expect(await assess(undefined)).toEqual(plain);
-  if (plain.schema_version !== 2) throw new Error('schema_2_required');
+  if (plain.schema_version !== 5) throw new Error('schema_5_required');
   const { inventory_scope: scope, ...fields } = plain;
   expect(scope).toBe('legacy_full_inventory');
-  expect(assessmentSchema.safeParse({ ...fields, schema_version: 1 }).success).toBe(true);
+  expect(
+    assessmentSchema.safeParse({ ...fields, schema_version: 1, rule_revision: 'static-assessment-v1', source_paths: legacySourcePathAllowlist }).success
+  ).toBe(true);
   const selected = lane(plain);
   const forged = {
     ...plain,
@@ -527,10 +530,12 @@ test('without reviews the assessment stays schema 2 and old schemas stay readabl
     expect(assessmentSchema.safeParse({ ...plain, lanes: [{ ...selected, ...overrides }] }).success).toBe(false);
   const closed = await assess([first(), second()]);
   expect(assessmentSchema.safeParse(closed).success).toBe(true);
-  if (closed.schema_version !== 4) throw new Error('schema_4_required');
+  if (closed.schema_version !== 6) throw new Error('schema_6_required');
   const schema3 = {
     ...closed,
     schema_version: 3,
+    rule_revision: 'static-assessment-v1',
+    source_paths: legacySourcePathAllowlist,
     lanes: closed.lanes.map(row => {
       const { selection_policy, ...previous } = row;
       expect(selection_policy).toBeDefined();
@@ -577,18 +582,18 @@ async function stage(versions = ['0.162.1', '0.162.2', '0.163.0']) {
   return { output, run };
 }
 
-test('assess --review is repeatable, order independent and writes schema 4', async () => {
+test('assess --review is repeatable, order independent and writes schema 6', async () => {
   const { output, run } = await stage();
   const forward = await run([first(), second()]);
   expect(forward).toMatchObject({ exitCode: 0, output: { status: 'assessment_created' } });
   expect(await run([second(), first()])).toEqual(forward);
   const stored: unknown = JSON.parse(await readFile(join(output, 'assessments', `${forward.output.assessment_id}.json`), 'utf8'));
   const record = assessmentSchema.parse(stored);
-  expect(record.schema_version).toBe(4);
+  expect(record.schema_version).toBe(6);
   expect(lane(record).gates.contracts_reviewed).toBe('closed');
   const plain = await run([]);
   const plainRecord = assessmentSchema.parse(JSON.parse(await readFile(join(output, 'assessments', `${plain.output.assessment_id}.json`), 'utf8')));
-  expect(plainRecord.schema_version).toBe(2);
+  expect(plainRecord.schema_version).toBe(5);
 });
 
 test('assess --review reports fixed codes for conflicting, commit-conflicting and malformed records', async () => {

@@ -7,9 +7,13 @@ import { type OrdinaryWindowCoverage, OrdinaryWindowCoverageSchema } from './cor
 import {
   assertOrdinaryWindowAuthority,
   ordinaryWindowCompatibility,
+  ordinaryWindowSelection,
   type OrdinaryWindowScope,
-  pauseOrdinaryWindowSegment
+  pauseOrdinaryWindowSegment,
+  terminateOrdinaryWindowTrial
 } from './core/ordinary-window-store.js';
+import { ordinaryWindowDecisionKeyForSelection, readOrdinaryWindowDecision } from './core/ordinary-window-activation.js';
+import { commitOrdinaryWindowTrialCharge, stageOrdinaryWindowTrialCharge } from './core/ordinary-window-trial.js';
 import { putUsageWithEvidence, recordObservationGap } from './runtime-history.js';
 import { invalidateCompatibility, pinSessionCompatibility } from './source-compatibility.js';
 import {
@@ -58,6 +62,47 @@ interface WindowBindingRow {
   readonly connect_receipt: string | null;
   readonly revision: number;
 }
+function ordinaryWindowReadContext(options: Parameters<typeof readOrdinaryWindowBatch>[0]) {
+  const { store, taskId, rootSessionId, clock } = options;
+  const selection = ordinaryWindowSelection(store, taskId);
+  if (!selection) throw new Error('ordinary_preparation_required');
+  const row = store.get<WindowBindingRow>(
+    `SELECT b.*,s.revision FROM session_bindings b
+    JOIN binding_root_segments s ON s.root_session_id=b.session_id WHERE b.session_id=? AND b.task_id=?`,
+    [rootSessionId, taskId]
+  );
+  if (!row) {
+    assertOrdinaryWindowAuthority(store, { taskId, rootSessionId, clock });
+    throw new Error('binding_scope_revoked');
+  }
+  const decision = readOrdinaryWindowDecision(store, ordinaryWindowDecisionKeyForSelection(selection));
+  const scope: OrdinaryWindowScope = {
+    taskId,
+    rootSessionId,
+    generation: row.generation,
+    segmentRevision: row.revision,
+    cursor: row.cursor,
+    clock,
+    ...(decision === null ? {} : { decisionRef: decision.decision_ref })
+  };
+  try {
+    assertOrdinaryWindowAuthority(store, scope);
+  } catch (error) {
+    if (!(error instanceof Error)) throw error;
+    terminateOrdinaryWindowTrial(store, scope, {
+      at: clock(),
+      reason:
+        error.message === 'binding_window_trial_expired'
+          ? 'trial_expired'
+          : error.message === 'binding_window_trial_budget_exhausted'
+            ? 'trial_budget_exhausted'
+            : 'trial_failed'
+    });
+    throw error;
+  }
+  const identity = VerifiedSessionIdentitySchema.parse(JSON.parse(row.identity));
+  return { selection, row, scope, identity };
+}
 export async function readOrdinaryWindowBatch(options: {
   readonly store: Store;
   readonly taskId: string;
@@ -67,31 +112,13 @@ export async function readOrdinaryWindowBatch(options: {
   readonly clock: () => string;
 }): Promise<void> {
   const { store, taskId, rootSessionId, baseline, clock } = options;
-  const selection = assertOrdinaryWindowAuthority(store, {
-    taskId,
-    rootSessionId
-  });
-  const row = store.get<WindowBindingRow>(
-    `SELECT b.*,s.revision FROM session_bindings b
-    JOIN binding_root_segments s ON s.root_session_id=b.session_id WHERE b.session_id=? AND b.task_id=?`,
-    [rootSessionId, taskId]
-  );
-  if (!row) throw new Error('binding_scope_revoked');
-  const identity = VerifiedSessionIdentitySchema.parse(JSON.parse(row.identity));
-  const scope: OrdinaryWindowScope = {
-    taskId,
-    rootSessionId,
-    generation: row.generation,
-    segmentRevision: row.revision,
-    cursor: row.cursor
-  };
+  const { selection, row, scope, identity } = ordinaryWindowReadContext(options);
   const authorize = (input = identity): void => {
     assertOrdinaryWindowAuthority(store, scope);
     if (bindingIdentityKey(input) !== bindingIdentityKey(identity) || input.parentSessionId !== null || input.nativeMapping?.agentId != null) {
       throw new Error('binding_root_only_required');
     }
   };
-  authorize();
   const staged = new Set<string>();
   const keyFor = (requestId: string) => hash(['binding-request-v1', identity.product, requestId]);
   const ledger = {
@@ -116,6 +143,7 @@ export async function readOrdinaryWindowBatch(options: {
     }
   };
   try {
+    authorize();
     const provider = options.provider(authorize, scope);
     authorize();
     if (!provider) throw new Error('binding_provider_unavailable');
@@ -162,6 +190,11 @@ export async function readOrdinaryWindowBatch(options: {
     const { records, excluded, coverage } = parseWindowBatch(batch, identity, at);
     store.immediateTransaction(() => {
       authorize();
+      const trialCharge = stageOrdinaryWindowTrialCharge(store, selection, {
+        rootSessionId,
+        sourceIdentity: identity.sourceIdentity,
+        records: [...records, ...excluded].map(record => ({ key: keyFor(record.requestId), record }))
+      });
       pinSessionCompatibility(store, rootSessionId, ordinaryWindowCompatibility(store, taskId));
       for (const record of excluded) ledger.add(record.requestId);
       for (const record of records) {
@@ -190,7 +223,11 @@ export async function readOrdinaryWindowBatch(options: {
       if (batch.gaps.length) {
         recordObservationGap(store, taskId, rootSessionId, row.observed_since, at, 'incomplete', at);
       }
+      authorize();
       store.execute('UPDATE session_bindings SET cursor=? WHERE session_id=?', [batch.cursor, rootSessionId]);
+      if (commitOrdinaryWindowTrialCharge(store, trialCharge)) {
+        terminateOrdinaryWindowTrial(store, { ...scope, cursor: batch.cursor }, { at, reason: 'trial_budget_exhausted' });
+      }
     });
   } catch (error) {
     if (!(error instanceof Error)) throw error;
@@ -203,17 +240,31 @@ export async function readOrdinaryWindowBatch(options: {
 }
 function rejectOrdinaryWindowBatch(store: Store, scope: OrdinaryWindowScope, rejection: { readonly error: Error; readonly at: string }): void {
   store.immediateTransaction(() => {
+    if (['binding_window_trial_expired', 'binding_window_trial_budget_exhausted'].includes(rejection.error.message)) {
+      terminateOrdinaryWindowTrial(store, scope, {
+        at: rejection.at,
+        reason: rejection.error.message === 'binding_window_trial_expired' ? 'trial_expired' : 'trial_budget_exhausted'
+      });
+      return;
+    }
     try {
       assertOrdinaryWindowAuthority(store, scope);
     } catch (error) {
       if (!(error instanceof Error)) throw error;
+      if (['binding_window_trial_expired', 'binding_window_trial_budget_exhausted'].includes(error.message)) {
+        terminateOrdinaryWindowTrial(store, scope, {
+          at: rejection.at,
+          reason: error.message === 'binding_window_trial_expired' ? 'trial_expired' : 'trial_budget_exhausted'
+        });
+      }
       return;
     }
     const semantic = contractFailures.has(rejection.error.message);
     if (semantic) {
       invalidateCompatibility(store, ordinaryWindowCompatibility(store, scope.taskId), 'contract_failed');
     }
-    pauseOrdinaryWindowSegment(store, scope.taskId, rejection.at, semantic ? 'compatibility_invalidated' : 'binding_scope_revoked');
+    if (!terminateOrdinaryWindowTrial(store, scope, { at: rejection.at, reason: 'trial_failed' }))
+      pauseOrdinaryWindowSegment(store, scope.taskId, rejection.at, semantic ? 'compatibility_invalidated' : 'binding_scope_revoked');
   });
 }
 function parseWindowBatch(batch: OrdinaryWindowUsageBatch, identity: VerifiedSessionIdentity, at: string) {

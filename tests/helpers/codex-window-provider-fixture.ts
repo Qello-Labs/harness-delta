@@ -9,6 +9,7 @@ import { collectOrdinaryCodexWindow, connectOrdinaryCodexWindow } from '../../sr
 import { ordinaryWindowRuntimeRevision, ordinaryWindowSelection } from '../../src/core/ordinary-window-store.js';
 import { CodexWindowPendingReceiptSchema } from '../../src/session-binding-codex.js';
 import { codexWindowControl, runCodexWindowHook } from './codex-window-hook-fixture.js';
+import { activateOrdinaryWindowDecision } from '../../src/core/ordinary-window-activation.js';
 
 export const codexWindowJsonl = (rows: readonly unknown[]) => rows.map(row => JSON.stringify(row)).join('\n') + '\n';
 
@@ -58,23 +59,26 @@ function prepareFixture(input: { readonly version?: string; readonly activate?: 
   const selection = ordinaryWindowSelection(store, taskId);
   if (!selection) throw new Error('fixture_selection_missing');
   const activate = () =>
-    store.execute(
-      `INSERT INTO ordinary_window_activations(project_id,product,source,policy_id,policy_revision,policy_digest,evidence_mode,
-      accepted_risks,implementation_revision,evidence_ref,review_ref,decided_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
-      [
-        selection.projectId,
-        'codex',
-        selection.policy.source,
-        selection.policy.policyId,
-        selection.policy.ruleRevision,
-        selection.policyDigest,
-        selection.policy.evidenceMode,
-        JSON.stringify(['source_identity_limits', 'root_ownership_unverified']),
-        ordinaryWindowRuntimeRevision,
-        'synthetic-evidence',
-        'synthetic-review',
-        clock()
-      ]
+    activateOrdinaryWindowDecision(
+      store,
+      {
+        schema_version: 1,
+        kind: 'ordinary_window_activation',
+        decision_kind: 'product',
+        decision_ref: 'synthetic-decision',
+        project_id: selection.projectId,
+        product: 'codex',
+        source: selection.policy.source,
+        policy_id: selection.policy.policyId,
+        policy_revision: selection.policy.ruleRevision,
+        policy_digest: selection.policyDigest,
+        evidence_mode: selection.policy.evidenceMode,
+        accepted_risks: ['source_identity_limits', 'root_ownership_unverified'],
+        implementation_revision: ordinaryWindowRuntimeRevision,
+        evidence_ref: 'synthetic-evidence',
+        review_ref: 'synthetic-review'
+      },
+      clock()
     );
   if (input.activate !== false) activate();
   return {

@@ -74,9 +74,8 @@ interface AssessmentFields {
     readonly path: 'codex-rs/core/src/session/mod.rs' | 'codex-rs/protocol/src/protocol.rs' | 'CHANGELOG.md';
     readonly availability: 'not_assessed';
   }[];
-  readonly rule_revision: 'static-assessment-v1';
 }
-export type Assessment = AssessmentFields & (
+type LegacyAssessment = AssessmentFields & { readonly rule_revision: 'static-assessment-v1' } & (
   { readonly lanes: readonly AssessmentLane[] } & (
   { readonly schema_version: 1 } |
   { readonly schema_version: 2; readonly inventory_scope: 'legacy_full_inventory' | 'latest_and_npm_review_range' } |
@@ -90,6 +89,13 @@ export type Assessment = AssessmentFields & (
     readonly review_ids: readonly string[]; readonly unused_review_ids: readonly string[];
     readonly lanes: readonly (AssessmentLane & { readonly selection_policy: SelectionPolicy })[];
   }
+);
+export type Assessment = LegacyAssessment | AssessmentFields & { readonly rule_revision: 'static-assessment-v2' } & (
+  { readonly schema_version: 5; readonly inventory_scope: 'legacy_full_inventory' | 'latest_and_npm_review_range';
+    readonly lanes: readonly AssessmentLane[] } |
+  { readonly schema_version: 6; readonly inventory_scope: 'legacy_full_inventory' | 'latest_and_npm_review_range';
+    readonly review_ids: readonly string[]; readonly unused_review_ids: readonly string[];
+    readonly lanes: readonly (AssessmentLane & { readonly selection_policy: SelectionPolicy })[] }
 );
 export const assessmentSchema: z.ZodType<Assessment>;
 export function assessCandidate(input: {

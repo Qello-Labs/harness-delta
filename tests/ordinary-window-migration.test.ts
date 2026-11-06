@@ -151,7 +151,7 @@ it('preserves every historical row and serialized pin without deletion or pause 
   previous.close();
   const store = new Store(file);
   try {
-    expect(store.get<{ user_version: number }>('PRAGMA user_version')?.user_version).toBe(36);
+    expect(store.get<{ user_version: number }>('PRAGMA user_version')?.user_version).toBe(37);
     const migrated = new Database(file);
     try {
       const after = historicalRows(migrated);

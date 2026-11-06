@@ -1,3 +1,4 @@
+export { aggregateOrdinaryWindowMetrics as readOrdinaryWindowBindingReport } from './pricing/metrics-ordinary-window.js';
 import { execFileSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { z } from 'zod';
@@ -18,10 +19,11 @@ import { BindingUsageRecordSchema, bindingIdentityKey, CurrentIdentityRequestSch
 import type { CandidateScope } from './nested-candidate.js';
 import type { UsageEvent } from './flexible-contracts.js';
 import type { Store } from './store.js';
+import { ordinaryWindowDecisionKeyForSelection, readOrdinaryWindowDecision } from './core/ordinary-window-activation.js';
 import { assertOrdinaryWindowSurfaceClosed, ordinaryWindowSelection } from './core/ordinary-window-store.js';
 import { readOrdinaryWindowBatch } from './ordinary-window-binding.js';
 import { CodexWindowSessionBindingProvider, type CodexWindowPendingReceipt } from './session-binding-codex.js';
-import { assertOrdinaryWindowAuthority, issueCodexWindowSourceAuthorization, pauseOrdinaryWindowSegment, recordOrdinaryWindowSegment,
+import { assertOrdinaryWindowAuthority, issueCodexWindowSourceAuthorization, pauseOrdinaryWindowSegment, recordOrdinaryWindowSegment, terminateOrdinaryWindowTrial,
   type CodexWindowSourceAuthorization, type OrdinaryWindowScope } from './core/ordinary-window-store.js';
 
 interface BindingRow {
@@ -670,6 +672,8 @@ function reserveCodexWindowRoot(
   const { store, taskId } = options;
   return store.immediateTransaction(() => {
     const context = authorization();
+    assertOrdinaryWindowAuthority(store, { taskId, generation, nativeRootId: pending.nativeSessionId,
+      decisionRef: context.decisionRef, clock: options.clock ?? utcNow });
     if (JSON.stringify(selectedCodexWindowRoot(store, taskId)) !== JSON.stringify(previous)) throw new Error('binding_scope_revoked');
     if (pending.event !== 'SessionStart' || pending.nativeRootSessionId !== pending.nativeSessionId || pending.agentId !== null || pending.turnId !== null) {
       throw new Error('binding_root_only_required');
@@ -717,7 +721,9 @@ function reserveCodexWindowRoot(
         taskId,
         rootSessionId,
         generation,
-        segmentRevision: 0
+        segmentRevision: 0,
+        decisionRef: context.decisionRef,
+        clock: options.clock ?? utcNow
       },
       'acquiring'
     );
@@ -746,30 +752,31 @@ export async function connectOrdinaryCodexWindow(
   const { store, taskId } = options;
   const clock = options.clock ?? utcNow;
   const generation = new Lifecycle(store, clock).task(taskId).generation;
-  const metadataAuthorization = issueCodexWindowSourceAuthorization(
-    store,
-    {
-      taskId,
-      generation
-    },
-    'metadata'
-  );
-  const previous = selectedCodexWindowRoot(store, taskId);
-  const pending = codexWindowProvider(options, metadataAuthorization).pendingReceipt(input);
-  const at = TimestampSchema.parse(clock());
-  const reservation = reserveCodexWindowRoot(options, pending, generation, metadataAuthorization, previous, at);
-  if (reservation.rejected) throw new Error('binding_fresh_root_required');
-  const scope: OrdinaryWindowScope = {
-    taskId,
-    rootSessionId: reservation.rootSessionId,
-    generation,
-    segmentRevision: 0
-  };
-  const authorization = issueCodexWindowSourceAuthorization(store, scope, 'acquiring');
+  const selection = ordinaryWindowSelection(store, taskId);
+  const decision = selection ? readOrdinaryWindowDecision(store, ordinaryWindowDecisionKeyForSelection(selection)) : null;
+  let scope: OrdinaryWindowScope = { taskId, generation, clock, ...(decision === null ? {} : { decisionRef: decision.decision_ref }) };
+  let authorization: CodexWindowSourceAuthorization | undefined;
   try {
-    const proof = await codexWindowProvider(options, authorization).inspectWindowCurrent(input);
+    const metadataAuthorization = issueCodexWindowSourceAuthorization(
+      store,
+      scope,
+      'metadata'
+    );
+    const previous = selectedCodexWindowRoot(store, taskId);
+    const pending = codexWindowProvider(options, metadataAuthorization).pendingReceipt(input);
+    const at = TimestampSchema.parse(clock());
+    const reservation = reserveCodexWindowRoot(options, pending, generation, metadataAuthorization, previous, at);
+    if (reservation.rejected) throw new Error('binding_fresh_root_required');
+    scope = {
+      ...scope,
+      rootSessionId: reservation.rootSessionId,
+      segmentRevision: 0
+    };
+    const acquiringAuthorization = issueCodexWindowSourceAuthorization(store, scope, 'acquiring');
+    authorization = acquiringAuthorization;
+    const proof = await codexWindowProvider(options, acquiringAuthorization).inspectWindowCurrent(input);
     store.immediateTransaction(() => {
-      authorization();
+      acquiringAuthorization();
       if (proof.mode !== 'codex_source_only') {
         throw new Error('binding_identity_mismatch');
       }
@@ -806,22 +813,31 @@ export async function connectOrdinaryCodexWindow(
       );
       store.execute("UPDATE binding_root_segments SET state='observing',revision=revision+1 WHERE root_session_id=?", [reservation.rootSessionId]);
     });
+    scope = { ...scope, segmentRevision: 1, cursor: null };
     await collectOrdinaryCodexWindow(options, reservation.rootSessionId, true);
     assertOrdinaryWindowAuthority(store, {
       taskId,
       rootSessionId: reservation.rootSessionId,
-      generation
+      generation,
+      clock,
+      ...(scope.decisionRef === undefined ? {} : { decisionRef: scope.decisionRef })
     });
     return {
       rootSessionId: reservation.rootSessionId,
       automatic_children: false
     };
   } catch (error) {
+    if (!(error instanceof Error)) throw error;
+    if (['binding_window_trial_expired', 'binding_window_trial_budget_exhausted'].includes(error.message) ||
+      scope.rootSessionId === undefined || scope.segmentRevision === 0) {
+      terminateOrdinaryWindowTrial(store, scope, { at: clock(), reason: error.message === 'binding_window_trial_expired' ? 'trial_expired' :
+        error.message === 'binding_window_trial_budget_exhausted' ? 'trial_budget_exhausted' : 'trial_failed' });
+    }
     store.immediateTransaction(() => {
       let current = false;
       try {
-        authorization();
-        current = true;
+        authorization?.();
+        current = authorization !== undefined;
       } catch (failure) {
         if (!(failure instanceof Error)) throw failure;
       }

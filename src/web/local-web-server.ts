@@ -13,6 +13,7 @@ import { join, sep } from 'node:path';
 import Fastify, { type FastifyRequest, type FastifyReply } from 'fastify';
 import Database from 'better-sqlite3';
 import { z } from 'zod';
+import { registerLocalWebTaskReadRoutes } from './local-web-ordinary-window-report.js';
 import { OrdinaryProjectActionSchema, type OrdinaryProjectAction } from './local-web-ordinary.js';
 import { CodexProjectActionSchema, type CodexProjectAction } from './local-web-codex.js';
 import type { Store } from '../store.js';
@@ -26,6 +27,7 @@ export interface LocalWebDomain {
   readonly metadataStore: Store;
   bootstrap(): unknown;
   task(id: string): { version: string } & Record<string, unknown>;
+  ordinaryWindowReport?(this: void, taskId: string, cutoff: string): unknown;
   registerProject(directory: string): Promise<unknown>;
   createTask(input: LocalWebCreateTaskInput): Promise<unknown>;
   ordinaryProject?(this: void, projectId: string): unknown;
@@ -403,12 +405,8 @@ export function createLocalWebServer(options: LocalWebOptions) {
     if (!options.domain.applicationReview) throw new Error('application_required');
     return options.domain.applicationReview(taskId);
   });
+  registerLocalWebTaskReadRoutes(app, options.domain, id);
   app.get('/api/bootstrap', async () => ({ csrf, data: await options.domain.bootstrap() }));
-  app.get<{ Params: { id: string } }>('/api/tasks/:id', (request, reply) => {
-    const task = options.domain.task(id.parse(request.params.id));
-    reply.header('ETag', task.version);
-    return task;
-  });
   const mutation = async <T>(
     request: { body: unknown; url: string; headers: Record<string, unknown> },
     parse: (input: unknown) => T,

@@ -59,7 +59,7 @@ const unusedReview = () => ({
 });
 async function reviewed(input = fixture(), baseline?: Baseline) {
   const result = await assessCandidate({ ...input, reviews: [unusedReview()], ...(baseline ? { baseline } : {}) });
-  if (result.schema_version !== 4) throw new Error('schema_4_required');
+  if (result.schema_version !== 6) throw new Error('schema_6_required');
   return result;
 }
 function syntheticRegistry(base?: string): SourceRegistry {
@@ -105,7 +105,7 @@ function review(sourceDigest = 'b'.repeat(64)): ContractReview {
   };
 }
 
-test('reviewed schema 4 preserves every schema 3 lane field when selection policy is removed', async () => {
+test('reviewed schema 6 preserves every schema 3 lane field when selection policy is removed', async () => {
   // Given
   const input = fixture();
   const plain = await assessCandidate(input);
@@ -128,8 +128,8 @@ test('reviewed schema 4 preserves every schema 3 lane field when selection polic
   const result = await assessCandidate({ ...input, baseline, reviews: [record] });
 
   // Then
-  expect(result.schema_version).toBe(4);
-  if (result.schema_version !== 4) throw new Error('schema_4_required');
+  expect(result.schema_version).toBe(6);
+  if (result.schema_version !== 6) throw new Error('schema_6_required');
   expect(result.lanes).toHaveLength(36);
   const previousLanes = result.lanes
     .filter(row => row.profile_id !== 'codex-binding-01660-direct-family-v1')
@@ -144,7 +144,7 @@ test('reviewed schema 4 preserves every schema 3 lane field when selection polic
   expect(digest(plain.lanes.filter(row => row.profile_id !== 'codex-binding-01660-direct-family-v1'))).toBe(
     '356ee379727d6dcdfd211428b62ea7ef21151134075979bf40a7a71c8271d228'
   );
-  expect(plain.schema_version).toBe(2);
+  expect(plain.schema_version).toBe(5);
   expect(plain.lanes.every(row => !('selection_policy' in row))).toBe(true);
 });
 
@@ -244,7 +244,7 @@ test('an unmatched selection state fails through the existing invalid-record pat
   await expect(reviewed()).rejects.toMatchObject({ code: 'invalid_record' });
 });
 
-test('schema 4 strictly rejects missing fields and unknown policy fields or values', async () => {
+test('schema 6 strictly rejects missing fields and unknown policy fields or values', async () => {
   // Given
   const result = await reviewed();
   const first = result.lanes[0];

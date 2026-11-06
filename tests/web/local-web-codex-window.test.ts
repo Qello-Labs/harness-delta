@@ -56,7 +56,7 @@ function fixture(authority: 'absent' | 'revoked' | 'wrong_product' | 'valid' = '
     if (!activation) throw new Error('fixture_activation_missing');
     store.execute(
       `INSERT INTO ordinary_window_activations(project_id,product,source,policy_id,policy_revision,policy_digest,evidence_mode,
-      accepted_risks,implementation_revision,evidence_ref,review_ref,decided_at,revoked_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      accepted_risks,implementation_revision,evidence_ref,review_ref,decided_at,revoked_at,decision_ref,decision_kind) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
         selection.projectId,
         activation.policy.product,
@@ -70,7 +70,9 @@ function fixture(authority: 'absent' | 'revoked' | 'wrong_product' | 'valid' = '
         'synthetic-evidence',
         'synthetic-review',
         clock(),
-        authority === 'revoked' ? clock() : null
+        authority === 'revoked' ? clock() : null,
+        'synthetic-decision',
+        'product'
       ]
     );
   }

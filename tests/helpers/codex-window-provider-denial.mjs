@@ -57,7 +57,7 @@ try {
     }
     store.execute(
       `INSERT INTO ordinary_window_activations(project_id,product,source,policy_id,policy_revision,policy_digest,evidence_mode,
-      accepted_risks,implementation_revision,evidence_ref,review_ref,decided_at,revoked_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      accepted_risks,implementation_revision,evidence_ref,review_ref,decided_at,revoked_at,decision_ref,decision_kind) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
         input.authority === 'wrong_project' ? 'other' : selection.projectId,
         input.authority === 'wrong_product' ? 'claude_code' : 'codex',
@@ -71,7 +71,9 @@ try {
         'synthetic-evidence',
         'synthetic-review',
         clock(),
-        input.authority === 'revoked' ? clock() : null
+        input.authority === 'revoked' ? clock() : null,
+        'synthetic-decision',
+        'product'
       ]
     );
   }

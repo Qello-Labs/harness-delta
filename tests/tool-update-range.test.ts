@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { expect, test } from 'vitest';
 import { discover, observationSchema } from '../scripts/tool-update/discovery.mjs';
 import { assessCandidate, assessmentSchema } from '../scripts/tool-update/assessment.mjs';
+import { legacySourcePathAllowlist } from '../scripts/tool-update/source-snapshot.mjs';
 import { fixture, now, privateText, release } from './tool-update-discovery-fixture.js';
 
 test.each([
@@ -45,7 +46,13 @@ test.each([1, 2])('preserves observation scope from schema %i in static assessme
     observation
   });
 
-  expect(assessment).toMatchObject({ schema_version: 2, inventory_scope: schema === 1 ? 'legacy_full_inventory' : 'latest_and_npm_review_range' });
+  expect(assessment).toMatchObject({
+    schema_version: 5,
+    rule_revision: 'static-assessment-v2',
+    inventory_scope: schema === 1 ? 'legacy_full_inventory' : 'latest_and_npm_review_range'
+  });
   const oldFields = Object.fromEntries(Object.entries(assessment).filter(([key]) => key !== 'inventory_scope'));
-  expect(assessmentSchema.safeParse({ ...oldFields, schema_version: 1 }).success).toBe(true);
+  expect(
+    assessmentSchema.safeParse({ ...oldFields, schema_version: 1, rule_revision: 'static-assessment-v1', source_paths: legacySourcePathAllowlist }).success
+  ).toBe(true);
 });

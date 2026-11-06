@@ -7,6 +7,8 @@ import { projectCatalogCost } from '../../catalog-cost-report.js';
 import { readPriceBasis } from '../../price-catalog-store.js';
 import type { Store } from '../../store.js';
 import { assertOrdinaryWindowSurfaceClosed } from '../../core/ordinary-window-store.js';
+import { hasOrdinaryWindowEvidence } from '../../core/ordinary-window-evidence.js';
+import { aggregateOrdinaryWindowMetrics } from '../../pricing/metrics-ordinary-window.js';
 
 export function aggregateOrdinaryTaskReport(store: Store, taskId: string, cutoff: string) {
   assertOrdinaryWindowSurfaceClosed(store, taskId);
@@ -90,4 +92,8 @@ export function aggregateOrdinaryTaskReport(store: Store, taskId: string, cutoff
       }
     };
   });
+}
+
+export function aggregateOrdinaryTaskReportV2(store: Store, taskId: string, cutoff: string) {
+  return hasOrdinaryWindowEvidence(store, taskId) ? aggregateOrdinaryWindowMetrics(store, taskId, cutoff) : aggregateOrdinaryTaskReport(store, taskId, cutoff);
 }

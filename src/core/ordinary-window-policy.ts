@@ -126,6 +126,7 @@ export const OrdinaryWindowSelectionSchema = z
     return resolved !== null && resolved.policyDigest === value.policyDigest && JSON.stringify(resolved.policy) === JSON.stringify(value.policy);
   });
 export type OrdinaryWindowSelection = z.infer<typeof OrdinaryWindowSelectionSchema>;
+export const ordinaryWindowSelectionHash = (value: OrdinaryWindowSelection): string => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const proofFields = {
   schemaVersion: z.literal(2),
   receipt: z.uuid(),

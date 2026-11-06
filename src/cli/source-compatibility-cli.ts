@@ -9,16 +9,11 @@ import {
   sourceCompatibilityWindows
 } from '../source-compatibility.js';
 import type { Store } from '../store.js';
-import { readOrdinaryWindowStatus } from '../comparison/reports/ordinary-window-state.js';
+import { registerOrdinaryWindowActivationCommands } from './ordinary-window-activation-cli.js';
 
 export function registerCompatibilityCommands(program: Command, db: () => Store, print: (value: unknown) => void): void {
   const compatibility = program.command('compatibility').description('Source parser compatibility and local invalidation');
-  compatibility
-    .command('ordinary-window')
-    .command('status <task-id>')
-    .action((taskId: string) => {
-      print(readOrdinaryWindowStatus(db(), taskId));
-    });
+  registerOrdinaryWindowActivationCommands(compatibility.command('ordinary-window'), db, print);
   compatibility.command('status').action(() => {
     print({
       rule_revision: compatibilityRuleRevision,
