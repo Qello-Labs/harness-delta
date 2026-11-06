@@ -43,6 +43,18 @@ import { getCodexBindingAdmission, isAdmittedCodexBindingProtocol } from '../cod
 import { setTimeout as delay } from 'node:timers/promises';
 import { TimestampSchema } from '../contracts.js';
 import { implementationPath, packagePath } from '../package-paths.js';
+import { lookupToolVersionProfile, toolVersionIdentity, toolVersionRecipe } from '../core/tool-version-profiles.js';
+
+function bindingRecipe(version: string) {
+  const recipe = lookupToolVersionProfile('codex', version)
+    ?.qualificationRecipes.map(toolVersionRecipe)
+    .find(row => row.kind === 'codex_binding');
+  if (!recipe) throw new Error('binding_qualification_invalid_intent');
+  return recipe;
+}
+function explicitBindingScenarios(version: string): boolean {
+  return bindingRecipe(version).scenarioVariant === 'codex_01660_explicit_scenarios_v1';
+}
 
 const hash = (value: string | Buffer) => createHash('sha256').update(value).digest('hex');
 const path = z
@@ -60,7 +72,7 @@ const postConnectInput =
 const rootPostConnectInput =
   'Return a short acknowledgement in a fresh root context, then stop this turn. Do not spawn children, make tool calls, reconnect or do other work. Keep this root work turn within three model requests.';
 function scenarioChildren(version: string, route: string, scenario: unknown): 0 | 2 {
-  if (version === '0.166.0') {
+  if (explicitBindingScenarios(version)) {
     if (route !== 'ordinary_admission' || !scenarioSchema.safeParse(scenario).success) throw new Error('binding_qualification_invalid_intent');
     return scenario === 'root_normal_observer_restart' ? 0 : 2;
   }
@@ -143,8 +155,11 @@ function privateBytes(file: string, max: number): Buffer {
   return readFileSync(file);
 }
 function binaryBytes(file: string, version: Intent['product_version'], synthetic: boolean): Buffer {
-  const bytes = privateBytes(file, version === '0.166.0' ? 268972064 : 256 * 1024 * 1024);
-  if (version === '0.166.0' && !synthetic && bytes.length !== 268972064) throw new Error('binding_qualification_binary_mismatch');
+  const image = toolVersionIdentity(bindingRecipe(version).imageIdentity);
+  if (image.maxBytes === undefined) throw new Error('binding_qualification_binary_mismatch');
+  const bytes = privateBytes(file, image.maxBytes);
+  if (image.exactBytes !== undefined && (image.exactSizeMode === 'always' || !synthetic) && bytes.length !== image.exactBytes)
+    throw new Error('binding_qualification_binary_mismatch');
   return bytes;
 }
 function packageDigest(root: string): string {
@@ -536,13 +551,13 @@ export async function prepareCodexSessionBindingQualification(
       duration_ms: fixture?.durationMs ?? policy.durationMs,
       fixture_script: fixture ? realpathSync(fixture.script) : null,
       fixture_sha256: fixture ? hash(privateBytes(fixture.script, 65536)) : null,
-      root_model: 'gpt-6.1-sol',
-      child_model: 'gpt-6.1-sol',
-      effort: 'high',
+      root_model: bindingRecipe(productVersion).model,
+      child_model: bindingRecipe(productVersion).model,
+      effort: bindingRecipe(productVersion).effort,
       planned_roots: 1,
       planned_children: 2,
       root_request_stop: policy.rootRequestStop,
-      child_request_stop: 1,
+      child_request_stop: bindingRecipe(productVersion).childRequestStop,
       ui_preparation_required: uiPreparation,
       observed_request_stop: policy.totalRequestStop,
       observed_token_stop: policy.tokenStop,
@@ -809,7 +824,7 @@ async function independentSourceCheck(
     projectRoot: i.project,
     productVersion: i.product_version,
     maxDepth: 1,
-    maxFamilyMembers: i.product_version === '0.166.0' && i.planned_children === 0 ? 1 : 3,
+    maxFamilyMembers: explicitBindingScenarios(i.product_version) && i.planned_children === 0 ? 1 : 3,
     ...(i.route === 'ordinary_admission'
       ? { ordinaryFamilyAdmission: true }
       : networkQualification(i.product_version)
@@ -855,7 +870,7 @@ async function independentSourceCheck(
     if (family.gaps.length || family.children.some(c => !identities.some(v => JSON.stringify(v) === JSON.stringify(c.identity))))
       throw new Error('binding_qualification_family_limit');
     active();
-    if (i.product_version === '0.166.0' && i.scenario && identity.sessionId === root.sessionId) {
+    if (bindingRecipe(i.product_version).restartWitnessVariant === 'codex_strict_post_boundary_v1' && i.scenario && identity.sessionId === root.sessionId) {
       let fresh: boolean;
       try {
         const bytes = privateBytes(identity.sourceRef, 8 * 1024 * 1024);
@@ -899,11 +914,14 @@ async function independentSourceCheck(
     if (byKey.has(key)) throw new Error('binding_qualification_request_conflict');
     byKey.set(key, record);
   }
-  const finalStopReached = (value: number, stop: number) => (i.product_version === '0.166.0' ? value >= stop : value > stop);
+  const finalStopReached = (value: number, stop: number) =>
+    bindingRecipe(i.product_version).finalStopVariant === 'greater_or_equal' ? value >= stop : value > stop;
   if (
     finalStopReached(records.length, i.observed_request_stop) ||
     finalStopReached(records.filter(r => r.sessionId === root.sessionId).length, i.root_request_stop) ||
-    identities.filter(v => v.parentSessionId !== null).some(v => records.filter(r => r.sessionId === v.sessionId).length > 1)
+    identities
+      .filter(v => v.parentSessionId !== null)
+      .some(v => records.filter(r => r.sessionId === v.sessionId).length > bindingRecipe(i.product_version).childRequestStop)
   )
     throw new Error('binding_qualification_request_limit');
   if (
@@ -1102,7 +1120,7 @@ export async function executeCodexSessionBindingQualification(file: string, cons
       ...(i.route === 'ordinary_admission'
         ? {
             bindingObservation: {
-              ...(i.product_version === '0.166.0' && i.planned_children === 0 ? { maxFamilyMembers: 1 as const } : {}),
+              ...(explicitBindingScenarios(i.product_version) && i.planned_children === 0 ? { maxFamilyMembers: 1 as const } : {}),
               identity(taskId, identity) {
                 assertOrdinarySnapshot(i, store);
                 checkBindingQualificationIdentity(safetyLease, store, taskId, identity, true);

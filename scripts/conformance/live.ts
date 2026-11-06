@@ -1,4 +1,5 @@
 import type { EvidenceIdentity } from './admission.js';
+import { toolVersionRecipe } from '../../src/core/tool-version-profiles.js';
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { codex01580Candidate, compareCandidate, type ConformanceCandidate } from './candidate.js';
@@ -16,7 +17,7 @@ export const livePrompts = {
   initial: 'Reply with exactly one word: ready',
   resume: 'Reply with exactly one word: again',
 } as const;
-const expectedVersion = '0.158.0';
+const expectedVersion = toolVersionRecipe('codex-file-conformance-01580').version;
 const runLimitMs = 180_000;
 const versionLimitMs = 30_000;
 const hookGraceMs = 1_000;

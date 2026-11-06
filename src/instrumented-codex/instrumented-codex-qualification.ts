@@ -12,25 +12,36 @@ import { InstrumentedBuildIdentitySchema, InstrumentedProducerProfileSchema } fr
 import { runInstrumentedCodexConformance } from './instrumented-codex-conformance.js';
 import { IdSchema } from '../contracts.js';
 import { implementationExtension, implementationPath, packagePath } from '../package-paths.js';
+import { toolVersionIdentity, toolVersionRecipe } from '../core/tool-version-profiles.js';
 
-const upstreamCommit = '092d3acd6bec3e3a14bdc7e7a2810ab628ab759d';
-const target = 'aarch64-apple-darwin';
+const instrumented = (() => {
+  const recipe = toolVersionRecipe('codex-instrumented-01621');
+  if (recipe.kind !== 'codex_instrumented') throw new Error('instrumented_recipe_invalid');
+  return recipe;
+})();
+
+const upstreamCommit = z.literal('092d3acd6bec3e3a14bdc7e7a2810ab628ab759d').parse(instrumented.sourceRef);
+const target = instrumented.target;
 const acceptedCompiler = {
-  distributionManifest: '821ff14e4c4a1cbe1e8915f35aff0a3fbbdf8d293ad48ab8f31e3b0440c581f9',
-  installedTree: '04052d94aa9c3f55c1f162486258f1a4e475ddd6d5908f80426032d586ca1590'
+  distributionManifest: z
+    .literal('821ff14e4c4a1cbe1e8915f35aff0a3fbbdf8d293ad48ab8f31e3b0440c581f9')
+    .parse(toolVersionIdentity(instrumented.compilerManifestIdentity).sha256),
+  installedTree: z
+    .literal('04052d94aa9c3f55c1f162486258f1a4e475ddd6d5908f80426032d586ca1590')
+    .parse(toolVersionIdentity(instrumented.compilerTreeIdentity).sha256)
 } as const;
 const recipe = {
-  version: 1,
+  version: instrumented.recipeVersion,
   upstreamCommit,
   target,
-  rust: '1.95.0',
-  command: ['build', '--locked', '--offline', '--target', target, '-p', 'codex-cli', '--bin', 'codex'],
-  profile: 'dev',
-  incremental: false,
-  debug: 0,
-  transport: IdSchema.parse('http1-responses-no-redirect-no-implicit-retry-no-pool-v1'),
-  counter: IdSchema.parse('presence-preserving-disjoint-tokens-v1'),
-  configuration: IdSchema.parse('fresh-root-direct-v2-two-children-gpt-61-sol-high-telemetry-off-v1'),
+  rust: instrumented.toolchainVersion,
+  command: [...instrumented.command],
+  profile: instrumented.buildProfile,
+  incremental: instrumented.incremental,
+  debug: instrumented.debug,
+  transport: IdSchema.parse(instrumented.transportContract),
+  counter: IdSchema.parse(instrumented.counterContract),
+  configuration: IdSchema.parse(instrumented.configurationPolicy),
   acceptedCompiler
 } as const;
 
@@ -64,17 +75,20 @@ const ownModules = [
   'instrumented-codex/instrumented-codex-build-identity',
   'instrumented-codex/instrumented-codex-cost',
   'instrumented-codex/instrumented-codex-usage',
-  'package-paths'
+  'package-paths',
+  'core/tool-version-profiles'
 ];
 // Cached modules must never be fingerprinted as a package update that occurs during Cargo.
 const loadedReceiverDigests = ownModules.map(name => ({
   name,
   digest: sha(readFileSync(implementationPath(name + implementationExtension)))
 }));
+for (const name of ['core/tool-version-profiles.json', 'core/tool-version-recipes.json', 'core/tool-version-identities.json'])
+  loadedReceiverDigests.push({ name, digest: sha(readFileSync(implementationPath(name))) });
 
 export async function assertInstrumentedReceiverUnchanged(): Promise<void> {
   for (const { name, digest } of loadedReceiverDigests) {
-    if (digest !== sha(await readFile(implementationPath(name + implementationExtension)))) {
+    if (digest !== sha(await readFile(implementationPath(name.endsWith('.json') ? name : name + implementationExtension)))) {
       throw new InstrumentedQualificationError('input_changed');
     }
   }
@@ -182,7 +196,7 @@ export function verifyInstrumentedWorkspaceLock(base: string, patched: string): 
     .map(block => {
       if (/^source = /m.test(block) || !/^version = "0\.0\.0"$/m.test(block)) return block;
       changed++;
-      return block.replace(/^version = "0\.0\.0"$/m, 'version = "0.162.1"');
+      return block.replace(/^version = "0\.0\.0"$/m, `version = "${instrumented.version}"`);
     })
     .join('[[package]]');
   if (changed !== 161 || expected !== patched) throw new InstrumentedQualificationError('lock_mismatch');
@@ -348,8 +362,8 @@ async function qualifyOwnedBuild(store: Store, input: unknown) {
       CARGO_TARGET_DIR: buildTarget,
       RUSTC: join(toolchain, 'bin/rustc'),
       RUSTDOC: join(toolchain, 'bin/rustdoc'),
-      CARGO_INCREMENTAL: '0',
-      CARGO_PROFILE_DEV_DEBUG: '0',
+      CARGO_INCREMENTAL: instrumented.incremental ? '1' : '0',
+      CARGO_PROFILE_DEV_DEBUG: String(instrumented.debug),
       CC: nativeTools.clang,
       CXX: nativeTools['clang++'],
       AR: nativeTools.ar,
@@ -370,7 +384,7 @@ async function qualifyOwnedBuild(store: Store, input: unknown) {
     )
       .toString('utf8')
       .trim();
-    if (version !== 'codex-cli 0.162.1') throw new InstrumentedQualificationError('input_changed');
+    if (version !== `codex-cli ${instrumented.version}`) throw new InstrumentedQualificationError('input_changed');
     const codeDigests = loadedReceiverDigests;
     const manifest = {
       recipe,
@@ -386,26 +400,26 @@ async function qualifyOwnedBuild(store: Store, input: unknown) {
     const manifestHash = instrumentedMetadataHash(manifest);
     const profile = InstrumentedProducerProfileSchema.parse({
       schema_version: 1,
-      profile_id: 'codex-instrumented-01621-http-direct-v2-v1',
+      profile_id: instrumented.profileId,
       upstream_commit: upstreamCommit,
-      upstream_version: '0.162.1',
-      product_version: '0.162.1',
+      upstream_version: instrumented.version,
+      product_version: instrumented.version,
       patched_source_digest: sourceDigest,
       dependency_lock_digest: source.dependencyLockDigest,
       build_manifest_digest: manifestHash,
       binary_sha256: binaryHash,
       target,
-      producer_protocol: 'harness-codex-accounting-v1',
+      producer_protocol: instrumented.producerProtocol,
       qualification_id: `native-localhost:${manifestHash}`,
       transport_contract_id: recipe.transport,
       operation_inventory_digest: source.patchDigest,
       counter_contract_id: recipe.counter,
       configuration_policy_id: recipe.configuration,
-      model: 'gpt-6.1-sol',
-      effort: 'high',
-      max_roots: 1,
-      max_direct_children: 2,
-      max_depth: 1
+      model: instrumented.model,
+      effort: instrumented.effort,
+      max_roots: instrumented.maxRoots,
+      max_direct_children: instrumented.maxDirectChildren,
+      max_depth: instrumented.maxDepth
     });
     const conformance = await runInstrumentedCodexConformance(binaryPath, profile, signal);
     if (

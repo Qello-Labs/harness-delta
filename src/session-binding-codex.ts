@@ -7,13 +7,17 @@ import { IdSchema, TimestampSchema } from './contracts.js';
 import { parseCodexCandidateRollout, type CodexCandidateSnapshot } from './codex-candidate-rollout.js';
 import { checkedCandidateScope, type CandidateScope } from './nested-candidate.js';
 import { resolveSourceCompatibility } from './source-compatibility.js';
-import { getCodexBindingAdmission, isQualifiedCodexBindingAdmission, isCodexGptModel } from './codex-binding-admission.js';
+import { getCodexBindingAdmission, isCodexGptModel } from './codex-binding-admission.js';
+import { lookupToolVersionProfile, orderedToolVersionProfiles } from './core/tool-version-profiles.js';
 import { bindingIdentityKey, CurrentIdentityRequestSchema, VerifiedSessionIdentitySchema, type BindingCapabilities, type BindingReadBoundary, type ChildDiscovery,
   type SessionBindingProvider, type UsageBatch, type VerifiedSessionIdentity } from './session-binding-contract.js';
 
 const hash = (bytes: string | Buffer) => createHash('sha256').update(bytes).digest('hex');
-export const codexRootPilotVersions = Object.freeze(['0.162.0', '0.162.1'] as const);
-const receiptVersionSchema = z.enum(['0.160.0', ...codexRootPilotVersions, '0.163.0', '0.166.0']);
+export const codexRootPilotVersions = Object.freeze(z.tuple([z.literal('0.162.0'), z.literal('0.162.1')]).parse(
+  orderedToolVersionProfiles('humanPilot', 'codex').filter(profile => profile.humanPilot?.maxFamilyMembers === 1).map(profile => profile.version)));
+const receiptProfiles = orderedToolVersionProfiles('receipt', 'codex');
+const receiptVersionSchema = z.enum(z.tuple([z.literal('0.160.0'), z.literal('0.162.0'), z.literal('0.162.1'), z.literal('0.163.0'), z.literal('0.166.0')]).parse(receiptProfiles.map(profile => profile.version)));
+const legacyProductVersion = z.string().parse(receiptProfiles.find(profile => profile.product === 'codex' && profile.receipt?.legacyDefault)?.version);
 const receiptSchema = z.strictObject({ schemaVersion: z.literal(1), receipt: z.uuid(), productVersion: receiptVersionSchema,
   event: z.enum(['SessionStart', 'SubagentStart']), sessionId: IdSchema, parentSessionId: IdSchema.nullable(), turnId: IdSchema.nullable(),
   nativeRootSessionId: IdSchema.optional(),
@@ -61,7 +65,7 @@ export function proposeCodexSessionBindingHooks(options: Pick<CodexSessionBindin
 }) {
   const paths = [options.nodeExecutable, options.scriptPath, options.receiptDirectory, options.projectRoot, ...options.sourceRoots];
   if (!options.sourceRoots.length || paths.some(path => !isAbsolute(path) || path.length > 4096 || path.includes(String.fromCharCode(0)) || /[\r\n]/.test(path))) throw new Error('binding_configuration_invalid');
-  const version = receiptVersionSchema.safeParse(options.productVersion ?? '0.160.0');
+  const version = receiptVersionSchema.safeParse(options.productVersion ?? legacyProductVersion);
   if (!version.success) throw new Error('binding_configuration_invalid');
   const quote = (value: string) => `'${value.replaceAll("'", "'\"'\"'")}'`;
   const command = [options.nodeExecutable, options.scriptPath, '--receipt-directory', options.receiptDirectory,
@@ -87,6 +91,7 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
   private readonly ordinaryRootPilot: boolean;
   private readonly ordinaryFamilyQualification: boolean;
   private readonly ordinaryFamilyAdmission: boolean;
+  private readonly rejectInheritedHistory: boolean;
   private readonly clock: () => string;
   private readonly maxDepth: number;
   private readonly maxReceipts: number;
@@ -94,7 +99,7 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
   private readonly maxFamilyMembers: number;
   private readonly cursorKey = randomBytes(32);
   constructor(options: CodexSessionBindingOptions) {
-    const version = receiptVersionSchema.safeParse(options.productVersion ?? '0.160.0');
+    const version = receiptVersionSchema.safeParse(options.productVersion ?? legacyProductVersion);
     if (!version.success) throw new Error('binding_configuration_invalid');
     this.productVersion = version.data;
     this.ordinaryRootPilot = options.ordinaryRootPilot === true;
@@ -108,22 +113,26 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
     this.maxDepth = options.maxDepth ?? 8; this.maxReceipts = options.maxReceipts ?? 1024; this.maxSourceBytes = options.maxSourceBytes ?? 8 * 1024 * 1024;
     this.maxFamilyMembers = options.maxFamilyMembers ?? 32;
     if(this.ordinaryRootPilot&&(!codexRootPilotVersions.some(version=>version===this.productVersion)||this.maxDepth!==1||this.maxFamilyMembers!==1))throw new Error('binding_configuration_invalid');
-    if(this.ordinaryFamilyQualification&&(!['0.162.1','0.163.0'].includes(this.productVersion)||this.ordinaryRootPilot||this.maxDepth!==1||this.maxFamilyMembers!==3))throw new Error('binding_configuration_invalid');
-    const admission=getCodexBindingAdmission(this.productVersion);
-    if(this.ordinaryFamilyAdmission&&(!admission||this.ordinaryRootPilot||this.ordinaryFamilyQualification||this.maxDepth!==admission.maxDepth||this.maxFamilyMembers!==admission.maxFamilyMembers&&!(this.productVersion==='0.166.0'&&this.maxFamilyMembers===1)))throw new Error('binding_configuration_invalid');
+    const profile=lookupToolVersionProfile('codex',this.productVersion);
+    this.rejectInheritedHistory=profile?.ordinaryBinding?.historyVariant==='codex_reject_inherited_history_v1';
+    if(this.ordinaryFamilyQualification&&(profile?.qualificationReader.mode!=='family_qualification_v1'||this.ordinaryRootPilot||this.maxDepth!==1||this.maxFamilyMembers!==3))throw new Error('binding_configuration_invalid');
+    const admission=profile?.ordinaryBinding;
+    if(this.ordinaryFamilyAdmission&&(!admission||this.ordinaryRootPilot||this.ordinaryFamilyQualification||this.maxDepth!==admission.maxDepth||this.maxFamilyMembers!==admission.maxFamilyMembers&&!(admission.rootOnlyOverride&&this.maxFamilyMembers===1)))throw new Error('binding_configuration_invalid');
     for (const [value, limit] of [[this.maxFamilyMembers, 32], [this.maxDepth, 31], [this.maxReceipts, 65536], [this.maxSourceBytes, 8 * 1024 * 1024]] as const) {
       if (!Number.isSafeInteger(value) || value < 1 || value > limit) throw new Error('binding_configuration_invalid');
     }
     this.checkDirectory();
   }
   capabilities(): BindingCapabilities {
-    return { currentIdentity: 'native_hook', ancestry: 'verified_relations', usage: 'own_requests', productionSupported: this.ordinaryFamilyAdmission && isQualifiedCodexBindingAdmission(this.productVersion),
-      maxDepth: this.maxDepth, reasons: [...(this.ordinaryFamilyAdmission&&isQualifiedCodexBindingAdmission(this.productVersion)?[]:['codex_ordinary_source_unqualified', 'codex_native_hook_path_and_header_conformance_pending']), 'codex_paginated_descendant_history_unsupported',
+    const admission=lookupToolVersionProfile('codex',this.productVersion)?.ordinaryBinding;
+    const qualified=admission!==undefined&&admission.qualification!=='unqualified';
+    return { currentIdentity: 'native_hook', ancestry: 'verified_relations', usage: 'own_requests', productionSupported: this.ordinaryFamilyAdmission && qualified,
+      maxDepth: this.maxDepth, reasons: [...(this.ordinaryFamilyAdmission&&qualified?[]:['codex_ordinary_source_unqualified', 'codex_native_hook_path_and_header_conformance_pending']), 'codex_paginated_descendant_history_unsupported',
         `binding_receipt_limit_${this.maxReceipts}`, `binding_source_byte_limit_${this.maxSourceBytes}`, `binding_family_scope_limit_${this.maxFamilyMembers}`,
         'binding_turn_limit_64', 'binding_metadata_header_byte_limit_65536'] };
   }
   admissionProfile(): string | null {
-    return this.ordinaryFamilyAdmission ? getCodexBindingAdmission(this.productVersion)?.profileId ?? null : null;
+    return this.ordinaryFamilyAdmission ? lookupToolVersionProfile('codex',this.productVersion)?.ordinaryBinding?.profileId ?? null : null;
   }
   /** Metadata-only pilot scope check before any receipt/source access. */
   assertProjectRoot(projectRoot: string): void {
@@ -316,7 +325,7 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
     } finally { closeSync(fd); }
   }
   private readHeader(record: Receipt): z.infer<typeof headerSchema>['payload'] {
-    if(record.productVersion!=='0.160.0'&&!this.ordinaryRootPilot&&!this.ordinaryFamilyQualification&&!this.ordinaryFamilyAdmission)throw new Error('binding_source_unqualified');
+    if(lookupToolVersionProfile('codex',record.productVersion)?.qualificationReader.mode!=='legacy_header_v1'&&!this.ordinaryRootPilot&&!this.ordinaryFamilyQualification&&!this.ordinaryFamilyAdmission)throw new Error('binding_source_unqualified');
     const bytes = this.readSource(record, true);
     try {
       const header = headerSchema.parse(JSON.parse(bytes.toString('utf8')) as unknown).payload;
@@ -465,7 +474,7 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
       allowedRootTurnIds: rootTurns.size ? [...rootTurns] : ['binding-observation'] };
     let snapshot: CodexCandidateSnapshot; let historyGap = false;
     try {
-      if(this.ordinaryFamilyAdmission&&(this.productVersion==='0.163.0'||this.productVersion==='0.166.0')&&record.parentSessionId!==null) {
+      if(this.ordinaryFamilyAdmission&&this.rejectInheritedHistory&&record.parentSessionId!==null) {
         const header=this.readHeader(record);
         // Shared suffix parsing does not qualify inherited history for this ordinary profile.
         if(header.forked_from_id!=null||header.forked_from_ordinal_exclusive!=null||

@@ -6,6 +6,7 @@ import { isAbsolute, join, relative, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { z } from 'zod';
 import { IdSchema, ModelSchema } from './contracts.js';
+import { toolVersionIdentity, toolVersionRecipe } from './core/tool-version-profiles.js';
 import { readSource, type SourceBytes } from './collection.js';
 import { parseCodexCandidateRollout } from './codex-candidate-rollout.js';
 import { verifyExternalContext } from './external-session-context.js';
@@ -20,8 +21,12 @@ import type { Store } from './store.js';
 import type { WorkflowAdapter, WorkflowAdapterResult, WorkflowExecutionContext, WorkflowRuntime } from './task-workflow.js';
 
 const pathSchema = z.string().min(1).max(4096).refine(p => isAbsolute(p) && resolve(p) === p && !/[\0\r\n]/.test(p));
+const workflowRecipe = toolVersionRecipe('codex-workflow-01600');
+if (workflowRecipe.kind !== 'codex_workflow') throw new Error('codex_qualification_scope_invalid');
+const workflowImage = toolVersionIdentity(workflowRecipe.imageIdentity);
+const workflowMaxImageBytes = z.number().parse(workflowImage.maxBytes);
 export const CodexWorkflowExecutionSchema = z.strictObject({
-  product_version: z.string().refine(v => resolveSourceCompatibility('codex',v,'codex_workflow',codexWorkflowProfileId)!==null).default('0.160.0'),
+  product_version: z.string().refine(v => resolveSourceCompatibility('codex',v,'codex_workflow',codexWorkflowProfileId)!==null).default(workflowRecipe.version),
   run_id: IdSchema, operation: z.enum(['launch','resume','link','collect']),
   binary: z.strictObject({path:pathSchema,sha256:z.string().regex(/^[a-f0-9]{64}$/)}),
   codex_home:pathSchema, hook_recorder:pathSchema, prompt_file:pathSchema.optional(),
@@ -63,9 +68,9 @@ function safeReason(error:unknown){
     return error instanceof Error?['source_changed','runtime_mismatch','unsupported_session','scope_revoked','hook_missing','process_failed','binary_mismatch','session_not_linked','explicit_source_required','stop_requested','deadline','initial_source_incomplete','qualification_output_invalid','qualification_marker_failed'].find(x=>x===error.message)??'collection_failed':'collection_failed';
   }catch{return 'collection_failed';}
 }
-export const pinnedCodexWorkflowBinarySha='112fae7a5a1223e673c8a1791d32338f37df8b527ff1159bb8adac6c4dbf1b4b';
+export const pinnedCodexWorkflowBinarySha=z.literal('112fae7a5a1223e673c8a1791d32338f37df8b527ff1159bb8adac6c4dbf1b4b').parse(workflowImage.sha256);
 const maxUnstableReads=20;
-const hookRecorderSha='e20dc70b2864cead9819cbb4f6717164778121b4aef510c820e795eb19835bf0';
+const hookRecorderSha=toolVersionIdentity(workflowRecipe.recorderIdentity).sha256;
 export interface CodexQualificationPhase {
   intent_sha256:string;deadline:number;expectedMarker:string|null;fixtureScript?:string;onNativeSpawn?():void;
 }
@@ -84,7 +89,7 @@ export async function runCodexQualificationPhase(store:Store,input:unknown,c:Wor
   const instructionHash=hash(JSON.stringify(c.instructions.map(i=>({artifact_id:i.artifact_id,sha256:hash(i.content)})).sort((a,b)=>a.artifact_id.localeCompare(b.artifact_id))));
   const validate=()=>{
     const live=store.get<{reserved:number;deadline:number;phase:string;topology?:string}>('SELECT * FROM codex_workflow_qualification WHERE singleton=1');
-    if(e.product_version!=='0.160.0'||!lease||lease.intent_sha256!==q.intent_sha256||lease.reserved!==1||live?.reserved!==1||lease.deadline!==q.deadline||live.deadline!==q.deadline||lease.phase!==phase||live.phase!==phase||live.topology!==lease.topology||
+    if(e.product_version!==workflowRecipe.version||!lease||lease.intent_sha256!==q.intent_sha256||lease.reserved!==1||live?.reserved!==1||lease.deadline!==q.deadline||live.deadline!==q.deadline||lease.phase!==phase||live.phase!==phase||live.topology!==lease.topology||
       lease.project_id!==c.projectId||lease.task_id!==c.taskId||lease.cwd!==c.projectRoot||lease.codex_home!==e.codex_home||lease.binary_path!==e.binary.path||lease.binary_sha!==e.binary.sha256||
       lease.manifest_hash!==c.instructionManifestHash||instructionHash!==lease.manifest_hash||lease.hook_recorder!==e.hook_recorder||e.sandbox!=='read-only'||e.run_id!==`qualification-${phase}`||
       (phase==='replay'&&e.operation!=='collect')||
@@ -164,7 +169,7 @@ function adapter(store:Store,input:unknown,synthetic:boolean,script?:string):Wor
     const profile=family?codexWorkflowChildProfileId:codexWorkflowProfileId;
     const compatibility=resolveSourceCompatibility('codex',execution.product_version,'codex_workflow',profile);
     if(!synthetic){if(!compatibility)throw new Error('codex_workflow_source_unqualified');assertCompatibilityAllowed(store,compatibility);}
-    if(!synthetic&&execution.product_version==='0.160.0'&&execution.binary.sha256!==pinnedCodexWorkflowBinarySha)throw new Error('binary_mismatch');
+    if(!synthetic&&execution.product_version===workflowRecipe.version&&execution.binary.sha256!==pinnedCodexWorkflowBinarySha)throw new Error('binary_mismatch');
     if(synthetic&&(realpathSync(execution.binary.path)!==realpathSync(process.execPath)||!script))throw new Error('synthetic_store_required');
     return {execution,family};
   };
@@ -179,7 +184,7 @@ function adapter(store:Store,input:unknown,synthetic:boolean,script?:string):Wor
       // launch/resume spawn the binary; execute() repeats these checks right before spawn.
       if(e.operation==='launch'||e.operation==='resume'){
         let binary:string;let identity:string;
-        try{identity=fileIdentity(e.binary.path);binary=hash(file(e.binary.path,256*1024*1024));if(fileIdentity(e.binary.path)!==identity)throw new Error('unstable_file');}
+        try{identity=fileIdentity(e.binary.path);binary=hash(file(e.binary.path,workflowMaxImageBytes));if(fileIdentity(e.binary.path)!==identity)throw new Error('unstable_file');}
         catch{throw new Error('binary_unreadable');}
         if(binary!==e.binary.sha256)throw new Error('binary_mismatch');
         if(!synthetic)verifyCodexVersion(e);
@@ -458,7 +463,7 @@ async function execute(store:Store,execution:Execution,c:WorkflowExecutionContex
     else if(e.operation==='launch'||e.operation==='resume'){
       // Re-hash unless this exact file identity was hashed by preflight.
       guard();const unchanged=verifiedBinary!==undefined&&verifiedBinary.path===e.binary.path&&verifiedBinary.sha256===e.binary.sha256&&verifiedBinary.identity===fileIdentity(e.binary.path);
-      if(!unchanged&&hash(file(e.binary.path,256*1024*1024))!==e.binary.sha256)throw new Error('binary_mismatch');
+      if(!unchanged&&hash(file(e.binary.path,workflowMaxImageBytes))!==e.binary.sha256)throw new Error('binary_mismatch');
       if(!synthetic&&!qualification)verifyCodexVersion(e);
       if(hash(file(e.hook_recorder,65536))!==hookRecorderSha)throw new Error('invalid_hook_recorder');
       const prompt=file(e.prompt_file!,1024*1024);const text=prompt.toString('utf8');if(!Buffer.from(text).equals(prompt)||text.includes('\0'))throw new Error('invalid_prompt');

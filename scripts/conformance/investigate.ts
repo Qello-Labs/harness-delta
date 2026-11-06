@@ -1,4 +1,5 @@
 import type { ConfirmationPlan } from './confirm.js';
+import { toolVersionRecipe } from '../../src/core/tool-version-profiles.js';
 import { classifyCounters, classifySessionTopology } from './checks.js';
 import { matchExactSessionFilename } from './filename.js';
 import type { CandidateInspection } from './parse-candidate.js';
@@ -53,7 +54,7 @@ export function runInvestigation(input: {
     status: 'report',
     report: projectReport({
       modes: { collaboration: [...new Set(started.topology.collaborationModes)], multiAgent: [...new Set(started.topology.multiAgentVersions)] },
-      version: input.version ?? '0.158.0',
+      version: input.version ?? toolVersionRecipe('codex-file-conformance-01580').version,
       scenario: 'synthetic',
       traversal: started.traversal,
       checks,

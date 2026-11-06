@@ -5,6 +5,13 @@ import { join, resolve } from 'node:path';
 import { IdSchema } from './contracts.js';
 import { claudeTelemetryEnv, type TelemetryDestination } from './sources/otel-launch-settings.js';
 import { claudeProbeProductVersion, isClaudeWorkflowProductVersion } from './claude-workflow-versions.js';
+import { toolVersionRecipe } from './core/tool-version-profiles.js';
+
+const probeRecipe = (() => {
+  const recipe = toolVersionRecipe('claude-internal-probe-02188');
+  if (recipe.kind !== 'claude_probe') throw new Error('claude_probe_recipe_mismatch');
+  return recipe;
+})();
 
 export interface ClaudeNativeProbeOptions {
   /** Caller-owned ignored directory, never a user's configuration directory. */
@@ -73,8 +80,8 @@ export async function prepareClaudeNativeProbe(options: ClaudeNativeProbeOptions
     !/^[a-f0-9]{64}$/.test(options.binary.sha256) ||
     !options.binary.path.startsWith('/') ||
     /[\n\r\0]/.test(options.binary.path) ||
-    options.model !== 'claude-sonnet-5-5' ||
-    options.effort !== 'high' ||
+    options.model !== probeRecipe.model ||
+    options.effort !== probeRecipe.effort ||
     !/^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$/.test(options.nativeSessionId) ||
     options.hookCommand.length === 0 ||
     options.hookCommand.length > 4096 ||
@@ -118,9 +125,9 @@ export async function prepareClaudeNativeProbe(options: ClaudeNativeProbeOptions
     nativeSchemaQualified: false,
     ...(workflow?.session === 'persistent' || workflow?.session === 'resume' ? { sessionPersistence: workflow.session } : {}),
     limits: {
-      plannedRequests: workflow?.requestLimit ?? 3,
-      wallTimeMs: workflow?.durationMs ?? 120000,
-      estimatedBudgetUsd: workflow ? (workflow.maxBudgetUsd === undefined ? null : String(workflow.maxBudgetUsd)) : '0.10',
+      plannedRequests: workflow?.requestLimit ?? probeRecipe.plannedRequests,
+      wallTimeMs: workflow?.durationMs ?? probeRecipe.durationMs,
+      estimatedBudgetUsd: workflow ? (workflow.maxBudgetUsd === undefined ? null : String(workflow.maxBudgetUsd)) : probeRecipe.estimatedUsd,
       hardBillingBound: null
     }
   };
@@ -208,7 +215,7 @@ export async function prepareClaudeNativeProbe(options: ClaudeNativeProbeOptions
     '--max-turns',
     '2',
     '--max-budget-usd',
-    '0.10',
+    probeRecipe.estimatedUsd,
     // Observed 2.1.288 default is auto mode; its classifier issues extra requests with another model.
     '--restricted',
     '--permission-mode',

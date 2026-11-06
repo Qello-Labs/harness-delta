@@ -11,9 +11,12 @@ import {
   type CandidateScope,
   type ClaudeTraceProductVersion
 } from './nested-candidate.js';
-import { claudeProbeProductVersion } from './claude-workflow-versions.js';
+import { toolVersionRecipe } from './core/tool-version-profiles.js';
 import { recordObservationGap, requireActiveScope, putUsageWithEvidence } from './runtime-history.js';
 import type { Store } from './store.js';
+
+const probeRecipe = toolVersionRecipe('claude-internal-probe-02188');
+if (probeRecipe.kind !== 'claude_probe') throw new Error('claude_probe_recipe_mismatch');
 
 /** Internal synthetic-qualified Claude OTLP bridge for the exact workflow versions. No shipped profile,
  * native file discovery, product launch or claim of complete trace delivery.
@@ -178,7 +181,7 @@ export function authorizeClaudeTraceScope(
  * back all insertions. Source continuity remains unknown even for an empty batch.
  */
 export function ingestClaudeTraceBatch(store: Store, inputScope: CandidateScope, readBody: () => unknown, window: ClaudeTraceWindow): ClaudeTraceBatchResult {
-  const expectedVersion = window.productVersion ?? claudeProbeProductVersion;
+  const expectedVersion = window.productVersion ?? probeRecipe.version;
   if (
     !TimestampSchema.safeParse(window.startedAt).success ||
     !TimestampSchema.safeParse(window.receivedAt).success ||

@@ -3,7 +3,8 @@ import { familyDiscovery, familyProviderError } from './binding-family-diagnosti
 import { bindingIdentityKey } from './session-binding-contract.js';
 import { readCacheWriteTtl } from './cache-write-ttl.js';
 import { claudeAgentMetadata } from './agent-metadata.js';
-import { claudeBindingAdmission, getClaudeBindingAdmission } from './claude-binding-admission.js';
+import { getClaudeBindingAdmission } from './claude-binding-admission.js';
+import { legacyClaudeTranscriptProfiles, lookupToolVersionProfile, orderedToolVersionProfiles } from './core/tool-version-profiles.js';
 import { readClaudeProcessBinary, type ClaudeProcessBinary } from './claude-process-binary.js';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -47,14 +48,8 @@ export interface ClaudeTranscriptProfile { readonly version: string; readonly st
  * native transcript, skill-hook, family-membership and own-counter evidence for that exact version.
  * Ordinary admission is a separate code-owned use policy; transcript qualification
  * does not open comparison, pilot or other-version collection. */
-export const claudeBindingProfiles: readonly ClaudeTranscriptProfile[] = Object.freeze([
-  Object.freeze({ version: '2.1.306', status: 'qualified' as const, evidence: 'offline-actual-binary-print-normal-sigint-2026-10-21;validation/claude-ordinary-binding-02196-qualification.md' }),
-  Object.freeze({ version: '2.1.301', status: 'qualified' as const, evidence: 'offline-actual-binary-print-normal-sigint-2026-10-16;validation/claude-ordinary-binding-02196-qualification.md' }),
-  Object.freeze({ version: '2.1.296', status: 'qualified' as const, evidence: 'offline-actual-binary;native-pilot-2026-10-13;validation/claude-ordinary-binding-02196-qualification.md' }),
-  Object.freeze({ version: '2.1.294', status: 'candidate' as const, evidence: 'official-changelog-2.1.294;synthetic-fixtures;native-qualification-pending' }),
-  Object.freeze({ version: '2.1.293', status: 'candidate' as const, evidence: 'synthetic-fixtures;native-qualification-pending' }),
-  Object.freeze({ version: '2.1.291', status: 'candidate' as const, evidence: 'official-docs-2026-10-07;synthetic-fixtures;native-qualification-pending' }),
-]);
+export const claudeBindingProfiles: readonly ClaudeTranscriptProfile[] = Object.freeze(legacyClaudeTranscriptProfiles().map(profile => Object.freeze(profile)));
+const legacyProductVersion = z.string().parse(orderedToolVersionProfiles('transcriptProfile', 'claude_code').find(profile => profile.product === 'claude_code' && profile.transcriptProfile?.legacyDefault)?.version);
 
 export interface ClaudeBindingOptions {
   receiptDir: string;
@@ -213,7 +208,7 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
   readonly #options: Required<Omit<ClaudeBindingOptions, 'profiles' | 'authorizeSource' | 'memberEligible'>> & Pick<ClaudeBindingOptions, 'authorizeSource' | 'memberEligible'> & { profiles: readonly ClaudeTranscriptProfile[] };
   constructor(options: ClaudeBindingOptions) {
     if (!isAbsolute(options.receiptDir) || !isAbsolute(options.claudeProjectsDir) || !isAbsolute(options.projectRoot)) fail('claude_binding_config_invalid');
-    this.#options = { allowCandidateProfiles: false, ordinaryAdmission: false, productVersion: claudeBindingAdmission.productVersion, profiles: claudeBindingProfiles, receiptMaxAgeMs: 600000, quiescenceMs: 30000,
+    this.#options = { allowCandidateProfiles: false, ordinaryAdmission: false, productVersion: legacyProductVersion, profiles: claudeBindingProfiles, receiptMaxAgeMs: 600000, quiescenceMs: 30000,
       maxReadBytes: 8 * 1048576, maxFamilyMembers: 32, readProcessIdentity: processIdentity,
       readProcessBinary: readClaudeProcessBinary, now: Date.now, ...options };
     if (this.#options.ordinaryAdmission && !getClaudeBindingAdmission(this.#options.productVersion)?.admitted)
@@ -627,7 +622,7 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
     let offset = start.offset;
     let readOffset = offset, scannedBytes = 0;
     const byRequest = new Map<string, Pending>();
-    const nativeFinality = session.productVersion === '2.1.296' || session.productVersion === '2.1.301' || session.productVersion === '2.1.306';
+    const nativeFinality = lookupToolVersionProfile('claude_code', session.productVersion)?.transcriptProfile?.finalityVariant === 'claude_terminal_message_v1';
     // A null cursor or a baseline reads to the current end; a later cursor reads one window per call.
     const toEnd = cursorText === null || baseline;
     for (;;) {
@@ -732,7 +727,7 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
       const requestId = IdSchema.safeParse(row.requestId);
       if (!requestId.success) { gaps.add('request_id_missing'); continue; }
       let messageId: string | null = null, finalized = true;
-      if (version === '2.1.296' || version === '2.1.301' || version === '2.1.306') {
+      if (lookupToolVersionProfile('claude_code', version)?.transcriptProfile?.finalityVariant === 'claude_terminal_message_v1') {
         const id = IdSchema.safeParse(row.message.id);
         const stop = NativeStopReasonSchema.safeParse(row.message.stopReason);
         if (!id.success || !stop.success) { gaps.add('usage_incomplete'); continue; }

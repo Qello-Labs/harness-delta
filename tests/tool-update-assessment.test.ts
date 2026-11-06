@@ -1,9 +1,11 @@
 import { copyFile, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import fsPromises from 'node:fs/promises';
+import { syncBuiltinESMExports } from 'node:module';
 import { realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterEach, expect, test } from 'vitest';
+import { afterEach, expect, test, vi } from 'vitest';
 import { assessCandidate, assessmentSchema, consumedContracts, validateBaselineForSource } from '../scripts/tool-update/assessment.mjs';
 import type { Assessment, ContractReview } from '../scripts/tool-update/assessment.mjs';
 import { digest } from '../scripts/tool-update/manifest.mjs';
@@ -264,6 +266,31 @@ test('rejects drift between compilation and projection completion', async () => 
     })
   ).rejects.toMatchObject({ code: 'source_drift' });
 });
+test('rejects compile-to-scope reread drift before validating the later pin', async () => {
+  const directory = await sourceFixture();
+  const path = join(directory, 'src/claude-workflow-versions.ts');
+  const original = await readFile(path);
+  await writeFile(path, Buffer.concat([original, Buffer.from('\nexport const compiledBeforeDrift = true;\n')]));
+  const actualReadFile = fsPromises.readFile;
+  let restored = false;
+  const reader = vi.spyOn(fsPromises, 'readFile').mockImplementation(async (file, options) => {
+    const bytes = await actualReadFile(file, options);
+    if (file === path && !restored) {
+      await writeFile(path, original);
+      restored = true;
+    }
+    return bytes;
+  });
+  syncBuiltinESMExports();
+  try {
+    await expect(withSourceSnapshot(directory, () => null)).rejects.toMatchObject({ code: 'source_drift' });
+    expect(restored).toBe(true);
+    expect(await actualReadFile(path)).toEqual(original);
+  } finally {
+    reader.mockRestore();
+    syncBuiltinESMExports();
+  }
+});
 test.each(parserPaths)('a one-byte change in %s invalidates baseline and review digests', async parserPath => {
   const directory = await sourceFixture();
   const input = { ...fixture('codex', ['0.162.1', '0.163.0']), root: directory };
@@ -352,9 +379,47 @@ test.each(parserPaths)('rejects projection-time drift in hash-only input %s', as
     })
   ).rejects.toMatchObject({ code: 'source_drift' });
 });
-test('the expanded snapshot includes 24 source paths', async () => {
+test('the expanded snapshot includes 28 source paths', async () => {
   const snapshot = await withSourceSnapshot(root, () => null);
-  expect(snapshot.source_paths).toHaveLength(24);
+  expect(snapshot.source_paths).toHaveLength(28);
+});
+test('loads nested source imports and retirement metadata without dist', async () => {
+  const directory = await sourceFixture();
+  const path = join(directory, 'src/core/tool-version-profiles.ts');
+  await writeFile(path, `import '../contracts.js';\n${await readFile(path, 'utf8')}`);
+  const snapshot = await withSourceSnapshot(directory, source => ({
+    retired: source.retiredClaudeWorkflowVersions,
+    admitted: source.resolve('codex', '0.163.0', 'codex_binding', 'codex-binding-01630-direct-family-v1')
+  }));
+  expect(snapshot.value.retired).toEqual(['2.1.288', '2.1.291']);
+  expect(snapshot.value.admitted?.state).toBe('verified');
+  expect(snapshot.source_paths.filter(path => path.startsWith('src/core/'))).toEqual([
+    'src/core/tool-version-identities.json',
+    'src/core/tool-version-profiles.json',
+    'src/core/tool-version-profiles.ts',
+    'src/core/tool-version-recipes.json'
+  ]);
+  expect(snapshot.source_paths).toHaveLength(28);
+});
+test.each([
+  ['escape', "import '../../package.json' with { type: 'json' };"],
+  ['unknown', "import './unknown.js';"],
+  ['hash-only', "import '../nested-candidate.js';"],
+  ['dynamic', "await import('../contracts.js');"],
+  ['require', "require('../contracts.js');"],
+  ['builtin', "import 'node:sqlite';"]
+])('rejects a nested %s import before projection', async (_kind, statement) => {
+  const directory = await sourceFixture();
+  const path = join(directory, 'src/core/tool-version-profiles.ts');
+  await writeFile(path, `${statement}\n${await readFile(path, 'utf8')}`);
+  let projected = false;
+  await expect(
+    withSourceSnapshot(directory, () => {
+      projected = true;
+      return null;
+    })
+  ).rejects.toMatchObject({ code: 'source_snapshot_unavailable' });
+  expect(projected).toBe(false);
 });
 test('legacy schema 1 and 2 assessments parse without the hash-only parser paths', async () => {
   const current = await assessCandidate(fixture());

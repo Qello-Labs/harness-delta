@@ -13,6 +13,13 @@ import { decodeLogsRequest, type DecodedRecord } from '../sources/otel-projectio
 import { recordObservationGap } from '../runtime-history.js';
 import type { Clock } from '../lifecycle.js';
 import type { Store } from '../store.js';
+import { toolVersionRecipe } from '../core/tool-version-profiles.js';
+
+const probeRecipe = (() => {
+  const recipe = toolVersionRecipe('claude-internal-probe-02188');
+  if (recipe.kind !== 'claude_probe') throw new Error('claude_probe_recipe_mismatch');
+  return recipe;
+})();
 
 const object = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const hash = (v: string) => createHash('sha256').update(v).digest();
@@ -170,7 +177,7 @@ export class ClaudeProbeCoordinator {
       !IdSchema.safeParse(options.child.sourceId).success ||
       !IdSchema.safeParse(options.child.agentType).success ||
       (options.model !== null && !IdSchema.safeParse(options.model).success) ||
-      (!options.workflow && (options.model === null || options.effort !== 'high')) ||
+      (!options.workflow && (options.model === null || options.effort !== probeRecipe.effort)) ||
       (options.workflow &&
         ((options.effort !== null && !['low', 'medium', 'high', 'xhigh', 'max'].includes(options.effort)) ||
           !Number.isSafeInteger(options.workflow.requestLimit) ||
@@ -256,7 +263,7 @@ export class ClaudeProbeCoordinator {
     if (
       !TimestampSchema.safeParse(now).success ||
       Date.parse(now) < Date.parse(this.options.startedAt) ||
-      Date.parse(now) - Date.parse(this.options.startedAt) > (this.options.workflow?.durationMs ?? 120000)
+      Date.parse(now) - Date.parse(this.options.startedAt) > (this.options.workflow?.durationMs ?? probeRecipe.durationMs)
     )
       this.stop('claude_probe_deadline', 'incomplete');
   }
@@ -539,8 +546,8 @@ export class ClaudeProbeCoordinator {
     if (
       result.unattributed > 0 ||
       result.excluded > 0 ||
-      this.requestsInserted > (this.options.workflow?.requestLimit ?? 3) ||
-      (!this.options.workflow && (this.rootRequests > 2 || this.childRequests > 1))
+      this.requestsInserted > (this.options.workflow?.requestLimit ?? probeRecipe.plannedRequests) ||
+      (!this.options.workflow && (this.rootRequests > probeRecipe.rootRequestStop || this.childRequests > probeRecipe.childRequestStop))
     )
       this.stop('claude_probe_request_boundary', 'incomplete');
     return result;

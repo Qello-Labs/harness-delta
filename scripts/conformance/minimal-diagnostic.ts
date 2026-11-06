@@ -1,7 +1,9 @@
 /** Diagnostic utility only: no production adapter registration, executable, or native-log admission. */
 import { closeSync, constants, existsSync, fsyncSync, openSync, readFileSync, writeSync } from 'node:fs';
+import { toolVersionRecipe } from '../../src/core/tool-version-profiles.js';
 import { reduceExecStream } from './exec-stream.js';
 
+export const diagnosticVersion = toolVersionRecipe('codex-historical-one-child-01600').version;
 export const isolationArguments: readonly string[] = [
   '-c','mcp_servers.node_repl.enabled=false', '-c','mcp_servers.computer-use.enabled=false',
   '-c','plugins.unified-computer-use@openai-bundled.mcp_servers.cua_repl.enabled=false',

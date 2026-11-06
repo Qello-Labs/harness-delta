@@ -8,6 +8,7 @@ import type { EvidenceIdentity } from './admission.js';
 // Application implementation only. Never hash a rollout, native content, or user configuration.
 // Registration data is excluded so adding a passing admission cannot invalidate itself.
 export const evidenceSources = [
+  'src/core/tool-version-profiles.ts', 'src/core/tool-version-profiles.json', 'src/core/tool-version-recipes.json', 'src/core/tool-version-identities.json',
   'src/adapter-profiles.ts', 'src/collection.ts', 'src/lifecycle.ts', 'src/metrics.ts',
   'scripts/conformance/register.ts', 'scripts/conformance-command.mjs', 'scripts/conformance/tsconfig.json', 'src/adapters.ts', 'src/codex-rollout-policy.ts', 'src/contracts.ts',
   'scripts/conformance/candidate.ts', 'scripts/conformance/parse-candidate.ts',

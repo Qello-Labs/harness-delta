@@ -1,6 +1,11 @@
 import { z } from 'zod';
 import { IdSchema, MonetaryAmountSchema, ProductVersionSchema, ReadingSchema, TimestampSchema, TokenSchema } from '../contracts.js';
 import { CostFactsSchema, CostReasonSchema, PriceTableSchema } from '../flexible-contracts.js';
+import { toolVersionRecipe } from '../core/tool-version-profiles.js';
+
+const recipe = toolVersionRecipe('codex-instrumented-01621');
+if (recipe.kind !== 'codex_instrumented') throw new Error('instrumented_recipe_invalid');
+const upstreamVersion = z.literal('0.162.1').parse(recipe.version);
 
 export const InstrumentedHashSchema = z.string().regex(/^[a-f0-9]{64}$/);
 const SequenceSchema = TokenSchema.min(1);
@@ -32,24 +37,24 @@ export const InstrumentedProducerProfileSchema = z.strictObject({
   schema_version: z.literal(1),
   profile_id: IdSchema,
   upstream_commit: z.string().regex(/^[a-f0-9]{40}$/),
-  upstream_version: z.literal('0.162.1'),
+  upstream_version: z.literal(upstreamVersion),
   product_version: ProductVersionSchema,
   patched_source_digest: InstrumentedHashSchema,
   dependency_lock_digest: InstrumentedHashSchema,
   build_manifest_digest: InstrumentedHashSchema,
   binary_sha256: InstrumentedHashSchema,
   target: IdSchema,
-  producer_protocol: z.literal('harness-codex-accounting-v1'),
+  producer_protocol: z.literal(recipe.producerProtocol),
   qualification_id: IdSchema,
   transport_contract_id: IdSchema,
   operation_inventory_digest: InstrumentedHashSchema,
   counter_contract_id: IdSchema,
   configuration_policy_id: IdSchema,
-  model: z.literal('gpt-6.1-sol'),
-  effort: z.literal('high'),
-  max_roots: z.literal(1),
-  max_direct_children: z.literal(2),
-  max_depth: z.literal(1)
+  model: z.literal(recipe.model),
+  effort: z.literal(recipe.effort),
+  max_roots: z.literal(recipe.maxRoots),
+  max_direct_children: z.literal(recipe.maxDirectChildren),
+  max_depth: z.literal(recipe.maxDepth)
 });
 export type InstrumentedProducerProfile = z.infer<typeof InstrumentedProducerProfileSchema>;
 
@@ -115,8 +120,8 @@ export const InstrumentedProducerRecordSchema = z.strictObject({
       turn_id: IdSchema.nullable(),
       operation_class: InstrumentedOperationClassSchema,
       transport_class: TransportClassSchema,
-      requested_model: z.literal('gpt-6.1-sol'),
-      requested_effort: z.literal('high'),
+      requested_model: z.literal(recipe.model),
+      requested_effort: z.literal(recipe.effort),
       configuration_revision: IdSchema
     }),
     z.strictObject({
@@ -131,7 +136,7 @@ export const InstrumentedProducerRecordSchema = z.strictObject({
       attempt_id: IdSchema,
       disposition: InstrumentedTerminalDispositionSchema,
       response_id: IdSchema.nullable(),
-      effective_model: z.literal('gpt-6.1-sol').nullable(),
+      effective_model: z.literal(recipe.model).nullable(),
       readings: InstrumentedTokenReadingsSchema
     }),
     z.strictObject({

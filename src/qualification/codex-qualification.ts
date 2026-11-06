@@ -5,7 +5,7 @@ import { createServer, type Socket } from 'node:net';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { z } from 'zod';
 import { Collector, readSource } from '../collection.js';
-import { BoundedCandidateInvocation, MAX_CANDIDATE_DURATION_MS } from '../workflow/bounded-candidate-invocation.js';
+import { BoundedCandidateInvocation } from '../workflow/bounded-candidate-invocation.js';
 import { Lifecycle, utcNow } from '../lifecycle.js';
 import { authorizeCandidateScope, type CandidateScope } from '../nested-candidate.js';
 import { parseTaskMetadata } from '../flexible-contracts.js';
@@ -16,6 +16,14 @@ import {
   type CandidatePermissionField
 } from '../codex-candidate-permissions.js';
 import type { Store } from '../store.js';
+import { toolVersionRecipe } from '../core/tool-version-profiles.js';
+
+const recipe = (() => {
+  const recipe = toolVersionRecipe('codex-historical-one-child-01600');
+  if (recipe.kind !== 'codex_historical_candidate') throw new Error('candidate_invalid_invocation');
+  return recipe;
+})();
+const familySize = 1 + recipe.plannedChildren;
 
 /** Internal source-qualified 0.160 lane; absent from public exports/CLI/admission.
  * prepare() does no product execution. run() is the explicit paid-run boundary.
@@ -108,7 +116,7 @@ const envelope = z.object({ type: z.string(), payload: z.unknown() });
 const headerSchema = z.object({
   id,
   session_id: id,
-  cli_version: z.literal('0.160.0'),
+  cli_version: z.literal(recipe.version),
   cwd: z.string(),
   parent_thread_id: id.nullish(),
   source: z.unknown(),
@@ -205,27 +213,27 @@ export function prepareCodexQualification(input: CodexQualificationOptions) {
     sessionsRoot !== join(codexHome, 'sessions') ||
     readdirSync(cwd).length !== 0 ||
     !homeFresh() ||
-    options.rootModel !== 'gpt-6-astra' ||
-    options.childModel !== 'gpt-6.1-sol' ||
-    options.rootEffort !== 'high' ||
-    options.childEffort !== 'high'
+    options.rootModel !== recipe.rootModel ||
+    options.childModel !== recipe.childModel ||
+    options.rootEffort !== recipe.effort ||
+    options.childEffort !== recipe.effort
   )
     throw new Error('candidate_invalid_invocation');
   const digest = createHash('sha256').update(readFileSync(options.executable)).digest('hex');
   if (!/^[0-9a-f]{64}$/.test(options.executableSha256) || digest !== options.executableSha256) throw new Error('candidate_executable_mismatch');
-  const durationMs = options.durationMs ?? MAX_CANDIDATE_DURATION_MS;
-  const handshakeTimeoutMs = options.handshakeTimeoutMs ?? 10_000;
-  const pollMs = options.pollMs ?? 25;
+  const durationMs = options.durationMs ?? recipe.durationMs;
+  const handshakeTimeoutMs = options.handshakeTimeoutMs ?? recipe.handshakeMs;
+  const pollMs = options.pollMs ?? recipe.pollMs;
   if (
     !Number.isSafeInteger(durationMs) ||
     durationMs <= 0 ||
-    durationMs > MAX_CANDIDATE_DURATION_MS ||
+    durationMs > recipe.durationMs ||
     !Number.isSafeInteger(handshakeTimeoutMs) ||
     handshakeTimeoutMs <= 0 ||
     handshakeTimeoutMs > durationMs ||
     !Number.isSafeInteger(pollMs) ||
     pollMs <= 0 ||
-    pollMs > 1000
+    pollMs > recipe.maxPollMs
   )
     throw new Error('candidate_invalid_invocation');
   const lifecycle = new Lifecycle(options.store);
@@ -284,7 +292,7 @@ export function prepareCodexQualification(input: CodexQualificationOptions) {
     '--cd',
     cwd,
     '--sandbox',
-    'read-only',
+    recipe.permissions,
     '-c',
     'approval_policy="on-request"',
     '--model',
@@ -298,7 +306,7 @@ export function prepareCodexQualification(input: CodexQualificationOptions) {
     '-c',
     `agents.default_subagent_reasoning_effort="${options.childEffort}"`,
     '-c',
-    'agents.max_depth=1',
+    `agents.max_depth=${recipe.maxDepth}`,
     ...hookArguments(command),
     'Synthetic qualification only. Spawn exactly one fresh direct child (V2: fork_turns="none", omit fork_context; V1: fork_context=false), model gpt-6.1-sol, reasoning_effort high. Ask it to return exactly READY. Wait for that child and return exactly READY. Do not use files, shell, external tools or further children.'
   ];
@@ -348,7 +356,7 @@ export function prepareCodexQualification(input: CodexQualificationOptions) {
           ? 'initial_root_handoff'
           : childReady
             ? 'child_linked'
-            : scope.sessions.length === 2 || childDeadline !== null
+            : scope.sessions.length === familySize || childDeadline !== null
               ? 'child_handoff_wait'
               : 'root_waiting';
       const guardHandoffTime = (root: boolean) => {
@@ -532,7 +540,7 @@ export function prepareCodexQualification(input: CodexQualificationOptions) {
           if (spawnCalls.has(call)) continue;
           spawnCalls.set(call, child);
           const observedAt = Date.now();
-          if (scope.sessions.length < 2 && childDeadline === null) childDeadline = Math.min(absoluteDeadline, observedAt + handshakeTimeoutMs);
+          if (scope.sessions.length < familySize && childDeadline === null) childDeadline = Math.min(absoluteDeadline, observedAt + handshakeTimeoutMs);
           diagnostics.push({
             phase: 'progress',
             field: 'spawn_progress',
@@ -642,7 +650,7 @@ export function prepareCodexQualification(input: CodexQualificationOptions) {
             }
             const localRoot = root ? sessionId : scope.sessions[0]!.sessionId;
             phase = 'registration';
-            lifecycle.linkCodexCandidateSession(options.taskId, options.projectId, sessionId, path, '0.160.0', root ? null : localRoot);
+            lifecycle.linkCodexCandidateSession(options.taskId, options.projectId, sessionId, path, recipe.version, root ? null : localRoot);
             scope.sessions.push({
               sessionId,
               rootSessionId: localRoot,
@@ -714,7 +722,7 @@ export function prepareCodexQualification(input: CodexQualificationOptions) {
           }
           collector.tickCodexCandidate(scope, sources);
           if (Date.now() >= absoluteDeadline) stop('candidate_timed_out');
-          else if (scope.sessions.length < 2 && childDeadline !== null && Date.now() >= childDeadline)
+          else if (scope.sessions.length < familySize && childDeadline !== null && Date.now() >= childDeadline)
             diagnose(null, 'progress', permissions.get(scope.sessions[0]!.sourceId)!.wireMode, 'spawn_progress', 'candidate_missing_child_handshake');
         } catch (error) {
           diagnose(
@@ -750,7 +758,7 @@ export function prepareCodexQualification(input: CodexQualificationOptions) {
           sessionId === undefined
             ? 0
             : options.store.all('SELECT id FROM runtime_evidence WHERE task_id=? AND session_id=?', [options.taskId, sessionId]).length;
-        if (!reason && (scope.sessions.length !== 2 || count(scope.sessions[0]?.sessionId) < 2 || count(scope.sessions[1]?.sessionId) < 1))
+        if (!reason && (scope.sessions.length !== familySize || count(scope.sessions[0]?.sessionId) < 2 || count(scope.sessions[1]?.sessionId) < 1))
           reason = 'candidate_incomplete_observation';
       } finally {
         clearInterval(timer);

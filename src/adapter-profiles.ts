@@ -1,3 +1,4 @@
+import { lookupToolVersionProfile, orderedToolVersionProfiles } from './core/tool-version-profiles.js';
 import admissions from './codex-admissions.json' with { type: 'json' };
 import { codexRolloutPolicy } from './codex-rollout-policy.js';
 export interface CodexRegisteredProfile {
@@ -44,7 +45,7 @@ export type RegisteredFileProfile = CodexRegisteredProfile | ClaudeRegisteredPro
 const codex01561 = {
   kind: 'registered',
   product: 'codex',
-  version: '0.156.1',
+  version: lookupToolVersionProfile('codex', '0.156.1')?.version as '0.156.1',
   boundaryMode: 'legacy',
   commandDiagnostics: true,
   counterMode: 'cumulative_total',
@@ -75,7 +76,7 @@ export const codexCheckpointSemantics = {
 const claude21283 = {
   kind: 'registered',
   product: 'claude_code',
-  version: '2.1.283',
+  version: lookupToolVersionProfile('claude_code', '2.1.283')?.version as '2.1.283',
   counterMode: 'message_components',
   identityTypes: ['assistant', 'user', 'attachment'],
   componentFields: ['input_tokens', 'cache_creation_input_tokens', 'cache_read_input_tokens'],
@@ -91,10 +92,12 @@ export interface CodexAdmission {
   readonly scenario: 'exec_initial_resume';
 }
 // Reviewed application data, never external config. A policy change requires fresh admission.
-const admittedCodex = (admissions as readonly CodexAdmission[])
-  .filter(entry => entry.policyRevision === codexRolloutPolicy.revision)
-  .map(entry => ({ ...codexCheckpointSemantics, version: entry.version }));
-export const registeredFileProfiles: readonly RegisteredFileProfile[] = [codex01561, claude21283, ...admittedCodex];
+export const registeredFileProfiles: readonly RegisteredFileProfile[] = orderedToolVersionProfiles('file').flatMap<RegisteredFileProfile>(profile => {
+  if (profile.file?.status === 'registered') return [profile.product === 'codex' ? { ...codex01561, version: profile.version } : claude21283];
+  return (admissions as readonly CodexAdmission[])
+    .filter(entry => entry.version === profile.version && entry.policyRevision === codexRolloutPolicy.revision && entry.policyRevision === profile.file?.policyRevision)
+    .map(entry => ({ ...codexCheckpointSemantics, version: entry.version }));
+});
 
 export function lookupFileProfile(product: string, version: string): RegisteredFileProfile | 'unsupported' {
   return registeredFileProfiles.find(profile => profile.product === product && profile.version === version) ?? 'unsupported';

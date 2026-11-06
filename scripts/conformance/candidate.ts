@@ -1,4 +1,5 @@
 import { lookupFileProfile } from '../../src/adapter-profiles.js';
+import { toolVersionRecipe } from '../../src/core/tool-version-profiles.js';
 export interface ConformanceCandidate {
   readonly kind: 'conformance_candidate';
   readonly product: 'codex';
@@ -21,13 +22,18 @@ export interface ConformanceCandidate {
   ];
 }
 
+const fileConformanceRecipe = toolVersionRecipe('codex-file-conformance-01580');
+if (fileConformanceRecipe.kind !== 'codex_file_conformance' ||
+  fileConformanceRecipe.version !== '0.158.0' || fileConformanceRecipe.previousVersion !== '0.156.1' ||
+  fileConformanceRecipe.sourceRef !== 'rust-v0.158.0') throw new Error('file_conformance_recipe_mismatch');
+
 export const codex01580Candidate = {
   kind: 'conformance_candidate',
-  product: 'codex',
-  version: '0.158.0',
-  previousVersion: '0.156.1',
-  sourceRef: 'rust-v0.158.0',
-  admitted: false,
+  product: fileConformanceRecipe.product,
+  version: fileConformanceRecipe.version,
+  previousVersion: fileConformanceRecipe.previousVersion,
+  sourceRef: fileConformanceRecipe.sourceRef,
+  admitted: fileConformanceRecipe.admitted,
   counterMode: 'cumulative_total',
   productionUsageField: 'total_token_usage',
   inspectedUsageField: 'last_token_usage',

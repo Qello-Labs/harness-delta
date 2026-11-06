@@ -35,6 +35,12 @@ export function createCompiledWorker(
     writeFileSync(join(compiled, 'package.json'), '{"type":"module"}');
     symlinkSync(join(process.cwd(), 'node_modules'), join(compiled, 'node_modules'), 'dir');
     for (const name of readdirSync(sourceDirectory, { recursive: true, encoding: 'utf8' })) {
+      if (name.endsWith('.json')) {
+        // Assets stay fresh even when the TypeScript compilation is cached.
+        mkdirSync(dirname(join(compiled, name)), { recursive: true });
+        cpSync(join(sourceDirectory, name), join(compiled, name));
+        continue;
+      }
       if (!name.endsWith('.ts')) continue;
       const source = readFileSync(join(sourceDirectory, name));
       const cached = sources.get(name);
@@ -48,8 +54,6 @@ export function createCompiledWorker(
       mkdirSync(dirname(join(compiled, name)), { recursive: true });
       writeFileSync(join(compiled, name.replace(/\.ts$/, '.js')), output);
     }
-    // Assets remain fresh per fixture, independently of unchanged TypeScript input.
-    cpSync(join(sourceDirectory, 'codex-admissions.json'), join(compiled, 'codex-admissions.json'));
     cpSync(join(sourceDirectory, 'migrations'), join(compiled, 'migrations'), { recursive: true });
     return compiled;
   };

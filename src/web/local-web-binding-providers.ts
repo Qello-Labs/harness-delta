@@ -1,4 +1,5 @@
 import { comparisonProtocol, protocolRow } from '../core/protocol-store.js';
+import { lookupToolVersionProfile } from '../core/tool-version-profiles.js';
 import { getClaudeBindingAdmission } from '../claude-binding-admission.js';
 import { getCodexBindingAdmission, isAdmittedCodexBindingProtocol } from '../codex-binding-admission.js';
 import type { ExternalTaskSetup } from '../external-session-service.js';
@@ -50,7 +51,9 @@ function codexProvider(
       ? {
           maxDepth: 1,
           maxFamilyMembers: 3,
-          ...(['0.162.1', '0.163.0'].includes(setupFor(record).workflow.product_version) ? { ordinaryFamilyQualification: true } : {})
+          ...(lookupToolVersionProfile('codex', setupFor(record).workflow.product_version)?.qualificationReader?.mode === 'family_qualification_v1'
+            ? { ordinaryFamilyQualification: true }
+            : {})
         }
       : options.nativePilot
         ? { maxDepth: 1, maxFamilyMembers: codexRootPilotVersions.some(version => version === setupFor(record).workflow.product_version) ? 1 : 3 }

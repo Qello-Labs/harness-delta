@@ -1,3 +1,4 @@
+import { orderedToolVersionProfiles, toolVersionRecipe } from './core/tool-version-profiles.js';
 import { resolveSourceCompatibility } from './source-compatibility.js';
 import { productionSourceEvidence, type SourceReadinessEvidence } from './readiness.js';
 
@@ -7,11 +8,11 @@ export const claudeWorkflowProfileId = 'claude-workflow-own-trace-v1';
 export const claudeWorkflowChildProfileId = 'claude-workflow-direct-child-v1';
 /** The internal native probe's own pinned version (claude-minimal-run). It is independent of
  * the workflow list below, so retiring a workflow version never changes the probe path. */
-export const claudeProbeProductVersion = '2.1.288';
+export const claudeProbeProductVersion = toolVersionRecipe('claude-internal-probe-02188').version as '2.1.288';
 /** Exact admitted versions stay distinct from the conditional workflow window.
  * Candidate-only and internal probe callers continue using this closed list.
  * 2.1.288 was retired on 2026-10-06 and 2.1.291 on 2026-10-13; see the source-readiness evidence. */
-export const claudeWorkflowProductVersions = Object.freeze(['2.1.296'] as const);
+export const claudeWorkflowProductVersions = Object.freeze(orderedToolVersionProfiles('workflow', 'claude_code').map(profile => profile.version)) as readonly ['2.1.296'];
 export type ClaudeWorkflowProductVersion = string;
 export function isClaudeWorkflowProductVersion(value: unknown): value is ClaudeWorkflowProductVersion {
   return typeof value === 'string' && resolveSourceCompatibility('claude_code', value, 'claude_workflow', claudeWorkflowProfileId) !== null;

@@ -11,6 +11,7 @@ export interface Compatibility {
   readonly rule_revision: string;
 }
 export interface SourceRegistry {
+  readonly retiredClaudeWorkflowVersions: readonly string[];
   readonly resolve: (product: string, version: string, source: import('./lanes.mjs').Lane['route'], profileId: string) => Compatibility | null;
   readonly ruleRevision: string;
   readonly windows: readonly {
