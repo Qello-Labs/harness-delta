@@ -29,6 +29,7 @@ import { isClaudeHumanPilotScope } from './session-binding-claude-human-pilot.js
 import { assertCompatibilityAllowed, pinSessionCompatibility, invalidateCompatibility, resolveSourceCompatibility } from './source-compatibility.js';
 import { getCodexBindingAdmission, isAdmittedCodexBindingProtocol, isCodexGptModel } from './codex-binding-admission.js';
 import { lstatSync } from 'node:fs';
+import { assertOrdinaryWindowSurfaceClosed, ordinaryWindowSelection } from './core/ordinary-window-store.js';
 
 interface BindingRow { session_id: string; task_id: string; root_id: string; identity: string;
   relation_evidence_id: string | null; connect_receipt: string | null; cursor: string | null; observed_since: string; generation: number; state: string; gaps: string }
@@ -59,9 +60,28 @@ const gapCodes = new Set(['qualification_required', 'unsupported_history', 'miss
   'binding_ancestry_unverified', 'binding_partial_usage', 'binding_future_usage', 'binding_unobserved_context', 'candidate_unsupported_history', 'unobserved_interval', 'late_linked_member']);
 const cleanGaps = (values: string[]) => [...new Set(values.map(code => gapCodes.has(code) ? code : 'binding_usage_incomplete'))];
 
+async function flushSessionBindingForgets(store: Store,
+  options: Pick<SessionBindingServiceOptions, 'providers' | 'providersForTask'>): Promise<void> {
+  for (const row of store.all<{product: BindingProduct;native_session_id: string;task_id: string;project_root: string}>('SELECT * FROM session_binding_forgets')) {
+    try {
+      if (store.get('SELECT 1 FROM ordinary_window_forget_fences WHERE product=? AND native_session_id=?',
+        [row.product, row.native_session_id])) throw new Error('binding_window_unavailable');
+      const provider = (options.providersForTask?.(row.task_id, row.project_root) ?? options.providers).find(p => p.product === row.product);
+      if (!provider?.forgetSession) throw new Error('binding_provider_unavailable');
+      await provider.forgetSession(row.native_session_id);
+      store.execute('DELETE FROM session_binding_forgets WHERE product=? AND native_session_id=?', [row.product, row.native_session_id]);
+    } catch {
+      // Keep retryable metadata cleanup durable. Deletion/tombstone fences
+      // revoke collection immediately, independently of provider availability.
+      store.execute("UPDATE session_binding_forgets SET reason_code='binding_forget_pending' WHERE product=? AND native_session_id=?", [row.product, row.native_session_id]);
+    }
+  }
+}
+
 /** Production admission is code-owned. Existing launch/ticket profiles do not
  * qualify ordinary hook-bound sessions; provider/browser assertions cannot lift it. */
 export function bindingSourceSupported(store: Store, taskId: string): boolean {
+  if (ordinaryWindowSelection(store, taskId)) return false;
   const task = new Lifecycle(store).task(taskId);
   const metadata = parseTaskMetadata(JSON.parse(task.metadata) as unknown);
   const assignment = store.get<{ protocol_id: string }>('SELECT protocol_id FROM comparison_assignments WHERE task_id=?', [taskId]);
@@ -98,6 +118,7 @@ export function createSessionBindingService(options: SessionBindingServiceOption
   };
 
   const providerFor = (product: BindingProduct, taskId: string) => {
+    assertOrdinaryWindowSurfaceClosed(store, taskId);
     const provider = (options.providersForTask?.(taskId) ?? options.providers).find(p => p.product === product);
     if (!provider) throw new Error('binding_provider_unavailable'); return provider;
   };
@@ -119,23 +140,11 @@ export function createSessionBindingService(options: SessionBindingServiceOption
   let forgetting: Promise<void> | undefined;
   const flushForgotten = (): Promise<void> => {
     if (forgetting) return forgetting;
-    forgetting = (async () => {
-      for (const row of store.all<{product: BindingProduct;native_session_id: string;task_id: string;project_root: string}>('SELECT * FROM session_binding_forgets')) {
-        try {
-          const provider = (options.providersForTask?.(row.task_id, row.project_root) ?? options.providers).find(p => p.product === row.product);
-          if (!provider?.forgetSession) throw new Error('binding_provider_unavailable');
-          await provider.forgetSession(row.native_session_id);
-          store.execute('DELETE FROM session_binding_forgets WHERE product=? AND native_session_id=?', [row.product, row.native_session_id]);
-        } catch {
-          // Keep retryable metadata cleanup durable. Deletion/tombstone fences
-          // revoke collection immediately, independently of provider availability.
-          store.execute("UPDATE session_binding_forgets SET reason_code='binding_forget_pending' WHERE product=? AND native_session_id=?", [row.product, row.native_session_id]);
-        }
-      }
-    })().finally(() => { forgetting = undefined; });
+    forgetting = flushSessionBindingForgets(store, options).finally(() => { forgetting = undefined; });
     return forgetting;
   };
   const authorize = (taskId: string, active = false, generation?: number) => {
+    assertOrdinaryWindowSurfaceClosed(store, taskId);
     const task = life.task(taskId);
     if (store.get("SELECT 1 FROM tombstones WHERE (kind='task' AND id=?) OR (kind='project' AND id=?)", [taskId, task.project_id])) throw new Error('deleted_identifier');
     if (task.state === 'finalized' || active && task.state !== 'active' || generation !== undefined && task.generation !== generation) throw new Error('binding_scope_revoked');
@@ -362,6 +371,7 @@ export function createSessionBindingService(options: SessionBindingServiceOption
     });
   };
   const status = (taskId: string) => {
+    assertOrdinaryWindowSurfaceClosed(store, taskId);
     const task = life.task(taskId); const all = rows(taskId);
     const gaps = cleanGaps(all.flatMap(row => z.array(z.string()).parse(JSON.parse(row.gaps) as unknown)));
     const assignment=store.get<{protocol_id:string}>('SELECT protocol_id FROM comparison_assignments WHERE task_id=?',[taskId]);

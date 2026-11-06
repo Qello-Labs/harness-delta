@@ -11,10 +11,10 @@ export const assessmentRuleRevision = 'static-assessment-v1';
 const modules = [
   'adapter-profiles', 'codex-rollout-policy', 'source-compatibility', 'contracts', 'readiness',
   'comparison-contracts', 'flexible-contracts', 'cost-coverage', 'report-source-trust-contracts',
-  'codex-binding-admission', 'claude-binding-admission', 'claude-workflow-versions', 'core/tool-version-profiles',
+  'codex-binding-admission', 'claude-binding-admission', 'claude-workflow-versions', 'core/tool-version-profiles', 'core/ordinary-window-policy',
 ];
 const scopePaths = Object.keys(scopeSourceDigests);
-const hashOnlyPaths = ['src/nested-candidate.ts', 'src/codex-candidate-rollout.ts'];
+const hashOnlyPaths = ['src/nested-candidate.ts', 'src/codex-candidate-rollout.ts', 'src/core/ordinary-window-store.ts', 'src/ordinary-window-binding.ts'];
 export const sourcePathAllowlist = Object.freeze([
   ...new Set([...modules.map(name => `src/${name}.ts`), 'src/codex-admissions.json',
     'src/core/tool-version-profiles.json', 'src/core/tool-version-recipes.json', 'src/core/tool-version-identities.json', ...scopePaths, ...hashOnlyPaths]),

@@ -11,6 +11,7 @@ import { overlayEventCompatibility } from './source-compatibility.js';
 import { readRuntimeHistory } from './runtime-history.js';
 import { linkedRequestPriceEvidence } from './pricing/request-price-evidence.js';
 import { observedCostCoverage } from './pricing/observed-cost-coverage.js';
+import { assertOrdinaryWindowSurfaceClosed } from './core/ordinary-window-store.js';
 
 /** Metadata-only descriptive projection; no coverage or source admission implied. */
 export function projectObservedCost(
@@ -96,6 +97,7 @@ export function projectObservedCost(
 }
 
 export function captureObservedCostInput(store: Store, taskId: string, tableId: string, cutoff: string, inputBasis: LegacyInputBasis) {
+  assertOrdinaryWindowSurfaceClosed(store, taskId);
   return store.transaction(() => {
     const task = new Lifecycle(store).task(taskId);
     const end = parseComparison(TimestampSchema, cutoff);

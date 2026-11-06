@@ -15,7 +15,12 @@ import { laneSchema, sourceLanes } from '../scripts/tool-update/lanes.mjs';
 import { sourcePathAllowlist, withSourceSnapshot } from '../scripts/tool-update/source-snapshot.mjs';
 
 const root = realpathSync(fileURLToPath(new URL('..', import.meta.url)));
-const parserPaths = ['src/nested-candidate.ts', 'src/codex-candidate-rollout.ts'] as const;
+const parserPaths = [
+  'src/nested-candidate.ts',
+  'src/codex-candidate-rollout.ts',
+  'src/core/ordinary-window-store.ts',
+  'src/ordinary-window-binding.ts'
+] as const;
 const temporary: string[] = [];
 afterEach(async () => {
   for (const path of temporary.splice(0)) await rm(path, { recursive: true, force: true });
@@ -379,9 +384,9 @@ test.each(parserPaths)('rejects projection-time drift in hash-only input %s', as
     })
   ).rejects.toMatchObject({ code: 'source_drift' });
 });
-test('the expanded snapshot includes 28 source paths', async () => {
+test('the runtime foundation snapshot stays inside the existing 32-path contract', async () => {
   const snapshot = await withSourceSnapshot(root, () => null);
-  expect(snapshot.source_paths).toHaveLength(28);
+  expect(snapshot.source_paths).toHaveLength(31);
 });
 test('loads nested source imports and retirement metadata without dist', async () => {
   const directory = await sourceFixture();
@@ -394,12 +399,14 @@ test('loads nested source imports and retirement metadata without dist', async (
   expect(snapshot.value.retired).toEqual(['2.1.288', '2.1.291']);
   expect(snapshot.value.admitted?.state).toBe('verified');
   expect(snapshot.source_paths.filter(path => path.startsWith('src/core/'))).toEqual([
+    'src/core/ordinary-window-policy.ts',
+    'src/core/ordinary-window-store.ts',
     'src/core/tool-version-identities.json',
     'src/core/tool-version-profiles.json',
     'src/core/tool-version-profiles.ts',
     'src/core/tool-version-recipes.json'
   ]);
-  expect(snapshot.source_paths).toHaveLength(28);
+  expect(snapshot.source_paths).toHaveLength(31);
 });
 test.each([
   ['escape', "import '../../package.json' with { type: 'json' };"],

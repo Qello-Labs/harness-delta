@@ -10,6 +10,7 @@ import type { EvidenceIdentity } from './admission.js';
 export const evidenceSources = [
   'src/core/tool-version-profiles.ts', 'src/core/tool-version-profiles.json', 'src/core/tool-version-recipes.json', 'src/core/tool-version-identities.json',
   'src/adapter-profiles.ts', 'src/collection.ts', 'src/lifecycle.ts', 'src/metrics.ts',
+  'src/store.ts', 'src/source-compatibility.ts', 'src/core/ordinary-window-policy.ts', 'src/migrations/036_ordinary_window_observation.sql',
   'scripts/conformance/register.ts', 'scripts/conformance-command.mjs', 'scripts/conformance/tsconfig.json', 'src/adapters.ts', 'src/codex-rollout-policy.ts', 'src/contracts.ts',
   'scripts/conformance/candidate.ts', 'scripts/conformance/parse-candidate.ts',
   'scripts/conformance/catalog.ts', 'scripts/conformance/checks.ts', 'scripts/conformance/report.ts',

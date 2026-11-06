@@ -6,8 +6,10 @@ import { ordinaryTask } from '../../ordinary-observation.js';
 import { projectCatalogCost } from '../../catalog-cost-report.js';
 import { readPriceBasis } from '../../price-catalog-store.js';
 import type { Store } from '../../store.js';
+import { assertOrdinaryWindowSurfaceClosed } from '../../core/ordinary-window-store.js';
 
 export function aggregateOrdinaryTaskReport(store: Store, taskId: string, cutoff: string) {
+  assertOrdinaryWindowSurfaceClosed(store, taskId);
   const end = TimestampSchema.parse(cutoff);
   if (Date.parse(end) > Date.now()) throw new Error('invalid_cutoff');
   return store.transaction(() => {

@@ -234,7 +234,11 @@ test('version 21 bindings upgrade with no invented connect receipt or event chan
   try {
     const db = new Database(file);
     const dir = new URL('../src/migrations/', import.meta.url);
-    for (const name of readdirSync(dir).sort().slice(0, 21)) db.exec(readFileSync(new URL(name, dir), 'utf8'));
+    for (const name of readdirSync(dir)
+      .filter(name => name.endsWith('.sql'))
+      .sort()
+      .slice(0, 21))
+      db.exec(readFileSync(new URL(name, dir), 'utf8'));
     db.pragma('user_version = 21');
     db.prepare('INSERT INTO projects(id) VALUES (?)').run('p1');
     db.prepare('INSERT INTO tasks(id,project_id) VALUES (?,?)').run('t1', 'p1');

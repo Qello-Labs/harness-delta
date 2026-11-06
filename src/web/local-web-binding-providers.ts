@@ -15,6 +15,7 @@ import { codexReceiptDirectoryState, type createCodexProjectSetupManager } from 
 import type { LocalWebDomainOptions } from './local-web-domain.js';
 import type { createLocalWebMetadata, PrivateTask } from './local-web-metadata-store.js';
 import type { LocalWebProfile } from './local-web-profile.js';
+import { assertOrdinaryWindowSurfaceClosed } from '../core/ordinary-window-store.js';
 
 interface ProviderDependencies {
   readonly options: LocalWebDomainOptions;
@@ -161,6 +162,7 @@ export function createLocalWebBindingProviders(dependencies: ProviderDependencie
   const { options, recordFor, ordinaryBindings } = dependencies;
   const providers = new Map<string, SessionBindingProvider[]>();
   const providersForTask = (id: string, deletedProjectRoot?: string): SessionBindingProvider[] => {
+    assertOrdinaryWindowSurfaceClosed(options.store, id);
     if (options.bindingProviders) return options.bindingProviders;
     const cached = providers.get(id);
     if (cached) return cached;

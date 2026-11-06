@@ -6,6 +6,8 @@ import { FlexibleTaskMetadataSchema } from './flexible-contracts.js';
 import { Lifecycle, utcNow, type Clock } from './lifecycle.js';
 import { preparePriceBasis } from './price-catalog-store.js';
 import type { Store } from './store.js';
+import { OrdinaryWindowPolicyIdSchema, OrdinaryWindowSelectionSchema, resolveOrdinaryWindow } from './core/ordinary-window-policy.js';
+import { assertOrdinaryWindowSurfaceClosed, ordinaryWindowSelectionHash } from './core/ordinary-window-store.js';
 
 const absolutePath = z
   .string()
@@ -70,6 +72,7 @@ export function ordinaryTask(store: Store, taskId: string): OrdinaryTaskRow | un
 }
 
 export function ordinaryTaskSettings(store: Store, taskId: string): OrdinaryProjectSettings {
+  assertOrdinaryWindowSurfaceClosed(store, taskId);
   const row = ordinaryTask(store, taskId);
   if (!row) throw new Error('ordinary_preparation_required');
   const settings = OrdinaryProjectSettingsSchema.parse(JSON.parse(row.settings));
@@ -129,4 +132,61 @@ export function revokeOrdinaryObservation(store: Store, taskId: string, clock: C
   if (!prepared) throw new Error('ordinary_preparation_required');
   if (prepared.revoked_at === null)
     store.execute('UPDATE ordinary_tasks SET revoked_at=? WHERE task_id=?', [new Date(TimestampSchema.parse(clock())).toISOString(), taskId]);
+}
+
+export const OrdinaryWindowTaskInputSchema = OrdinaryTaskInputSchema.extend({
+  schema_version: z.literal(2),
+  mode: z.literal('ordinary_window'),
+  product: z.enum(['codex', 'claude_code']),
+  declared_version: ProductVersionSchema,
+  policy_id: OrdinaryWindowPolicyIdSchema
+});
+
+export function createOrdinaryWindowTask(store: Store, input: z.input<typeof OrdinaryWindowTaskInputSchema>, clock: Clock = utcNow): string {
+  const spec = OrdinaryWindowTaskInputSchema.parse(input);
+  const resolved = resolveOrdinaryWindow(spec.product, spec.declared_version, spec.policy_id);
+  if (!resolved) throw new Error('binding_version_out_of_window');
+  const taskId = randomUUID();
+  store.immediateTransaction(() => {
+    const project = store.get<{ local_root: string | null }>('SELECT local_root FROM projects WHERE id=?', [spec.project_id]);
+    if (!project?.local_root) throw new Error('unknown_project');
+    if (store.get("SELECT 1 FROM tombstones WHERE kind='project' AND id=?", [spec.project_id])) throw new Error('deleted_identifier');
+    const at = new Date(TimestampSchema.parse(clock())).toISOString();
+    const basis = preparePriceBasis(store, at);
+    const selection = OrdinaryWindowSelectionSchema.parse({
+      schemaVersion: 2,
+      mode: 'ordinary_window',
+      taskId,
+      projectId: spec.project_id,
+      declaredVersion: spec.declared_version,
+      policy: resolved.policy,
+      policyDigest: resolved.policyDigest,
+      priceTableId: basis.table.id,
+      preparedAt: at
+    });
+    new Lifecycle(store, clock).createTask(
+      spec.project_id,
+      taskId,
+      FlexibleTaskMetadataSchema.parse({
+        schema_version: 2,
+        type: spec.type,
+        expected_size: spec.expected_size,
+        assignee: spec.assignee,
+        product: spec.product,
+        initial_model: null,
+        criterion_ids: spec.criterion_ids
+      })
+    );
+    const serialized = JSON.stringify(selection);
+    const hash = ordinaryWindowSelectionHash(selection);
+    store.execute('INSERT INTO ordinary_tasks(task_id,settings,settings_hash,price_table_id,prepared_at) VALUES (?,?,?,?,?)', [
+      taskId,
+      serialized,
+      hash,
+      basis.table.id,
+      at
+    ]);
+    store.execute('INSERT INTO ordinary_window_selections(task_id,selection,selection_hash) VALUES (?,?,?)', [taskId, serialized, hash]);
+  });
+  return taskId;
 }
