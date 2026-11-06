@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { readFileSync, readdirSync, realpathSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, readFileSync, readdirSync, realpathSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { failureEvidenceSchema, parseArguments, persistFailure, runConformance, validateApproval } from '../scripts/tool-update/conformance.mjs';
 import { bounded, ConformanceError, observedProcess, privateRead, repository, safeCode, treeDigest } from '../scripts/tool-update/fixtures.mjs';
@@ -52,6 +54,45 @@ describe('strict execution authority', () => {
     const before = treeDigest(root);
     writeFileSync(path, 'export const fixture = 2;\n');
     expect(treeDigest(root)).not.toBe(before);
+  });
+  it('rejects generated recipe drift through the actual instrument snapshot', () => {
+    const root = fixture();
+    const put = (path: string, bytes: string) => {
+      const target = join(root, path);
+      mkdirSync(dirname(target), { recursive: true });
+      writeFileSync(target, bytes);
+    };
+    put('scripts/tool-update/fixtures.mjs', readFileSync(join(repository, 'scripts/tool-update/fixtures.mjs'), 'utf8'));
+    for (const path of ['src/synthetic.ts', 'dist/synthetic.js', 'skills/harness-connect/SKILL.md', 'scripts/owned-cli-pty.py'])
+      put(path, 'Synthetic pin fixture');
+    put('package.json', '{"type":"module"}');
+    put('package-lock.json', '{"lockfileVersion":3}');
+    put('scripts/generated/tool-version-data.mjs', 'export const synthetic = 1;\n');
+    const output: unknown = JSON.parse(
+      execFileSync(
+        process.execPath,
+        [
+          '--input-type=module',
+          '-e',
+          `import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
+const open = fs.openSync;
+const system = ['/usr/bin/python3', '/bin/ps', '/usr/bin/pgrep', '/usr/bin/git'];
+fs.openSync = (path, ...args) => open(system.includes(path) ? fs.realpathSync(process.execPath) : path, ...args);
+syncBuiltinESMExports();
+const { snapshotPins, assertPins } = await import(process.argv[1]);
+const binary = fs.realpathSync(process.execPath), before = snapshotPins(binary);
+fs.writeFileSync(process.argv[2], 'export const synthetic = 2;\\n');
+assert.throws(() => assertPins(before, binary), { message: 'pin_drift' });
+process.stdout.write(JSON.stringify({ code: 'pin_drift' }));`,
+          pathToFileURL(join(root, 'scripts/tool-update/fixtures.mjs')).href,
+          join(root, 'scripts/generated/tool-version-data.mjs')
+        ],
+        { encoding: 'utf8', timeout: 10000 }
+      )
+    );
+    expect(output).toEqual({ code: 'pin_drift' });
   });
   it('rejects expired authority rather than silently refreshing it', () => {
     expect(() => validateApproval(approval(), { ...context, now: Date.parse('2026-10-24T00:30:00Z') })).toThrow('approval_expired');

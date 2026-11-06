@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import {
   chmodSync,
   existsSync,
@@ -15,6 +16,8 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { ModuleKind, ScriptTarget, transpileModule } from 'typescript';
 import { afterEach, expect, test, vi } from 'vitest';
 import { z } from 'zod';
 import { hashBytes } from '../../src/core/repository-files.js';
@@ -509,7 +512,61 @@ test('default shipped sources are available without reading session contents', (
   const f = fixture();
   const result = preview(f.project, { sourceRoots: [f.sourceRoot], productVersion: '0.162.1' });
   expect(result.source).toBe('available');
-  expect(result.changes.some(change => change.path === recorder)).toBe(true);
+  expect(result.changes.find(change => change.path === recorder)).toMatchObject({
+    action: 'create',
+    afterHash: hashBytes(readFileSync(new URL('../../scripts/session-binding-codex-hook.mjs', import.meta.url)))
+  });
+});
+test('compiled installer uses its bundled recorder without checkout scripts', () => {
+  const f = fixture();
+  const root = dirname(f.project),
+    dist = join(root, 'dist');
+  put(root, 'package.json', JSON.stringify({ type: 'module' }));
+  symlinkSync(fileURLToPath(new URL('../../node_modules', import.meta.url)), join(root, 'node_modules'), 'dir');
+  for (const name of [
+    'connect/codex-connect-installation',
+    'codex-binding-admission',
+    'core/repository-files',
+    'core/tool-version-profiles',
+    'package-paths'
+  ]) {
+    const compiled = transpileModule(readFileSync(new URL(`../../src/${name}.ts`, import.meta.url), 'utf8'), {
+      compilerOptions: { module: ModuleKind.ESNext, target: ScriptTarget.ES2023 }
+    }).outputText;
+    put(dist, `${name}.js`, compiled);
+  }
+  for (const name of ['tool-version-profiles', 'tool-version-recipes', 'tool-version-identities']) {
+    put(dist, `core/${name}.json`, readFileSync(new URL(`../../src/core/${name}.json`, import.meta.url), 'utf8'));
+  }
+  const bytes = readFileSync(f.hookSource, 'utf8');
+  put(dist, 'assets/session-binding-codex-hook.mjs', bytes);
+  const options = { packageRoot: f.packageRoot, sourceRoots: [f.sourceRoot], productVersion: '0.162.1' };
+  const expected = preview(f.project, f.options);
+  expect(existsSync(join(root, 'scripts'))).toBe(false);
+  const result: unknown = JSON.parse(
+    execFileSync(
+      process.execPath,
+      [
+        '--input-type=module',
+        '-e',
+        `const {previewCodexConnectInstallation:preview,installCodexConnectInstallation:install}=await import(process.argv[1]);
+const root=process.argv[2],options=JSON.parse(process.argv[3]);
+const before=preview(root,options);
+const installed=install(root,{...options,expectedPackageHash:before.packageHash,expectedInstalledHash:before.installedHash});
+process.stdout.write(JSON.stringify({before,installed,after:preview(root,options)}));`,
+        pathToFileURL(join(dist, 'connect/codex-connect-installation.js')).href,
+        f.project,
+        JSON.stringify(options)
+      ],
+      { encoding: 'utf8', timeout: 10000 }
+    )
+  );
+  expect(result).toMatchObject({
+    before: { source: 'available', blockers: [], packageHash: expected.packageHash, changes: expected.changes },
+    installed: { state: 'installed', blockers: [] },
+    after: { state: 'installed', changes: [] }
+  });
+  expect(readFileSync(join(f.project, recorder), 'utf8')).toBe(bytes);
 });
 test('a project without hooks gets only the two owned lifecycle entries', () => {
   const f = fixture();

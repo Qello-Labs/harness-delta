@@ -3,9 +3,11 @@
 [한국어](workflow-quickstart.ko.md) · [Documentation map](../../README.md#documentation)
 
 Use this procedure for a small **functional pilot** with descriptive partial costs.
+<!-- tool-version-assets:workflow-profiles:start -->
 It covers Codex 0.160.0 (`codex-workflow-own-response-v1`) and
 Claude Code 2.1.296 (`claude-workflow-own-trace-v1`, parent-only; `claude-workflow-direct-child-v1`), plus
 the conditional forward versions described below.
+<!-- tool-version-assets:workflow-profiles:end -->
 Use one persistent A/B assignment for each logical task.
 Choose model and effort per invocation; a new session does not change the assignment.
 

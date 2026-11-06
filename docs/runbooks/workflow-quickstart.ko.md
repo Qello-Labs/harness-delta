@@ -3,9 +3,11 @@
 [English](workflow-quickstart.md) · [문서 탐색](../../README.md#documentation)
 
 부분 비용을 기술하는 작은 **기능 파일럿**에 이 절차를 사용하세요.
+<!-- tool-version-assets:workflow-profiles:start -->
 대상은 Codex 0.160.0(`codex-workflow-own-response-v1`)과
 Claude Code 2.1.296(`claude-workflow-own-trace-v1`, 부모 전용; `claude-workflow-direct-child-v1`)과
 아래의 조건부 후속 버전입니다.
+<!-- tool-version-assets:workflow-profiles:end -->
 논리적 작업마다 하나의 A/B 배정을 유지합니다.
 모델과 effort는 실행마다 선택합니다. 새 세션을 열어도 배정은 바뀌지 않습니다.
 

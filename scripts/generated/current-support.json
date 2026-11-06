@@ -1,0 +1,234 @@
+{
+  "schemaVersion": 1,
+  "profiles": [
+    {
+      "product": "codex",
+      "version": "0.156.1",
+      "file": {
+        "status": "registered",
+        "profileId": "codex-file-legacy-v1",
+        "parserVariant": "codex_legacy_v1"
+      }
+    },
+    {
+      "product": "claude_code",
+      "version": "2.1.283",
+      "file": {
+        "status": "registered",
+        "profileId": "claude-file-message-components-v1",
+        "parserVariant": "claude_message_components_v1"
+      }
+    },
+    {
+      "product": "codex",
+      "version": "0.158.0",
+      "file": {
+        "status": "ledger_registered",
+        "profileId": "codex-file-checkpoint-v1",
+        "parserVariant": "codex_checkpoint_v1",
+        "policyRevision": "codex-rollout-m2-v1"
+      }
+    },
+    {
+      "product": "codex",
+      "version": "0.160.0",
+      "workflow": [
+        {
+          "status": "admitted",
+          "profileId": "codex-workflow-own-response-v1",
+          "operationVariant": "codex_own_response_workflow_v1"
+        },
+        {
+          "status": "admitted",
+          "profileId": "codex-workflow-direct-child-v1",
+          "operationVariant": "codex_own_response_workflow_v1"
+        }
+      ]
+    },
+    {
+      "product": "codex",
+      "version": "0.162.0"
+    },
+    {
+      "product": "codex",
+      "version": "0.162.1",
+      "ordinaryBinding": {
+        "status": "admitted",
+        "profileId": "codex-binding-01621-direct-family-v1",
+        "qualification": "implicit_verified",
+        "model": "gpt-6.1-sol",
+        "effort": "high",
+        "maxDepth": 1,
+        "maxFamilyMembers": 3,
+        "modelPolicy": "gpt_family_observed_effort_v1",
+        "historyVariant": "codex_paginated_own_suffix_v1",
+        "rootOnlyOverride": false,
+        "evidenceId": "codex-binding-01621-native-family-v1",
+        "evidenceIntentSha256": "bc6a3cdca7f0750c901e3f95087f63b34e5ecd6c1584fdae78f2729145f9fc2e",
+        "costStatus": "partial"
+      }
+    },
+    {
+      "product": "codex",
+      "version": "0.163.0",
+      "ordinaryBinding": {
+        "status": "admitted",
+        "profileId": "codex-binding-01630-direct-family-v1",
+        "qualification": "verified",
+        "model": "gpt-6.1-sol",
+        "effort": "high",
+        "maxDepth": 1,
+        "maxFamilyMembers": 3,
+        "modelPolicy": "gpt_family_observed_effort_v1",
+        "historyVariant": "codex_reject_inherited_history_v1",
+        "rootOnlyOverride": false,
+        "evidenceId": "codex-binding-01630-native-family-v1",
+        "evidenceIntentSha256": "a8add9d20b6c7c7845090c70b4896d0b6922acfdb916495b81ec71dc4281683e",
+        "costStatus": "partial"
+      }
+    },
+    {
+      "product": "codex",
+      "version": "0.166.0",
+      "ordinaryBinding": {
+        "status": "admitted",
+        "profileId": "codex-binding-01660-direct-family-v1",
+        "qualification": "unqualified",
+        "model": "gpt-6.1-sol",
+        "effort": "high",
+        "maxDepth": 1,
+        "maxFamilyMembers": 3,
+        "modelPolicy": "gpt_family_observed_effort_v1",
+        "historyVariant": "codex_reject_inherited_history_v1",
+        "rootOnlyOverride": true,
+        "costStatus": "partial"
+      }
+    },
+    {
+      "product": "claude_code",
+      "version": "2.1.296",
+      "workflow": [
+        {
+          "status": "admitted",
+          "profileId": "claude-workflow-own-trace-v1",
+          "operationVariant": "claude_parent_workflow_v1"
+        },
+        {
+          "status": "admitted",
+          "profileId": "claude-workflow-direct-child-v1",
+          "operationVariant": "claude_exact_child_workflow_v1"
+        }
+      ],
+      "ordinaryBinding": {
+        "status": "admitted",
+        "profileId": "claude-binding-02196-family-v1",
+        "qualified": false,
+        "model": "claude-opus-5-5",
+        "maxFamilyMembers": 8,
+        "modelPolicy": "claude_family_observed_effort_v1",
+        "historyVariant": "claude_flattened_family_v1",
+        "imageIdentity": "claude-2.1.296-ordinary-image",
+        "evidenceId": "claude-binding-02196-ordinary-native-v1",
+        "costStatus": "partial"
+      },
+      "transcriptProfile": {
+        "status": "qualified",
+        "evidence": "offline-actual-binary;native-pilot-2026-10-13;validation/claude-ordinary-binding-02196-qualification.md",
+        "finalityVariant": "claude_terminal_message_v1",
+        "legacyDefault": true
+      }
+    },
+    {
+      "product": "claude_code",
+      "version": "2.1.301",
+      "ordinaryBinding": {
+        "status": "admitted",
+        "profileId": "claude-binding-2-1-301-family-v1",
+        "qualified": false,
+        "model": "claude-sonnet-5-5",
+        "maxFamilyMembers": 3,
+        "modelPolicy": "claude_family_observed_effort_v1",
+        "historyVariant": "claude_flattened_family_v1",
+        "imageIdentity": "claude-2.1.301-ordinary-image",
+        "evidenceId": "claude-binding-2-1-301-ordinary-native-v1",
+        "costStatus": "partial"
+      },
+      "transcriptProfile": {
+        "status": "qualified",
+        "evidence": "offline-actual-binary-print-normal-sigint-2026-10-16;validation/claude-ordinary-binding-02196-qualification.md",
+        "finalityVariant": "claude_terminal_message_v1",
+        "legacyDefault": false
+      }
+    },
+    {
+      "product": "claude_code",
+      "version": "2.1.306",
+      "ordinaryBinding": {
+        "status": "admitted",
+        "profileId": "claude-binding-2-1-306-family-v1",
+        "qualified": false,
+        "model": "claude-sonnet-5-5",
+        "maxFamilyMembers": 3,
+        "modelPolicy": "claude_family_observed_effort_v1",
+        "historyVariant": "claude_flattened_family_v1",
+        "imageIdentity": "claude-2.1.306-ordinary-image",
+        "evidenceId": "claude-binding-2-1-306-ordinary-localhost-v1",
+        "costStatus": "partial"
+      },
+      "transcriptProfile": {
+        "status": "qualified",
+        "evidence": "offline-actual-binary-print-normal-sigint-2026-10-21;validation/claude-ordinary-binding-02196-qualification.md",
+        "finalityVariant": "claude_terminal_message_v1",
+        "legacyDefault": false
+      }
+    },
+    {
+      "product": "claude_code",
+      "version": "2.1.294",
+      "transcriptProfile": {
+        "status": "candidate",
+        "evidence": "official-changelog-2.1.294;synthetic-fixtures;native-qualification-pending",
+        "finalityVariant": "claude_candidate_quiescence_v1",
+        "legacyDefault": false
+      }
+    },
+    {
+      "product": "claude_code",
+      "version": "2.1.293",
+      "transcriptProfile": {
+        "status": "candidate",
+        "evidence": "synthetic-fixtures;native-qualification-pending",
+        "finalityVariant": "claude_candidate_quiescence_v1",
+        "legacyDefault": false
+      }
+    },
+    {
+      "product": "claude_code",
+      "version": "2.1.291",
+      "workflow": [
+        {
+          "status": "retired",
+          "profileId": "claude-workflow-own-trace-v1",
+          "retiredAt": "2026-10-13"
+        }
+      ],
+      "transcriptProfile": {
+        "status": "candidate",
+        "evidence": "official-docs-2026-10-07;synthetic-fixtures;native-qualification-pending",
+        "finalityVariant": "claude_candidate_quiescence_v1",
+        "legacyDefault": false
+      }
+    },
+    {
+      "product": "claude_code",
+      "version": "2.1.288",
+      "workflow": [
+        {
+          "status": "retired",
+          "profileId": "claude-workflow-own-trace-v1",
+          "retiredAt": "2026-10-06"
+        }
+      ]
+    }
+  ]
+}

@@ -20,6 +20,10 @@ test.each([
     put('src/migrations/synthetic.sql', 'SELECT 1;');
     put('config/prices/catalogs/synthetic.json', '{}');
     put('skills/synthetic/SKILL.md', 'Synthetic asset');
+    put('scripts/session-binding-codex-hook.mjs', 'Synthetic recorder');
+    put('scripts/generated/current-support.json', '{"schemaVersion":1}');
+    put('dist/assets/session-binding-codex-hook.mjs', 'Stale recorder');
+    put('dist/assets/current-support.json', 'Stale support data');
     for (const extension of ['js', 'js.map', 'd.ts', 'd.ts.map']) {
       put(`dist/${retired}.${extension}`, 'Retired output');
       put(`dist/${current}.${extension}`, 'Current output');
@@ -30,6 +34,8 @@ test.each([
       expect(readFileSync(join(root, `dist/${current}.${extension}`), 'utf8')).toBe('Current output');
     }
     expect(readFileSync(join(root, 'dist/migrations/synthetic.sql'), 'utf8')).toBe('SELECT 1;');
+    expect(readFileSync(join(root, 'dist/assets/session-binding-codex-hook.mjs'), 'utf8')).toBe('Synthetic recorder');
+    expect(readFileSync(join(root, 'dist/assets/current-support.json'), 'utf8')).toBe('{"schemaVersion":1}');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

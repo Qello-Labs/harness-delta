@@ -1,5 +1,6 @@
 import type { ChildProcess } from 'node:child_process';
 import type { z } from 'zod';
+import type { claudeLocalhostImage, claudeLocalhostRecipe } from '../generated/tool-version-data.mjs';
 export interface Approval {
   readonly schema_version: 1;
   readonly approved: true;
@@ -7,20 +8,20 @@ export interface Approval {
   readonly approved_at: string;
   readonly expires_at: string;
   readonly product: 'claude_code';
-  readonly version: '2.1.306';
+  readonly version: typeof claudeLocalhostImage.version;
   readonly binary_sha256: string;
-  readonly binary_size: 272984176;
+  readonly binary_size: typeof claudeLocalhostImage.size;
   readonly route: 'claude_binding';
-  readonly profile_id: 'claude-binding-2-1-306-family-v1';
+  readonly profile_id: typeof claudeLocalhostRecipe.profileId;
   readonly runtime: { readonly version: string; readonly sha256: string; readonly platform: 'darwin'; readonly arch: 'arm64' };
-  readonly scope: { readonly kind: 'localhost_synthetic_print'; readonly roots: 1; readonly members: 2;
-    readonly scenarios: readonly ['normal', 'sigint']; readonly model: 'claude-sonnet-5-5' };
+  readonly scope: { readonly kind: 'localhost_synthetic_print'; readonly roots: typeof claudeLocalhostRecipe.roots; readonly members: typeof claudeLocalhostRecipe.members;
+    readonly scenarios: typeof claudeLocalhostRecipe.scenarios; readonly model: typeof claudeLocalhostRecipe.model };
   readonly mode: 'manual' | 'unattended';
   readonly localhost_only_not_isolated: true;
   readonly budgets: { readonly duration_ms: number; readonly termination_ms: number; readonly term_grace_ms: number };
   readonly pins: Readonly<Record<string, string>>;
 }
-export const admittedImage: Readonly<{ version: '2.1.306'; sha256: string; size: 272984176 }>;
+export const admittedImage: Readonly<{ version: typeof claudeLocalhostImage.version; sha256: string; size: typeof claudeLocalhostImage.size }>;
 export const approvalSchema: z.ZodType<Approval>;
 export interface FailureEvidence {
   readonly schema_version: 1; readonly status: 'failed'; readonly code: string; readonly run_id: string | null;
