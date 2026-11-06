@@ -4,6 +4,7 @@ import { productionSourceEvidence } from './readiness.js';
 import type { Store } from './store.js';
 import { codexBindingAdmissions, getCodexBindingAdmission, isQualifiedCodexBindingAdmission } from './codex-binding-admission.js';
 import { getClaudeBindingAdmission } from './claude-binding-admission.js';
+import { OrdinaryWindowSelectionSchema, resolveOrdinaryWindow } from './core/ordinary-window-policy.js';
 
 export type CompatibilitySource = SourceCompatibility['source'];
 export type CompatibilityBlockReason = 'contract_failed' | 'semantic_incompatibility';
@@ -87,10 +88,29 @@ export function sessionCompatibility(store: Store, sessionId: string): SourceCom
 }
 export function pinSessionCompatibility(store: Store, sessionId: string, input: SourceCompatibility): void {
   const compatibility = SourceCompatibilitySchema.parse(input);
-  const selected = resolveSourceCompatibility(compatibility.product, compatibility.product_version, compatibility.source, compatibility.profile_id);
+  const window = resolveOrdinaryWindow(compatibility.product, compatibility.product_version, compatibility.profile_id);
+  const selected = window?.compatibility ??
+    resolveSourceCompatibility(compatibility.product, compatibility.product_version, compatibility.source, compatibility.profile_id);
   if (!selected || JSON.stringify(selected) !== JSON.stringify(compatibility)) throw new Error('compatibility_scope_mismatch');
   store.immediateTransaction(() => {
     assertCompatibilityAllowed(store, compatibility);
+    if (window) {
+      const row = store.get<{ selection: string }>(
+        `SELECT w.selection FROM ordinary_window_selections w JOIN ordinary_tasks t ON t.task_id=w.task_id
+        JOIN binding_root_segments s ON s.task_id=w.task_id AND s.root_session_id=t.selected_root_id
+        JOIN ordinary_window_segments e ON e.root_session_id=s.root_session_id AND e.selection_hash=w.selection_hash
+        JOIN sessions r ON r.id=s.root_session_id AND r.task_id=w.task_id AND r.parent_id IS NULL
+        WHERE r.id=? AND s.state IN ('acquiring','observing') AND t.revoked_at IS NULL
+          AND t.settings=w.selection AND t.settings_hash=w.selection_hash
+          AND t.price_table_id=json_extract(w.selection,'$.priceTableId')
+          AND json_extract(e.proof,'$.productVersion')=?
+          AND NOT EXISTS(SELECT 1 FROM comparison_assignments WHERE task_id=w.task_id)`,
+        [sessionId, compatibility.product_version]);
+      const selection = row ? OrdinaryWindowSelectionSchema.parse(JSON.parse(row.selection)) : null;
+      if (!selection || selection.declaredVersion !== compatibility.product_version ||
+        selection.policy.product !== compatibility.product || selection.policyDigest !== window.policyDigest)
+        throw new Error('compatibility_scope_mismatch');
+    }
     const session = store.get<{ product: string; product_version: string }>('SELECT product,product_version FROM sessions WHERE id=?', [sessionId]);
     if (!session || session.product !== compatibility.product || session.product_version !== compatibility.product_version) throw new Error('compatibility_scope_mismatch');
     const existing = sessionCompatibility(store, sessionId);

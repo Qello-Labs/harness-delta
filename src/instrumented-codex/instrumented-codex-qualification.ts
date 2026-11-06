@@ -76,6 +76,9 @@ const ownModules = [
   'instrumented-codex/instrumented-codex-cost',
   'instrumented-codex/instrumented-codex-usage',
   'package-paths',
+  'store',
+  'source-compatibility',
+  'core/ordinary-window-policy',
   'core/tool-version-profiles'
 ];
 // Cached modules must never be fingerprinted as a package update that occurs during Cargo.
@@ -83,12 +86,17 @@ const loadedReceiverDigests = ownModules.map(name => ({
   name,
   digest: sha(readFileSync(implementationPath(name + implementationExtension)))
 }));
-for (const name of ['core/tool-version-profiles.json', 'core/tool-version-recipes.json', 'core/tool-version-identities.json'])
+for (const name of [
+  'core/tool-version-profiles.json',
+  'core/tool-version-recipes.json',
+  'core/tool-version-identities.json',
+  'migrations/036_ordinary_window_observation.sql'
+])
   loadedReceiverDigests.push({ name, digest: sha(readFileSync(implementationPath(name))) });
 
 export async function assertInstrumentedReceiverUnchanged(): Promise<void> {
   for (const { name, digest } of loadedReceiverDigests) {
-    if (digest !== sha(await readFile(implementationPath(name.endsWith('.json') ? name : name + implementationExtension)))) {
+    if (digest !== sha(await readFile(implementationPath(name.endsWith('.json') || name.endsWith('.sql') ? name : name + implementationExtension)))) {
       throw new InstrumentedQualificationError('input_changed');
     }
   }

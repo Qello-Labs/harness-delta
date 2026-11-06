@@ -48,6 +48,8 @@ function implementationDigest(): string {
     'flexible-contracts',
     'lifecycle',
     'store',
+    'source-compatibility',
+    'core/ordinary-window-policy',
     'package-paths',
     'core/tool-version-profiles'
   ];

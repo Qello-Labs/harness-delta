@@ -138,6 +138,8 @@ function implementationDigest() {
     'flexible-contracts',
     'lifecycle',
     'store',
+    'source-compatibility',
+    'core/ordinary-window-policy',
     'config-confirmation',
     'core/configuration-evidence',
     'comparison/config-confirmation-write',
@@ -157,7 +159,8 @@ function implementationDigest() {
         .concat([
           { name: 'migration014', sha256: hash(readFileSync(implementationPath('migrations', '014_codex_workflow.sql'))) },
           { name: 'migration015', sha256: hash(readFileSync(implementationPath('migrations', '015_codex_workflow_child.sql'))) },
-          { name: 'migration016', sha256: hash(readFileSync(implementationPath('migrations', '016_claude_workflow.sql'))) }
+          { name: 'migration016', sha256: hash(readFileSync(implementationPath('migrations', '016_claude_workflow.sql'))) },
+          { name: 'migration036', sha256: hash(readFileSync(implementationPath('migrations', '036_ordinary_window_observation.sql'))) }
         ])
     )
   );

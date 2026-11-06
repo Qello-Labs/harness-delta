@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { AgentMetadataSchema } from './agent-metadata.js';
 import { IdSchema, ProductVersionSchema, TimestampSchema, UsageV2Schema } from './contracts.js';
 import type { CandidateScope } from './nested-candidate.js';
+import type { OrdinaryWindowCoverage } from './core/ordinary-window-policy.js';
 
 export const BindingProductSchema = z.enum(['codex', 'claude_code']);
 export type BindingProduct = z.infer<typeof BindingProductSchema>;
@@ -36,7 +37,7 @@ export function bindingIdentityKey(value: VerifiedSessionIdentity): string {
 export interface BindingCapabilities {
   currentIdentity: 'native_hook' | 'validated_integration' | 'unavailable';
   ancestry: 'verified_relations' | 'unavailable';
-  usage: 'own_requests' | 'unavailable';
+  usage: 'own_requests' | 'root_source_reference' | 'unavailable';
   productionSupported: boolean;
   maxDepth: number;
   reasons: string[];
@@ -67,6 +68,12 @@ export interface BindingReadBoundary {
   baseline: boolean;
   readonly baselineLedger?: BindingBaselineLedger;
 }
+export interface OrdinaryWindowReadBoundary extends BindingReadBoundary {
+  readonly authorizeSource: (identity: VerifiedSessionIdentity) => void;
+}
+export interface OrdinaryWindowUsageBatch extends UsageBatch {
+  readonly coverage: OrdinaryWindowCoverage;
+}
 /** All source access is downstream of coordinator authorization. Implementations
  * consume native metadata receipts; user/model supplied identity is never proof. */
 export interface SessionBindingProvider {
@@ -85,4 +92,5 @@ export interface SessionBindingProvider {
   // Null returns the initial owned snapshot. The coordinator discards it for
   // roots/restarts, and retains it for a new child born in the observed interval.
   readUsage(session: VerifiedSessionIdentity, cursor: string | null, scope: CandidateScope, boundary?: BindingReadBoundary): Promise<UsageBatch>;
+  readWindowUsage?(session: VerifiedSessionIdentity, cursor: string | null, scope: CandidateScope, boundary: OrdinaryWindowReadBoundary): Promise<OrdinaryWindowUsageBatch>;
 }

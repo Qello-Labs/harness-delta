@@ -60,6 +60,7 @@ export class Store {
         '034_binding_observation_segments.sql'
       ];
       migrations.push('035_local_web_metadata_cleanup.sql');
+      migrations.push('036_ordinary_window_observation.sql');
       if (typeof version !== 'number' || !Number.isInteger(version) || version < 0 || version > migrations.length) {
         throw new Error('unsupported_schema_version');
       }

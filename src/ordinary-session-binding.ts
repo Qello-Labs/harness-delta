@@ -18,6 +18,8 @@ import { BindingUsageRecordSchema, bindingIdentityKey, CurrentIdentityRequestSch
 import type { CandidateScope } from './nested-candidate.js';
 import type { UsageEvent } from './flexible-contracts.js';
 import type { Store } from './store.js';
+import { assertOrdinaryWindowSurfaceClosed, ordinaryWindowSelection } from './core/ordinary-window-store.js';
+import { readOrdinaryWindowBatch } from './ordinary-window-binding.js';
 
 interface BindingRow {
   session_id: string; task_id: string; root_id: string; identity: string;
@@ -46,6 +48,22 @@ const sameSource = (metadata: OrdinarySourceMetadata, identity: VerifiedSessionI
   metadata.agentId === (identity.nativeMapping?.agentId ?? null) &&
   metadata.sourceRef === identity.sourceRef && metadata.sourceIdentity === identity.sourceIdentity;
 
+async function flushOrdinaryBindingForgets(store: Store,
+  providersForTask: (taskId: string, deletedProjectRoot?: string) => SessionBindingProvider[]): Promise<void> {
+  for (const row of store.all<{ product: BindingProduct; native_session_id: string; task_id: string; project_root: string }>('SELECT * FROM session_binding_forgets')) {
+    try {
+      if (store.get('SELECT 1 FROM ordinary_window_forget_fences WHERE product=? AND native_session_id=?',
+        [row.product, row.native_session_id])) throw new Error('binding_window_unavailable');
+      const provider = providersForTask(row.task_id, row.project_root).find(p => p.product === row.product);
+      if (!provider?.forgetSession) throw new Error('binding_provider_unavailable');
+      await provider.forgetSession(row.native_session_id);
+      store.execute('DELETE FROM session_binding_forgets WHERE product=? AND native_session_id=?', [row.product, row.native_session_id]);
+    } catch {
+      store.execute("UPDATE session_binding_forgets SET reason_code='binding_forget_pending' WHERE product=? AND native_session_id=?", [row.product, row.native_session_id]);
+    }
+  }
+}
+
 // This is one transactional state machine: its callback fences share the exact
 // acquisition/read snapshot, rather than delegating authority to a provider.
 export function createOrdinarySessionBindingService(options: {
@@ -70,6 +88,7 @@ export function createOrdinarySessionBindingService(options: {
   const selected = (taskId: string) => store.get<Segment>(
     'SELECT s.* FROM binding_root_segments s JOIN ordinary_tasks t ON t.selected_root_id=s.root_session_id WHERE t.task_id=?', [taskId]);
   const providerFor = (taskId: string, product: BindingProduct = 'claude_code') => {
+    assertOrdinaryWindowSurfaceClosed(store, taskId);
     const provider = options.providersForTask(taskId).find(p => p.product === product);
     if (!provider) throw new Error('binding_provider_unavailable');
     return provider;
@@ -87,6 +106,7 @@ export function createOrdinarySessionBindingService(options: {
   };
   const authorize = (taskId: string, active = false) => {
     if (closed) throw new Error('binding_scope_revoked');
+    assertOrdinaryWindowSurfaceClosed(store, taskId);
     assertOrdinaryTaskPrepared(store, taskId); const task = life.task(taskId);
     if (active && task.state !== 'active') throw new Error('binding_scope_revoked');
     compatibility(taskId); return task;
@@ -208,6 +228,11 @@ export function createOrdinarySessionBindingService(options: {
     };
   };
   const read = async (taskId: string, segment: Segment, row: BindingRow, baseline: boolean) => {
+    if (ordinaryWindowSelection(store, taskId)) {
+      await readOrdinaryWindowBatch({ store, taskId, rootSessionId: segment.root_session_id, baseline, clock,
+        provider: () => options.providersForTask(taskId).find(p => p.product === identityFor(row).product) });
+      return;
+    }
     const value = identityFor(row); const attempt: Attempt = { segment, row, generation: row.generation, members: new Map() };
     const keyFor = (requestId: string) => hash(['binding-request-v1', value.product, requestId]);
     const addExcluded = (requestIds: readonly string[]) => store.immediateTransaction(() => {
@@ -375,18 +400,7 @@ export function createOrdinarySessionBindingService(options: {
   let forgetting: Promise<void> | undefined;
   const flushForgotten = (): Promise<void> => {
     if (forgetting) return forgetting;
-    forgetting = (async () => {
-      for (const row of store.all<{ product: BindingProduct; native_session_id: string; task_id: string; project_root: string }>('SELECT * FROM session_binding_forgets')) {
-        try {
-          const provider = options.providersForTask(row.task_id, row.project_root).find(p => p.product === row.product);
-          if (!provider?.forgetSession) throw new Error('binding_provider_unavailable');
-          await provider.forgetSession(row.native_session_id);
-          store.execute('DELETE FROM session_binding_forgets WHERE product=? AND native_session_id=?', [row.product, row.native_session_id]);
-        } catch {
-          store.execute("UPDATE session_binding_forgets SET reason_code='binding_forget_pending' WHERE product=? AND native_session_id=?", [row.product, row.native_session_id]);
-        }
-      }
-    })().finally(() => { forgetting = undefined; });
+    forgetting = flushOrdinaryBindingForgets(store, options.providersForTask).finally(() => { forgetting = undefined; });
     return forgetting;
   };
   const sourceSupported = (taskId: string, product: BindingProduct): boolean => {
@@ -398,6 +412,7 @@ export function createOrdinarySessionBindingService(options: {
         (admissionFor(taskId).admitted && provider.capabilities().productionSupported));
   };
   const status = (taskId: string) => {
+    assertOrdinaryWindowSurfaceClosed(store, taskId);
     const task = life.task(taskId); const all = rows(taskId); const segment = selected(taskId);
     const tableId = ordinaryTask(store, taskId)?.price_table_id;
     if (!tableId) throw new Error('ordinary_preparation_required');
@@ -514,6 +529,7 @@ export function createOrdinarySessionBindingService(options: {
     return { ...status(taskId), status: 'connected', session_id: rootId, automatic_children: true };
   });
   const resumeAvailable = (taskId: string) => {
+    assertOrdinaryWindowSurfaceClosed(store, taskId);
     const segment = selected(taskId);
     if (segment && store.get("SELECT 1 FROM tombstones WHERE kind='session' AND id=? UNION ALL SELECT 1 FROM session_binding_forgets WHERE product='claude_code' AND native_session_id=?",
       [segment.native_root_id, segment.native_root_id])) return false;
@@ -566,6 +582,7 @@ export function createOrdinarySessionBindingService(options: {
     return { ...status(taskId), status: 'reconnected', session_id: current.root_session_id, automatic_children: true };
   });
   const tick = (taskId: string) => serialized(taskId, async () => {
+    assertOrdinaryWindowSurfaceClosed(store, taskId);
     const segment = selected(taskId);
     if (!segment || segment.state !== 'observing' || life.state(taskId) !== 'active') return status(taskId);
     authorize(taskId, true); nativeAvailable(segment.native_root_id);
@@ -588,6 +605,7 @@ export function createOrdinarySessionBindingService(options: {
     });
   };
   for (const segment of store.all<Segment>("SELECT * FROM binding_root_segments WHERE state!='closed'")) {
+    if (ordinaryWindowSelection(store, segment.task_id)) continue;
     try { ownerAvailable(segment); }
     catch (error) {
       if (error instanceof Error && error.message === 'binding_observer_owned') continue;
