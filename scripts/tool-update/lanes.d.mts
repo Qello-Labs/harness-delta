@@ -3,7 +3,6 @@ export const routes: readonly ['file', 'codex_workflow', 'claude_workflow', 'cod
 export const operations: readonly ['launch', 'link', 'collect', 'restart', 'resume'];
 export const topologies: readonly ['root', 'root_direct_child', 'bounded_family'];
 export const scopeSourceDigests: Readonly<Record<string, string>>;
-export const retiredClaudeWorkflowVersions: readonly ['2.1.288', '2.1.291'];
 export const laneSchema: z.ZodObject<{
   product: z.ZodEnum<{ codex: 'codex'; claude_code: 'claude_code' }>;
   route: z.ZodEnum<{ file: 'file'; codex_workflow: 'codex_workflow'; claude_workflow: 'claude_workflow'; codex_binding: 'codex_binding'; claude_binding: 'claude_binding' }>;

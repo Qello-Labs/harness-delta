@@ -24,6 +24,7 @@ test.each([
     put('scripts/generated/current-support.json', '{"schemaVersion":1}');
     put('dist/assets/session-binding-codex-hook.mjs', 'Stale recorder');
     put('dist/assets/current-support.json', 'Stale support data');
+    put('dist/flexible-candidates.json', 'Retired candidate data');
     for (const extension of ['js', 'js.map', 'd.ts', 'd.ts.map']) {
       put(`dist/${retired}.${extension}`, 'Retired output');
       put(`dist/${current}.${extension}`, 'Current output');
@@ -34,6 +35,7 @@ test.each([
       expect(readFileSync(join(root, `dist/${current}.${extension}`), 'utf8')).toBe('Current output');
     }
     expect(readFileSync(join(root, 'dist/migrations/synthetic.sql'), 'utf8')).toBe('SELECT 1;');
+    expect(existsSync(join(root, 'dist/flexible-candidates.json'))).toBe(false);
     expect(readFileSync(join(root, 'dist/assets/session-binding-codex-hook.mjs'), 'utf8')).toBe('Synthetic recorder');
     expect(readFileSync(join(root, 'dist/assets/current-support.json'), 'utf8')).toBe('{"schemaVersion":1}');
   } finally {

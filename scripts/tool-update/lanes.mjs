@@ -14,7 +14,6 @@ export const scopeSourceDigests = Object.freeze({
   'src/session-binding-codex.ts': '67823b61709bf3d778882d5d1aad30417da4bb228f7a846284f60d77922feb4b',
   'src/session-binding-claude.ts': '79c9c7d25164bd225cb53330e27c5c8684fcc9ce182f8699b473353c03dc6957',
 });
-export const retiredClaudeWorkflowVersions = ['2.1.288', '2.1.291'];
 export const laneSchema = z.strictObject({
   product: z.enum(['codex', 'claude_code']),
   route: z.enum(routes),

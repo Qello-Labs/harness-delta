@@ -19,6 +19,7 @@ await cp(new URL('./session-binding-codex-hook.mjs', import.meta.url), new URL('
 await cp(new URL('./generated/current-support.json', import.meta.url), new URL('../dist/assets/current-support.json', import.meta.url));
 
 // Remove exclusively retired generated assets when rebuilding an existing checkout.
+await rm(new URL('../dist/flexible-candidates.json', import.meta.url), { force: true });
 for (const name of ['app-server','approvals','budget','codex','confinement','execution','native-probe','native-profile','owner-journal','receipts','runner']) {
  for (const extension of ['js','js.map','d.ts','d.ts.map']) await rm(new URL(`../dist/harness-application-${name}.${extension}`,import.meta.url),{force:true});
 }
