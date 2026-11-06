@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { closeSync, constants, fstatSync, openSync, readSync, realpathSync } from 'node:fs';
 import { z } from 'zod';
 import { AssignedWorkflowInputSchema, WorkflowRuntimeSchema, type WorkflowAdapter } from './task-workflow.js';
-import { CodexWorkflowExecutionSchema, createCodexWorkflowAdapter, pinnedCodexWorkflowBinarySha } from './codex-workflow-adapter.js';
+import { CodexWorkflowExecutionSchema, createCodexWorkflowAdapter } from './codex-workflow-adapter.js';
 import { createHash } from 'node:crypto';
 import { stopCodexWorkflow } from './codex-workflow-journal.js';
 import { IdSchema, TimestampSchema } from './contracts.js';
@@ -15,13 +15,22 @@ import { externalInstructionFragment, type ExternalContextEvidence } from './ext
 import { readReferenceTaskCostReport } from './pricing/price-catalog-task-report.js';
 import type { Store } from './store.js';
 import { comparisonProtocol, protocolRow } from './core/protocol-store.js';
+import { toolVersionProfiles, toolVersionRecipe, toolVersionIdentity } from './core/tool-version-profiles.js';
+
+const ticketProfile = toolVersionProfiles.find(profile => profile.product === 'codex' && profile.externalTicket.mode === 'codex_01600_ticket_v1');
+if (!ticketProfile) throw new Error('codex_external_ticket_profile_mismatch');
+const ticketVersion = z.literal('0.160.0').parse(ticketProfile.version);
+const ticketRecipe = toolVersionRecipe('codex-workflow-01600');
+if (ticketRecipe.kind !== 'codex_workflow') throw new Error('codex_external_ticket_recipe_mismatch');
+const ticketImage = toolVersionIdentity(ticketRecipe.imageIdentity);
+const ticketImageMaxBytes = z.number().parse(ticketImage.maxBytes);
 
 export const ExternalTaskSetupSchema = z.strictObject({
   workflow: AssignedWorkflowInputSchema,
   runtime: WorkflowRuntimeSchema,
   preparation: ExternalPreparationSpecSchema,
   native_binary: z
-    .strictObject({ path: CodexWorkflowExecutionSchema.shape.binary.shape.path, version: z.literal('0.160.0'), sha256: z.string().regex(/^[a-f0-9]{64}$/) })
+    .strictObject({ path: CodexWorkflowExecutionSchema.shape.binary.shape.path, version: z.literal(ticketVersion), sha256: z.string().regex(/^[a-f0-9]{64}$/) })
     .optional()
 });
 export type ExternalTaskSetup = z.infer<typeof ExternalTaskSetupSchema>;
@@ -182,13 +191,13 @@ function shellQuote(text: string): string {
 /** File identity only. Never invokes a native binary, auth command or updater. */
 export function verifyExternalNativeBinary(input: NonNullable<ExternalTaskSetup['native_binary']>): void {
   const binary = ExternalTaskSetupSchema.shape.native_binary.unwrap().parse(input);
-  if (binary.sha256 !== pinnedCodexWorkflowBinarySha) throw new Error('binary_mismatch');
+  if (binary.sha256 !== ticketImage.sha256) throw new Error('binary_mismatch');
   let fd: number | undefined;
   try {
     if (realpathSync(binary.path) !== binary.path) throw new Error('binary_mismatch');
     fd = openSync(binary.path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
     const before = fstatSync(fd);
-    if (!before.isFile() || before.size < 1 || before.size > 256 * 1048576 || (before.mode & 0o111) === 0) throw new Error('binary_mismatch');
+    if (!before.isFile() || before.size < 1 || before.size > ticketImageMaxBytes || (before.mode & 0o111) === 0) throw new Error('binary_mismatch');
     const hash = createHash('sha256');
     const buffer = Buffer.alloc(65536);
     let offset = 0;

@@ -3,6 +3,7 @@ import { closeSync, constants, existsSync, fstatSync, openSync, readFileSync, re
 import { basename, dirname, join, sep } from 'node:path';
 import { z } from 'zod';
 import { IdSchema, ModelSchema } from './contracts.js';
+import { lookupToolVersionProfile } from './core/tool-version-profiles.js';
 import { bindConfigurationToSession } from './config-confirmation.js';
 import { authorizeClaudeTraceScope } from './claude-trace-candidate.js';
 import { prepareClaudeProbeSupervisor, verifyClaudeProbeBinary, verifyClaudeWorkflowVersion } from './claude-probe-supervisor.js';
@@ -87,6 +88,7 @@ export function createSyntheticClaudeWorkflowAdapter(store:Store,input:unknown):
 function adapter(store:Store,input:unknown,synthetic:boolean):WorkflowAdapter {
   const e=ClaudeWorkflowExecutionSchema.parse(input);
   const profileId=e.child_runtime?claudeWorkflowChildProfileId:claudeWorkflowProfileId;
+  const workflow=lookupToolVersionProfile('claude_code',e.binary.version)?.workflow;
   const compatibility=synthetic?null:resolveSourceCompatibility('claude_code',e.binary.version,'claude_workflow',profileId);
   const resume=e.operation==='resume';const persistent=resume||e.resumable===true;
   /** The earlier run names a kept parent-only session of this task and binary version. That session must
@@ -106,11 +108,11 @@ function adapter(store:Store,input:unknown,synthetic:boolean):WorkflowAdapter {
     if(requested!==null&&!effort.safeParse(requested).success)throw new Error('claude_workflow_effort_unsupported');
     if(store.get('SELECT 1 FROM claude_workflow_runs WHERE id=?',[e.run_id]))throw new Error('claude_workflow_already_reserved');
     // A child needs the exact direct-child admission of this version; a conditional version stays parent-only.
-    if(!synthetic&&e.child_runtime&&compatibility?.state!=='verified')throw new Error('claude_workflow_child_unadmitted');
+    if(!synthetic&&e.child_runtime&&(compatibility?.state!=='verified'||!workflow?.some(profile=>profile.status==='admitted'&&profile.profileId===claudeWorkflowChildProfileId&&profile.operationVariant==='claude_exact_child_workflow_v1')))throw new Error('claude_workflow_child_unadmitted');
     // The direct-child evidence covers a read-only root with one read-only child.
     if(!synthetic&&e.child_runtime&&e.permissions!=='read-only')throw new Error('claude_workflow_child_read_only_required');
     // Keeping or resuming a native session is covered by the exact own-trace admission only.
-    if(!synthetic&&persistent&&compatibility?.state!=='verified')throw new Error('claude_workflow_resume_unadmitted');
+    if(!synthetic&&persistent&&(compatibility?.state!=='verified'||!workflow?.some(profile=>profile.status==='admitted'&&profile.profileId===claudeWorkflowProfileId&&profile.operationVariant==='claude_parent_workflow_v1')))throw new Error('claude_workflow_resume_unadmitted');
   };
   return {product:synthetic?'synthetic':'claude_code',productVersion:synthetic?'1.0.0':e.binary.version,
     profileId:synthetic?'synthetic-flexible-v1':profileId,

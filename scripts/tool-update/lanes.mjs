@@ -5,14 +5,14 @@ export const operations = ['launch', 'link', 'collect', 'restart', 'resume'];
 export const topologies = ['root', 'root_direct_child', 'bounded_family'];
 // Imperative operation fences have no exported descriptor. Drift requires a fresh rule review.
 export const scopeSourceDigests = Object.freeze({
-  'src/codex-workflow-adapter.ts': '7f52a234a3a5ddb462c98e39c3335d2981744d954c75f89d9977db447df48104',
-  'src/claude-workflow-adapter.ts': '8dbd7aa4f64f277c5b6372cf0f596cc88e10093a2bf6b4a8cd773701e272bf2a',
+  'src/codex-workflow-adapter.ts': '1dc6552eb9d59f176bfbff3252d8902d63b92599c56c8aa23ba1c10dab3508d7',
+  'src/claude-workflow-adapter.ts': '0d8314a3ae76357ab9b585fae4ad1f20b540666c478c1d0dac7bf0fc6b9ef93b',
   'src/session-binding-contract.ts': '003d15592f34aa377d777fd730986e74ceff37b9db529f53c57a99af653c3b13',
   'src/ordinary-session-binding.ts': '850b5144be17b0327b5f2c4cd04f348cd6cf90cc6ddbe54239de6c554bda0099',
   'src/session-binding-service.ts': 'b17352f8936406f76e45e8a9be028fd0f14b66055d4a3cb9813f56a16bd71c85',
   'src/claude-workflow-versions.ts': '2fdf54d333aa7d9ca8f298ad0757e85a2c2eed10472106a07387d36d7511bd3b',
-  'src/session-binding-codex.ts': '1e2fff315b9aafb4d92bd137d2d36cb112fd65883397d1c4239277829ebf8552',
-  'src/session-binding-claude.ts': '5165b416cc6e58010b1cbbb39ff9d07fc7b5870418b1e7f8025e1ddea3898729',
+  'src/session-binding-codex.ts': '67823b61709bf3d778882d5d1aad30417da4bb228f7a846284f60d77922feb4b',
+  'src/session-binding-claude.ts': '79c9c7d25164bd225cb53330e27c5c8684fcc9ce182f8699b473353c03dc6957',
 });
 export const retiredClaudeWorkflowVersions = ['2.1.288', '2.1.291'];
 export const laneSchema = z.strictObject({

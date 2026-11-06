@@ -165,10 +165,23 @@ test('ancestor Cargo configuration cannot execute an inherited compiler wrapper'
   expect(existsSync(marker)).toBe(false);
 });
 
-test('receiver bytes changed after module loading cannot become the build fingerprint', async () => {
-  await expect(assertInstrumentedReceiverUnchanged()).resolves.toBeUndefined();
-  vi.mocked(readAsyncFile).mockResolvedValueOnce(Buffer.from('synthetic package update'));
-  await expect(assertInstrumentedReceiverUnchanged()).rejects.toThrow('input_changed');
+test.each([
+  'instrumented-codex/instrumented-codex-qualification.ts',
+  'core/tool-version-profiles.ts',
+  'core/tool-version-profiles.json',
+  'core/tool-version-recipes.json',
+  'core/tool-version-identities.json'
+])('receiver bytes changed after module loading cannot become the build fingerprint: %s', async changedPath => {
+  const actualRead = (await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises')).readFile;
+  try {
+    await expect(assertInstrumentedReceiverUnchanged()).resolves.toBeUndefined();
+    vi.mocked(readAsyncFile).mockImplementation(path =>
+      typeof path === 'string' && path.endsWith(changedPath) ? Promise.resolve(Buffer.from('synthetic package update')) : actualRead(path)
+    );
+    await expect(assertInstrumentedReceiverUnchanged()).rejects.toThrow('input_changed');
+  } finally {
+    vi.mocked(readAsyncFile).mockImplementation(actualRead);
+  }
 });
 
 test('compilation cancellation closes the owned parent and descendant process group', async () => {

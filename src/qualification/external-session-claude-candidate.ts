@@ -15,6 +15,14 @@ import type { Store } from '../store.js';
 import { prepareClaudeNativeProbe } from '../claude-native-probe.js';
 import { prepareClaudeProbeHookMediator } from './claude-probe-hook-mediator.js';
 import { verifyClaudeProbeBinary } from '../claude-probe-supervisor.js';
+import { toolVersionRecipe, toolVersionIdentity } from '../core/tool-version-profiles.js';
+
+const manualRecipe = (() => {
+  const recipe = toolVersionRecipe('claude-manual-candidate-02188');
+  if (recipe.kind !== 'claude_manual_candidate') throw new Error('claude_manual_candidate_recipe_mismatch');
+  return recipe;
+})();
+const manualVersion = z.literal('2.1.288').parse(manualRecipe.version);
 
 const pathSchema = z
   .string()
@@ -23,19 +31,21 @@ const pathSchema = z
   .regex(/^\//)
   .refine(p => !/[\r\n\0]/.test(p));
 const digest = z.string().regex(/^[a-f0-9]{64}$/);
-export const pinnedManualClaudeBinarySha = 'bbe93063f7a0879a1021b2891e5c9354e5b3b98433e32efe6750f7710afed750';
+export const pinnedManualClaudeBinarySha = z
+  .literal('bbe93063f7a0879a1021b2891e5c9354e5b3b98433e32efe6750f7710afed750')
+  .parse(toolVersionIdentity(manualRecipe.imageIdentity).sha256);
 export const ManualClaudeInvocationSchema = z.strictObject({
   ticket_id: z.uuid(),
   issued_at: TimestampSchema,
   native_session_id: z.uuid(),
-  binary: z.strictObject({ path: pathSchema, version: z.literal('2.1.288'), sha256: z.literal(pinnedManualClaudeBinarySha) }),
+  binary: z.strictObject({ path: pathSchema, version: z.literal(manualVersion), sha256: z.literal(pinnedManualClaudeBinarySha) }),
   settings_path: pathSchema,
   settings_hash: digest,
   instructions_path: pathSchema,
   instructions_hash: digest,
   empty_mcp_path: pathSchema,
-  model: z.literal('claude-sonnet-5-5'),
-  effort: z.literal('high')
+  model: z.literal(manualRecipe.model),
+  effort: z.literal(manualRecipe.effort)
 });
 export type ManualClaudeInvocation = z.infer<typeof ManualClaudeInvocationSchema>;
 /** Pure private handoff. Settings/mediator/gateway preparation is a separate
@@ -51,7 +61,7 @@ export function manualClaudeHandoff(input: ManualClaudeInvocation) {
     '--max-turns',
     '1',
     '--max-budget-usd',
-    '0.10',
+    manualRecipe.estimatedUsd,
     '--restricted',
     '--permission-mode',
     'dontAsk',
@@ -88,7 +98,7 @@ export function manualClaudeHandoff(input: ManualClaudeInvocation) {
     argv_hash: sha256(JSON.stringify(argv)),
     start_command: [invocation.binary.path, ...argv].map(quote).join(' '),
     automatic_launch: false,
-    profile_status: 'candidate_unadmitted',
+    profile_status: manualRecipe.status,
     native_loading: 'unverified',
     hard_billing_bound: null
   };
@@ -270,7 +280,7 @@ export function createManualClaudeReceiver(store: Store, options: ManualClaudeRe
     workflow: {
       synthetic: true,
       childEnabled: false,
-      requestLimit: 1,
+      requestLimit: manualRecipe.plannedRequests,
       durationMs: options.durationMs,
       assertActive() {},
       onChildBound() {
@@ -361,7 +371,7 @@ export function createManualClaudeReceiver(store: Store, options: ManualClaudeRe
       return manualClaudeHandoff(next);
     },
     state: () => ({
-      profile_status: 'candidate_unadmitted',
+      profile_status: manualRecipe.status,
       first_verified_at: verified?.verified_at ?? null,
       invocation_evidence: verified?.invocation_evidence ?? 'unverified',
       native_context_evidence: 'unverified',
@@ -443,9 +453,9 @@ export async function prepareManualClaudeCandidate(
         permissions: 'read-only',
         instructions: options.instructions,
         maxTurns: 1,
-        requestLimit: 1,
+        requestLimit: manualRecipe.plannedRequests,
         durationMs: options.durationMs,
-        maxBudgetUsd: 0.1,
+        maxBudgetUsd: Number(manualRecipe.estimatedUsd),
         pinnedProbeCandidate: true
       }
     );

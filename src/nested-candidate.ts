@@ -8,6 +8,10 @@ import { CostCoverageEvidenceSchema, CostFactsSchema, EventV2Schema, RuntimeEvid
 import { putUsageWithEvidence, requireActiveScope } from './runtime-history.js';
 import type { Store } from './store.js';
 import { claudeProbeProductVersion, claudeWorkflowProductVersions, type ClaudeWorkflowProductVersion } from './claude-workflow-versions.js';
+import { toolVersionRecipe } from './core/tool-version-profiles.js';
+
+const historicalCandidateRecipe = toolVersionRecipe('codex-historical-one-child-01600');
+if (historicalCandidateRecipe.kind !== 'codex_historical_candidate') throw new Error('codex_historical_candidate_recipe_mismatch');
 
 /** Internal OFFLINE candidate only. Inputs are predecoded metadata, never raw OTLP,
  * native rollout discovery or source authorization derived from session contents.
@@ -133,7 +137,7 @@ function usageProjection(scope: CandidateScope, mapping: Mapping, version: strin
 }
 function projectCodex(scope: CandidateScope, mapping: Mapping, input: unknown, recordedAt: string, compatibility?: SourceCompatibility): CandidateProjection {
   const data = parse(codexSchema, input); const meta = data.sessionMeta;
-  if(meta.cli_version!==(compatibility?.product_version??'0.160.0'))throw new Error('candidate_invalid_metadata');
+  if(meta.cli_version!==(compatibility?.product_version??historicalCandidateRecipe.version))throw new Error('candidate_invalid_metadata');
   const root = scope.sessions.find(s => s.sessionId === mapping.rootSessionId)!;
   const parent = scope.sessions.find(s => s.sessionId === mapping.parentSessionId);
   if (meta.id !== mapping.nativeSessionId || meta.session_id !== root.nativeSessionId ||
@@ -236,7 +240,7 @@ export function authorizeCandidateScope(store: Store, scope: CandidateScope, com
     catch { throw new Error('candidate_inactive_scope'); }
     const linked = store.get<{ parent_id: string | null; product_version: string | null }>('SELECT parent_id,product_version FROM sessions WHERE id=?', [s.sessionId]);
     if (active.project_id !== scope.projectId || active.product !== s.product || linked?.parent_id !== s.parentSessionId ||
-      (compatibility?linked.product_version!==compatibility.product_version:s.product === 'codex' ? linked.product_version !== '0.160.0' : !isClaudeTraceProductVersion(linked.product_version))) throw new Error('candidate_scope_mismatch');
+      (compatibility?linked.product_version!==compatibility.product_version:s.product === 'codex' ? linked.product_version !== historicalCandidateRecipe.version : !isClaudeTraceProductVersion(linked.product_version))) throw new Error('candidate_scope_mismatch');
   }
   // A candidate task cannot share usage accounting with production channels.
   // No new registration/migration is introduced for this offline-only guard.

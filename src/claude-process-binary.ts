@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { closeSync, constants, fstatSync, openSync, readSync, realpathSync } from 'node:fs';
 import { isAbsolute } from 'node:path';
 import { claudeBindingAdmissions, claudeBindingRuntimeSupported } from './claude-binding-admission.js';
+import { toolVersionReadCeilings } from './core/tool-version-profiles.js';
 
 export interface ClaudeProcessBinary {
   readonly productVersion: string;
@@ -10,7 +11,7 @@ export interface ClaudeProcessBinary {
 }
 const images = new Map<string, ClaudeProcessBinary>();
 // The exact 2.1.306 image exceeds the former 256 MiB read ceiling.
-const maxImageBytes = 272984176;
+const maxImageBytes = toolVersionReadCeilings.claudeProcessImage;
 
 /** Kernel image metadata only. No process arguments, environment or transcript reads. */
 export function readClaudeProcessBinary(pid: number): ClaudeProcessBinary {

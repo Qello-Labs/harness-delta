@@ -10,6 +10,13 @@ import type { CandidateScope } from './nested-candidate.js';
 import { claudeProbeProductVersion, isClaudeWorkflowProductVersion } from './claude-workflow-versions.js';
 import { utcNow } from './lifecycle.js';
 import type { Store } from './store.js';
+import { toolVersionRecipe } from './core/tool-version-profiles.js';
+
+const probeRecipe = (() => {
+  const recipe = toolVersionRecipe('claude-internal-probe-02188');
+  if (recipe.kind !== 'claude_probe') throw new Error('claude_probe_recipe_mismatch');
+  return recipe;
+})();
 
 export interface ClaudeProbeSupervisorOptions {
   store: Store;
@@ -38,7 +45,7 @@ export function verifyClaudeProbeBinary(binary: ClaudeNativeProbeOptions['binary
     if (!versions.includes(binary.version) || !/^[a-f0-9]{64}$/.test(binary.sha256) || realpathSync(binary.path) !== binary.path) throw new Error('invalid');
     descriptor = openSync(binary.path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
     const before = fstatSync(descriptor);
-    if (!before.isFile() || before.size < 1 || before.size > 512 * 1024 * 1024) throw new Error('invalid');
+    if (!before.isFile() || before.size < 1 || before.size > probeRecipe.maxBinaryBytes) throw new Error('invalid');
     const bytes = Buffer.alloc(before.size);
     let offset = 0;
     while (offset < bytes.length) {
@@ -67,13 +74,13 @@ export function verifyClaudeProbeBinary(binary: ClaudeNativeProbeOptions['binary
  */
 export async function prepareClaudeProbeSupervisor(input: ClaudeProbeSupervisorOptions) {
   const options = { ...input, rootScope: structuredClone(input.rootScope), binary: { ...input.binary }, child: { ...input.child } };
-  const durationMs = options.durationMs ?? 120000;
+  const durationMs = options.durationMs ?? probeRecipe.durationMs;
   if (
     process.platform === 'win32' ||
     ![24, 26].includes(Number(process.versions.node.split('.')[0])) ||
     !Number.isSafeInteger(durationMs) ||
     durationMs < 1 ||
-    durationMs > (options.workflow ? 3600000 : 120000)
+    durationMs > (options.workflow ? 3600000 : probeRecipe.durationMs)
   )
     throw new Error('claude_probe_invalid_supervisor');
   if (options.workflow && !isClaudeWorkflowProductVersion(options.binary.version)) throw new Error('claude_probe_executable_mismatch');
@@ -100,8 +107,8 @@ export async function prepareClaudeProbeSupervisor(input: ClaudeProbeSupervisorO
     generation: options.generation,
     startedAt,
     productVersion,
-    model: options.workflow ? options.workflow.model : 'claude-sonnet-5-5',
-    effort: options.workflow ? options.workflow.effort : 'high',
+    model: options.workflow ? options.workflow.model : probeRecipe.model,
+    effort: options.workflow ? options.workflow.effort : probeRecipe.effort,
     clock: utcNow,
     ...(options.workflow
       ? {
@@ -152,8 +159,8 @@ export async function prepareClaudeProbeSupervisor(input: ClaudeProbeSupervisorO
         binary: options.binary,
         destination: { endpoint: gateway.endpoint, headers: coordinator.exporterHeaders(), processId: root.processId },
         nativeSessionId: root.nativeSessionId,
-        model: 'claude-sonnet-5-5',
-        effort: 'high',
+        model: probeRecipe.model,
+        effort: probeRecipe.effort,
         hookCommand: mediator.hookCommand
       },
       options.workflow
@@ -253,9 +260,9 @@ export async function prepareClaudeProbeSupervisor(input: ClaudeProbeSupervisorO
           state.childBound &&
           state.childStopped &&
           state.sessionEnded &&
-          state.requestsInserted === 3 &&
-          state.rootRequests === 2 &&
-          state.childRequests === 1 &&
+          state.requestsInserted === probeRecipe.plannedRequests &&
+          state.rootRequests === probeRecipe.rootRequestStop &&
+          state.childRequests === probeRecipe.childRequestStop &&
           !state.revoked;
       return {
         status: native.status === 'completed' && !terminal ? ('failed' as const) : native.status,

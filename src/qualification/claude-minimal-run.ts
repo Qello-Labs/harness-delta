@@ -21,6 +21,13 @@ import { Store } from '../store.js';
 import { prepareClaudeProbeSupervisor } from '../claude-probe-supervisor.js';
 import { claudeProbeProductVersion } from '../claude-workflow-versions.js';
 import { implementationExtension, implementationPath } from '../package-paths.js';
+import { toolVersionRecipe } from '../core/tool-version-profiles.js';
+
+const recipe = (() => {
+  const recipe = toolVersionRecipe('claude-internal-probe-02188');
+  if (recipe.kind !== 'claude_probe') throw new Error('claude_minimal_invalid_intent');
+  return recipe;
+})();
 
 const digest = (bytes: string | Buffer) => createHash('sha256').update(bytes).digest('hex');
 function implementationDigest(): string {
@@ -78,11 +85,11 @@ const intentSchema = z.strictObject({
   childSessionId: z.uuid(),
   generation: z.literal(1),
   productVersion: z.literal(claudeProbeProductVersion),
-  model: z.literal('claude-sonnet-5-5'),
-  effort: z.literal('high'),
-  durationMs: z.literal(120000),
-  plannedRequests: z.literal(3),
-  estimatedBudgetUsd: z.literal('0.10'),
+  model: z.literal(recipe.model),
+  effort: z.literal(recipe.effort),
+  durationMs: z.literal(recipe.durationMs),
+  plannedRequests: z.literal(recipe.plannedRequests),
+  estimatedBudgetUsd: z.literal(recipe.estimatedUsd),
   hardBillingBound: z.null(),
   existingLoginOnly: z.literal(true),
   providerAvailabilityVerified: z.literal(false),
@@ -189,11 +196,11 @@ export function createClaudeMinimalIntent(directory: string, binaryInput: unknow
     childSessionId: randomUUID(),
     generation: 1,
     productVersion: claudeProbeProductVersion,
-    model: 'claude-sonnet-5-5',
-    effort: 'high',
-    durationMs: 120000,
-    plannedRequests: 3,
-    estimatedBudgetUsd: '0.10',
+    model: recipe.model,
+    effort: recipe.effort,
+    durationMs: recipe.durationMs,
+    plannedRequests: recipe.plannedRequests,
+    estimatedBudgetUsd: recipe.estimatedUsd,
     hardBillingBound: null,
     existingLoginOnly: true,
     providerAvailabilityVerified: false,
