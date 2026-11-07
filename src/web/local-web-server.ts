@@ -19,6 +19,8 @@ import { CodexProjectActionSchema, type CodexProjectAction } from './local-web-c
 import type { Store } from '../store.js';
 import type { CodexWindowControl } from './local-web-codex-window-control.js';
 import { registerCodexWindowRoutes } from './local-web-codex-window-http.js';
+import type { ClaudeWindowControl } from './local-web-claude-window-control.js';
+import { registerClaudeWindowRoutes } from './local-web-claude-window-http.js';
 import { registerWebMetadata, withLiveWebMetadataScope, type WebMetadataScope } from './local-web-metadata.js';
 
 /** Accepted imports retain imported:true; counts describe actual transactional saves. */
@@ -28,6 +30,7 @@ export type LocalWebSetupImportResult = { cancelled: true } | { imported: true; 
 export interface LocalWebDomain {
   readonly metadataStore: Store;
   readonly codexWindow?: CodexWindowControl;
+  readonly claudeWindow?: ClaudeWindowControl;
   bootstrap(): unknown;
   task(id: string): { version: string } & Record<string, unknown>;
   ordinaryWindowReport?(this: void, taskId: string, cutoff: string): unknown;
@@ -341,13 +344,14 @@ function sameSecret(input: string | undefined, expected: string): boolean {
   return actual.byteLength === required.byteLength && timingSafeEqual(actual, required);
 }
 
-function mutationTask(domain: LocalWebDomain, taskId: string, windowControl: CodexWindowControl | undefined) {
+type WindowMutationControl = CodexWindowControl | ClaudeWindowControl;
+function mutationTask(domain: LocalWebDomain, taskId: string, windowControl: WindowMutationControl | undefined) {
   return windowControl ? windowControl.task(taskId) : domain.task(taskId);
 }
-function validateWindowMutationResult(control: CodexWindowControl | undefined, taskId: string | undefined, result: unknown, status: number) {
+function validateWindowMutationResult(control: WindowMutationControl | undefined, taskId: string | undefined, result: unknown, status: number) {
   if (control && status === 200) control.validateReplay(taskId ?? z.object({ task_id: id }).parse(result).task_id, result);
 }
-function completedMutationScope(scope: WebMetadataScope, url: string, status: number, result: unknown, windowControl: CodexWindowControl | undefined) {
+function completedMutationScope(scope: WebMetadataScope, url: string, status: number, result: unknown, windowControl: WindowMutationControl | undefined) {
   const resultId =
     status === 200 && windowControl
       ? z.object({ task_id: id }).parse(result).task_id
@@ -438,7 +442,7 @@ export function createLocalWebServer(options: LocalWebOptions) {
     parse: (input: unknown) => T,
     execute: (input: T) => Promise<unknown>,
     taskId?: string,
-    windowControl?: CodexWindowControl
+    windowControl?: WindowMutationControl
   ) {
     const key = z.uuid().parse(request.headers['idempotency-key']);
     const body = parse(request.body);
@@ -548,6 +552,7 @@ export function createLocalWebServer(options: LocalWebOptions) {
   });
   addMutation('/api/tasks', createInput, async input => options.domain.createTask(createInput.parse(input)));
   registerCodexWindowRoutes(app, options.domain.codexWindow, { csrf, mutation, errorCode: localWebError });
+  registerClaudeWindowRoutes(app, options.domain.claudeWindow, { csrf, mutation, errorCode: localWebError });
   app.get<{ Params: { id: string } }>('/api/projects/:id/ordinary-setup', request => {
     if (!options.domain.ordinaryProject) throw new Error('invalid_ui_request');
     return options.domain.ordinaryProject(id.parse(request.params.id));

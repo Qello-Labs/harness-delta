@@ -13,9 +13,17 @@ import { projectCatalogCost } from './catalog-cost-report.js';
 import { readPriceBasis } from './price-catalog-store.js';
 import { putUsageWithEvidence, recordObservationGap } from './runtime-history.js';
 import { assertCompatibilityAllowed, pinSessionCompatibility, resolveSourceCompatibility } from './source-compatibility.js';
-import { BindingUsageRecordSchema, bindingIdentityKey, CurrentIdentityRequestSchema, VerifiedSessionIdentitySchema,
-  type BindingProduct, type CurrentIdentityRequest, type NativeConnectionProof, type SessionBindingProvider,
-  type VerifiedSessionIdentity } from './session-binding-contract.js';
+import {
+  BindingUsageRecordSchema,
+  bindingIdentityKey,
+  CurrentIdentityRequestSchema,
+  VerifiedSessionIdentitySchema,
+  type BindingProduct,
+  type CurrentIdentityRequest,
+  type NativeConnectionProof,
+  type SessionBindingProvider,
+  type VerifiedSessionIdentity
+} from './session-binding-contract.js';
 import type { CandidateScope } from './nested-candidate.js';
 import type { UsageEvent } from './flexible-contracts.js';
 import type { Store } from './store.js';
@@ -23,8 +31,18 @@ import { ordinaryWindowDecisionKeyForSelection, readOrdinaryWindowDecision } fro
 import { assertOrdinaryWindowSurfaceClosed, ordinaryWindowSelection } from './core/ordinary-window-store.js';
 import { readOrdinaryWindowBatch } from './ordinary-window-binding.js';
 import { CodexWindowSessionBindingProvider, type CodexWindowPendingReceipt } from './session-binding-codex.js';
-import { assertOrdinaryWindowAuthority, issueCodexWindowSourceAuthorization, pauseOrdinaryWindowSegment, recordOrdinaryWindowSegment, terminateOrdinaryWindowTrial,
-  type CodexWindowSourceAuthorization, type OrdinaryWindowScope } from './core/ordinary-window-store.js';
+import { ClaudeWindowSessionBindingProvider, type ClaudeWindowBindingOptions, type ClaudeWindowPendingReceipt } from './session-binding-claude.js';
+import { OrdinaryWindowConnectionProofSchema } from './core/ordinary-window-policy.js';
+import { issueClaudeWindowSourceAuthorization, type ClaudeWindowSourceAuthorization } from './core/ordinary-window-store.js';
+import {
+  assertOrdinaryWindowAuthority,
+  issueCodexWindowSourceAuthorization,
+  pauseOrdinaryWindowSegment,
+  recordOrdinaryWindowSegment,
+  terminateOrdinaryWindowTrial,
+  type CodexWindowSourceAuthorization,
+  type OrdinaryWindowScope
+} from './core/ordinary-window-store.js';
 
 interface BindingRow {
   session_id: string; task_id: string; root_id: string; identity: string;
@@ -844,6 +862,207 @@ export async function connectOrdinaryCodexWindow(
       if (current) {
         pauseOrdinaryWindowSegment(store, taskId, TimestampSchema.parse(clock()), 'binding_scope_revoked');
       }
+    });
+    throw error;
+  }
+}
+
+export interface OrdinaryClaudeWindowBindingOptions {
+  readonly store: Store;
+  readonly taskId: string;
+  readonly receiptDirectory: string;
+  readonly claudeProjectsDirectory: string;
+  readonly clock?: Clock;
+  readonly binaryAdapters?: ClaudeWindowBindingOptions['binaryAdapters'];
+}
+function selectedClaudeWindowRoot(store: Store, taskId: string) {
+  return store.get<{ root_session_id: string; native_root_id: string; state: string; revision: number; generation: number | null }>(
+    `SELECT s.root_session_id,s.native_root_id,s.state,s.revision,b.generation FROM ordinary_tasks t
+    JOIN binding_root_segments s ON s.root_session_id=t.selected_root_id
+    LEFT JOIN session_bindings b ON b.session_id=s.root_session_id WHERE t.task_id=?`,
+    [taskId]
+  );
+}
+function claudeWindowProvider(options: OrdinaryClaudeWindowBindingOptions, authorization: ClaudeWindowSourceAuthorization, expectedDigest?: string) {
+  return new ClaudeWindowSessionBindingProvider({
+    authorization,
+    receiptDirectory: options.receiptDirectory,
+    claudeProjectsDirectory: options.claudeProjectsDirectory,
+    projectRoot: authorization().projectRoot,
+    clock: options.clock ?? utcNow,
+    ...(options.binaryAdapters === undefined ? {} : { binaryAdapters: options.binaryAdapters }),
+    ...(expectedDigest === undefined ? {} : { expectedNativePinDigest: expectedDigest })
+  });
+}
+function reserveClaudeWindowRoot(
+  options: OrdinaryClaudeWindowBindingOptions,
+  pending: ClaudeWindowPendingReceipt,
+  generation: number,
+  authorization: ClaudeWindowSourceAuthorization,
+  at: string
+) {
+  const { store, taskId } = options;
+  return store.immediateTransaction(() => {
+    const context = authorization();
+    assertOrdinaryWindowAuthority(store, {
+      taskId,
+      generation,
+      nativeRootId: pending.nativeSessionId,
+      decisionRef: context.decisionRef,
+      clock: options.clock ?? utcNow
+    });
+    if (
+      pending.event !== 'connect' ||
+      pending.agentId !== null ||
+      pending.nativeRootSessionId !== pending.nativeSessionId ||
+      pending.sourceRef === null ||
+      pending.processIdHint === null
+    )
+      throw new Error('binding_root_only_required');
+    const previous = selectedClaudeWindowRoot(store, taskId);
+    if (previous && !['paused', 'closed'].includes(previous.state) && (previous.generation === null || previous.generation === generation))
+      throw new Error('binding_fresh_root_required');
+    if (store.get('SELECT 1 FROM binding_root_segments WHERE product=? AND native_root_id=? AND task_id!=?', ['claude_code', pending.nativeSessionId, taskId]))
+      throw new Error('binding_fresh_root_required');
+    const old = store.get<{ proof: string }>(
+      `SELECT w.proof FROM ordinary_window_segments w JOIN binding_root_segments s ON s.root_session_id=w.root_session_id
+      WHERE s.product='claude_code' AND s.native_root_id=? AND s.task_id=? ORDER BY s.rowid DESC LIMIT 1`,
+      [pending.nativeSessionId, taskId]
+    );
+    let expectedDigest: string | undefined;
+    if (old) {
+      const proof = OrdinaryWindowConnectionProofSchema.parse(JSON.parse(old.proof));
+      if (proof.mode !== 'claude_publisher_local_pin' || proof.productVersion !== context.selection.declaredVersion || proof.sourceRef !== pending.sourceRef)
+        throw new Error('binding_fresh_root_required');
+      expectedDigest = proof.nativePinDigest;
+    }
+    if (previous) {
+      store.execute(
+        "UPDATE binding_root_segments SET state='closed',closed_at=?,revision=revision+1,observer_identity=NULL WHERE root_session_id=? AND state!='closed'",
+        [at, previous.root_session_id]
+      );
+      store.execute("UPDATE session_bindings SET state='stopped' WHERE root_id=?", [previous.root_session_id]);
+    }
+    const rootSessionId = randomUUID();
+    store.execute('INSERT INTO sessions(id,project_id,task_id,product,product_version) VALUES (?,?,?,?,?)', [
+      rootSessionId,
+      context.selection.projectId,
+      taskId,
+      'claude_code',
+      context.selection.declaredVersion
+    ]);
+    store.execute(
+      `INSERT INTO binding_root_segments(root_session_id,task_id,product,native_root_id,project_root,state,opened_at)
+      VALUES (?,?,?,?,?,'acquiring',?)`,
+      [rootSessionId, taskId, 'claude_code', pending.nativeSessionId, context.projectRoot, at]
+    );
+    store.execute('UPDATE ordinary_tasks SET selected_root_id=? WHERE task_id=?', [rootSessionId, taskId]);
+    return { rootSessionId, expectedDigest };
+  });
+}
+export async function collectOrdinaryClaudeWindow(options: OrdinaryClaudeWindowBindingOptions, rootSessionId: string, baseline = false): Promise<void> {
+  await readOrdinaryWindowBatch({
+    store: options.store,
+    taskId: options.taskId,
+    rootSessionId,
+    baseline,
+    clock: options.clock ?? utcNow,
+    provider: (_authorizeSource, scope) => claudeWindowProvider(options, issueClaudeWindowSourceAuthorization(options.store, scope, 'observing'))
+  });
+}
+export async function connectOrdinaryClaudeWindow(
+  options: OrdinaryClaudeWindowBindingOptions,
+  input: CurrentIdentityRequest
+): Promise<{ readonly rootSessionId: string; readonly automatic_children: false }> {
+  const { store, taskId } = options;
+  const clock = options.clock ?? utcNow;
+  const generation = new Lifecycle(store, clock).task(taskId).generation;
+  const selection = ordinaryWindowSelection(store, taskId);
+  const decision = selection ? readOrdinaryWindowDecision(store, ordinaryWindowDecisionKeyForSelection(selection)) : null;
+  let scope: OrdinaryWindowScope = { taskId, generation, clock, ...(decision === null ? {} : { decisionRef: decision.decision_ref }) };
+  let authorization: ClaudeWindowSourceAuthorization | undefined;
+  try {
+    const metadata = issueClaudeWindowSourceAuthorization(store, scope, 'metadata');
+    const pending = claudeWindowProvider(options, metadata).pendingReceipt(input);
+    const at = TimestampSchema.parse(clock());
+    const reservation = reserveClaudeWindowRoot(options, pending, generation, metadata, at);
+    scope = { ...scope, rootSessionId: reservation.rootSessionId, segmentRevision: 0 };
+    const acquiring = issueClaudeWindowSourceAuthorization(store, scope, 'acquiring');
+    authorization = acquiring;
+    const proof = await claudeWindowProvider(options, acquiring, reservation.expectedDigest).inspectWindowCurrent(input);
+    store.immediateTransaction(() => {
+      acquiring();
+      if (proof.mode !== 'claude_publisher_local_pin') throw new Error('binding_identity_mismatch');
+      const duplicates = store.all<{ proof: string; task_id: string }>(
+        `SELECT w.proof,s.task_id FROM ordinary_window_segments w JOIN binding_root_segments s ON s.root_session_id=w.root_session_id
+        WHERE s.product='claude_code' AND (json_extract(w.proof,'$.sourceIdentity')=? OR json_extract(w.proof,'$.sourceRef')=?)`,
+        [proof.sourceIdentity, proof.sourceRef]
+      );
+      for (const row of duplicates) {
+        const old = OrdinaryWindowConnectionProofSchema.parse(JSON.parse(row.proof));
+        if (
+          old.mode !== 'claude_publisher_local_pin' ||
+          row.task_id !== taskId ||
+          old.nativeSessionId !== proof.nativeSessionId ||
+          old.nativePinDigest !== proof.nativePinDigest
+        )
+          throw new Error('binding_fresh_root_required');
+      }
+      recordOrdinaryWindowSegment(store, scope, proof);
+      const identity = VerifiedSessionIdentitySchema.parse({
+        product: 'claude_code',
+        productVersion: proof.productVersion,
+        sessionId: proof.nativeSessionId,
+        sourceRef: proof.sourceRef,
+        sourceIdentity: proof.sourceIdentity,
+        cwd: proof.cwd,
+        identityEvidenceId: proof.receipt,
+        parentSessionId: null,
+        createdAt: proof.recordedAt,
+        nativeMapping: { nativeSessionId: proof.nativeSessionId, processId: proof.processId, agentId: null }
+      });
+      store.execute(
+        `INSERT INTO session_bindings(session_id,task_id,root_id,identity,connect_receipt,observed_since,generation,state,cursor)
+        VALUES (?,?,?,?,?,?,?,'observing',NULL)`,
+        [reservation.rootSessionId, taskId, reservation.rootSessionId, JSON.stringify(identity), proof.receipt, at, generation]
+      );
+      store.execute("UPDATE binding_root_segments SET state='observing',revision=revision+1 WHERE root_session_id=?", [reservation.rootSessionId]);
+    });
+    scope = { ...scope, segmentRevision: 1, cursor: null };
+    await collectOrdinaryClaudeWindow(options, reservation.rootSessionId, true);
+    assertOrdinaryWindowAuthority(store, {
+      taskId,
+      rootSessionId: reservation.rootSessionId,
+      generation,
+      clock,
+      ...(scope.decisionRef === undefined ? {} : { decisionRef: scope.decisionRef })
+    });
+    return { rootSessionId: reservation.rootSessionId, automatic_children: false };
+  } catch (error) {
+    if (!(error instanceof Error)) throw error;
+    if (
+      scope.rootSessionId === undefined ||
+      scope.segmentRevision === 0 ||
+      ['binding_window_trial_expired', 'binding_window_trial_budget_exhausted'].includes(error.message)
+    ) {
+      terminateOrdinaryWindowTrial(store, scope, {
+        at: clock(),
+        reason:
+          error.message === 'binding_window_trial_expired'
+            ? 'trial_expired'
+            : error.message === 'binding_window_trial_budget_exhausted'
+              ? 'trial_budget_exhausted'
+              : 'trial_failed'
+      });
+    }
+    store.immediateTransaction(() => {
+      try {
+        authorization?.();
+      } catch (failure) {
+        if (!(failure instanceof Error)) throw failure;
+        return;
+      }
+      if (authorization) pauseOrdinaryWindowSegment(store, taskId, TimestampSchema.parse(clock()), 'binding_scope_revoked');
     });
     throw error;
   }

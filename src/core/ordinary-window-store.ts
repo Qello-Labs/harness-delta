@@ -352,3 +352,149 @@ export function assertCodexWindowSourceAuthorization(
   }
   return issued.authorize();
 }
+
+type ClaudeWindowSourcePhase = 'metadata' | 'acquiring' | 'observing';
+export interface ClaudeWindowSourceContext {
+  readonly selection: OrdinaryWindowSelection;
+  readonly decisionRef: string;
+  readonly projectRoot: string;
+  readonly rootSessionId: string | null;
+  readonly cursor: string | null;
+  readonly nativeRootId: string | null;
+  readonly sourceRef: string | null;
+  readonly sourceIdentity: string | null;
+  readonly nativePinDigest: string | null;
+  readonly processId: string | null;
+  readonly processStart: string | null;
+}
+export type ClaudeWindowSourceAuthorization = () => ClaudeWindowSourceContext;
+const claudeWindowSourceAuthorizations = new WeakMap<
+  ClaudeWindowSourceAuthorization,
+  {
+    readonly phase: ClaudeWindowSourcePhase;
+    readonly authorize: ClaudeWindowSourceAuthorization;
+  }
+>();
+
+export function issueClaudeWindowSourceAuthorization(
+  store: Store,
+  inputScope: OrdinaryWindowScope,
+  phase: ClaudeWindowSourcePhase
+): ClaudeWindowSourceAuthorization {
+  const prepared = assertOrdinaryWindowAuthority(store, {
+    taskId: inputScope.taskId,
+    ...(inputScope.generation === undefined ? {} : { generation: inputScope.generation }),
+    ...(inputScope.clock === undefined ? {} : { clock: inputScope.clock }),
+    ...(inputScope.decisionRef === undefined ? {} : { decisionRef: inputScope.decisionRef })
+  });
+  const decision = assertOrdinaryWindowDecision(store, prepared, inputScope);
+  const scope = Object.freeze({ ...inputScope, decisionRef: decision.decision_ref });
+  const generation = scope.generation;
+  if (phase === 'observing' && scope.cursor === undefined) {
+    throw new Error('binding_scope_revoked');
+  }
+  if (generation === undefined || (phase !== 'metadata' && (!scope.rootSessionId || scope.segmentRevision === undefined))) {
+    throw new Error('binding_scope_revoked');
+  }
+  const authorize = (): ClaudeWindowSourceContext => {
+    const selection = assertOrdinaryWindowAuthority(store, {
+      taskId: scope.taskId,
+      generation,
+      decisionRef: scope.decisionRef,
+      ...(scope.clock === undefined ? {} : { clock: scope.clock }),
+      ...(phase === 'observing' ? scope : {})
+    });
+    if (selection.policy.product !== 'claude_code' || selection.policy.evidenceMode !== 'publisher_verified_local_pin') {
+      throw new Error('binding_window_unavailable');
+    }
+    const projectRoot = store.get<{ local_root: string }>('SELECT local_root FROM projects WHERE id=?', [selection.projectId])?.local_root;
+    if (!projectRoot) throw new Error('binding_scope_mismatch');
+    let nativeRootId: string | null = null;
+    let sourceRef: string | null = null;
+    let sourceIdentity: string | null = null;
+    let nativePinDigest: string | null = null;
+    let processId: string | null = null;
+    let processStart: string | null = null;
+    if (phase === 'acquiring') {
+      const segment = store.get<{
+        root_session_id: string;
+        product: string;
+        native_root_id: string;
+        project_root: string;
+        revision: number;
+      }>(
+        `SELECT s.* FROM binding_root_segments s
+        JOIN ordinary_tasks t ON t.task_id=s.task_id AND t.selected_root_id=s.root_session_id
+        WHERE s.root_session_id=? AND s.task_id=? AND s.state='acquiring'`,
+        [scope.rootSessionId, scope.taskId]
+      );
+      if (!segment || segment.product !== 'claude_code' || segment.revision !== scope.segmentRevision || segment.project_root !== projectRoot) {
+        throw new Error('binding_scope_revoked');
+      }
+      assertOrdinaryWindowDeletionFence(store, segment);
+      assertOrdinaryWindowAuthority(store, {
+        taskId: scope.taskId,
+        generation,
+        nativeRootId: segment.native_root_id,
+        decisionRef: scope.decisionRef,
+        ...(scope.clock === undefined ? {} : { clock: scope.clock })
+      });
+      if (
+        store.get("SELECT 1 FROM binding_root_segments WHERE product=? AND native_root_id=? AND root_session_id!=? AND state!='closed'", [
+          segment.product,
+          segment.native_root_id,
+          segment.root_session_id
+        ])
+      ) {
+        throw new Error('binding_fresh_root_required');
+      }
+      nativeRootId = segment.native_root_id;
+    }
+    if (phase !== 'metadata') {
+      const row = store.get<{ proof: string }>('SELECT proof FROM ordinary_window_segments WHERE root_session_id=?', [scope.rootSessionId]);
+      if (!row && phase === 'observing') throw new Error('binding_scope_revoked');
+      if (row) {
+        const proof = OrdinaryWindowConnectionProofSchema.parse(JSON.parse(row.proof));
+        if (
+          proof.mode !== 'claude_publisher_local_pin' ||
+          proof.productVersion !== selection.declaredVersion ||
+          (nativeRootId !== null && nativeRootId !== proof.nativeSessionId)
+        )
+          throw new Error('binding_identity_mismatch');
+        nativeRootId = proof.nativeSessionId;
+        sourceRef = proof.sourceRef;
+        sourceIdentity = proof.sourceIdentity;
+        nativePinDigest = proof.nativePinDigest;
+        processId = proof.processId;
+        processStart = proof.processStart;
+      }
+    }
+    return {
+      selection,
+      decisionRef: scope.decisionRef,
+      projectRoot,
+      rootSessionId: scope.rootSessionId ?? null,
+      cursor: scope.cursor ?? null,
+      nativeRootId,
+      sourceRef,
+      sourceIdentity,
+      nativePinDigest,
+      processId,
+      processStart
+    };
+  };
+  authorize();
+  claudeWindowSourceAuthorizations.set(authorize, { phase, authorize });
+  return authorize;
+}
+
+export function assertClaudeWindowSourceAuthorization(
+  authorization: ClaudeWindowSourceAuthorization,
+  access: 'metadata' | 'source' | 'observe'
+): ClaudeWindowSourceContext {
+  const issued = claudeWindowSourceAuthorizations.get(authorization);
+  if (!issued || (access !== 'metadata' && issued.phase === 'metadata') || (access === 'observe' && issued.phase !== 'observing')) {
+    throw new Error('binding_scope_revoked');
+  }
+  return issued.authorize();
+}

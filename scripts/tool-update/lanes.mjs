@@ -8,11 +8,11 @@ export const scopeSourceDigests = Object.freeze({
   'src/codex-workflow-adapter.ts': '1dc6552eb9d59f176bfbff3252d8902d63b92599c56c8aa23ba1c10dab3508d7',
   'src/claude-workflow-adapter.ts': '0d8314a3ae76357ab9b585fae4ad1f20b540666c478c1d0dac7bf0fc6b9ef93b',
   'src/session-binding-contract.ts': '4d21a5f6668d7d1356a45928386908921dc65d78fc81901036914e5ad42704a1',
-  'src/ordinary-session-binding.ts': '02c56277732a0472d8a57c5d52131b8c4d6aa2fd93be4c9f24f79ecdc5b77fca',
+  'src/ordinary-session-binding.ts': '4f6faf6939fd4190a7b68009fe48232738045ff9184f2a3248d34e63a7a8f856',
   'src/session-binding-service.ts': '0254dd5e64832b5629244c16c86e6452ec9f20b8793561f5d3c05512930a0cfb',
   'src/claude-workflow-versions.ts': '2fdf54d333aa7d9ca8f298ad0757e85a2c2eed10472106a07387d36d7511bd3b',
   'src/session-binding-codex.ts': '02aa7a37de315e91fa401498f5075eb01a05ecea2e55ad2182014a426dd24c32',
-  'src/session-binding-claude.ts': '79c9c7d25164bd225cb53330e27c5c8684fcc9ce182f8699b473353c03dc6957',
+  'src/session-binding-claude.ts': '02ef4cd084854c5433260b3eb248354b658b214ab36c321bbe411985b726c4c7',
 });
 export const laneSchema = z.strictObject({
   product: z.enum(['codex', 'claude_code']),
