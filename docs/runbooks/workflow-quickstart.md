@@ -4,9 +4,8 @@
 
 Use this procedure for a small **functional pilot** with descriptive partial costs.
 <!-- tool-version-assets:workflow-profiles:start -->
-It covers Codex 0.160.0 (`codex-workflow-own-response-v1`) and
-Claude Code 2.1.296 (`claude-workflow-own-trace-v1`, parent-only; `claude-workflow-direct-child-v1`), plus
-the conditional forward versions described below.
+Choose an exact route and check its status in the [generated support matrix](../support-matrix.md#exact-routes).
+Conditional forward selection is separate from exact admission.
 <!-- tool-version-assets:workflow-profiles:end -->
 Use one persistent A/B assignment for each logical task.
 Choose model and effort per invocation; a new session does not change the assignment.
@@ -16,16 +15,18 @@ Choose model and effort per invocation; a new session does not change the assign
 The numbered steps below use tool-owned native launch. For a session you open
 yourself, choose the matching procedure before preparing inputs:
 
+Check [exact versions and qualification states](../support-matrix.md#exact-routes)
+before choosing a route. The table below describes procedures, not additional admissions.
+
 | Intended workflow | Procedure and boundary |
 | --- | --- |
 | Prepare tasks and review results in the browser | [Local browser workflow](local-browser-ui.md); guided setup reviews inputs before saving and does not start collection |
-| Ordinary Claude observation without A/B assignment | [Normal UI flow](harness-connect.md#ordinary-claude-observation-qualification-pending); Claude Code 2.1.306 for new setup, or saved Claude Code 2.1.296 or 2.1.301; admitted for normal use under that profile's exact source and binary; native qualification pending; no pilot flag |
-| Codex 0.163.0 ordinary family | [Bounded ordinary profile](harness-connect.md#codex-01630-bounded-ordinary-profile); separate exact profile and new-setup default; frozen `functional_pilot` protocol and assignment, one fresh root and up to two fresh direct children; not assignment-free ordinary task mode |
-| Codex 0.166.0 ordinary candidate | [UNQUALIFIED CANDIDATE](../validation/codex-ordinary-binding-qualification.md#01660-unqualified-ordinary-candidate), `qualified:false`, `codex-binding-01660-direct-family-v1`; selectable, qualified support pending; the record itself has no `evidenceId` or `evidenceIntentSha256` and adds nothing to `productionSourceEvidence`; separate native intents and results in [2026-11-03 candidate trials](../validation/codex-ordinary-binding-qualification.md#2026-11-03-candidate-trials) do not qualify the candidate; `ordinary_admission` only, required `--scenario root_normal_observer_restart` (zero children) or `--scenario family_normal_observer_restart` (two direct children); separate exact-intent native consent; H4 host-spawn/Detached and H5 env-null-transcript excluded; no file/workflow fallback or native resume; default stays 0.163.0 |
-| Codex 0.162.1 ordinary family | [Bounded ordinary profile](harness-connect.md#codex-01621-bounded-ordinary-profile); frozen `functional_pilot` protocol and assignment, one fresh root and up to two fresh direct children; not assignment-free ordinary task mode |
-| Codex 0.162.0 and 0.162.1 ordinary root | [Root-only pilot](harness-connect.md#codex-01620-ordinary-root-local-pilot); operator-authorized observation, one fresh root, no children |
+| Ordinary Claude observation without A/B assignment | [Normal UI flow](harness-connect.md#ordinary-claude-observation-qualification-pending); the configured profile's exact source and binary; native qualification pending; no pilot flag |
+| Codex ordinary family | [Bounded ordinary profile](harness-connect.md#codex-01630-bounded-ordinary-profile) or its [historical profile](harness-connect.md#codex-01621-bounded-ordinary-profile); frozen `functional_pilot` protocol and assignment, one fresh root and up to two fresh direct children; not assignment-free ordinary task mode |
+| Codex unqualified ordinary candidate | [Candidate procedure](../validation/codex-ordinary-binding-qualification.md#01660-unqualified-ordinary-candidate); selectable, qualified support pending; no `evidenceId` or `evidenceIntentSha256` in the record and no contribution to `productionSourceEvidence`; dated native trials do not qualify it; `ordinary_admission` only, required `--scenario root_normal_observer_restart` (zero children) or `--scenario family_normal_observer_restart` (two direct children); separate exact-intent native consent; H4 host-spawn/Detached and H5 environment-hook null-transcript paths excluded; no file/workflow fallback or native resume |
+| Codex ordinary root pilot | [Root-only pilot](harness-connect.md#codex-01620-ordinary-root-local-pilot); operator-authorized observation, one fresh root, no children |
 | Claude comparison/pilot family | [Human-operated pilot](harness-connect.md#claude-human-operated-ui-pilot); separate local pilot authority and candidate-provider flag, exact profile version, fresh parent and at most two new members; not the normal ordinary task flow |
-| Codex 0.160.0 startup ticket | [External session workflow](external-session-workflow.md); exact fresh root and ticket, no automatic family inheritance |
+| Codex startup ticket | [External session workflow](external-session-workflow.md); exact fresh root and ticket, no automatic family inheritance |
 
 These paths have different source and authority gates. A launch-workflow
 compatibility window does not authorize an ordinary session connection.
@@ -79,13 +80,16 @@ child contribution unknown; disk proof is not mapped-image proof or complete cos
 
 ## Support and costs before you start
 
+Use the [matrix](../support-matrix.md#exact-routes) for the exact version of each
+profile and its status. Operation limits remain separate:
+
 | Path | Supported boundary |
 | --- | --- |
-| Codex 0.160.0 root workflow | Launch, same-session resume, explicit independent-root link, foreground collect, stop and recover; partial usage |
-| Codex 0.160.0 direct-child workflow | Separate profile: fresh root and one fresh child, pinned macOS arm64/Node 24, read-only; no family resume or external child link |
-| Legacy file collector | Exact profiles: Codex 0.156.1 and 0.158.0, and Claude Code 2.1.283; conditional file versions also available; use [local measurement](local-measurement.md) |
-| Claude Code 2.1.296 parent-only workflow | Fresh launch per run (read-only or `workspace-edit`), another launch on the same task, resume of a session kept with `resumable`, stop and recover; partial usage. Claude Code 2.1.288 and 2.1.291 are retired |
-| Claude Code 2.1.296 direct-child workflow | Separate profile: fresh read-only root and at most one read-only `workflow-child`; exact version only; no resume, no deeper or additional children |
+| Codex root workflow | Launch, same-session resume, explicit independent-root link, foreground collect, stop and recover; partial usage |
+| Codex direct-child workflow | Separate profile: fresh root and one fresh child, pinned macOS arm64/Node 24, read-only; no family resume or external child link |
+| File collector | Only the matrix's registered exact file routes, or separately selected conditional reuse; partial usage; see [local measurement](local-measurement.md) |
+| Claude parent-only workflow | Fresh launch per run (read-only or `workspace-edit`), another launch on the same task, resume of a session kept with `resumable`, stop and recover; partial usage; retired versions are not admitted |
+| Claude direct-child workflow | Separate profile: fresh read-only root and at most one read-only `workflow-child`; exact version only; no resume, no deeper or additional children |
 | App/IDE/MCP, forks, compaction, deeper descendants | Unsupported for this procedure |
 | Complete task cost, actual billing, savings or adoption inference | Unavailable |
 | Team file exchange | Synthetic validation only; functional-pilot results cannot use that exchange |
