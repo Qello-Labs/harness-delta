@@ -10,7 +10,7 @@ import { scopeSourceDigests } from './lanes.mjs';
 export const legacyAssessmentRuleRevision = 'static-assessment-v1';
 export const expandedAssessmentRuleRevision = 'static-assessment-v2';
 export const assessmentRuleRevision = 'static-assessment-v3';
-export const assessmentSourcePathLimit = 47;
+export const assessmentSourcePathLimit = 48;
 export const legacySourcePathAllowlist = Object.freeze([
   "package-lock.json",
   "package.json",
@@ -51,6 +51,7 @@ const modules = [
 ];
 const scopePaths = Object.keys(scopeSourceDigests);
 const hashOnlyPaths = [
+  "src/claude-process-binary.ts",
   "src/nested-candidate.ts",
   "src/codex-candidate-rollout.ts",
   "src/core/ordinary-window-store.ts",
