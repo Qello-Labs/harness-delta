@@ -408,14 +408,14 @@ gates remain separate checks when choosing and preparing a task.
 
 The numbered steps below describe the exact Codex 0.160.0 ticket path. For ordinary
 terminal sessions and family collection, use [Harness Connect](harness-connect.md).
-Assignment-free ordinary Claude observation is admitted for normal use under the
-configured profile's exact source version and binary hash: Claude Code 2.1.306
-for new project setup, or a saved Claude Code 2.1.296 or 2.1.301 setting. Native qualification
-remains pending (`qualified: false`). It requires no pilot flag or
-`allowCandidateProfiles: true`.
-Codex 0.162.1 and Codex 0.163.0 bounded ordinary collection
-still use a frozen `functional_pilot` protocol and assignment; neither is an
-assignment-free ordinary task mode.
+Assignment-free ordinary Claude observation is admitted for normal use only under
+the configured profile's exact source version and binary hash. Check the
+[generated matrix](../support-matrix.md#exact-routes) for admitted versions and
+qualification flags, and [connection setup](harness-connect.md#ordinary-claude-observation-qualification-pending)
+for defaults. Saved versions remain unchanged; native qualification stays pending
+(`qualified: false`). No pilot flag or `allowCandidateProfiles: true` is needed.
+Codex bounded ordinary collection still requires a frozen `functional_pilot`
+protocol and assignment; it is not assignment-free ordinary task mode.
 The separately authorized Codex root-only and Claude human-operated pilot routes
 retain their own gates. The Claude comparison/pilot provider still requires
 `allowCandidateProfiles: true`; its bounded print-mode qualification is not

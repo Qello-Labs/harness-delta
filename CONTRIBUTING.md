@@ -2,47 +2,11 @@
 
 Harness Delta has metadata contracts and a local storage foundation. Read the
 [product requirements](docs/requirements.md) before proposing or implementing behavior.
-The repository provides a local measurement CLI, legacy partial sequential adapters
-for Codex 0.156.1 and 0.158.0 and Claude Code 2.1.283, plus two separately admitted
-Codex 0.160.0 workflow profiles: root own responses and a fresh root with one fresh
-direct child. The child profile is read-only; family resume and broader descendant
-collection are unsupported. Assigned CLI wiring has synthetic coverage and later bounded actual root
-functional observations; exact admission and configuration-scope limits are separate evidence. Claude Code 2.1.296 has two separately admitted
-profiles (Claude Code 2.1.288 and 2.1.291 are retired): a parent-only profile covering launch and resume of a kept session, and a
-read-only profile with one direct child. Deeper or additional Claude children and child resume are unsupported.
-Ordinary file, binding and workflow usage remains partial, with no inferential
-adoption support. The separately qualified instrumented
-Codex source can establish standardized complete cost under its reviewed profile;
-see the [observed-cost runbook](docs/runbooks/observed-cost.md). It does not turn
-ordinary file, binding or workflow observations into complete totals or vendor bills.
-
-Codex 0.162.1 bounded ordinary collection passed fresh ordinary-route native
-acceptance and independent review on 2026-10-13: one fresh CLI root and up to two
-fresh direct children, gpt-6.1-sol/high, under the reviewed read-only/no-daemon
-invocation. Prior lease-gated observations do not replace that evidence. Since the
-user-approved 2026-10-15 policy, normal use of this route accepts any GPT-family
-model at the observed reasoning effort; that trial model is history, not a requirement. See the
-[ordinary profile and limits](docs/runbooks/harness-connect.md#codex-01621-bounded-ordinary-profile),
-[current native workflow and limits](docs/runbooks/task-native-workflow.md),
-[capability evidence](docs/decisions/001-adapter-capabilities.md), and
-[local measurement runbook](docs/runbooks/local-measurement.md).
-
-Codex 0.163.0 has a separate bounded ordinary profile with native no-lease acceptance
-on 2026-10-16: one fresh root and up to two fresh direct children. Its exact profile,
-required same-release execution host, partial-cost limits and verification record
-are documented in [Harness Connect](docs/runbooks/harness-connect.md#codex-01630-bounded-ordinary-profile).
-Codex 0.163.0 is now the default for new project setup. Its evidence and file/workflow
-support are unchanged. The Codex 0.162.1 profile, saved settings and all historical pins
-remain; omitting a version keeps saved settings, and nothing upgrades them automatically.
-
-The separate [Codex ordinary-window setup](docs/runbooks/harness-connect.md#codex-ordinary-window-setup-collection-disabled)
-and independent [Claude ordinary-window setup](docs/runbooks/harness-connect.md#claude-ordinary-window-setup-collection-disabled)
-are implemented for offline acceptance, ordinary-window collection disabled pending
-separate product activation and native acceptance. See the
-[Codex descriptive-mode boundary](docs/decisions/016-ordinary-observation.md#codex-ordinary-window-addendum-collection-disabled)
-and
-[Claude addendum](docs/decisions/016-ordinary-observation.md#claude-ordinary-window-addendum-collection-disabled);
-installation and static selection do not activate collection or extend exact support.
+For the current exact routes, profiles and qualification states, use the
+[generated support matrix](docs/support-matrix.md). Follow [Harness Connect](docs/runbooks/harness-connect.md)
+for connection procedures and [native workflow](docs/runbooks/task-native-workflow.md)
+for launch and child-operation limits. Ordinary observations remain partial;
+reviewed instrumented-source completeness does not promote other routes.
 
 ## Development environment
 
@@ -177,65 +141,36 @@ See [ADR 008](docs/decisions/008-task-comparison-workflow.md) for contracts and 
 
 ## File adapter profiles
 
-The accepted [forward-version compatibility policy](docs/decisions/013-forward-version-compatibility.md)
-allows conditional reuse of a verified parser for newer releases within declared
-source-specific windows, with unverified estimates kept separate and incompatible
-data invalidated. Runtime rules live in `src/source-compatibility.ts`; exact profiles
-remain the evidence boundary for verified support. The stable releases checked on
-2026-10-16 UTC, Codex 0.163.0 and Claude Code 2.1.301, use conditional parser
-reuse for file collection, not new exact admissions. Their root-workflow selection
-also remains conditional. File/workflow target-binary conformance is pending for
-the Codex minor transition and Claude consumed-contract uncertainties; conditional
-selection does not grant ordinary binding admission. Codex 0.163.0 has separate
-ordinary-route evidence, not a file/workflow admission. The Claude
-workflow source is exactly admitted for Claude Code 2.1.296. Ordinary binding separately permits the exact Codex 0.162.0 and 0.162.1
-root-only profiles and the Claude Code 2.1.291, 2.1.293, 2.1.294, 2.1.296, 2.1.301 and 2.1.306 profiles under explicit
-local human-pilot authority; see [Harness Connect](docs/runbooks/harness-connect.md).
-The Claude Code 2.1.296, 2.1.301 and 2.1.306 transcript profiles are qualified only for bounded native print-mode
-evidence, not interactive qualification or production admission; the others are
-candidates. The comparison/pilot provider, even for qualified profiles, requires
-`allowCandidateProfiles: true`; it does not grant ordinary observation authority.
-Its default refusal remains closed. Current pilot labels stay `native_unverified_pilot`, `legacy_unverified`
-and `candidate_pilot`.
+Use the [generated support matrix](docs/support-matrix.md) for current versions,
+route status, profile IDs and qualification flags. Its legend distinguishes exact
+registration/admission, candidates, retirement and conditional parser reuse.
+Operational connection and pilot limits live in [Harness Connect](docs/runbooks/harness-connect.md).
 
-The separate exact `codex-binding-01621-direct-family-v1` ordinary source admits
-one fresh Codex 0.162.1 CLI root and up to two fresh direct children running any
-GPT-family model, stored as observed with its observed effort, without
-qualification authority. Its route-specific verified
-provenance never promotes file/launch or historical observations. Costs remain
-partial; complete request-universe and terminal accounting are not qualified.
+Add or admit a version through the [admission workflow](docs/runbooks/codex-version-admission.md)
+and the [forward-version compatibility policy](docs/decisions/013-forward-version-compatibility.md).
+Registered file adapters live in `src/adapter-profiles.ts`; the code-owned registry
+is `src/core/tool-version-profiles.json`. Verified registration is an exact
+`(product, version)` allowlist. Conditional parser selection is separate and does
+not grant ordinary binding admission. Runtime windows live in
+`src/source-compatibility.ts`; keep unverified estimates separate and invalidate
+incompatible data. Exact profiles remain the evidence boundary for verified support.
 
-Ordinary Claude observation (a task with no A/B assignment, prepared in the
-normal UI) is admitted for normal use since the user-approved 2026-10-15 policy,
-under the exact source version and binary of its code-owned
-`claude-binding-02196-family-v1` profile. It accepts any Claude model, stored as
-observed with its observed effort; another product's model is rejected atomically.
-That admission is separate from the profile's historical `qualified: false`
-evidence. No new native trial was run, so don't describe the route as natively
-qualified or promote earlier observations. See
-[ADR 016](docs/decisions/016-ordinary-observation.md) and the
-[user flow and limits](docs/runbooks/harness-connect.md#ordinary-claude-observation-qualification-pending).
+A new version whose semantics are unchanged is data, fixtures and evidence.
+A semantic change is a named code variant plus tests; never edit the old variant
+to fit the new version. Review the operation/topology scope, target-binary
+conformance and native qualification separately before claiming stronger support.
+An ordinary admission never promotes file/workflow sources or historical observations.
 
-The separate exact `claude-binding-2-1-301-family-v1` record admits explicit
-Claude Code 2.1.301 configuration with one root and two flattened members, preserving
-saved settings and frozen tasks. It uses the same Claude-model/observed-effort
-policy and remains `qualified: false`. Actual-binary localhost normal and SIGINT
-print-mode conformance and real-service localhost rehearsal passed. The authenticated
-ordinary attempt on 2026-10-17 stopped at the instrument's `stream_model` guard
-before connection; usage and billing remain unknown, and ordinary qualification
-is still outstanding. See the
-[dated qualification record](docs/validation/claude-ordinary-binding-02196-qualification.md#2026-10-16-exact-21301-transcript-qualification).
+After an approved registry edit, run `node scripts/generate-tool-version-assets.mjs`
+and include both support-matrix translations with the generated assets.
+`node scripts/generate-tool-version-assets.mjs --check` rejects stale output and
+is part of `npm run check`. Do not hand-edit generated support claims.
 
-The separate exact `claude-binding-2-1-306-family-v1` record is the default for new
-project setup: Claude Code 2.1.306 with its installed binary hash, one root and two
-flattened members (3 total), the same Claude-model/observed-effort policy and
-`qualified: false`. Omitting a version keeps saved settings; frozen 2.1.296 and 2.1.301
-tasks never migrate. Its bounded actual-binary localhost print-mode normal/SIGINT
-conformance on 2026-10-21 is not authenticated ordinary, interactive or broader
-resume/compaction qualification, and file/workflow sources stay `compatibility_unverified`. See the
-[2.1.306 record](docs/validation/claude-ordinary-binding-02196-qualification.md#2026-10-21-exact-21306-transcript-qualification).
-
-Registered file adapters live in `src/adapter-profiles.ts`. Verified registration is an exact `(product, version)` allowlist. Conditional parser selection is separate. A new version whose semantics are unchanged is data, fixtures, and evidence. A semantic change is a named code variant plus tests; the old variant is not edited to fit the new version. Codex 0.158.0 uses the checkpoint variant and a historical exact-version admission. See the [admission workflow](docs/runbooks/codex-version-admission.md) and [current offline readiness limits](docs/validation/codex-01580-offline-readiness.md). The archived live report does not qualify the current source identity or establish whole-task completeness. The conformance runner is manual. `npm test` runs offline synthetic unit tests of the report projector, the candidate parser, and the confirmation helpers. It does not run the conformance runner, spawn product CLIs, or open real sessions. See [ADR 007](docs/decisions/007-adapter-version-profiles.md).
+The conformance runner is manual. `npm test` runs offline synthetic unit tests of
+the report projector, candidate parser and confirmation helpers; it does not run
+the conformance runner, spawn product CLIs or open real sessions. Historical
+reports do not qualify the current source identity or whole-task completeness.
+See [ADR 007](docs/decisions/007-adapter-version-profiles.md).
 
 ## Branch names
 

@@ -50,10 +50,10 @@ Installation alone never starts collection.
 
 ## Two ways to measure
 
-| Mode | Use it when | Setup needed | Guide |
-| --- | --- | --- | --- |
-| **Ordinary Claude observation** | You want usage for your normal Claude work. | Project registration and Claude connection. No comparison or A/B assignment. | [Walkthrough](docs/guide/walkthrough.md) · [따라 하기](docs/guide/walkthrough.ko.md) |
-| **Harness comparison (A/B)** | You compare a current harness (A) with a candidate (B) across assigned tasks. | Reviewed comparison file, frozen protocol and harness pair. | [Measure one assigned task](docs/runbooks/workflow-quickstart.md) · [배정된 작업 측정](docs/runbooks/workflow-quickstart.ko.md) |
+| Mode                            | Use it when                                                                   | Setup needed                                                                 | Guide                                                                                                                           |
+| ------------------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| **Ordinary Claude observation** | You want usage for your normal Claude work.                                   | Project registration and Claude connection. No comparison or A/B assignment. | [Walkthrough](docs/guide/walkthrough.md) · [따라 하기](docs/guide/walkthrough.ko.md)                                            |
+| **Harness comparison (A/B)**    | You compare a current harness (A) with a candidate (B) across assigned tasks. | Reviewed comparison file, frozen protocol and harness pair.                  | [Measure one assigned task](docs/runbooks/workflow-quickstart.md) · [배정된 작업 측정](docs/runbooks/workflow-quickstart.ko.md) |
 
 Codex ordinary-session collection still uses the frozen `functional_pilot`
 assignment path, not the assignment-free ordinary Claude mode.
@@ -62,38 +62,17 @@ assignment path, not the assignment-free ordinary Claude mode.
 
 **Preview: partial local measurement.** The package is private.
 
-| Product | Supported route |
-| --- | --- |
-| Claude Code 2.1.306 (exact version and binary; default for new project setup) | Separate ordinary observation profile: one root and up to two flattened members, 3 members total |
-| Claude Code 2.1.301 (exact version and binary; explicit configuration) | Separate ordinary observation profile: one root and up to two flattened members, 3 members total |
-| Claude Code 2.1.296 (exact version and binary; previous default, kept for saved settings and frozen tasks) | Ordinary observation with at most 8 family members total, including the parent; separate parent-only launch/resume and read-only single direct-child workflow profiles |
-| Codex 0.163.0 (exact version; default for new project setup) | Separate bounded ordinary profile: one fresh parent and up to two fresh direct children inside a frozen `functional_pilot` |
-| Codex 0.162.1 (exact version; previous default) | Bounded ordinary profile inside a frozen `functional_pilot` protocol |
-| Codex 0.160.0 (exact version) | Two separately admitted workflow profiles |
+Use the [generated support matrix](docs/support-matrix.md)
+([한국어](docs/support-matrix.ko.md)) for current versions, exact routes, profile IDs
+and qualification states. Admission, transcript conformance and ordinary native
+qualification are separate; a configured or selectable profile is not proof of qualification.
+Follow [Harness Connect](docs/runbooks/harness-connect.md#current-implementation)
+for setup defaults, exact-version/binary requirements and connection limits.
+Conditional parser reuse does not extend exact connection admission; unsupported
+ordinary versions return fixed refusal codes such as `claude_source_version_unsupported`.
 
-Codex 0.163.0 passed separate ordinary-route native acceptance on 2026-10-16;
-its exact binding profile does not promote file/workflow or historical observations.
-All Claude ordinary admissions remain `qualified: false`; admission for normal
-use is separate from native qualification. Claude Code 2.1.306 passed bounded
-actual-binary localhost print-mode normal/SIGINT conformance on 2026-10-21; it is
-not authenticated ordinary, interactive or broader resume/compaction qualification. See the
-[2.1.306 record](docs/validation/claude-ordinary-binding-02196-qualification.md#2026-10-21-exact-21306-transcript-qualification).
-For Claude Code 2.1.301, bounded print-mode
-transcript conformance and real-service localhost rehearsal passed, but the
-authenticated ordinary attempt on 2026-10-17 stopped at the instrument's
-`stream_model` guard before connection. Usage and billing are unknown, and
-ordinary qualification remains outstanding; see the
-[blocked-attempt record](docs/validation/claude-ordinary-binding-02196-qualification.md#2026-10-17-authenticated-ordinary-attempt-blocked).
-New project setup now defaults to Codex 0.163.0 and Claude Code 2.1.306. Setup that
-omits a version keeps existing saved settings, and frozen tasks never migrate.
+Setup that omits a version keeps saved settings, and frozen tasks never migrate.
 There is no automatic saved-project upgrade or global CLI update.
-Existing file and selected workflow windows still label Codex 0.163.0 and
-Claude Code 2.1.301 and 2.1.306 `compatibility_unverified`.
-Conditional parser reuse does not extend the exact connection routes above. Ordinary connections
-outside their admitted versions still return fixed codes such as
-`claude_source_version_unsupported`. Route-specific status is tracked in
-[Harness Connect](docs/runbooks/harness-connect.md#current-implementation) and
-[ADR 013](docs/decisions/013-forward-version-compatibility.md).
 
 What you get, and what you do not:
 
@@ -104,19 +83,19 @@ What you get, and what you do not:
 
 ## Documentation
 
-| Need | English | 한국어 |
-| --- | --- | --- |
-| First task, step by step | [Walkthrough](docs/guide/walkthrough.md) | [따라 하기](docs/guide/walkthrough.ko.md) |
-| Every UI screen and rule | [Local UI](docs/runbooks/local-browser-ui.md) | [로컬 UI](docs/runbooks/local-browser-ui.ko.md) |
-| Claude/Codex connection details and error codes | [Harness Connect](docs/runbooks/harness-connect.md) | [Harness Connect](docs/runbooks/harness-connect.ko.md) |
-| Assigned A/B task | [Task procedure](docs/runbooks/workflow-quickstart.md) | [작업 절차](docs/runbooks/workflow-quickstart.ko.md) |
-| Cost estimate and missing prices | [Observed cost](docs/runbooks/observed-cost.md), [reference prices](docs/runbooks/reference-price-catalog.md) | [관측 비용](docs/runbooks/observed-cost.ko.md), [기준 가격](docs/runbooks/reference-price-catalog.ko.md) |
-| Portable harness pairs | [Harness config](docs/runbooks/harness-config.md) | [하네스 구성](docs/runbooks/harness-config.ko.md) |
-| Exact native/child contracts | [Native workflow](docs/runbooks/task-native-workflow.md) | — |
-| Flexible v2 configuration | [Flexible comparison](docs/runbooks/flexible-comparison.md) | — |
-| Older-version file collection | [Local measurement](docs/runbooks/local-measurement.md), [continuation](docs/runbooks/session-continuation.md) | [로컬 측정](docs/runbooks/local-measurement.ko.md) |
-| Developer synthetic checks | [V1 comparison](docs/runbooks/task-comparison.md), [exchange](docs/runbooks/team-file-exchange.md), [analysis](docs/runbooks/comparison-analysis-validation.md) | [V1 비교](docs/runbooks/task-comparison.ko.md), [교환](docs/runbooks/team-file-exchange.ko.md) |
-| Evidence and decisions | [Version admission](docs/runbooks/codex-version-admission.md), [validation records](docs/validation/), [decisions](docs/decisions/) | — |
+| Need                                            | English                                                                                                                                                         | 한국어                                                                                                   |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| First task, step by step                        | [Walkthrough](docs/guide/walkthrough.md)                                                                                                                        | [따라 하기](docs/guide/walkthrough.ko.md)                                                                |
+| Every UI screen and rule                        | [Local UI](docs/runbooks/local-browser-ui.md)                                                                                                                   | [로컬 UI](docs/runbooks/local-browser-ui.ko.md)                                                          |
+| Claude/Codex connection details and error codes | [Harness Connect](docs/runbooks/harness-connect.md)                                                                                                             | [Harness Connect](docs/runbooks/harness-connect.ko.md)                                                   |
+| Assigned A/B task                               | [Task procedure](docs/runbooks/workflow-quickstart.md)                                                                                                          | [작업 절차](docs/runbooks/workflow-quickstart.ko.md)                                                     |
+| Cost estimate and missing prices                | [Observed cost](docs/runbooks/observed-cost.md), [reference prices](docs/runbooks/reference-price-catalog.md)                                                   | [관측 비용](docs/runbooks/observed-cost.ko.md), [기준 가격](docs/runbooks/reference-price-catalog.ko.md) |
+| Portable harness pairs                          | [Harness config](docs/runbooks/harness-config.md)                                                                                                               | [하네스 구성](docs/runbooks/harness-config.ko.md)                                                        |
+| Exact native/child contracts                    | [Native workflow](docs/runbooks/task-native-workflow.md)                                                                                                        | —                                                                                                        |
+| Flexible v2 configuration                       | [Flexible comparison](docs/runbooks/flexible-comparison.md)                                                                                                     | —                                                                                                        |
+| Older-version file collection                   | [Local measurement](docs/runbooks/local-measurement.md), [continuation](docs/runbooks/session-continuation.md)                                                  | [로컬 측정](docs/runbooks/local-measurement.ko.md)                                                       |
+| Developer synthetic checks                      | [V1 comparison](docs/runbooks/task-comparison.md), [exchange](docs/runbooks/team-file-exchange.md), [analysis](docs/runbooks/comparison-analysis-validation.md) | [V1 비교](docs/runbooks/task-comparison.ko.md), [교환](docs/runbooks/team-file-exchange.ko.md)           |
+| Evidence and decisions                          | [Version admission](docs/runbooks/codex-version-admission.md), [validation records](docs/validation/), [decisions](docs/decisions/)                             | —                                                                                                        |
 
 Task and cost procedures have synchronized English/Korean versions in an
 STE-inspired style, without ASD compliance or certification claims. Decision and

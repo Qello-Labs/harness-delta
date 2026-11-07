@@ -172,8 +172,8 @@ external copies. A repair requires synthetic reproduction, a reviewed named pars
 variant where semantics changed, focused tests and the full check before clearing a
 block. There is no automatic or user-facing unblock shortcut.
 
-Registered exact file adapters remain partial: Codex 0.156.1 and 0.158.0, and Claude
-Code 2.1.283. Codex 0.158.0 covers sequential partial usage under the M2 boundaries.
+Registered exact file adapters remain partial. The current list is in the
+[support matrix](../support-matrix.md#exact-routes). Codex 0.158.0 covers sequential partial usage under the M2 boundaries.
 See [ADR 007](../decisions/007-adapter-version-profiles.md). File compatibility does
 not authorize native launch; use the separate workflow windows in the
 [native workflow guide](task-native-workflow.md).

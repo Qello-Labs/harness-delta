@@ -4,11 +4,12 @@
 
 ## Current implementation
 
-The 2026-10-16 UTC release check found Codex 0.163.0 and Claude Code 2.1.301.
-Codex 0.163.0 passed separate bounded ordinary-route native acceptance on that date.
-Claude Code 2.1.301 passed bounded print-mode transcript conformance; ordinary qualification remains pending. Existing file and root-workflow windows still
-resolve both as `compatibility_unverified`; ordinary binding evidence does not
-promote those sources. Use the exact admitted versions below for ordinary connections.
+Check the [generated support matrix](../support-matrix.md#exact-routes) for current
+versions, exact routes, profile IDs and qualification flags. Its
+[legend](../support-matrix.md#legend-and-limits) separates admission, transcript
+conformance and ordinary native qualification. Conditional file/workflow reuse
+does not promote ordinary binding, or the reverse. Use the matching exact profile
+and its procedure below; saved settings and frozen tasks are never upgraded automatically.
 
 Codex 0.163.0 can be prepared separately with `--product-version 0.163.0 --route qualification`
 in the [bounded qualification procedure](../validation/codex-ordinary-binding-qualification.md).
@@ -660,8 +661,9 @@ or latest counter semantics; those still require an approved native trial.
 ## Claude human-operated UI pilot
 
 The local operator may select one prepared `functional_pilot` task using the
-`claude-ordinary-human-pilot` source profile, with an exact version
-listed by the ordinary provider (currently Claude Code 2.1.291, 2.1.293, 2.1.294, 2.1.296, 2.1.301 or 2.1.306). Existing file and
+`claude-ordinary-human-pilot` source profile. Use an exact version with a declared
+`transcriptProfile` in the [matrix](../support-matrix.md#exact-routes);
+transcript qualification is not ordinary admission. Existing file and
 launch-workflow version compatibility does not qualify ordinary family sources.
 The profile, binary version, project source directory and receipt directory must
 be reviewed before installation or native observation. A browser or manifest
