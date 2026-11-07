@@ -163,6 +163,19 @@ cost remain `unobserved`/null, not zero; these partial references establish neit
 complete cost nor native acceptance. These windows are implemented for offline acceptance, ordinary-window
 collection disabled pending separate product activation and native acceptance.
 
+The independent [Claude window procedure](harness-connect.md#claude-ordinary-window-setup-collection-disabled)
+uses `publisher_verified_local_pin` and strict `claude_terminal_message_v1`
+finality, unlike Codex's `source_only` identity. Only an authorized provider
+checks fresh root PID/start, publisher and disk pins; the helper stays
+payload-only. Signature/disk proof establishes neither version, mapped-image
+identity, root ownership nor cost completeness. Scoped source version must
+match the frozen task independently. A required failure commits no usage/cursor
+progress, and incompatibility invalidates affected references. New declared-version
+tasks retain their own price pins; upgrades never rewrite old task prices or
+backfill missed usage. The Claude path is implemented for offline acceptance,
+ordinary-window collection disabled pending separate product activation and native
+acceptance. No price, qualified support or complete-cost claim changes here.
+
 ## 5. Read a separate sealed instrumented window
 
 The separate instrumented receiver provides before-dispatch/terminal records and

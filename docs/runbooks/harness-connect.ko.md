@@ -55,8 +55,8 @@ instrumentation이 있으면 평소처럼 연 부모가 신뢰 가능한 receipt
 일반 root 참조 정책 `codex-binding-root-window-v1`(Codex `>0.163.0`, `<0.170.0`)과
 `claude-binding-root-window-v1`(Claude Code `>2.1.306`, `<2.2.0`)은 오프라인 검증용으로
 구현되었으며, 일반 창(window) 수집은 별도 제품 활성화와 native 검증 전까지 비활성 상태입니다.
-정확 admission이 아니며 지원 버전 목록에도 없습니다. 별도의 Codex window 패키지, helper와
-닫힌 설정은 아래에서 제공하지만 Claude window 패키지는 제공하지 않습니다. 설정을 저장하거나
+정확 admission이 아니며 지원 버전 목록에도 없습니다. 독립적인 Codex와 Claude window 패키지,
+helper와 닫힌 설정 절차를 아래에서 제공합니다. 설정을 저장하거나
 패키지를 설치해도 window가 활성화되지는 않습니다. root 소스 참조는 root 자체
 사용량이 아닙니다. 소유는 미검증으로 남고 자식 관측 범위와 비용은 null입니다.
 [ADR 013](../decisions/013-forward-version-compatibility.md#profile-selection-and-scope)을 참고하세요.
@@ -143,6 +143,66 @@ helper로 fallback하지 않고 이전 연결을 차단합니다. 버전/header 
 범용 helper는 patch마다 다시 쓸 필요가 없고 누락·오프라인 구간도 backfill하지 않습니다.
 [ADR 016](../decisions/016-ordinary-observation.md#codex-ordinary-window-addendum-collection-disabled)과
 [버전 정책](../decisions/013-forward-version-compatibility.md#codex-root-reference-exception)을 참고하세요.
+
+## Claude 일반 window 설정 (수집 비활성)
+
+이 독립 경로는 오프라인 검증용으로 구현되었으며, 일반 window 수집은 별도 제품 활성화와
+native 검증 전까지 비활성 상태입니다. 지원 검증 완료나 정확 admission이 아니며 native
+시험 실행 권한도 아닙니다. 아래의 정확 Claude 기본값·저장 작업·절차는 바뀌지 않습니다.
+
+1. **에이전트 연결 설정**에서 **Claude Code**, **일반 window**를 선택합니다.
+   `2.1.306 < v < 2.2.0` 안의 안정 버전을 직접 지정하고 프로젝트와 허용 Claude source
+   디렉터리를 검토합니다. 양 경계, prerelease와 build suffix는 거부합니다. 어느 모드로든
+   전환하려면 적격 버전을 명시해야 하며, 모드를 생략하면 저장된 선택을 유지합니다.
+2. 저장 후 설치 미리보기에서 소유 파일의 상대 경로 변경을 검토하고 해당 미리보기를 적용합니다.
+   window 모드로 한 번 명시적으로 이전하는 절차이며 정확 모드의 자동 변환이 아닙니다.
+   편집되거나 소유하지 않은 파일, 안전하지 않은 경로, 오래된 미리보기, 다른 hook과의 충돌은
+   계속 변경을 차단합니다. 활성 Claude 작업이나 열린 binding도 migration을 차단하며,
+   staging 중 교체 전에 활성화되는 작업도 포함합니다.
+3. 설정을 새로고침하고 수집은 비활성 상태로 유지합니다. 설정, 설치 파일, hook 전달·신뢰,
+   pending 메타데이터와 유효한 권한으로 연결된 상태는 서로 다릅니다. 설치는 작업을
+   시작하거나 emission control을 만들지 않습니다.
+
+소유 manifest `.harness-delta/claude-connect/installation.json`에는 schema 2,
+`bundle_mode: ordinary_window`와 `claude-window-bundle-v1`을 기록합니다. 설치기는
+`skills/harness-connect-window-claude`를 선택하며 `.claude/skills/harness-connect` 아래의
+정확 `scripts/connect.mjs`와 `scripts/claude-session-hook.mjs`를 유지하고
+`scripts/connect-window.mjs`와 `scripts/claude-window-session-hook.mjs`를 추가합니다.
+window recorder는 `.harness-delta/claude-window-receipts`를 사용하며 정확 모드 schema 1의
+의미와 다른 설정은 바꾸지 않습니다. control이 없거나 닫혔거나 잘못된 경우 아무것도 emit하지 않으며,
+오래되거나 위조된 active control도 허용 목록의 미검증 pending 메타데이터만 허용합니다.
+recorder와 helper는 native 원본·process·version·image를 탐색하지 않습니다.
+
+A/B 배정 대신 새 일반 작업을 준비합니다. 지정 버전, 유한 정책, 엄격한
+`claude_terminal_message_v1` finality, publisher/local-pin 모드, root 전용 범위와 가격을
+고정합니다. 연결에는 명시적으로 활성화된 준비 작업, 별도의 유효한 제품 활성화, 새 root
+receipt와 일치하는 scoped source가 필요합니다. 설치된 window helper에는 명시적인
+origin·프로젝트·작업·receipt ID만 전달합니다. process를 찾거나 receipt를 추측하거나
+작업을 시작하지 않습니다. 버전이 지정된 작업 조회와 CSRF·If-Match·idempotency로 보호한
+connect는 유효한 root 연결을 다시 검사하며, `automatic_children:false`를 반환하고
+변경 요청을 무작정 재시도하지 않습니다.
+
+payload-only helper가 아니라 유효한 권한을 가진 provider가 same-user PID/start,
+해당 process에서 얻은 정규 실행 파일 경로, 승인된 publisher와 로컬 disk pin을 확인합니다. native adapter는
+standalone macOS arm64 CLI layout으로 제한하며 알 수 없는 host/layout은 거부합니다.
+source version은 고정된 지정 버전과 독립적으로 같아야 합니다. signature나 disk SHA는
+version이나 mapped image의 증거가 아닙니다. `publisher_verified_local_pin` 관측은
+부분적인 `compatibility_unverified` 상태입니다. root-source 사용량은 root 자체 사용량이
+아니며, 소유는 미검증이고 자식 기여 가능성은 알 수 없으며 자식 사용량·비용은 0이 아닌
+미관측 null입니다. subagent 메타데이터는 자식을 연결하거나 자식 원본을 읽지 않습니다.
+
+침묵이나 과거 quiescence가 아니라 엄격한 terminal 근거로 사용량을 확정합니다. 필수 계약,
+identity, version이나 소유의 모순은 사용량·cursor의 부분 쓰기 없이 해당 관측을 중단하며,
+이후 비호환이 발견되면 해당 cohort를 무효화합니다. 일시정지나 observer 재시작 뒤에도 같은
+작업·버전의 scoped 재연결은 지정 버전, source 참조와 native pin digest가 같으면 native
+root, PID와 source 경로를 재사용할 수 있습니다. identity와 pin을 다시 검증하고 새 관측
+segment와 기준점을 시작하며 일시정지 구간은 backfill하지 않습니다. 현재 generation의 활성
+root, 다른 작업의 root나 identity/pin이 달라진 경우에는 재사용할 수 없습니다. native
+resume을 허용하거나 활성화와 native 검증을 우회하는 것은 아닙니다. N -> N+1에서는 새 지정
+버전을 명시적으로 저장하고 새 root identity로 새 작업을 준비해야 합니다. 기존 작업·가격은 옮기지 않고, 범용
+helper는 patch마다 다시 쓸 필요가 없으며 누락 구간도 backfill하지 않습니다.
+[ADR 016](../decisions/016-ordinary-observation.md#claude-ordinary-window-addendum-collection-disabled)과
+[Claude 정책](../decisions/013-forward-version-compatibility.md#claude-root-reference-exception)을 참고하세요.
 
 ## Codex 0.163.0 제한 일반 profile
 

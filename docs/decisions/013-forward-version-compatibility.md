@@ -102,6 +102,36 @@ future window-only exact rows nor evidence of qualification, a new default or
 activation. Its [dated candidate record](../validation/codex-ordinary-binding-qualification.md#01660-unqualified-ordinary-candidate)
 is unchanged; this decision authorizes no historical revert or evidence rewrite.
 
+### Claude root-reference exception
+
+The independent Claude window bundle, explicit owned-copy installer and closed
+setup are implemented for offline acceptance, ordinary-window collection disabled
+pending separate product activation and native acceptance. The finite policy
+`claude-binding-root-window-v1` selects stable `2.1.306 < v < 2.2.0`, not another
+exact admission. Equality at either bound, prereleases and build suffixes are
+refused. It uses `claude_terminal_message_v1` with
+`claude_terminal_message_window_v1` strict terminal finality; an unseen patch
+never falls back to historical quiescence or treats silence as completion.
+Required-contract failures commit neither usage nor cursor advancement; later
+incompatibility invalidates the affected observations.
+
+Only a live-authorized provider checks the fresh receipt's same-user PID/start,
+canonical executable path from that process, approved publisher signature and local disk pins. The
+initial native adapter is limited to the standalone macOS arm64 CLI layout and
+fails closed on unknown hosts/layouts. Pins bind the opened disk bytes and are
+revalidated; a signature proves neither the declared version nor the mapped
+running image. Scoped source version must independently match the frozen task.
+`publisher_verified_local_pin` retains mapped-image uncertainty, unverified root
+ownership and unknown possible child contribution. Claude activation therefore
+needs its own identity/ownership risk acceptance, separately from Codex.
+
+Project selection and installation create no collection authority. Explicit
+preview/apply retains owned exact helper/recorder files and records the window
+mode/revision. N -> N+1 needs a new declared-version task and fresh root/PID/path
+and local pins, not a per-patch helper rewrite or task/price migration. No missed
+interval is backfilled. See the [closed Claude procedure](../runbooks/harness-connect.md#claude-ordinary-window-setup-collection-disabled)
+and [descriptive-mode addendum](016-ordinary-observation.md#claude-ordinary-window-addendum-collection-disabled).
+
 ## Data trust and reporting
 
 Persist three distinct compatibility states:

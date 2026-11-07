@@ -61,9 +61,9 @@ The ordinary root-reference policies `codex-binding-root-window-v1` (Codex
 `>2.1.306`, `<2.2.0`) are implemented for offline acceptance, ordinary-window
 collection disabled pending separate product activation and native acceptance.
 They are not exact admissions and are not listed among the supported versions.
-The separate Codex window bundle, helper and closed setup are delivered below;
-no Claude window package is delivered here. Saving settings or installing either
-package does not activate a window. A root-source reference isn't root-own usage: ownership
+The independent Codex and Claude window bundles, helpers and closed setup
+procedures are delivered below. Saving settings or installing either package
+does not activate a window. A root-source reference isn't root-own usage: ownership
 stays unverified and child coverage and cost stay null. See
 [ADR 013](../decisions/013-forward-version-compatibility.md#profile-selection-and-scope).
 
@@ -158,6 +158,75 @@ and old observations do not migrate. Generic helpers need no per-patch rewrite,
 and missed/offline intervals are never backfilled. See
 [ADR 016](../decisions/016-ordinary-observation.md#codex-ordinary-window-addendum-collection-disabled)
 and the [version policy](../decisions/013-forward-version-compatibility.md#codex-root-reference-exception).
+
+## Claude ordinary-window setup (collection disabled)
+
+This independent path is implemented for offline acceptance, ordinary-window
+collection disabled pending separate product activation and native acceptance.
+It is not qualified support, an exact admission or permission for a native trial.
+The exact Claude defaults, saved tasks and procedures below remain unchanged.
+
+1. In **Agent connection setup**, choose **Claude Code**, then **Ordinary window**.
+   Explicitly declare a stable version strictly inside `2.1.306 < v < 2.2.0` and
+   review the project and permitted Claude source directory. Both bounds,
+   prereleases and build suffixes are rejected. Changing either mode requires an
+   explicit eligible version; omitting mode preserves the saved choice.
+2. Save, preview installation, inspect the relative owned-file changes, then
+   apply that preview. This is one explicit window-mode migration, never an
+   automatic exact-to-window conversion. Edited/unowned files, unsafe paths,
+   stale previews and unrelated-hook conflicts still block changes. An active
+   Claude task or open binding also blocks migration, including activation
+   during staging before replacement.
+3. Refresh setup and keep collection disabled. Settings, installed files, hook
+   delivery/trust, pending metadata and a live-authorized connection are distinct
+   states. Installation neither starts a task nor creates an emission control.
+
+The owned manifest `.harness-delta/claude-connect/installation.json` records
+schema 2, `bundle_mode: ordinary_window` and `claude-window-bundle-v1`. The
+installer selects `skills/harness-connect-window-claude`, retains exact
+`scripts/connect.mjs` and `scripts/claude-session-hook.mjs` under
+`.claude/skills/harness-connect`, and adds `scripts/connect-window.mjs` and
+`scripts/claude-window-session-hook.mjs`. The window recorder uses
+`.harness-delta/claude-window-receipts`; exact-mode schema 1 meaning and unrelated
+settings remain unchanged. Missing/closed/malformed control emits nothing; even stale or
+forged active control permits only unverified allowlisted pending metadata.
+The recorder/helper discover no native source, process, version or image.
+
+Prepare a new ordinary task rather than an A/B assignment. Its declaration,
+finite policy, strict `claude_terminal_message_v1` finality, publisher/local-pin
+mode, root-only scope and price are frozen. A connect needs that explicitly
+active prepared task, a separate live product activation, fresh root receipt and
+matching scoped source. Supply only explicit origin/project/task/receipt IDs to
+the installed window helper; it never locates a process, guesses a receipt or
+starts a task. Its versioned task read and CSRF/If-Match/idempotency-protected
+connect recheck live root linkage, return `automatic_children:false`, and never
+blindly retry a mutation.
+
+The live-authorized provider, not the payload-only helper, checks same-user
+PID/start, the canonical executable path from that process, approved publisher and local disk pins.
+The native adapter is limited to the standalone macOS arm64 CLI layout; unknown
+host/layouts fail closed. Source version must independently equal the frozen
+declaration: neither signature nor disk SHA proves version or the mapped image.
+`publisher_verified_local_pin` observations remain partial and
+`compatibility_unverified`. Root-source usage is not root-own usage; ownership is
+unverified, possible child contribution unknown and child usage/cost unobserved
+and null, not zero. Subagent metadata does not enroll or read child sources.
+
+Strict terminal evidence, not silence or historical quiescence, settles usage.
+A required contract, identity, version or ownership contradiction stops the
+affected observation without partial usage/cursor writes; later incompatibility
+invalidates the affected cohort. After pause or observer restart, a same-task,
+same-version scoped reconnect may reuse the native root, PID and source path if
+the declared version, source reference and native pin digest still match.
+Revalidate identity and pins and start a new observation segment and baseline;
+do not backfill the paused interval. An active root in the current generation,
+another task's root or changed identity/pins cannot be reused. This does not
+authorize native resume or bypass activation and native acceptance. For N -> N+1,
+explicitly save the new declaration and prepare a new task with a fresh root
+identity; old tasks/prices never
+migrate, generic helpers need no per-patch rewrite and missed intervals are not
+backfilled. See [ADR 016](../decisions/016-ordinary-observation.md#claude-ordinary-window-addendum-collection-disabled)
+and the [Claude policy](../decisions/013-forward-version-compatibility.md#claude-root-reference-exception).
 
 ## Codex 0.163.0 bounded ordinary profile
 

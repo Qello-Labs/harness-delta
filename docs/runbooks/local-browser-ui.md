@@ -132,13 +132,27 @@ installation preview and apply; saving the preference or installing the package
 does not activate collection. Saved exact settings never migrate automatically.
 The closed Codex window setup is implemented for offline acceptance,
 ordinary-window collection disabled pending separate product activation and native
-acceptance. To read saved window evidence, open `#ordinary-window-task-v1` and enter
+acceptance. The independent **Claude Code > Ordinary window** picker and
+[owned-copy procedure](harness-connect.md#claude-ordinary-window-setup-collection-disabled)
+have the same closed state, with an explicit stable declaration inside
+`2.1.306 < v < 2.2.0`. Mode transitions require an explicit eligible version;
+omitting mode keeps the saved choice. Preview/apply preserves exact helpers and
+the stale/edited/unrelated/in-use guards, including a task activated during
+staging. New tasks freeze their version, finite policy, strict terminal finality,
+publisher/local-pin/root scope and price; old settings/tasks never migrate.
+Claude disk identity is not mapped-image or version proof, and root-source usage
+is not root-own usage. No activation or qualified-support control is added.
+Both closed setups are implemented for offline acceptance, ordinary-window
+collection disabled pending separate product activation and native acceptance.
+To read saved window evidence, open `#ordinary-window-task-v1` and enter
 a task ID and cutoff, or open
 `#ordinary-window-task-v1?task=<ID>&cutoff=<ISO>&locale=en|ko` directly. The page
 reads `GET /api/tasks/:id/ordinary-window-report-v1?cutoff=...` and is descriptive
 only; it doesn't launch, prepare, activate or collect. It shows root and child
 coverage as Unobserved when no event arrived, the four token and cost partitions,
-and the ownership and identity limits. Legacy unversioned bootstrap, task and
+and the ownership and identity limits. `automatic_children:false` does not prove
+zero child contribution; child usage/cost remain null, not measured zero.
+Legacy unversioned bootstrap, task and
 collection routes stay closed for window tasks.
 
 ### Prepare and check a comparison file

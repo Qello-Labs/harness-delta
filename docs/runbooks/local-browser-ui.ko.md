@@ -126,12 +126,25 @@ H5 env-null-transcript 경로는 제외됩니다. file/workflow fallback과 nati
 저장할 수 있습니다. window 모드 소유 복사본 migration은 명시적인 설치 미리보기와 적용이
 필요하며, 설정 저장이나 패키지 설치는 수집을 활성화하지 않습니다. 저장된 정확 버전 설정은
 자동으로 migration하지 않습니다. 수집이 닫힌 Codex window 설정은 오프라인 검증용으로 구현되었으며,
-일반 창(window) 수집은 별도 제품 활성화와 native 검증 전까지 비활성 상태입니다. 저장된
-window 근거를 보려면 `#ordinary-window-task-v1`을 열고 작업 ID와 cutoff를 입력하거나
+일반 창(window) 수집은 별도 제품 활성화와 native 검증 전까지 비활성 상태입니다.
+독립적인 **Claude Code > 일반 window** 선택과
+[소유 복사본 절차](harness-connect.ko.md#claude-일반-window-설정-수집-비활성)도 같은 닫힌
+상태이며 `2.1.306 < v < 2.2.0` 안의 안정 버전을 명시적으로 지정합니다. 모드 전환에는
+적격 버전을 직접 지정해야 하고, 모드를 생략하면 저장된 선택을 유지합니다. 미리보기·적용은
+정확 helper와 stale·edited·unrelated·in-use guard를 보존하며 staging 중 활성화된 작업도
+포함합니다. 새 작업은 version, 유한 정책, 엄격한 terminal finality,
+publisher/local-pin/root 범위와 가격을 고정하며 기존 설정·작업은 migration하지 않습니다.
+Claude disk identity는 mapped-image나 version의 증거가 아니며 root-source 사용량은
+root 자체 사용량이 아닙니다. 활성화나 지원 검증 완료 control은 추가하지 않았습니다.
+두 닫힌 설정 모두 오프라인 검증용으로 구현되었으며, 일반 window 수집은 별도 제품 활성화와
+native 검증 전까지 비활성 상태입니다. 저장된 window 근거를 보려면
+`#ordinary-window-task-v1`을 열고 작업 ID와 cutoff를 입력하거나
 `#ordinary-window-task-v1?task=<ID>&cutoff=<ISO>&locale=en|ko`를 바로 여세요. 이 화면은
 `GET /api/tasks/:id/ordinary-window-report-v1?cutoff=...`를 읽는 설명용 화면이며 launch, 준비,
 활성화, 수집을 하지 않습니다. 이벤트가 없으면 root와 자식 관측 범위를 Unobserved로 표시하고,
-네 가지 토큰·비용 구분과 소유·identity 한계를 보여 줍니다. 기존의 버전 없는 bootstrap,
+네 가지 토큰·비용 구분과 소유·identity 한계를 보여 줍니다. `automatic_children:false`는
+자식 기여가 0이라는 증거가 아니며 자식 사용량·비용은 측정한 0이 아닌 null로 유지합니다.
+기존의 버전 없는 bootstrap,
 작업, 수집 경로는 window 작업에서 닫혀 있습니다.
 
 ### 비교 파일 준비와 확인
