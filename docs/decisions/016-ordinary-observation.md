@@ -173,6 +173,50 @@ do not change the earlier exact Claude pause/resume behavior. See
 [ADR 013](013-forward-version-compatibility.md#codex-root-reference-exception)
 and [Harness Connect](../runbooks/harness-connect.md#codex-ordinary-window-setup-collection-disabled).
 
+## Claude ordinary-window addendum (collection disabled)
+
+The separate Claude `ordinary_window` package and closed setup are implemented
+for offline acceptance, ordinary-window collection disabled pending separate
+product activation and native acceptance. This addendum leaves the historical
+exact Claude decisions, defaults and qualification evidence above unchanged.
+It adds no protocol, allocation, arm, launch, resume, child connection, exchange
+or inferential adoption authority.
+
+An explicit stable declaration inside `2.1.306 < v < 2.2.0` selects
+`claude-binding-root-window-v1`. Existing project schema 1 settings gain optional
+window mode/revision fields; omitted mode preserves the saved mode, and changing
+mode requires an explicit eligible version. Each new ordinary task freezes the
+declaration, finite policy, strict `claude_terminal_message_v1` finality,
+`publisher_verified_local_pin` evidence, root-only scope and price table. Existing
+settings/tasks never migrate, downgrade or rewrite themselves.
+
+Window installation uses explicit owned-copy preview/apply and schema 2 manifest
+mode `ordinary_window` / revision `claude-window-bundle-v1`. It retains the exact
+helper/recorder files and schema 1 exact manifest meaning, with edited-file,
+unsafe-path, stale-preview, unrelated-hook and in-use guards. An active task or
+open binding, including one becoming active during staging, blocks migration.
+Installation is not hook delivery, native trust or activation.
+
+An explicitly active prepared unassigned task and separate live local activation
+are required before receipt/native/source work. Only the authorized provider
+checks fresh root PID/start, publisher and disk pins; source version must match
+the frozen declaration independently. Disk proof is not mapped-image proof.
+The helper/recorder remain payload-only, and connect returns
+`automatic_children:false`. Root-source references stay partial and
+`compatibility_unverified`, not attributable root-own usage. Child usage and cost
+remain unobserved/null; observed ownership contradictions stop collection.
+
+After pause or observer restart, a same-task, same-version scoped reconnect may
+reuse the native root, PID and source path when the declared version, source
+reference and native pin digest still match. Identity and pins are revalidated,
+and a new observation segment and baseline start. An active root in the current
+generation, a root belonging to another task or changed identity/pins cannot be
+reused. This does not authorize native resume or bypass activation and native
+acceptance. N -> N+1 still requires a new declared-version task and fresh root
+identity, never an exact fallback or per-patch generic helper rewrite. No paused
+or missed interval is backfilled and no old task/price pin is renewed. See [ADR 013](013-forward-version-compatibility.md#claude-root-reference-exception)
+and the [Claude procedure](../runbooks/harness-connect.md#claude-ordinary-window-setup-collection-disabled).
+
 ## Consequences
 
 Everyday work can be prepared for observation without a comparison protocol,

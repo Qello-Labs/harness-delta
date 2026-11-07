@@ -55,13 +55,21 @@ Adding them makes the digest in every existing baseline row and review record
 stale. Those records remain readable and are not rewritten; their historical
 digests cannot close current contract review gates.
 
-The current deduplicated static closure is exactly 47 paths, with no spare entries.
+The current deduplicated static-assessment-v3 closure is exactly 52 paths, with no spare entries.
 Its Codex window hash-only inputs include `src/connect/codex-connect-installation.ts`,
 `skills/harness-connect-window-codex/SKILL.md` and
 `skills/harness-connect-window-codex/scripts/connect.mjs`. The generic raw window
-hook was already an input. Assessment hashes these files without loading them or
+hook was already an input. The frozen v2 set already includes
+`src/claude-process-binary.ts`. V3 adds exactly four independent Claude bundle
+hash-only inputs:
+`src/connect/claude-connect-installation.ts`,
+`skills/harness-connect-window-claude/SKILL.md`,
+`skills/harness-connect-window-claude/scripts/connect.mjs` and
+`skills/harness-connect-window-claude/scripts/claude-session-hook.mjs`.
+Assessment hashes these files without loading them or
 following their imports; setup/transport wrappers are not consumed by this finite
 projection. Execution pins separately freeze the complete source and build trees.
+The static-assessment-v2 allowlist and cap remain frozen at 48 paths.
 Schema 1-4 readers retain their original 32-path ceiling, and the record limit
 remains 256 KiB. Input additions change the global source digest, not exact support
 or activation; historical baselines/reviews stay immutable and cannot close fresh

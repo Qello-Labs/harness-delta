@@ -182,14 +182,24 @@ For developer conformance, exact-version registration and native update controls
 use the [admission procedure](codex-version-admission.md). These are manual,
 separately authorized validation steps, never part of installation or collection.
 
-The Codex ordinary root-reference window (`>0.163.0`, `<0.170.0`) is implemented
-for offline acceptance, ordinary-window
+The independent Codex (`>0.163.0`, `<0.170.0`) and Claude Code
+(`>2.1.306`, `<2.2.0`) ordinary root-reference windows are implemented for offline
+acceptance, ordinary-window
 collection disabled pending separate product activation and native acceptance.
-The shared Claude Code policy (`>2.1.306`, `<2.2.0`) and report schema are not a
-delivered Claude window implementation. These policies don't change the exact
-gates above. Codex uses `source_only`: the frozen task declaration must match the
+Their separate bundles, explicit owned-copy migrations and closed setup do not
+change the exact gates above. Codex uses `source_only`: the frozen task declaration must match the
 root creation header, which is not proof of the current writer, executable,
 publisher or process.
+Claude uses `publisher_verified_local_pin`: only a live-authorized provider checks
+same-user PID/start, the executable path from that process, publisher and local disk pins, with source
+version independently matching the frozen task. Signature/disk proof is not
+mapped-image or version proof. Its strict `claude_terminal_message_v1` finality
+does not fall back to quiescence for new patches. Required failures write neither
+usage nor cursor progress; later incompatibility invalidates affected references.
+See the [closed Claude setup](harness-connect.md#claude-ordinary-window-setup-collection-disabled).
+New tasks freeze declaration/policy/finality/evidence/root/price; after an upgrade
+use a new declared-version task and fresh root/PID/path/pins, not an automatic
+migration, per-patch helper rewrite or backfill.
 Root-source observations are not root-own usage; `rootOwnership:unverified` and
 `possibleChildContribution:unknown` remain explicit. `automatic_children:false`
 means no automatic child enrollment, not proof of zero child contribution.

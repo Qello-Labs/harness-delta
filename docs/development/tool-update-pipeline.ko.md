@@ -51,13 +51,20 @@ import도 따라가지 않습니다. 이 파일의 변경은 `source_scope_chang
 기존 레코드는 계속 읽을 수 있으며 다시 쓰지 않습니다. 과거 다이제스트로는 현재 계약 검토
 게이트를 닫을 수 없습니다.
 
-현재 중복 제거된 정적 closure는 정확히 47개 경로이며 여유 항목은 없습니다. Codex window의
+현재 중복 제거된 static-assessment-v3 정적 closure는 정확히 52개 경로이며 여유 항목은 없습니다. Codex window의
 해시 전용 입력에는 `src/connect/codex-connect-installation.ts`,
 `skills/harness-connect-window-codex/SKILL.md`,
 `skills/harness-connect-window-codex/scripts/connect.mjs`가 포함됩니다. 범용 raw window
-hook은 이미 입력이었습니다. 평가는 이 파일을 로드하거나 import를 따라가지 않고 해시만
+hook은 이미 입력이었습니다. 고정된 v2 집합에는 `src/claude-process-binary.ts`가 이미
+포함되어 있습니다. v3는 독립적인 Claude 패키지의 해시 전용 입력 네 개만 추가합니다.
+`src/connect/claude-connect-installation.ts`,
+`skills/harness-connect-window-claude/SKILL.md`,
+`skills/harness-connect-window-claude/scripts/connect.mjs`,
+`skills/harness-connect-window-claude/scripts/claude-session-hook.mjs`를 추가합니다.
+평가는 이 파일을 로드하거나 import를 따라가지 않고 해시만
 계산하며, 설정·transport wrapper는 이 유한 투영에서 소비하지 않습니다. execution pin은
-별도로 전체 source와 build 트리를 고정합니다. schema 1-4 reader의 기존 32개 경로 상한과
+별도로 전체 source와 build 트리를 고정합니다. static-assessment-v2의 allowlist와 상한은
+48개 경로로 고정되어 있습니다. schema 1-4 reader의 기존 32개 경로 상한과
 256 KiB 레코드 제한은 그대로입니다. 입력 추가는 전역 source digest를 바꾸며 정확 지원이나
 활성화를 바꾸지 않습니다. 과거 기준선·검토는 불변이며 오래된 digest로 새 gate를 닫을 수 없습니다.
 

@@ -44,6 +44,33 @@ skill 설치나 브라우저 작업 준비만으로 관측 권한이 생기지 �
 지정 버전 작업과 새 root/기준점을 준비합니다. 범용 helper를 patch마다 다시 쓰거나 고정 설정·
 가격을 옮기거나 누락 구간을 backfill하지 않습니다. 기존 정확 절차·helper·기본값은 별개로 유지합니다.
 
+## 닫힌 Claude 일반 window 준비
+
+독립적인 [Claude window 설정](harness-connect.ko.md#claude-일반-window-설정-수집-비활성)은
+오프라인 검증용으로 구현되었으며, 일반 window 수집은 별도 제품 활성화와 native 검증 전까지
+비활성 상태입니다. 검증된 지원, launch/resume workflow, A/B 배정, 교환이나 자식 확장을
+추가하지 않으며 아래 지원표에 넣지 않습니다.
+
+**Claude Code > 일반 window**를 선택하고 `2.1.306 < v < 2.2.0` 안의 안정 버전을
+명시적으로 지정해 저장합니다. 한 번 수행하는 소유 복사본 migration을 미리보고 검토한
+파일만 적용합니다. 정확 helper는 설치된 채로 유지하며 편집·다른 hook·오래된 미리보기·
+사용 중인 상태에 대한 guard도 유지합니다. 준비 시 version, 유한 정책, 엄격한 terminal
+finality, publisher/local-pin/root 범위와 가격을 고정합니다. 저장·설치·준비는 수집을
+활성화하거나 작업을 시작하지 않습니다.
+
+별도 활성화와 native 검증 뒤에도 명시적으로 활성화된 준비 작업과 해당 root의 새 receipt가
+있어야 provider의 PID/start, publisher/disk pin과 source version 검사를 허용합니다.
+helper는 payload-only이며 `automatic_children:false`를 반환하고 활성화 명령을 제공하지
+않습니다. 일시정지나 observer 재시작 뒤에도 같은 작업·버전의 scoped 재연결은 지정 버전,
+source 참조와 native pin digest가 같으면 native root, PID와 source 경로를 재사용할 수
+있습니다. identity/pin을 다시 검증하고 새 관측 segment와 기준점을 시작하며 일시정지
+구간은 backfill하지 않습니다. 현재 generation의 활성 root, 다른 작업의 root나
+identity/pin이 달라진 경우에는 재사용할 수 없습니다. native resume을 허용하거나 활성화와
+native 검증을 우회하는 것은 아닙니다. N -> N+1에서는 새 지정 버전 작업과 새 root
+identity가 여전히 필요합니다. patch마다 helper를 다시 쓰거나 고정
+작업·가격을 옮기거나 누락 구간을 backfill하지 않습니다. root 소유는 미검증이며 자식 기여
+가능성은 알 수 없습니다. disk 증거는 mapped-image 증거나 완전한 비용이 아닙니다.
+
 ## 지원 범위와 실행 비용
 
 | 경로 | 지원 범위 |

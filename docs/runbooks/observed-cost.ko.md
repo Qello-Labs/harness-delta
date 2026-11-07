@@ -160,6 +160,17 @@ cutoff 뒤에 끝난 journal은 이전 관측 범위를 입증하지 못합니�
 이 부분 참조는 완전한 비용이나 native 검증을 입증하지 않습니다. 이 창은 오프라인
 검증용으로 구현되었으며, 일반 창 수집은 별도 제품 활성화와 native 검증 전까지 비활성 상태입니다.
 
+독립적인 [Claude window 절차](harness-connect.ko.md#claude-일반-window-설정-수집-비활성)는
+Codex의 `source_only` identity와 달리 `publisher_verified_local_pin`과 엄격한
+`claude_terminal_message_v1` finality를 사용합니다. 허가된 provider만 새 root의 PID/start,
+publisher와 disk pin을 확인하며 helper는 payload-only입니다. signature/disk 증거는
+version, mapped-image identity, root 소유나 비용 완전성을 입증하지 않습니다. scoped source
+version은 고정된 작업과 독립적으로 같아야 합니다. 필수 검사 실패 시 사용량·cursor 진행을
+쓰지 않으며 비호환이 발견되면 해당 참조를 무효화합니다. 새 지정 버전 작업은 자체 가격 pin을
+유지하며 업그레이드로 기존 작업 가격을 다시 쓰거나 누락 사용량을 backfill하지 않습니다.
+Claude 경로는 오프라인 검증용으로 구현되었으며, 일반 window 수집은 별도 제품 활성화와
+native 검증 전까지 비활성 상태입니다. 가격, 지원 검증 완료나 완전한 비용 주장은 바뀌지 않습니다.
+
 ## 5. 별도로 봉인된 계측 구간 읽기
 
 별도 계측 receiver는 요청 전 dispatch·terminal 기록과 불변 seal snapshot을 제공합니다.

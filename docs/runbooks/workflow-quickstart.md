@@ -47,6 +47,36 @@ For N -> N+1, prepare a new declared-version task and a fresh root/baseline; do 
 rewrite generic helpers per patch, migrate frozen settings/prices or backfill
 missed intervals. Existing exact procedures, helpers and defaults remain separate.
 
+## Closed Claude ordinary-window preparation
+
+The independent [Claude window setup](harness-connect.md#claude-ordinary-window-setup-collection-disabled)
+is implemented for offline acceptance, ordinary-window collection disabled pending
+separate product activation and native acceptance. It adds no qualified support,
+launch/resume workflow, A/B assignment, exchange or child expansion; keep it out
+of the support table below.
+
+Choose **Claude Code > Ordinary window**, explicitly declare a stable version
+within `2.1.306 < v < 2.2.0`, save, preview the one-time owned-copy migration and
+apply only the reviewed files. Exact helpers remain installed; edited/unrelated,
+stale-preview and in-use guards remain. Preparation freezes the version, finite
+policy, strict terminal finality, publisher/local-pin/root scope and price.
+Saving, installing or preparing does not activate collection or start a task.
+
+Only after separate activation and native acceptance would an explicitly active
+prepared task and a fresh receipt for that root allow provider PID/start, publisher/disk-pin
+and source-version checks. The helper remains payload-only, returns
+`automatic_children:false` and supplies no activation command. After pause or
+observer restart, a same-task, same-version scoped reconnect may reuse the native
+root, PID and source path if the declared version, source reference and native
+pin digest match. Revalidate identity/pins and start a new observation segment
+and baseline without backfilling the paused interval. An active root in the
+current generation, another task's root or changed identity/pins cannot be reused.
+This does not authorize native resume or bypass activation and native acceptance.
+N -> N+1 still requires a new declared-version task and fresh root identity.
+No per-patch helper rewrite, frozen-task/price
+migration or missed-interval backfill. Root ownership stays unverified and possible
+child contribution unknown; disk proof is not mapped-image proof or complete cost.
+
 ## Support and costs before you start
 
 | Path | Supported boundary |

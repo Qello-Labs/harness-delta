@@ -36,9 +36,12 @@ support are unchanged. The Codex 0.162.1 profile, saved settings and all histori
 remain; omitting a version keeps saved settings, and nothing upgrades them automatically.
 
 The separate [Codex ordinary-window setup](docs/runbooks/harness-connect.md#codex-ordinary-window-setup-collection-disabled)
-is implemented for offline acceptance, ordinary-window collection disabled pending
+and independent [Claude ordinary-window setup](docs/runbooks/harness-connect.md#claude-ordinary-window-setup-collection-disabled)
+are implemented for offline acceptance, ordinary-window collection disabled pending
 separate product activation and native acceptance. See the
-[descriptive-mode boundary](docs/decisions/016-ordinary-observation.md#codex-ordinary-window-addendum-collection-disabled);
+[Codex descriptive-mode boundary](docs/decisions/016-ordinary-observation.md#codex-ordinary-window-addendum-collection-disabled)
+and
+[Claude addendum](docs/decisions/016-ordinary-observation.md#claude-ordinary-window-addendum-collection-disabled);
 installation and static selection do not activate collection or extend exact support.
 
 ## Development environment

@@ -189,12 +189,22 @@ Claude Code 2.1.283이 해당됩니다. Codex 0.158.0은 M2 경계 안의 순차
 [admission 절차](codex-version-admission.md)를 사용하세요. 별도 승인이 필요한
 수동 검증이며 설치나 수집 중 자동으로 실행되지 않습니다.
 
-Codex(`>0.163.0`, `<0.170.0`)의 일반 root 참조 창은
+독립적인 Codex(`>0.163.0`, `<0.170.0`)와 Claude Code(`>2.1.306`, `<2.2.0`)의 일반 root 참조 창은
 오프라인 검증용으로 구현되었으며, 일반 창(window) 수집은 별도 제품 활성화와 native 검증
-전까지 비활성 상태입니다. 공유 Claude Code 정책(`>2.1.306`, `<2.2.0`)과 보고서 schema는
-제공된 Claude window 구현이 아닙니다. 위의 정확 버전 조건은 바뀌지 않습니다.
+전까지 비활성 상태입니다. 별도의 패키지, 명시적인 소유 복사본 migration과 닫힌 설정은
+위의 정확 버전 조건을 바꾸지 않습니다.
 Codex는 `source_only`를 사용하며 고정된 작업의 지정 버전이 root 생성 header와 같아야 합니다.
-이 header는 현재 writer, 실행 파일, publisher, process의 증거가 아닙니다. root-source 관측은 root 소유 사용량이
+이 header는 현재 writer, 실행 파일, publisher, process의 증거가 아닙니다.
+Claude는 `publisher_verified_local_pin`을 사용합니다. 유효한 권한을 가진 provider만
+same-user PID/start, 해당 process에서 얻은 실행 파일 경로, publisher와 로컬 disk pin을 확인하며 source version이
+고정된 작업과 독립적으로 일치해야 합니다. signature/disk 증거는 mapped-image나 version의
+증거가 아닙니다. 엄격한 `claude_terminal_message_v1` finality를 사용하며 새 patch에서
+quiescence로 fallback하지 않습니다. 필수 검사 실패 시 사용량이나 cursor 진행을 쓰지
+않고, 이후 비호환이 발견되면 해당 참조를 무효화합니다.
+[닫힌 Claude 설정](harness-connect.ko.md#claude-일반-window-설정-수집-비활성)을 참고하세요.
+새 작업은 declaration/policy/finality/evidence/root/price를 고정합니다. 업그레이드 뒤에는
+새 지정 버전 작업과 새 root/PID/path/pin을 사용하며 자동 migration, patch별 helper 재작성이나
+backfill은 하지 않습니다. root-source 관측은 root 소유 사용량이
 아니며 `rootOwnership:unverified`와 `possibleChildContribution:unknown`을 명시적으로
 유지합니다. `automatic_children:false`는 자식을 자동 연결하지 않는다는 뜻이지 자식 기여가
 0이라는 증거가 아닙니다. 범위 안의 참조는 부분적인 `compatibility_unverified` 상태이며,
