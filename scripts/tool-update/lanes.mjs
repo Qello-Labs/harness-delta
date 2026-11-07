@@ -5,14 +5,14 @@ export const operations = ['launch', 'link', 'collect', 'restart', 'resume'];
 export const topologies = ['root', 'root_direct_child', 'bounded_family'];
 // Imperative operation fences have no exported descriptor. Drift requires a fresh rule review.
 export const scopeSourceDigests = Object.freeze({
-  'src/codex-workflow-adapter.ts': '3c4eec6d607642a5f9f7a0e425ec83d1ce77531e4810939b6984b545b53d9bca',
-  'src/claude-workflow-adapter.ts': '0d4b01e8c956d796e441ff8a3ab6d75e0de42e3d016160fef84ca985a41c027d',
-  'src/session-binding-contract.ts': '03d02bed810f28bea45c0975dd81b1f906aa37b8ba0aef7647b7375f0a1c300b',
-  'src/ordinary-session-binding.ts': 'c32a561ece892c2fbe58a5afafd49c00acc0ebdca2d1c26f71cf0c1e89d7160c',
-  'src/session-binding-service.ts': '99b403b80e99790c6eaec771c1047a3826f4022e77a560aacec5c84e48deecf8',
-  'src/claude-workflow-versions.ts': '2fdf54d333aa7d9ca8f298ad0757e85a2c2eed10472106a07387d36d7511bd3b',
-  'src/session-binding-codex.ts': '099ae254af3f0823446140336056504755205ecbb451435dcf8c1db79d2955c4',
-  'src/session-binding-claude.ts': 'd4116939cb735f15875e1c55efb852e7ddcd28e63771661312ce1d57b9904a8b',
+  'src/codex-workflow-adapter.ts': '1b69d9d1ed067b25f509c9c8416a64197c7d505de42bda3e962f18065f541168',
+  'src/claude-workflow-adapter.ts': '344a6483aba255249ae59a7f53e0f8937ed60c79ce3767b85df1c188f5928ac4',
+  'src/session-binding-contract.ts': 'c01de8b3c48c6a7db75247771031160a5f06745ad53c29323a658e9ef10e1454',
+  'src/ordinary-session-binding.ts': '82292e9178147d0ecfbe22e25383da514b5b25ee63f43e93a4db5a11eec9722d',
+  'src/session-binding-service.ts': '142911b38bef7d089431892453dc9eab9a31ce3bc565349bc8078c0ff87a3cad',
+  'src/claude-workflow-versions.ts': '3a85ae4d57edd2897954502420e000d41fedcdf2b475e502c6453a50a8218937',
+  'src/session-binding-codex.ts': '820730e96a6bac962231228a410704aa5028340fc7129a47957045f901d06930',
+  'src/session-binding-claude.ts': '57652e3da5e4dfdb57708c2280662a8f24f37d9e08c6b3aea500afda2cea9185',
 });
 export const laneSchema = z.strictObject({
   product: z.enum(['codex', 'claude_code']),
