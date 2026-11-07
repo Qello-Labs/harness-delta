@@ -1,6 +1,6 @@
 import { setTimeout as delay } from 'node:timers/promises';
-import { takeFamilyDiagnostic } from '../binding-family-diagnostics.js';
-import { noteQualificationCollectorError, revokeBindingQualification } from '../session-binding-qualification-lease.js';
+import { takeFamilyDiagnostic } from '../binding/binding-family-diagnostics.js';
+import { noteQualificationCollectorError, revokeBindingQualification } from '../binding/session-binding-qualification-lease.js';
 import type { createLocalWebBindingSelection } from './local-web-binding-selection.js';
 import type { LocalWebDomainOptions } from './local-web-domain.js';
 import type { createLocalWebMetadata } from './local-web-metadata-store.js';

@@ -5,7 +5,7 @@ import {
   ApplicationReportSchema,
   ApplicationIdentitySchema
 } from '../harness/harness-application-contract.js';
-import type { ApplicationCoordinator } from '../harness-application.js';
+import type { ApplicationCoordinator } from '../harness/harness-application.js';
 import type { SessionBindingProvider } from '../session-binding-contract.js';
 import { convertTaskToAgentApplication } from './local-web-task-application.js';
 import type { LocalWebWorkflowActionDependencies, LocalWebScopedTaskAction } from './local-web-workflow-actions.js';

@@ -9,11 +9,11 @@ import {
   createSyntheticClaudeWorkflowAdapter,
   recoverClaudeWorkflow
 } from '../src/claude-workflow-adapter.js';
-import { registerPriceTable } from '../src/pricing.js';
+import { registerPriceTable } from '../src/pricing/pricing.js';
 import { makeFlexibleFixture } from './helpers/flexible-fixture.js';
-import { readObservedCostReport } from '../src/observed-cost-report.js';
-import { runAssignedWorkflow, workflowStatus } from '../src/task-workflow.js';
-import { Lifecycle } from '../src/lifecycle.js';
+import { readObservedCostReport } from '../src/pricing/observed-cost-report.js';
+import { runAssignedWorkflow, workflowStatus } from '../src/workflow/task-workflow.js';
+import { Lifecycle } from '../src/core/lifecycle.js';
 import { codexWorkflowFixture } from './helpers/codex-workflow-fixture.js';
 import { compiledWorker } from './helpers/compiled-worker.js';
 import { claudeWorkflowChildProfileId, claudeWorkflowProfileId } from '../src/claude-workflow-versions.js';
@@ -495,7 +495,7 @@ test.each(['root', 'wait'])(
   async mode => {
     const f = fixture(mode, '2.1.298');
     try {
-      const { registerProtocol, freezeProtocol } = await import('../src/comparison.js');
+      const { registerProtocol, freezeProtocol } = await import('../src/comparison/comparison.js');
       const { FlexibleProtocolSchema } = await import('../src/flexible-contracts.js');
       const saved = FlexibleProtocolSchema.parse(
         JSON.parse(f.store.get<{ settings: string }>('SELECT settings FROM comparison_protocols WHERE id=?', ['comparison-1'])!.settings)

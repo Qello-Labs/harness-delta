@@ -3,11 +3,11 @@ import { FlexibleProtocolSchema, FlexibleProtocolDraftSchema } from '../src/flex
 import { ProtocolSchema } from '../src/comparison-contracts.js';
 import { FlexibleSharedProtocolSchema } from '../src/comparison/exchange/contracts.js';
 import { evaluateReadiness } from '../src/readiness.js';
-import { registerProtocol } from '../src/comparison.js';
+import { registerProtocol } from '../src/comparison/comparison.js';
 import { showProtocol } from '../src/readiness-store.js';
 import { createCodexWorkflowAdapter, pinnedCodexWorkflowBinarySha } from '../src/codex-workflow-adapter.js';
-import { stopCodexWorkflow } from '../src/codex-workflow-journal.js';
-import { beginAssignedWorkflow, runAssignedWorkflow, finishAssignedWorkflow } from '../src/task-workflow.js';
+import { stopCodexWorkflow } from '../src/workflow/codex-workflow-journal.js';
+import { beginAssignedWorkflow, runAssignedWorkflow, finishAssignedWorkflow } from '../src/workflow/task-workflow.js';
 import { createComparisonSnapshot, readComparisonSnapshot } from '../src/comparison/reports/comparison-snapshot.js';
 import { FlexibleComparisonReportSchema, FlexibleSnapshotInputSchema, projectFlexibleComparison } from '../src/comparison/reports/flexible-comparison.js';
 import { renderComparisonReport } from '../src/comparison/reports/comparison-render.js';

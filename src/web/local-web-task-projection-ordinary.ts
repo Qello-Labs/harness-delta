@@ -5,7 +5,7 @@ import { aggregateOrdinaryWindowMetrics } from '../pricing/metrics-ordinary-wind
 import { parseTaskMetadata } from '../flexible-contracts.js';
 import type { Store } from '../store.js';
 import { projectOrdinaryActions } from './local-web-task-actions-projection.js';
-import type { Lifecycle } from '../lifecycle.js';
+import type { Lifecycle } from '../core/lifecycle.js';
 import type { ordinaryTask } from '../ordinary-observation.js';
 import type { createOrdinarySessionBindingService } from '../ordinary-session-binding.js';
 import type { PrivateTask, OrdinaryTaskData } from './local-web-task-projection.js';

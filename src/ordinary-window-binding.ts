@@ -14,7 +14,7 @@ import {
 } from './core/ordinary-window-store.js';
 import { ordinaryWindowDecisionKeyForSelection, readOrdinaryWindowDecision } from './core/ordinary-window-activation.js';
 import { commitOrdinaryWindowTrialCharge, stageOrdinaryWindowTrialCharge } from './core/ordinary-window-trial.js';
-import { putUsageWithEvidence, recordObservationGap } from './runtime-history.js';
+import { putUsageWithEvidence, recordObservationGap } from './core/runtime-history.js';
 import { invalidateCompatibility, pinSessionCompatibility } from './source-compatibility.js';
 import {
   bindingIdentityKey,

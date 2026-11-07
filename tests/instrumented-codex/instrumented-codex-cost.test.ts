@@ -7,7 +7,7 @@ import {
   createInstrumentedValuation,
   readInstrumentedValuation
 } from '../../src/instrumented-codex/instrumented-codex-cost.js';
-import { registerPriceTable } from '../../src/pricing.js';
+import { registerPriceTable } from '../../src/pricing/pricing.js';
 import { instrumentedFixtureProfile, makeInstrumentedCostFixture } from '../helpers/instrumented-codex-fixture.js';
 
 function storedQualifiedFixture() {

@@ -2,19 +2,19 @@ import { createHash, randomUUID } from 'node:crypto';
 import { appendFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test, vi } from 'vitest';
-import * as collection from '../src/collection.js';
+import * as collection from '../src/sources/collection.js';
 import {
   createCodexWorkflowAdapter,
   createSyntheticCodexWorkflowAdapter,
   pinnedCodexWorkflowBinarySha,
   runCodexQualificationPhase
 } from '../src/codex-workflow-adapter.js';
-import { stopCodexWorkflow } from '../src/codex-workflow-journal.js';
-import { runAssignedWorkflow } from '../src/task-workflow.js';
+import { stopCodexWorkflow } from '../src/workflow/codex-workflow-journal.js';
+import { runAssignedWorkflow } from '../src/workflow/task-workflow.js';
 import { Deletion } from '../src/deletion.js';
 import { Store } from '../src/store.js';
-import { registerPriceTable } from '../src/pricing.js';
-import { readObservedCostReport } from '../src/observed-cost-report.js';
+import { registerPriceTable } from '../src/pricing/pricing.js';
+import { readObservedCostReport } from '../src/pricing/observed-cost-report.js';
 import { codexWorkflowFixture } from './helpers/codex-workflow-fixture.js';
 
 const runtime = { model: null, effort: null };

@@ -22,7 +22,7 @@ const areas: readonly (readonly [string, RegExp])[] = [
     'workflow',
     /^src\/(?:workflow\/)?(task-workflow|external-session-|codex-workflow-|claude-workflow-|nested-candidate|bounded-candidate|codex-candidate-|codex-continuation)/
   ],
-  ['binding', /^src\/(session-binding-|ordinary-|binding-|codex-binding-admission|claude-binding-admission)/],
+  ['binding', /^src\/(?:binding\/)?(session-binding-|ordinary-|binding-|codex-binding-admission|claude-binding-admission)/],
   [
     'sources',
     /^src\/(?:sources\/)?(adapters|adapter-profiles|collection|codex-rollout-policy|otel-|managed-|source-compatibility|agent-metadata|cache-write-ttl)/

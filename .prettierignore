@@ -21,10 +21,10 @@
 /src/nested-candidate.ts
 /src/codex-candidate-rollout.ts
 /src/codex-admissions.json
-/src/adapters.ts
-/src/collection.ts
-/src/lifecycle.ts
-/src/metrics.ts
+/src/sources/adapters.ts
+/src/sources/collection.ts
+/src/core/lifecycle.ts
+/src/pricing/metrics.ts
 /package.json
 /package-lock.json
 /scripts/

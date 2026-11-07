@@ -21,12 +21,12 @@ import {
   issueCodexBindingLease,
   noteQualificationCollectorError,
   qualificationCollectorError
-} from '../../src/session-binding-qualification-lease.js';
-import * as qualificationLease from '../../src/session-binding-qualification-lease.js';
+} from '../../src/binding/session-binding-qualification-lease.js';
+import * as qualificationLease from '../../src/binding/session-binding-qualification-lease.js';
 import { Store } from '../../src/store.js';
 import { EventSchema, SourceCompatibilitySchema } from '../../src/contracts.js';
 import { z } from 'zod';
-import * as priceSelection from '../../src/price-catalog-selection.js';
+import * as priceSelection from '../../src/pricing/price-catalog-selection.js';
 import * as localWeb from '../../src/web/local-web-domain.js';
 import * as localServer from '../../src/web/local-web-server.js';
 import { command as runFixtureCommand } from '../../src/instrumented-codex/instrumented-codex-qualification.js';
@@ -1914,7 +1914,9 @@ for (const omitted of ['cost-dependency', 'built-ui'] as const)
   test(`frozen ${omitted} changes block before native reservation`, async () => {
     const f = fixture();
     const target =
-      omitted === 'cost-dependency' ? new URL('../../src/catalog-cost-report.ts', import.meta.url) : new URL('../../dist/local-ui/index.html', import.meta.url);
+      omitted === 'cost-dependency'
+        ? new URL('../../src/pricing/catalog-cost-report.ts', import.meta.url)
+        : new URL('../../dist/local-ui/index.html', import.meta.url);
     const original = readFileSync(target);
     try {
       const p = await prepareCodexSessionBindingQualification(f.dir, { binary: realpathSync(process.execPath), codexHome: f.home }, f.dependency);

@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { chmodSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { verifyClaudeWorkflowVersion } from '../src/claude-probe-supervisor.js';
+import { verifyClaudeWorkflowVersion } from '../src/qualification/claude-probe-supervisor.js';
 import { expect, test } from 'vitest';
 import { Store } from '../src/store.js';
 import { CodexWorkflowExecutionSchema, createCodexWorkflowAdapter } from '../src/codex-workflow-adapter.js';

@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Store } from '../../src/store.js';
-import { Lifecycle } from '../../src/lifecycle.js';
+import { Lifecycle } from '../../src/core/lifecycle.js';
 import { createLocalWebDomain } from '../../src/web/local-web-domain.js';
 import { createLocalWebServer } from '../../src/web/local-web-server.js';
 import { ordinaryWindowRuntimeRevision, ordinaryWindowSelection } from '../../src/core/ordinary-window-store.js';

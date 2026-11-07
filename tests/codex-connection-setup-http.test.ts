@@ -7,7 +7,7 @@ import { z } from 'zod';
 import Database from 'better-sqlite3';
 import { codexBindingAdmission } from '../src/codex-binding-admission.js';
 import { Deletion } from '../src/deletion.js';
-import { Lifecycle } from '../src/lifecycle.js';
+import { Lifecycle } from '../src/core/lifecycle.js';
 import { Store } from '../src/store.js';
 import { createLocalWebDomain } from '../src/web/local-web-domain.js';
 import { createLocalWebServer } from '../src/web/local-web-server.js';

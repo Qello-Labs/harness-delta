@@ -1,13 +1,13 @@
-import { appendFamilyDiagnostic } from '../binding-family-diagnostics.js';
+import { appendFamilyDiagnostic } from '../binding/binding-family-diagnostics.js';
 import { assertOrdinaryWindowSurfaceClosed } from '../core/ordinary-window-store.js';
-import type { ExternalTaskSetup } from '../external-session-service.js';
+import type { ExternalTaskSetup } from '../workflow/external-session-service.js';
 import { ordinaryTask } from '../ordinary-observation.js';
 import { createOrdinarySessionBindingService } from '../ordinary-session-binding.js';
 import { ClaudeSessionBindingProvider } from '../session-binding-claude.js';
-import { issueClaudeHumanPilotScope, isClaudeHumanPilotScope } from '../session-binding-claude-human-pilot.js';
+import { issueClaudeHumanPilotScope, isClaudeHumanPilotScope } from '../binding/session-binding-claude-human-pilot.js';
 import { CodexSessionBindingProvider } from '../session-binding-codex.js';
 import type { BindingProduct } from '../session-binding-contract.js';
-import { issueCodexHumanPilotScope, type HumanPilotScope } from '../session-binding-human-pilot.js';
+import { issueCodexHumanPilotScope, type HumanPilotScope } from '../binding/session-binding-human-pilot.js';
 import { createSessionBindingService } from '../session-binding-service.js';
 import { createLocalWebBindingProviders } from './local-web-binding-providers.js';
 import type { createCodexProjectSetupManager } from './local-web-codex.js';

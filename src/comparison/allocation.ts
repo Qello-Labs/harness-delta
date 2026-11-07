@@ -10,10 +10,10 @@ import { randomInt, randomUUID } from 'node:crypto';
 import { AssignmentInputSchema, comparisonTimestamp, parseComparison } from '../comparison-contracts.js';
 import type { AssignmentInput, Protocol } from '../comparison-contracts.js';
 import { comparisonProtocol, comparisonVariant, protocolRow } from '../core/protocol-store.js';
-import { Lifecycle } from '../lifecycle.js';
-import type { TaskRow } from '../lifecycle.js';
+import { Lifecycle } from '../core/lifecycle.js';
+import type { TaskRow } from '../core/lifecycle.js';
 import type { Store } from '../store.js';
-import { isHumanPilotProtocol } from '../session-binding-human-pilot.js';
+import { isHumanPilotProtocol } from '../binding/session-binding-human-pilot.js';
 import { isAdmittedCodexBindingProtocol } from '../codex-binding-admission.js';
 
 export interface AllocationDependencies {

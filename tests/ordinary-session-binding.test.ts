@@ -3,7 +3,7 @@ import { afterEach, expect, test, vi } from 'vitest';
 import { ordinaryBindingFixture } from './helpers/ordinary-session-binding-fixture.js';
 import { ordinaryTask, ordinaryTaskSettings, revokeOrdinaryObservation, saveOrdinaryProjectSettings } from '../src/ordinary-observation.js';
 import { bundledPriceCatalog, digest } from '../src/pricing/price-catalog.js';
-import { refreshPriceCatalog } from '../src/price-catalog-store.js';
+import { refreshPriceCatalog } from '../src/pricing/price-catalog-store.js';
 import { BindingUsageRecordSchema, type BindingReadBoundary } from '../src/session-binding-contract.js';
 import { createOrdinarySessionBindingService } from '../src/ordinary-session-binding.js';
 import { ClaudeSessionBindingProvider } from '../src/session-binding-claude.js';

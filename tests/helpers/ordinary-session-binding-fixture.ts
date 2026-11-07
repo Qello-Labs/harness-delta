@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Lifecycle } from '../../src/lifecycle.js';
+import { Lifecycle } from '../../src/core/lifecycle.js';
 import { Store } from '../../src/store.js';
 import { createOrdinaryTask, saveOrdinaryProjectSettings } from '../../src/ordinary-observation.js';
 import { createOrdinarySessionBindingService, type OrdinarySessionBindingService, type OrdinarySourceMetadata } from '../../src/ordinary-session-binding.js';

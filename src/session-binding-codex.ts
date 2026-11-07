@@ -3,7 +3,7 @@ import { open as openWindowSource } from 'node:fs/promises';
 import { constants, closeSync, fstatSync, linkSync, lstatSync, mkdirSync, openSync, readSync, readdirSync, realpathSync, unlinkSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { z } from 'zod';
-import { metadataName, type AgentMetadata } from './agent-metadata.js';
+import { metadataName, type AgentMetadata } from './sources/agent-metadata.js';
 import { IdSchema, TimestampSchema } from './contracts.js';
 import { parseCodexCandidateRollout, type CodexCandidateSnapshot } from './codex-candidate-rollout.js';
 import { checkedCandidateScope, type CandidateScope } from './nested-candidate.js';

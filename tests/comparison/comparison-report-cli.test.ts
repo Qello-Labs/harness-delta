@@ -6,8 +6,8 @@ import { main } from '../../src/cli.js';
 import { assignTask } from '../../src/comparison/allocation.js';
 import { assignmentInput } from '../helpers/comparison-fixture.js';
 import { reportStore, evaluation, request } from '../helpers/comparison-report-fixture.js';
-import { Collector } from '../../src/collection.js';
-import { Lifecycle } from '../../src/lifecycle.js';
+import { Collector } from '../../src/sources/collection.js';
+import { Lifecycle } from '../../src/core/lifecycle.js';
 import { renderComparisonReport } from '../../src/comparison/reports/comparison-render.js';
 
 test('synthetic CLI creates and renders a frozen report with no collection and discloses invalidated IDs on delete', async () => {

@@ -1,13 +1,13 @@
-import { reportSourceTrust } from '../../report-source-trust.js';
+import { reportSourceTrust } from '../../pricing/report-source-trust.js';
 import { overlayEventCompatibility } from '../../source-compatibility.js';
 import { z } from 'zod';
 import { EventSchema, IdSchema, MonetaryAmountSchema, TimestampSchema } from '../../contracts.js';
 import { EventV2Schema, RuntimeEvidenceSchema, type UsageEvent } from '../../flexible-contracts.js';
-import { captureObservedCostInput } from '../../observed-cost-report.js';
-import { projectCatalogCost } from '../../catalog-cost-report.js';
+import { captureObservedCostInput } from '../../pricing/observed-cost-report.js';
+import { projectCatalogCost } from '../../pricing/catalog-cost-report.js';
 import { digest } from '../../pricing/price-catalog.js';
-import { readPriceBasis } from '../../price-catalog-store.js';
-import { costFormulaVersion, type LegacyInputBasis } from '../../pricing.js';
+import { readPriceBasis } from '../../pricing/price-catalog-store.js';
+import { costFormulaVersion, type LegacyInputBasis } from '../../pricing/pricing.js';
 import { readComparisonSnapshot } from './comparison-snapshot.js';
 import { canonicalJson } from '../../core/canonical-json.js';
 import { FlexibleSnapshotInputSchema } from './flexible-comparison.js';

@@ -4,14 +4,14 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { expect, test, vi } from 'vitest';
 import { claudeProbeProductVersion, claudeWorkflowProductVersions } from '../src/claude-workflow-versions.js';
-import { prepareClaudeNativeProbe } from '../src/claude-native-probe.js';
-import { verifyClaudeProbeBinary } from '../src/claude-probe-supervisor.js';
+import { prepareClaudeNativeProbe } from '../src/qualification/claude-native-probe.js';
+import { verifyClaudeProbeBinary } from '../src/qualification/claude-probe-supervisor.js';
 import { ClaudeProbeCoordinator } from '../src/qualification/claude-probe-coordinator.js';
-import { ingestClaudeTraceBatch } from '../src/claude-trace-candidate.js';
+import { ingestClaudeTraceBatch } from '../src/qualification/claude-trace-candidate.js';
 import { projectCandidateObservation } from '../src/nested-candidate.js';
 import { Store } from '../src/store.js';
 import { createClaudeWorkflowAdapter } from '../src/claude-workflow-adapter.js';
-import { beginAssignedWorkflow } from '../src/task-workflow.js';
+import { beginAssignedWorkflow } from '../src/workflow/task-workflow.js';
 import { claudeWorkflowFixture } from './helpers/claude-workflow-fixture.js';
 import { attrs, receivedAt, seedTraceScope, span, startedAt, traceScope, traces } from './helpers/claude-trace-fixture.js';
 

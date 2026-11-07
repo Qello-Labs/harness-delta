@@ -8,7 +8,7 @@ import { readOnlinePriceCatalogStatus, refreshOnlinePriceCatalog } from '../pric
 import { ordinaryProjectAction, ordinaryProjectDto } from './local-web-ordinary.js';
 import { localWebRecruitment } from './local-web-recruitment.js';
 import type { Store } from '../store.js';
-import type { Lifecycle } from '../lifecycle.js';
+import type { Lifecycle } from '../core/lifecycle.js';
 import type { SessionBindingProvider } from '../session-binding-contract.js';
 import type { createSessionBindingService } from '../session-binding-service.js';
 import type { createCodexProjectSetupManager } from './local-web-codex.js';

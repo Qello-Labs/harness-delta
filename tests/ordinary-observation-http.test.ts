@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Lifecycle } from '../src/lifecycle.js';
+import { Lifecycle } from '../src/core/lifecycle.js';
 import { Store } from '../src/store.js';
 import { createLocalWebDomain } from '../src/web/local-web-domain.js';
 import { createLocalWebServer } from '../src/web/local-web-server.js';

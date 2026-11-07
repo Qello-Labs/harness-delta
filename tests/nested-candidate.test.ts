@@ -8,8 +8,8 @@ import { ingestCandidateObservation, projectCandidateObservation, candidateCostC
 import { evaluateCostCoverage, productionCostProfiles } from '../src/cost-coverage.js';
 import { lookupFileProfile } from '../src/adapter-profiles.js';
 import { assignTask } from '../src/comparison/allocation.js';
-import { recordRuntimeEvidence } from '../src/runtime-history.js';
-import { aggregateTaskCost } from '../src/metrics.js';
+import { recordRuntimeEvidence } from '../src/core/runtime-history.js';
+import { aggregateTaskCost } from '../src/pricing/metrics.js';
 import { makeFlexibleFixture } from './helpers/flexible-fixture.js';
 import { seedFlexibleComparison } from './helpers/flexible-store.js';
 

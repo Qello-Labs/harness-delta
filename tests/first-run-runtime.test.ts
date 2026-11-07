@@ -131,7 +131,7 @@ test.each([
   ['26.10.0', 'claude_probe_executable_mismatch'],
   ['27.0.0', 'claude_probe_invalid_supervisor']
 ] as const)('Claude supervisor under Node %s validates the runtime before binary identity', (version, error) => {
-  const entry = new URL('../dist/claude-probe-supervisor.js', import.meta.url).href;
+  const entry = new URL('../dist/qualification/claude-probe-supervisor.js', import.meta.url).href;
   const result = spawnSync(
     process.execPath,
     [

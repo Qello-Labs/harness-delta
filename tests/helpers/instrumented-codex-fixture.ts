@@ -1,10 +1,10 @@
 import { InstrumentedProducerProfileSchema } from '../../src/instrumented-codex/instrumented-codex-contracts.js';
 import { InstrumentedRunControlSchema, type InstrumentedProducerRecord } from '../../src/instrumented-codex/instrumented-codex-contracts.js';
 import { InstrumentedAccounting, instrumentedMetadataHash } from '../../src/instrumented-codex/instrumented-codex-accounting.js';
-import { Lifecycle } from '../../src/lifecycle.js';
+import { Lifecycle } from '../../src/core/lifecycle.js';
 import { Store } from '../../src/store.js';
 import { PriceTableSchema } from '../../src/flexible-contracts.js';
-import { registerPriceTable } from '../../src/pricing.js';
+import { registerPriceTable } from '../../src/pricing/pricing.js';
 import { randomUUID } from 'node:crypto';
 
 export const instrumentedFixtureProfile = InstrumentedProducerProfileSchema.parse({

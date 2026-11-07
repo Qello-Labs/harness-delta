@@ -1,10 +1,10 @@
 import { addTokens, TimestampSchema } from '../../contracts.js';
 import { parseTaskMetadata } from '../../flexible-contracts.js';
-import { Lifecycle, type Outcome } from '../../lifecycle.js';
-import { captureObservedCostInput } from '../../observed-cost-report.js';
+import { Lifecycle, type Outcome } from '../../core/lifecycle.js';
+import { captureObservedCostInput } from '../../pricing/observed-cost-report.js';
 import { ordinaryTask } from '../../ordinary-observation.js';
-import { projectCatalogCost } from '../../catalog-cost-report.js';
-import { readPriceBasis } from '../../price-catalog-store.js';
+import { projectCatalogCost } from '../../pricing/catalog-cost-report.js';
+import { readPriceBasis } from '../../pricing/price-catalog-store.js';
 import type { Store } from '../../store.js';
 import { assertOrdinaryWindowSurfaceClosed } from '../../core/ordinary-window-store.js';
 import { hasOrdinaryWindowEvidence } from '../../core/ordinary-window-evidence.js';

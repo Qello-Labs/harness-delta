@@ -8,7 +8,7 @@ import { prepareCodexSessionBindingQualification } from '../../src/qualification
 import { OwnedCliInvocation } from '../../src/connect/owned-cli-invocation.js';
 import { CodexSessionBindingProvider } from '../../src/session-binding-codex.js';
 import { createSessionBindingService } from '../../src/session-binding-service.js';
-import { issueCodexBindingLease } from '../../src/session-binding-qualification-lease.js';
+import { issueCodexBindingLease } from '../../src/binding/session-binding-qualification-lease.js';
 import { Store } from '../../src/store.js';
 
 export async function prepareBindingQualificationFixture(productVersion = '0.162.1', route: 'qualification' | 'ordinary_admission' = 'qualification') {

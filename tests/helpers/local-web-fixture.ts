@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import { codexWorkflowFixture } from './codex-workflow-fixture.js';
 import { createSyntheticCodexWorkflowAdapter } from '../../src/codex-workflow-adapter.js';
-import { externalInstructionFragment } from '../../src/external-session-context.js';
+import { externalInstructionFragment } from '../../src/workflow/external-session-context.js';
 import { createLocalWebDomain, LocalWebProfileSchema } from '../../src/web/local-web-domain.js';
 export function localWebFixture(nativeProfile?: string, native?: { product: 'codex' | 'claude_code'; productVersion: string; priceTable?: PriceTable }) {
   const f = codexWorkflowFixture(nativeProfile, 'functional_pilot', native);

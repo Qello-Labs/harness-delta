@@ -1,10 +1,10 @@
 import { projectBaseline } from './local-web-native.js';
 import { randomUUID } from 'node:crypto';
-import { buildExternalTaskSetup, createExternalTask, prepareExternalTask } from '../external-session-service.js';
-import type { ExternalTaskSetup } from '../external-session-service.js';
+import { buildExternalTaskSetup, createExternalTask, prepareExternalTask } from '../workflow/external-session-service.js';
+import type { ExternalTaskSetup } from '../workflow/external-session-service.js';
 import { createOrdinaryTask, ordinaryProjectSettings, ordinaryTaskSettings } from '../ordinary-observation.js';
 import type { createClaudeWindowControl } from './local-web-claude-window-control.js';
-import { registerBindingCollectionControl } from '../external-session-contract.js';
+import { registerBindingCollectionControl } from '../core/external-session-contract.js';
 import { withLiveWebMetadataScope } from './local-web-metadata.js';
 import { assertSharedTask } from './local-web-shared-guard.js';
 import { localWebError } from './local-web-server.js';

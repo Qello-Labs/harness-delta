@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { Lifecycle } from '../src/lifecycle.js';
+import { Lifecycle } from '../src/core/lifecycle.js';
 import { Store } from '../src/store.js';
 import {
   assertOrdinaryTaskPrepared,
@@ -13,7 +13,7 @@ import {
   revokeOrdinaryObservation,
   saveOrdinaryProjectSettings
 } from '../src/ordinary-observation.js';
-import { selectTaskPriceTable } from '../src/price-catalog-selection.js';
+import { selectTaskPriceTable } from '../src/pricing/price-catalog-selection.js';
 
 describe('ordinary observation preparation', () => {
   let store: Store;

@@ -6,13 +6,13 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { evaluateReadiness, productionSourceEvidence, type ReadinessInput } from '../src/readiness.js';
 import { evaluateCostCoverage } from '../src/cost-coverage.js';
 import { createCodexWorkflowAdapter, pinnedCodexWorkflowBinarySha } from '../src/codex-workflow-adapter.js';
-import { beginAssignedWorkflow, workflowStatus } from '../src/task-workflow.js';
-import { registerPriceTable } from '../src/pricing.js';
-import { readObservedCostReport } from '../src/observed-cost-report.js';
+import { beginAssignedWorkflow, workflowStatus } from '../src/workflow/task-workflow.js';
+import { registerPriceTable } from '../src/pricing/pricing.js';
+import { readObservedCostReport } from '../src/pricing/observed-cost-report.js';
 import { parseCodexCandidateRollout } from '../src/codex-candidate-rollout.js';
 import { checkedCandidateScope } from '../src/nested-candidate.js';
-import { putUsageWithEvidence } from '../src/runtime-history.js';
-import * as collection from '../src/collection.js';
+import { putUsageWithEvidence } from '../src/core/runtime-history.js';
+import * as collection from '../src/sources/collection.js';
 import { makeFlexibleFixture } from './helpers/flexible-fixture.js';
 import { codexWorkflowFixture } from './helpers/codex-workflow-fixture.js';
 import { codexNativeChildFixture } from './helpers/codex-native-child-fixture.js';
@@ -463,7 +463,7 @@ test('production direct-child launch reaches the pinned binary check without a p
       child_runtime: { model: 'user-child-model', effort: 'low' },
       binary: { path: realpathSync(process.execPath), sha256: pinnedCodexWorkflowBinarySha }
     };
-    const { runAssignedWorkflow } = await import('../src/task-workflow.js');
+    const { runAssignedWorkflow } = await import('../src/workflow/task-workflow.js');
     if (process.platform !== 'darwin' || process.arch !== 'arm64') {
       await expect(runAssignedWorkflow(f.store, f.input, createCodexWorkflowAdapter(f.store, e), { model: null, effort: null })).rejects.toThrow(
         /^codex_workflow_child_operation_unsupported$/
@@ -496,7 +496,7 @@ test('coordinator rechecks the selected profile if input mutates after admission
       if (++calls === 2) input.child_runtime = { model: 'foreign-child-choice', effort: 'high' };
       return new Date().toISOString();
     };
-    const { runAssignedWorkflow } = await import('../src/task-workflow.js');
+    const { runAssignedWorkflow } = await import('../src/workflow/task-workflow.js');
     // Skip only the local file preflight; the profile getter must stay live.
     const adapter = createCodexWorkflowAdapter(f.store, input);
     delete adapter.preflight;
@@ -539,7 +539,7 @@ test('family snapshot samples its observation time after the child bounded read'
       instructions: [],
       assertActive: () => {}
     });
-    const { stopCodexWorkflow } = await import('../src/codex-workflow-journal.js');
+    const { stopCodexWorkflow } = await import('../src/workflow/codex-workflow-journal.js');
     stopCodexWorkflow(f.store, 'read-clock');
     expect(await result).toMatchObject({ state: 'stopped', reason: 'stop_requested', observed_requests: 0 });
     expect(f.store.eventCount()).toBe(2);

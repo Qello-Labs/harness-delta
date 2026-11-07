@@ -4,9 +4,9 @@ import { chmodSync, mkdirSync, readFileSync, readdirSync, realpathSync, statSync
 import { createServer, type Socket } from 'node:net';
 import { isAbsolute, join, relative, resolve } from 'node:path';
 import { z } from 'zod';
-import { Collector, readSource } from '../collection.js';
+import { Collector, readSource } from '../sources/collection.js';
 import { BoundedCandidateInvocation } from '../workflow/bounded-candidate-invocation.js';
-import { Lifecycle, utcNow } from '../lifecycle.js';
+import { Lifecycle, utcNow } from '../core/lifecycle.js';
 import { authorizeCandidateScope, type CandidateScope } from '../nested-candidate.js';
 import { parseTaskMetadata } from '../flexible-contracts.js';
 import {
@@ -14,7 +14,7 @@ import {
   CandidatePermissionFailure,
   type CandidateWireMode,
   type CandidatePermissionField
-} from '../codex-candidate-permissions.js';
+} from '../workflow/codex-candidate-permissions.js';
 import type { Store } from '../store.js';
 import { toolVersionRecipe } from '../core/tool-version-profiles.js';
 

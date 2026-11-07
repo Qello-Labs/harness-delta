@@ -2,7 +2,7 @@ import { expect, test, vi } from 'vitest';
 import { mkdtempSync, mkdirSync, realpathSync, readFileSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import * as supervisor from '../../src/claude-probe-supervisor.js';
+import * as supervisor from '../../src/qualification/claude-probe-supervisor.js';
 import { randomUUID } from 'node:crypto';
 import { Store } from '../../src/store.js';
 import {

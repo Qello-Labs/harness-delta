@@ -65,11 +65,11 @@ not superseded above. Current admission status is the exact source registry.
 
 ## Scope and profile model
 
-Replace interleaved version checks in `src/adapters.ts` with typed source data in
+Replace interleaved version checks in `src/sources/adapters.ts` with typed source data in
 `src/adapter-profiles.ts` and one generic parser per product. Scope is Codex rollout
 JSONL and Claude transcript JSONL. Preserve [ADR 001](001-adapter-capabilities.md)
 behavior for Codex 0.156.1 and Claude Code 2.1.283. OTel's `OtelVersionProfile`,
-receiver, session inserts in `src/otel-journal.ts`, storage/export contracts and
+receiver, session inserts in `src/sources/otel-journal.ts`, storage/export contracts and
 parent/child aggregation are unaffected. Shared evidence terminology leaves room
 for later OTel alignment; no shared registry is introduced.
 

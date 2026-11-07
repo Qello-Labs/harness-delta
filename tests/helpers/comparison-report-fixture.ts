@@ -1,6 +1,6 @@
 import { assignTask } from '../../src/comparison/allocation.js';
-import { freezeProtocol, registerProtocol, registerVariant } from '../../src/comparison.js';
-import { Lifecycle } from '../../src/lifecycle.js';
+import { freezeProtocol, registerProtocol, registerVariant } from '../../src/comparison/comparison.js';
+import { Lifecycle } from '../../src/core/lifecycle.js';
 import { Store } from '../../src/store.js';
 import { assignmentInput, beforeRecruitment, metadata, protocol, seedProject, variantA, variantB } from './comparison-fixture.js';
 

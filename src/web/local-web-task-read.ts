@@ -4,29 +4,29 @@ import { projectClosedClaudeWindowTask } from './local-web-task-projection-ordin
 import { readOrdinaryTask } from './local-web-task-read-ordinary.js';
 export { readOrdinaryTask } from './local-web-task-read-ordinary.js';
 import type { Job } from './local-web-binding-observation.js';
-import type { Lifecycle } from '../lifecycle.js';
+import type { Lifecycle } from '../core/lifecycle.js';
 import type { Store } from '../store.js';
-import type { ApplicationCoordinator } from '../harness-application.js';
+import type { ApplicationCoordinator } from '../harness/harness-application.js';
 import type { LocalWebDomainOptions } from './local-web-domain.js';
 import type { LocalWebProfile } from './local-web-profile.js';
-import type { ExternalTaskSetup } from '../external-session-service.js';
+import type { ExternalTaskSetup } from '../workflow/external-session-service.js';
 import type { SessionBindingProvider } from '../session-binding-contract.js';
 import type { createSessionBindingService } from '../session-binding-service.js';
 import type { createOrdinarySessionBindingService } from '../ordinary-session-binding.js';
-import type { HumanPilotScope } from '../session-binding-human-pilot.js';
+import type { HumanPilotScope } from '../binding/session-binding-human-pilot.js';
 import type { PrivateTask, Source, TaskApplication } from './local-web-task-projection.js';
 import { projectBlockedTask, projectExternalTask, projectOrdinaryTask, projectTaskHarness, externalTaskVersion } from './local-web-task-projection.js';
-import { externalContract, bindingCollectionControl } from '../external-session-contract.js';
-import { externalTaskState, externalTaskResult } from '../external-session-service.js';
-import { applicationRequired, effectiveTaskWorkspace } from '../harness-application.js';
+import { externalContract, bindingCollectionControl } from '../core/external-session-contract.js';
+import { externalTaskState, externalTaskResult } from '../workflow/external-session-service.js';
+import { applicationRequired, effectiveTaskWorkspace } from '../harness/harness-application.js';
 import { getApplicationLaunchCapability } from '../harness/harness-application-launch.js';
 import { comparisonVariant, protocolRow } from '../core/protocol-store.js';
 import { parseProtocol } from '../flexible-contracts.js';
 import { ordinaryTask } from '../ordinary-observation.js';
 
 import { inspectClaudeProjectSkill } from '../connect/claude-connect-readiness.js';
-import { bindingQualificationOwnerLive, assertBindingQualification } from '../session-binding-qualification-lease.js';
-import { assertHumanPilotScope } from '../session-binding-human-pilot.js';
+import { bindingQualificationOwnerLive, assertBindingQualification } from '../binding/session-binding-qualification-lease.js';
+import { assertHumanPilotScope } from '../binding/session-binding-human-pilot.js';
 import { localWebError } from './local-web-server.js';
 import { localWebRecruitment } from './local-web-recruitment.js';
 

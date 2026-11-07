@@ -1,10 +1,10 @@
 import { expect, test } from 'vitest';
 import { Store } from '../src/store.js';
 import { assignTask } from '../src/comparison/allocation.js';
-import { Lifecycle } from '../src/lifecycle.js';
-import { registerProtocol, freezeProtocol } from '../src/comparison.js';
+import { Lifecycle } from '../src/core/lifecycle.js';
+import { registerProtocol, freezeProtocol } from '../src/comparison/comparison.js';
 import { seedFlexibleComparison } from './helpers/flexible-store.js';
-import { putUsageWithEvidence } from '../src/runtime-history.js';
+import { putUsageWithEvidence } from '../src/core/runtime-history.js';
 import { createComparisonSnapshot, readComparisonSnapshot } from '../src/comparison/reports/comparison-snapshot.js';
 import { registerExchangeSource, buildExchangePackage } from '../src/comparison/exchange/source.js';
 import { registerExchangeMapping } from '../src/comparison/exchange/mapping.js';

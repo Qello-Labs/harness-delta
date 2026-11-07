@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
-import { AssignedWorkflowInputSchema, WorkflowRuntimeSchema } from '../src/task-workflow.js';
+import { AssignedWorkflowInputSchema, WorkflowRuntimeSchema } from '../src/workflow/task-workflow.js';
 import { CodexWorkflowExecutionSchema, pinnedCodexWorkflowBinarySha } from '../src/codex-workflow-adapter.js';
 import { ClaudeWorkflowExecutionSchema } from '../src/claude-workflow-adapter.js';
 

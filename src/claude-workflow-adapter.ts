@@ -5,15 +5,15 @@ import { z } from 'zod';
 import { IdSchema, ModelSchema } from './contracts.js';
 import { lookupToolVersionProfile } from './core/tool-version-profiles.js';
 import { bindConfigurationToSession } from './config-confirmation.js';
-import { authorizeClaudeTraceScope } from './claude-trace-candidate.js';
-import { prepareClaudeProbeSupervisor, verifyClaudeProbeBinary, verifyClaudeWorkflowVersion } from './claude-probe-supervisor.js';
-import { claudeWorkflowChildAgentType } from './claude-native-probe.js';
-import { recordAbandonedRunGap, recordObservationGap } from './runtime-history.js';
+import { authorizeClaudeTraceScope } from './qualification/claude-trace-candidate.js';
+import { prepareClaudeProbeSupervisor, verifyClaudeProbeBinary, verifyClaudeWorkflowVersion } from './qualification/claude-probe-supervisor.js';
+import { claudeWorkflowChildAgentType } from './qualification/claude-native-probe.js';
+import { recordAbandonedRunGap, recordObservationGap } from './core/runtime-history.js';
 import type { CandidateScope } from './nested-candidate.js';
 import { isClaudeWorkflowProductVersion, claudeWorkflowProfileId, claudeWorkflowChildProfileId } from './claude-workflow-versions.js';
 import { resolveSourceCompatibility, assertCompatibilityAllowed, pinSessionCompatibility, invalidateCompatibility } from './source-compatibility.js';
 import type { Store } from './store.js';
-import type { WorkflowAdapter, WorkflowAdapterResult } from './task-workflow.js';
+import type { WorkflowAdapter, WorkflowAdapterResult } from './workflow/task-workflow.js';
 
 /** Admitted in the code-owned registry as two separate exact profiles: parent-only
  * (claude-workflow-02196-root-native-v1) and a fresh root with one fresh direct child

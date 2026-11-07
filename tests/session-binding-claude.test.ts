@@ -24,7 +24,7 @@ import type { BindingBaselineLedger, BindingUsageRecord, VerifiedSessionIdentity
 import { ClaudeSessionBindingProvider, claudeBindingProfiles, claudeProjectDirName, type ClaudeBindingOptions } from '../src/session-binding-claude.js';
 import { EventV2Schema, RuntimeEvidenceSchema } from '../src/flexible-contracts.js';
 import { compilePriceBasis, parsePriceCatalog } from '../src/pricing/price-catalog.js';
-import { projectCatalogCost } from '../src/catalog-cost-report.js';
+import { projectCatalogCost } from '../src/pricing/catalog-cost-report.js';
 
 // Synthetic fixtures only: no native Claude process, model call, user transcript or settings.
 const hook = resolve(import.meta.dirname, '../scripts/claude-session-hook.mjs');

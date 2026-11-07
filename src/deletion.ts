@@ -4,7 +4,7 @@ import { recordSourceTaskDeletion, recordSourceProjectDeletion } from './compari
 import { z } from 'zod';
 import { affectedComparisonProtocols, invalidateComparisonSnapshots } from './comparison/reports/comparison-invalidation.js';
 import { IdSchema, TimestampSchema } from './contracts.js';
-import { utcNow, type Clock } from './lifecycle.js';
+import { utcNow, type Clock } from './core/lifecycle.js';
 import type { Store } from './store.js';
 import { assertWebMetadataCleanupDone, flushWebMetadataCleanup, queueWebMetadataCleanup } from './core/store-metadata-cleanup.js';
 

@@ -5,7 +5,7 @@ import { protocolRow } from '../core/protocol-store.js';
 import { resolveSourceCompatibility, effectiveSourceCompatibility } from '../source-compatibility.js';
 import { functionalWorkflowEligible, comparisonReadiness } from '../readiness-store.js';
 import { parseProtocol } from '../flexible-contracts.js';
-import { isHumanPilotProtocol, codexRootHumanPilotProfileId } from '../session-binding-human-pilot.js';
+import { isHumanPilotProtocol, codexRootHumanPilotProfileId } from '../binding/session-binding-human-pilot.js';
 import { getCodexBindingAdmission, isAdmittedCodexBindingProtocol } from '../codex-binding-admission.js';
 export function localWebSupport(store: Store, profile: LocalWebProfile) {
   const workflow = profile.setup.workflow;

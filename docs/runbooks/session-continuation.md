@@ -131,7 +131,7 @@ observations. No live-call approval is implied by this API.
 ## Offline verification evidence
 
 ```sh
-npm test -- tests/session-continuation-cli.test.ts tests/codex-continuation.test.ts
+npm test -- tests/session-continuation-cli.test.ts tests/workflow/codex-continuation.test.ts
 npm run check
 ```
 

@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import { createHash } from 'node:crypto';
 import { addTokens, IdSchema, ModelSchema, TimestampSchema } from '../../contracts.js';
-import { aggregateTask, type TaskReport } from '../../metrics.js';
+import { aggregateTask, type TaskReport } from '../../pricing/metrics.js';
 import { Store } from '../../store.js';
-import { type TaskRow } from '../../lifecycle.js';
+import { type TaskRow } from '../../core/lifecycle.js';
 import { hasOrdinaryWindowEvidence } from '../../core/ordinary-window-evidence.js';
 import { aggregateOrdinaryWindowMetrics } from '../../pricing/metrics-ordinary-window.js';
 import { parseTaskMetadata } from '../../flexible-contracts.js';

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import { Lifecycle } from '../src/lifecycle.js';
+import { Lifecycle } from '../src/core/lifecycle.js';
 import { ordinaryProjectSettings, ordinaryTask } from '../src/ordinary-observation.js';
 import { claudeWindowSetupHttpFixture } from './helpers/claude-window-setup-http-fixture.js';
 let f: Awaited<ReturnType<typeof claudeWindowSetupHttpFixture>>;

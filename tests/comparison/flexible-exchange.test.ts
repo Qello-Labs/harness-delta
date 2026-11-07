@@ -6,8 +6,8 @@ import { registerExchangeMapping } from '../../src/comparison/exchange/mapping.j
 import { importExchangePackage } from '../../src/comparison/exchange/import.js';
 import { protocolDigest } from '../../src/comparison/exchange/contracts.js';
 import { createComparisonSnapshot } from '../../src/comparison/reports/comparison-snapshot.js';
-import { putUsageWithEvidence } from '../../src/runtime-history.js';
-import { registerPriceTable } from '../../src/pricing.js';
+import { putUsageWithEvidence } from '../../src/core/runtime-history.js';
+import { registerPriceTable } from '../../src/pricing/pricing.js';
 import { Deletion } from '../../src/deletion.js';
 import { createTeamSnapshot } from '../../src/comparison/reports/team-snapshot.js';
 import { seedFlexibleComparison } from '../helpers/flexible-store.js';

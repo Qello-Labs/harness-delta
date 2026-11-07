@@ -1,8 +1,8 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Collector, type SourceBytes } from '../../src/collection.js';
-import { Lifecycle } from '../../src/lifecycle.js';
+import { Collector, type SourceBytes } from '../../src/sources/collection.js';
+import { Lifecycle } from '../../src/core/lifecycle.js';
 import { Store } from '../../src/store.js';
 import type { Event } from '../../src/contracts.js';
 

@@ -1,4 +1,4 @@
-import type { Lifecycle } from '../lifecycle.js';
+import type { Lifecycle } from '../core/lifecycle.js';
 import type { createOrdinarySessionBindingService } from '../ordinary-session-binding.js';
 import type { LocalWebTaskReadContext } from './local-web-task-read.js';
 import type { PrivateTask } from './local-web-task-projection.js';
@@ -6,7 +6,7 @@ import { ordinaryTask, ordinaryTaskSettings } from '../ordinary-observation.js';
 import { parseTaskMetadata } from '../flexible-contracts.js';
 import { getClaudeBindingAdmission } from '../claude-binding-admission.js';
 import { inspectOrdinaryClaudeProjectSkill } from '../connect/claude-connect-readiness.js';
-import { effectiveTaskWorkspace } from '../harness-application.js';
+import { effectiveTaskWorkspace } from '../harness/harness-application.js';
 import { ordinaryTaskVersion } from './local-web-task-projection.js';
 import { localWebError } from './local-web-server.js';
 import { assertOrdinaryWindowSurfaceClosed } from '../core/ordinary-window-store.js';

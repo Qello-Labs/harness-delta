@@ -13,27 +13,27 @@ import { createLocalWebTaskActions } from './local-web-task-actions.js';
 import { createLocalWebTaskReader } from './local-web-task-read.js';
 import { readLocalWebOrdinaryWindowReport } from './local-web-ordinary-window-report.js';
 import { createLocalWebMetadata } from './local-web-metadata-store.js';
-import type { ChildReadinessObservation } from '../binding-child-readiness.js';
+import type { ChildReadinessObservation } from '../binding/binding-child-readiness.js';
 
-import { ApplicationCoordinator } from '../harness-application.js';
+import { ApplicationCoordinator } from '../harness/harness-application.js';
 
 export { LocalWebProfileSchema, LocalWebManifestSchema, type LocalWebProfile } from './local-web-profile.js';
 import { createSharedSetupManager } from './local-web-shared.js';
 import { createSetupReviewManager } from './local-web-setup-review.js';
 
-import { Lifecycle } from '../lifecycle.js';
+import { Lifecycle } from '../core/lifecycle.js';
 import { Store } from '../store.js';
 
-import { pauseExternalTask } from '../external-session-service.js';
+import { pauseExternalTask } from '../workflow/external-session-service.js';
 
-import type { WorkflowAdapter } from '../task-workflow.js';
+import type { WorkflowAdapter } from '../workflow/task-workflow.js';
 
 import { type LocalWebDomain } from './local-web-server.js';
 import { type BindingObservation } from '../session-binding-service.js';
 import { type ClaudeBindingOptions } from '../session-binding-claude.js';
 
-import type { BindingQualificationLease } from '../session-binding-qualification-lease.js';
-import { revokeBindingQualification } from '../session-binding-qualification-lease.js';
+import type { BindingQualificationLease } from '../binding/session-binding-qualification-lease.js';
+import { revokeBindingQualification } from '../binding/session-binding-qualification-lease.js';
 
 import type { SessionBindingProvider } from '../session-binding-contract.js';
 

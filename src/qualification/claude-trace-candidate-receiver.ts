@@ -2,8 +2,8 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { TimestampSchema } from '../contracts.js';
-import { utcNow, type Clock } from '../lifecycle.js';
-import { authorizeClaudeTraceScope, ingestClaudeTraceBatch } from '../claude-trace-candidate.js';
+import { utcNow, type Clock } from '../core/lifecycle.js';
+import { authorizeClaudeTraceScope, ingestClaudeTraceBatch } from './claude-trace-candidate.js';
 import type { CandidateScope } from '../nested-candidate.js';
 import type { Store } from '../store.js';
 

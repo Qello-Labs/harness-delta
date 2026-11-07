@@ -7,7 +7,7 @@ import Database from 'better-sqlite3';
 import { expect, test, vi } from 'vitest';
 import { z } from 'zod';
 import { CodexWorkflowExecutionSchema, createSyntheticCodexWorkflowAdapter } from '../../src/codex-workflow-adapter.js';
-import { Lifecycle } from '../../src/lifecycle.js';
+import { Lifecycle } from '../../src/core/lifecycle.js';
 import { createLocalWebDomain } from '../../src/web/local-web-domain.js';
 import type { LocalWebDomain } from '../../src/web/local-web-server.js';
 import { localWebFixture } from '../helpers/local-web-fixture.js';

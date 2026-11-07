@@ -4,7 +4,7 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { codexWorkflowFixture } from './helpers/codex-workflow-fixture.js';
 import { compiledWorker } from './helpers/compiled-worker.js';
-import type { WorkflowAdapterResult } from '../src/task-workflow.js';
+import type { WorkflowAdapterResult } from '../src/workflow/task-workflow.js';
 
 test('real measurement CLI invokes the shared engine for launch, resume, explicit link, collect and durable stop', async () => {
   const f = codexWorkflowFixture();

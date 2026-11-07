@@ -39,7 +39,7 @@ From Node 24, build first, then run:
 
 ```sh
 npm run build
-npm test -- tests/agent-metadata.test.ts tests/agent-display.test.ts tests/agent-display-ui.test.ts tests/session-binding-codex.test.ts tests/session-binding-claude.test.ts tests/session-binding-service.test.ts tests/session-binding-human-pilot.test.ts tests/session-binding-api.test.ts tests/session-binding-claude-api.test.ts
+npm test -- tests/sources/agent-metadata.test.ts tests/agent-display.test.ts tests/agent-display-ui.test.ts tests/session-binding-codex.test.ts tests/session-binding-claude.test.ts tests/session-binding-service.test.ts tests/binding/session-binding-human-pilot.test.ts tests/session-binding-api.test.ts tests/session-binding-claude-api.test.ts
 npm run check
 ```
 

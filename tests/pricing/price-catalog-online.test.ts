@@ -1,7 +1,7 @@
 import { expect, test, vi } from 'vitest';
 import { Store } from '../../src/store.js';
 import { bundledCatalogBytes, bundledPriceCatalog, digest } from '../../src/pricing/price-catalog.js';
-import { preparePriceBasis, readPriceBasis, readPriceCatalogStatus } from '../../src/price-catalog-store.js';
+import { preparePriceBasis, readPriceBasis, readPriceCatalogStatus } from '../../src/pricing/price-catalog-store.js';
 import { preparePriceCatalogRelease } from '../../src/pricing/price-catalog-release.js';
 import {
   defaultPriceCatalogSource,

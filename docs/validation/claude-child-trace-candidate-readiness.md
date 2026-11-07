@@ -52,7 +52,7 @@ or headers. A pause/resume requires a new receiver, preserving its new start
 boundary. A listener has no durable process reservation; this is an internal
 candidate, not the production run-level linkage mechanism.
 
-`src/claude-trace-candidate.ts` projects only request metadata from explicitly
+`src/qualification/claude-trace-candidate.ts` projects only request metadata from explicitly
 mapped process/session/agent identities. Root and child must share the registered
 native session and process; parent-agent identity must match the local mapping.
 Unmapped agents stay unattributed. Separate nested processes require their own
@@ -155,7 +155,7 @@ permission to execute it.
 Run with Node 24 from this isolated checkout:
 
 ```sh
-npm test -- tests/claude-trace-candidate.test.ts tests/qualification/claude-trace-candidate-receiver.test.ts tests/claude-offline-verification.test.ts tests/nested-candidate.test.ts tests/sources/otel-receiver.test.ts tests/sources/otel-projection.test.ts
+npm test -- tests/qualification/claude-trace-candidate.test.ts tests/qualification/claude-trace-candidate-receiver.test.ts tests/sources/claude-offline-verification.test.ts tests/nested-candidate.test.ts tests/sources/otel-receiver.test.ts tests/sources/otel-projection.test.ts
 npm run check
 git diff --check
 ```

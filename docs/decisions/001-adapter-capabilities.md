@@ -192,7 +192,7 @@ These are probe observations, not product benchmarks or complete task totals.
   Changing project identity is rejected. Missing topology evidence always prevents
   complete totals even when no explicit boundary was seen.
 
-See `tests/adapters.test.ts`, `tests/collection.test.ts`, and
+See `tests/sources/adapters.test.ts`, `tests/sources/collection.test.ts`, and
 `tests/cli-integration.test.ts` for independently authored synthetic fixtures and
 failure/boundary behavior. Runtime tests and live probes complement each other;
 neither establishes untested app or descendant parity.

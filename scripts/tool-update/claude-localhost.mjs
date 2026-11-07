@@ -61,7 +61,7 @@ export async function runLocalhost({ approvalFile, binary, root, scenario }) {
   privateDirectory(root);
   requireCondition(approval.scope.scenarios.includes(scenario), 'approval_invalid');
   const { Store } = await import(join(repository, 'dist/store.js'));
-  const { Lifecycle } = await import(join(repository, 'dist/lifecycle.js'));
+  const { Lifecycle } = await import(join(repository, 'dist/core/lifecycle.js'));
   const { assertOrdinaryTaskPrepared, revokeOrdinaryObservation } = await import(join(repository, 'dist/ordinary-observation.js'));
   const { createLocalWebDomain } = await import(join(repository, 'dist/web/local-web-domain.js'));
   const { createLocalWebServer } = await import(join(repository, 'dist/web/local-web-server.js'));

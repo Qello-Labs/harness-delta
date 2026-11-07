@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { Store } from '../src/store.js';
-import { Lifecycle } from '../src/lifecycle.js';
+import { Lifecycle } from '../src/core/lifecycle.js';
 import { Deletion } from '../src/deletion.js';
 const metadata = { type: 'fix', expected_size: 'small', assignee: 'u1', product: 'synthetic', model: 'synthetic', criterion_ids: ['c1'] };
 

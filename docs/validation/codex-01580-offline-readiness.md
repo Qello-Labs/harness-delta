@@ -17,7 +17,7 @@ its archived sanitized report passed the pure admission gate offline.
 
 At integration commit `2a12046502dd8f908c396255fe91d47b3a9b715e`, the implementation had digest
 `3fb4968e892787a013192ed875ef8c03019592d4273c1319220c8d22af915e73`.
-Only `src/lifecycle.ts` differs within the digest closure: main's configuration
+Only `src/core/lifecycle.ts` differs within the digest closure: main's configuration
 confirmation and comparison lifecycle controls are preserved. Assessing the
 same historical report against this identity returns `eligible: false` with
 `stale_implementationDigest`. Its digest was not rewritten, and no new live
@@ -89,11 +89,11 @@ passing it does not promote a real profile. `completeTotals` remains false and
 Use Node 24 and `npm ci`, then:
 
 ```sh
-npm test -- tests/codex-production.test.ts tests/codex-topology.test.ts tests/codex-readiness.test.ts tests/adapter-profiles.test.ts tests/adapter-profile-isolation.test.ts tests/conformance-admission.test.ts tests/conformance-registration.test.ts tests/core/coverage.test.ts
+npm test -- tests/sources/codex-production.test.ts tests/codex-topology.test.ts tests/sources/codex-readiness.test.ts tests/adapter-profiles.test.ts tests/sources/adapter-profile-isolation.test.ts tests/conformance-admission.test.ts tests/conformance-registration.test.ts tests/core/coverage.test.ts
 npm run check
 ```
 
-`tests/codex-readiness.test.ts` exercises actual admitted linking, collector and
+`tests/sources/codex-readiness.test.ts` exercises actual admitted linking, collector and
 report behavior with synthetic files: observed zero versus missing, exact replay,
 metric-specific supplied policy evidence, no complete promotion after success,
 and pause exclusion that clean resumed usage cannot backfill or repair.

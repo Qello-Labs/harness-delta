@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { FlexibleTeamInputSchema, FlexibleTeamRequestSchema, projectFlexibleTeam, type FlexibleTeamReport } from './flexible-team.js';
 import { IdSchema } from '../../contracts.js';
 import { parseComparison } from '../../comparison-contracts.js';
-import { type Clock, utcNow } from '../../lifecycle.js';
+import { type Clock, utcNow } from '../../core/lifecycle.js';
 import type { Store } from '../../store.js';
 import { parseExchangePackage, digest, time } from '../exchange/contracts.js';
 import { readMapping, registeredDestination } from '../exchange/mapping.js';

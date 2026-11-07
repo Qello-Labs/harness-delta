@@ -5,10 +5,10 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSyn
 import { join, resolve } from 'node:path';
 import { expect, test, vi } from 'vitest';
 import { Deletion } from '../src/deletion.js';
-import { externalContract } from '../src/external-session-contract.js';
+import { externalContract } from '../src/core/external-session-contract.js';
 import { createLocalWebDomain } from '../src/web/local-web-domain.js';
 import { createLocalWebServer } from '../src/web/local-web-server.js';
-import { selectTaskPriceTable } from '../src/price-catalog-selection.js';
+import { selectTaskPriceTable } from '../src/pricing/price-catalog-selection.js';
 import { ClaudeSessionBindingProvider, claudeProjectDirName } from '../src/session-binding-claude.js';
 import { localWebFixture } from './helpers/local-web-fixture.js';
 

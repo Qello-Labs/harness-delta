@@ -10,7 +10,7 @@ import { registerHarness, generateComparison } from '../src/harness/harness-conf
 import { hashBytes } from '../src/core/repository-files.js';
 import { comparisonVariant } from '../src/core/protocol-store.js';
 import { assertSharedTask } from '../src/web/local-web-shared-guard.js';
-import { applicationRequired } from '../src/harness-application.js';
+import { applicationRequired } from '../src/harness/harness-application.js';
 test('agent comparison preparation persists assignment but neither applies files nor permits legacy apply or connect', async () => {
   const f = localWebFixture();
   writeFileSync(join(f.project, 'README.md'), 'Synthetic prerequisites');

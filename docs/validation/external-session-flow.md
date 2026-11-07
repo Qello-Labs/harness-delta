@@ -16,9 +16,9 @@ The [user-opened session procedure](../runbooks/external-session-workflow.md) ([
 Node24 focused commands:
 
 ```sh
-npm test -- tests/qualification/external-session-claude-candidate.test.ts tests/external-session-service.test.ts tests/external-session-workflow.test.ts tests/cli/external-session-cli.test.ts tests/task-workflow.test.ts tests/codex-workflow-adapter.test.ts tests/qualification/claude-probe-coordinator.test.ts
+npm test -- tests/qualification/external-session-claude-candidate.test.ts tests/workflow/external-session-service.test.ts tests/workflow/external-session-workflow.test.ts tests/cli/external-session-cli.test.ts tests/workflow/task-workflow.test.ts tests/codex-workflow-adapter.test.ts tests/qualification/claude-probe-coordinator.test.ts
 npm test -- tests/qualification/external-session-claude-candidate.test.ts
-npm test -- tests/external-session-service.test.ts
+npm test -- tests/workflow/external-session-service.test.ts
 npm run typecheck
 npm run build
 ```

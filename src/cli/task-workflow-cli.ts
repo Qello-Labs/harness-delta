@@ -7,11 +7,11 @@ import {
   workflowTaskStatus,
   runAssignedWorkflow,
   type WorkflowAdapter
-} from '../task-workflow.js';
+} from '../workflow/task-workflow.js';
 import { createCodexWorkflowAdapter, CodexWorkflowExecutionSchema } from '../codex-workflow-adapter.js';
 import { createClaudeWorkflowAdapter, ClaudeWorkflowExecutionSchema, recoverClaudeWorkflow, stopClaudeWorkflow } from '../claude-workflow-adapter.js';
-import { recoverCodexWorkflow, stopCodexWorkflow } from '../codex-workflow-journal.js';
-import type { Outcome } from '../lifecycle.js';
+import { recoverCodexWorkflow, stopCodexWorkflow } from '../workflow/codex-workflow-journal.js';
+import type { Outcome } from '../core/lifecycle.js';
 import type { Store } from '../store.js';
 import { createComparisonSnapshot } from '../comparison/reports/comparison-snapshot.js';
 import type { ComparisonSnapshotRequest } from '../comparison/reports/comparison-contracts.js';

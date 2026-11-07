@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } 
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { Store } from '../../src/store.js';
-import { Lifecycle } from '../../src/lifecycle.js';
+import { Lifecycle } from '../../src/core/lifecycle.js';
 import { OtelReceiver } from '../../src/sources/otel-receiver.js';
 import { claudeTelemetryEnv, codexOtelOverrides, writeClaudeSettingsFile, type TelemetryDestination } from '../../src/sources/otel-launch-settings.js';
 import { launchSessionId, profile, syntheticVersion } from '../helpers/otel-fixture.js';

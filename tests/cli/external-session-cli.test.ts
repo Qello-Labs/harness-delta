@@ -5,7 +5,7 @@ import { expect, test, vi } from 'vitest';
 import { main } from '../../src/cli.js';
 import { createSyntheticCodexWorkflowAdapter } from '../../src/codex-workflow-adapter.js';
 import { codexWorkflowFixture } from '../helpers/codex-workflow-fixture.js';
-import { externalInstructionFragment } from '../../src/external-session-context.js';
+import { externalInstructionFragment } from '../../src/workflow/external-session-context.js';
 
 test('CLI prepares without activation, explicitly connects and never accepts launch as an external operation', async () => {
   const f = codexWorkflowFixture();

@@ -2,7 +2,7 @@ import { expect, test } from 'vitest';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CodexWorkflowExecutionSchema, createSyntheticCodexWorkflowAdapter } from '../src/codex-workflow-adapter.js';
-import { runAssignedWorkflow } from '../src/task-workflow.js';
+import { runAssignedWorkflow } from '../src/workflow/task-workflow.js';
 import { codexWorkflowFixture } from './helpers/codex-workflow-fixture.js';
 
 test('explicit per-invocation untrusted launch forwards the scoped setting and preserves the collection hook', async () => {

@@ -1,6 +1,6 @@
-import { registerPriceTable } from '../../pricing.js';
+import { registerPriceTable } from '../../pricing/pricing.js';
 import type { Store } from '../../store.js';
-import { type Clock, utcNow } from '../../lifecycle.js';
+import { type Clock, utcNow } from '../../core/lifecycle.js';
 import { canonicalJson } from '../../core/canonical-json.js';
 import { parseExchangePackage, parseExchange, time, digest } from './contracts.js';
 import { readMapping, registeredDestination } from './mapping.js';

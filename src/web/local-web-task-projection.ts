@@ -2,11 +2,11 @@ import type { PrivateTask } from './local-web-metadata-store.js';
 export type { PrivateTask, Source } from './local-web-metadata-store.js';
 import { createHash } from 'node:crypto';
 import { projectExternalActions } from './local-web-task-actions-projection.js';
-import type { TaskRow } from '../lifecycle.js';
-import type { ApplicationCoordinator } from '../harness-application.js';
+import type { TaskRow } from '../core/lifecycle.js';
+import type { ApplicationCoordinator } from '../harness/harness-application.js';
 import type { getApplicationLaunchCapability } from '../harness/harness-application-launch.js';
-import type { bindingCollectionControl } from '../external-session-contract.js';
-import type { ExternalTaskSetup, externalTaskState } from '../external-session-service.js';
+import type { bindingCollectionControl } from '../core/external-session-contract.js';
+import type { ExternalTaskSetup, externalTaskState } from '../workflow/external-session-service.js';
 import type { comparisonVariant } from '../core/protocol-store.js';
 import type { readBlockedTask, readExternalTask, readOrdinaryTask } from './local-web-task-read.js';
 

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { Store } from '../../store.js';
-import { type Clock, utcNow } from '../../lifecycle.js';
+import { type Clock, utcNow } from '../../core/lifecycle.js';
 import { IdSchema } from '../../contracts.js';
 import { comparisonProtocol, protocolRow } from '../../core/protocol-store.js';
 import { FlexibleSnapshotInputSchema } from '../reports/flexible-comparison.js';

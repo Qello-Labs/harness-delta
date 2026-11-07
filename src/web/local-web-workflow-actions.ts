@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { CodexWorkflowExecutionSchema } from '../codex-workflow-adapter.js';
-import { recoverCodexWorkflow } from '../codex-workflow-journal.js';
-import { bindingCollectionControl, revokeBindingCollectionControl } from '../external-session-contract.js';
+import { recoverCodexWorkflow } from '../workflow/codex-workflow-journal.js';
+import { bindingCollectionControl, revokeBindingCollectionControl } from '../core/external-session-contract.js';
 import {
   collectExternalTask,
   connectExternalTask,
@@ -10,12 +10,12 @@ import {
   pauseExternalTask,
   recordExternalTaskOutcome,
   type ExternalTaskSetup
-} from '../external-session-service.js';
-import { releaseExternalWorkflow } from '../external-session-workflow.js';
-import type { Lifecycle } from '../lifecycle.js';
+} from '../workflow/external-session-service.js';
+import { releaseExternalWorkflow } from '../workflow/external-session-workflow.js';
+import type { Lifecycle } from '../core/lifecycle.js';
 import type { createLocalWebBindingSelection } from './local-web-binding-selection.js';
 import type { Job } from './local-web-binding-observation.js';
-import { bindingQualificationOwnerLive, revokeBindingQualification } from '../session-binding-qualification-lease.js';
+import { bindingQualificationOwnerLive, revokeBindingQualification } from '../binding/session-binding-qualification-lease.js';
 import type { Store } from '../store.js';
 import type { LocalWebDomainOptions } from './local-web-domain.js';
 import type { createLocalWebMetadata, PrivateTask, Source } from './local-web-metadata-store.js';

@@ -207,7 +207,7 @@ From a Node 24 or 26 checkout:
 npm run build
 npm test -- tests/claude-hook-diagnostics.test.ts tests/session-binding-claude.test.ts tests/session-binding-claude-api.test.ts
 npm test -- tests/qualification/binding-readiness-probe.test.ts tests/claude-readiness-capture.test.ts
-npm test -- tests/claude-family-diagnostics.test.ts tests/binding-family-diagnostic-sink.test.ts tests/session-binding-human-pilot.test.ts tests/claude-child-start-readiness.test.ts
+npm test -- tests/claude-family-diagnostics.test.ts tests/binding/binding-family-diagnostic-sink.test.ts tests/binding/session-binding-human-pilot.test.ts tests/claude-child-start-readiness.test.ts
 node --test skills/harness-connect/tests/*.mjs
 npm run check
 ```

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AgentMetadataSchema } from './agent-metadata.js';
+import { AgentMetadataSchema } from './sources/agent-metadata.js';
 import { IdSchema, ProductVersionSchema, TimestampSchema, UsageV2Schema } from './contracts.js';
 import type { CandidateScope } from './nested-candidate.js';
 import type { OrdinaryWindowCoverage } from './core/ordinary-window-policy.js';

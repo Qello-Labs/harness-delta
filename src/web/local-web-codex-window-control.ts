@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { IdSchema } from '../contracts.js';
-import { Lifecycle, utcNow } from '../lifecycle.js';
+import { Lifecycle, utcNow } from '../core/lifecycle.js';
 import { createOrdinaryWindowTask, ordinaryTask, revokeOrdinaryObservation } from '../ordinary-observation.js';
 import { collectOrdinaryCodexWindow, connectOrdinaryCodexWindow } from '../ordinary-session-binding.js';
 import {

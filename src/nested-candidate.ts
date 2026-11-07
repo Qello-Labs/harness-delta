@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { addTokens, IdSchema, ModelSchema, TimestampSchema, TokenSchema, type Reading } from './contracts.js';
 import { CostCoverageEvidenceSchema, CostFactsSchema, EventV2Schema, RuntimeEvidenceSchema, type CostCoverageEvidence, type EventV2, type RuntimeEvidence } from './flexible-contracts.js';
-import { putUsageWithEvidence, requireActiveScope } from './runtime-history.js';
+import { putUsageWithEvidence, requireActiveScope } from './core/runtime-history.js';
 import type { Store } from './store.js';
 import { claudeProbeProductVersion, claudeWorkflowProductVersions, type ClaudeWorkflowProductVersion } from './claude-workflow-versions.js';
 import { toolVersionRecipe } from './core/tool-version-profiles.js';

@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { InstrumentedProducerRecordSchema } from '../../src/instrumented-codex/instrumented-codex-contracts.js';
 import { projectInstrumentedTerminal } from '../../src/instrumented-codex/instrumented-codex-usage.js';
-import { priceUsage } from '../../src/pricing.js';
+import { priceUsage } from '../../src/pricing/pricing.js';
 import { PriceTableSchema } from '../../src/flexible-contracts.js';
 import { instrumentedFixtureProfile } from '../helpers/instrumented-codex-fixture.js';
 

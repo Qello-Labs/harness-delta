@@ -8,8 +8,8 @@ import { z } from 'zod';
 
 // Lane budgets below must stay shorter than these timeouts to keep failure reasons visible.
 vi.setConfig({ testTimeout: 30000 });
-import * as collection from '../../src/collection.js';
-import { checkCandidatePermissions } from '../../src/codex-candidate-permissions.js';
+import * as collection from '../../src/sources/collection.js';
+import { checkCandidatePermissions } from '../../src/workflow/codex-candidate-permissions.js';
 import { prepareCodexQualification } from '../../src/qualification/codex-qualification.js';
 import { codexQualificationFixture as fixture } from '../helpers/codex-qualification-fixture.js';
 

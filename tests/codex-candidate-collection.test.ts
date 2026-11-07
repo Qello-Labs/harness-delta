@@ -2,9 +2,9 @@ import { appendFileSync, mkdtempSync, renameSync, rmSync, writeFileSync } from '
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
-import { Collector, readSource } from '../src/collection.js';
+import { Collector, readSource } from '../src/sources/collection.js';
 import { Store } from '../src/store.js';
-import { Lifecycle } from '../src/lifecycle.js';
+import { Lifecycle } from '../src/core/lifecycle.js';
 import { candidateCostCoverage, type CandidateScope } from '../src/nested-candidate.js';
 import { sessionCompatibility } from '../src/source-compatibility.js';
 import { lookupFileProfile } from '../src/adapter-profiles.js';
