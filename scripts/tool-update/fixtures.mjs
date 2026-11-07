@@ -58,6 +58,66 @@ export function snapshotPins(binary) {
 export function assertPins(before, binary) {
   requireCondition(JSON.stringify(before) === JSON.stringify(snapshotPins(binary)), 'pin_drift');
 }
+const windowInputs = Object.freeze({
+  codex: Object.freeze({
+    skill: 'skills/harness-connect-window-codex',
+    producer: 'scripts/session-binding-codex-window-hook.mjs',
+    builtSkill: 'dist/skills/harness-connect-window-codex',
+    builtProducer: 'dist/assets/session-binding-codex-window-hook.mjs'
+  })
+});
+function windowPath(path) {
+  let current = repository;
+  for (const name of path.split('/')) {
+    current = join(current, name);
+    requireCondition(!lstatSync(current).isSymbolicLink(), 'pin_drift');
+  }
+  return current;
+}
+export function snapshotWindowPins(selection) {
+  requireCondition(selection?.product === 'codex' && ['source', 'built'].includes(selection.executionMode), 'approval_invalid');
+  const inputs = windowInputs.codex;
+  const digest = (domain, rows) => sha256(JSON.stringify(['ordinary-window-execution-v1', selection.product, selection.executionMode, domain, rows]));
+  try {
+    const skill = treeDigest(windowPath(inputs.skill));
+    const builtSkill = treeDigest(windowPath(inputs.builtSkill));
+    const producer = hashFile(windowPath(inputs.producer));
+    const builtProducer = hashFile(windowPath(inputs.builtProducer));
+    requireCondition(skill === builtSkill && producer === builtProducer, 'pin_drift');
+    const instrument = [
+      ['scripts/tool-update', treeDigest(windowPath('scripts/tool-update'))],
+      ['scripts/generated', treeDigest(windowPath('scripts/generated'))],
+      [inputs.skill, skill],
+      [inputs.producer, producer]
+    ];
+    return {
+      runtime: digest('runtime', hashFile(realpathSync(process.execPath))),
+      source: digest('source', treeDigest(windowPath('src'))),
+      build: digest('build', treeDigest(windowPath('dist'))),
+      instrument: digest('instrument', instrument),
+      skill: digest('skill', [inputs.skill, skill]),
+      producer: digest('producer', [inputs.producer, producer]),
+      built_skill: digest('built_skill', [inputs.builtSkill, builtSkill]),
+      built_producer: digest('built_producer', [inputs.builtProducer, builtProducer]),
+      lockfile: digest('lockfile', hashFile(windowPath('package-lock.json'))),
+      package: digest('package', hashFile(windowPath('package.json')))
+    };
+  } catch (error) {
+    if (error instanceof ConformanceError) throw error;
+    if (error instanceof Error && ['ENOENT', 'ENOTDIR', 'ELOOP', 'EACCES'].includes(error.code)) {
+      throw new ConformanceError('pin_drift');
+    }
+    throw error;
+  }
+}
+export function assertWindowPins(before, selection) {
+  const current = snapshotWindowPins(selection);
+  const keys = Object.keys(current);
+  requireCondition(
+    before !== null && typeof before === 'object' && Object.keys(before).length === keys.length && keys.every(key => before[key] === current[key]),
+    'pin_drift'
+  );
+}
 export function privateDirectory(path) {
   const stat = lstatSync(path);
   requireCondition(isAbsolute(path) && realpathSync(path) === path && stat.isDirectory() &&

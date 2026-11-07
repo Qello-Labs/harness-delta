@@ -11,6 +11,24 @@ export function hashFile(path: string): string;
 export function treeDigest(path: string): string;
 export function snapshotPins(binary: string): Record<string, string>;
 export function assertPins(before: Readonly<Record<string, string>>, binary: string): void;
+export interface WindowPinSelection {
+  readonly product: 'codex';
+  readonly executionMode: 'source' | 'built';
+}
+export interface WindowPins {
+  readonly runtime: string;
+  readonly source: string;
+  readonly build: string;
+  readonly instrument: string;
+  readonly skill: string;
+  readonly producer: string;
+  readonly built_skill: string;
+  readonly built_producer: string;
+  readonly lockfile: string;
+  readonly package: string;
+}
+export function snapshotWindowPins(selection: WindowPinSelection): WindowPins;
+export function assertWindowPins(before: WindowPins, selection: WindowPinSelection): void;
 export function privateDirectory(path: string): string;
 export function privateRead(path: string, root: string, active?: () => boolean, limit?: number): string;
 export function writePrivateJson(path: string, value: unknown): void;
