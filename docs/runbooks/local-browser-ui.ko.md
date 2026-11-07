@@ -122,6 +122,16 @@ Codex 0.166.0을 **UNQUALIFIED CANDIDATE**(`qualified:false`)로도 표시합니
 native 실행에는 정확한 intent별 별도 동의가 필요하며, H4 host-spawn/Detached와
 H5 env-null-transcript 경로는 제외됩니다. file/workflow fallback과 native resume은 없습니다.
 
+root window 선택기는 비활성으로 표시되며 설정, 설치, 활성화 요청을 보내지 않습니다. 위의
+정확 버전 선택기와 저장된 설정은 그대로입니다. 일반 root 창은 오프라인 검증용으로 구현되었으며,
+일반 창(window) 수집은 별도 제품 활성화와 native 검증 전까지 비활성 상태입니다. 저장된
+window 근거를 보려면 `#ordinary-window-task-v1`을 열고 작업 ID와 cutoff를 입력하거나
+`#ordinary-window-task-v1?task=<ID>&cutoff=<ISO>&locale=en|ko`를 바로 여세요. 이 화면은
+`GET /api/tasks/:id/ordinary-window-report-v1?cutoff=...`를 읽는 설명용 화면이며 launch, 준비,
+활성화, 수집을 하지 않습니다. 이벤트가 없으면 root와 자식 관측 범위를 Unobserved로 표시하고,
+네 가지 토큰·비용 구분과 소유·identity 한계를 보여 줍니다. 기존 bootstrap, 작업, 수집 경로는
+window 작업에서 닫혀 있습니다.
+
 ### 비교 파일 준비와 확인
 
 A/B 작업일 때만 이어갑니다. **2. 비교·측정 설정 준비**에서 하네스 적용 방식을

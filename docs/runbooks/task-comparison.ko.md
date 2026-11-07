@@ -123,6 +123,8 @@ node dist/cli.js --db .harness-delta/comparison-demo/local.sqlite comparison sho
 
 ## 작업 사전 등록 및 영구 배정 확인
 
+native 일반 root 창은 배정에 들어갈 수 없으며 배정된 작업은 window 정책을 선택하지 않습니다.
+
 실행 전에 `task.json`을 작성하세요:
 
 ```json

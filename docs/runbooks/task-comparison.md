@@ -123,6 +123,9 @@ flag overrides R10. These operations do not validate analysis or start collectio
 
 ## Preregister a task and reveal its persistent assignment
 
+Native ordinary root windows can't enter an assignment; an assigned task never
+selects a window policy.
+
 Write `task.json` before execution:
 
 ```json

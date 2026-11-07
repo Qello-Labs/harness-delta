@@ -189,6 +189,19 @@ Claude Code 2.1.283이 해당됩니다. Codex 0.158.0은 M2 경계 안의 순차
 [admission 절차](codex-version-admission.md)를 사용하세요. 별도 승인이 필요한
 수동 검증이며 설치나 수집 중 자동으로 실행되지 않습니다.
 
+Codex(`>0.163.0`, `<0.170.0`)와 Claude Code(`>2.1.306`, `<2.2.0`)의 일반 root 참조 창은
+오프라인 검증용으로 구현되었으며, 일반 창(window) 수집은 별도 제품 활성화와 native 검증
+전까지 비활성 상태입니다. 위의 정확 버전 조건은 바뀌지 않습니다. 저장된 window 근거는
+`node dist/cli.js --db ./local.db report ordinary-window <task-id> --cutoff <UTC>`
+(`--format json|markdown`)로 읽고, `compatibility ordinary-window status <task-id>`는 상태를
+보여 줍니다. `--decision`은 로컬 결정을 설명할 뿐 수집을 허용하지 않습니다. 보고서
+`ordinary-window-task-v1`은 이벤트가 없어도 root 관측 범위를 기록하고, root 소유를 미검증으로,
+자식 관측 범위를 `unobserved`로 표시하며 자식 사용량은 null입니다. 검증, 호환성 미검증,
+기존 미검증, 무효화 토큰을 따로 두고 완전한 합계는 없습니다. 이 구분은 위의 기존 합계에
+들어가지 않습니다. `compatibility ordinary-window activate <packet-file>`과
+`revoke <packet-file>`은 유지보수자의 결정을 기록하며 실행이나 native 증거가 아닙니다.
+제품 활성화에는 별도 승인이 필요하고 이 안내는 그 승인을 부여하지 않습니다.
+
 ## 오류 복구와 제한
 
 오류는 고정된 코드로 표시합니다. 원본 파일 식별 변경·잘림, 범위·버전 불일치,

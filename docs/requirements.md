@@ -45,6 +45,9 @@ Determine scope before reading session contents. Verify source formats, permissi
 product versions, counter meanings, resumes, compaction, resets, rotation, parent/child
 relationships, and pause boundaries. Mark unsupported or ambiguous capabilities
 explicitly. A source that cannot establish scope before access is unsupported.
+For ordinary root-window policies, access to the root source does not prove that
+the root owns its usage: record `rootOwnership:unverified`, treat possible child
+contribution as unknown, and stop collection on an observed contradiction.
 
 Acceptance: private fields are rejected at sharing boundaries; unsupported sources
 and uncertain intervals cannot be reported as successfully measured data.
@@ -58,6 +61,11 @@ counter checks. Passing those checks permits a compatibility-unverified referenc
 estimate, not verified support. A known incompatible version or failed required
 contract stops the affected observation and invalidates its uncertain data.
 File-parser compatibility does not establish native execution compatibility.
+Separately approved ordinary root-reference policies are observation selection,
+not exact admission or launch authority. They preserve the actual source version
+and the inherited evidence limits. Both policies are implemented for offline
+acceptance, ordinary-window collection disabled pending separate product
+activation and native acceptance.
 
 Preserve actual product version, applied parser/profile revision, compatibility
 rule revision and trust state in observations and supported reports/exchanges.
@@ -92,7 +100,8 @@ rework, and final outcome remain distinguishable.
 Use a local transactional store with versioned migrations, relationship constraints,
 and idempotent source identifiers. Conflicting payloads must not silently overwrite
 existing events. Preserve zero separately from missing, error, excluded, and
-unmeasurable readings. Verify cumulative versus incremental counters before aggregation.
+unmeasurable readings. An ordinary-window batch that fails a required contract
+commits no usage, exclusions or cursor advance. Verify cumulative versus incremental counters before aggregation.
 Do not count cached input or reasoning output twice when included in parent totals;
 do not double-count parent/child usage. Use UTC timestamps, nonnegative safe-integer
 tokens with overflow rejection, and decimal strings for shared monetary amounts.
@@ -107,6 +116,11 @@ as partial, not a complete task total. Keep model runtime, user elapsed time, an
 summed parallel-session time distinct; elapsed time is not human labor time.
 Estimate monetary cost only with a recorded rate source, model, effective date,
 currency, and calculation version; it is not a subscription bill.
+
+Ordinary-window reports record root coverage even when no event arrives, keep
+child coverage unobserved with null child usage and cost, and separate verified,
+compatibility-unverified, legacy-unverified and invalidated tokens and costs.
+They state identity and ownership limits and never present a complete total.
 
 Successful-task usage divides all eligible usage, including failures and rework,
 by the number of successful tasks. No successful tasks means undefined, not zero.

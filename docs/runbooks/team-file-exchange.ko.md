@@ -45,6 +45,8 @@ invalid_exchange_package는 비공개·알 수 없는 필드나 잘못된 형식
 
 삭제 통지를 적용하기 전에 팀 보고서를 만드세요. 비교 무효화는 되돌릴 수 없습니다.
 
+native 일반 root 창 관측은 교환 패키지나 팀 보고서에 들어갈 수 없습니다.
+
 ## 가져오기와 로컬 삭제
 
 `node dist/cli.js --db team.db project add destination --root .`로 수신 프로젝트를 등록합니다.

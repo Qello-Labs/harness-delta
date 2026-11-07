@@ -4,8 +4,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './com
 import { Badge } from './components/ui/badge.js';
 import { Label } from './components/ui/label.js';
 import { ClaudeConnection } from './ClaudeConnection.js';
+import { OrdinaryWindowNotice } from './OrdinaryWindowNotice.js';
 import * as api from './api.js';
 import type { Locale, OrdinarySetup, Task } from './types.js';
+
+type SetupOperation = 'configure' | 'preview-install' | 'install' | 'preview-remove' | 'remove' | 'recover-lock';
+function ordinarySetupInput(operation: SetupOperation, status: OrdinarySetup | null) {
+  return {
+    operation,
+    ...(operation === 'configure' ? { product_version: status?.product_version } : {}),
+    ...(operation === 'install' || operation === 'remove'
+      ? { expected_package_hash: status?.installation.packageHash ?? null, expected_installed_hash: status?.installation.installedHash ?? null }
+      : {})
+  };
+}
 
 export function TaskAssignment({ task, locale }: { task: Task; locale: Locale }) {
   if (task.mode === 'ordinary') return null;
@@ -56,31 +68,26 @@ export function OrdinaryObservationSetup({
     const controller = new AbortController();
     void fetch(route, { cache: 'no-store', signal: controller.signal })
       .then(async reply => {
-        if (!reply.ok) throw new api.LocalApiError('ordinary_setup_unavailable');
+        if (!reply.ok) {
+          throw new api.LocalApiError('ordinary_setup_unavailable');
+        }
         const value = (await reply.json()) as OrdinarySetup;
         if (!controller.signal.aborted) setStatus(value);
       })
       .catch((failure: unknown) => {
-        if (!controller.signal.aborted) setError(failure instanceof api.LocalApiError ? failure.code : 'local_operation_failed');
+        if (!controller.signal.aborted) {
+          setError(failure instanceof api.LocalApiError ? failure.code : 'local_operation_failed');
+        }
       });
     return () => controller.abort();
   }, [route]);
-  async function operate(operation: 'configure' | 'preview-install' | 'install' | 'preview-remove' | 'remove' | 'recover-lock') {
+  async function operate(operation: SetupOperation) {
     if (reading || busy) return;
     setReading(true);
     setPreview(null);
     setError(null);
     try {
-      const value = await perform<OrdinarySetup>(route, {
-        operation,
-        ...(operation === 'configure' ? { product_version: status?.product_version } : {}),
-        ...(operation === 'install' || operation === 'remove'
-          ? {
-              expected_package_hash: status?.installation.packageHash ?? null,
-              expected_installed_hash: status?.installation.installedHash ?? null
-            }
-          : {})
-      });
+      const value = await perform<OrdinarySetup>(route, ordinarySetupInput(operation, status));
       if (value) {
         setStatus(value);
         if (operation === 'preview-install') setPreview('install');
@@ -110,6 +117,7 @@ export function OrdinaryObservationSetup({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        <OrdinaryWindowNotice product="claude_code" locale={locale} />
         {error && (
           <div className="text-sm">
             <p role="alert" className="text-destructive">

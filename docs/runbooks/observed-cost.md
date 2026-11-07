@@ -152,6 +152,14 @@ Journals ending after the cutoff cannot prove earlier coverage.
 Empty windows have null coverage evidence and an ineligible decision.
 Priceability does not establish request-universe completeness or terminal delivery.
 
+Ordinary-window reports (`ordinary-window-task-v1`) keep their own cost partitions:
+verified, compatibility-unverified, legacy-unverified and invalidated. Valid
+amounts remain partial; the invalidated partition records excluded observations
+and has no usable amount. Complete amounts and per-success denominators are null. Root
+ownership stays unverified, and child cost is null because children are
+`unobserved`. These windows are implemented for offline acceptance, ordinary-window
+collection disabled pending separate product activation and native acceptance.
+
 ## 5. Read a separate sealed instrumented window
 
 The separate instrumented receiver provides before-dispatch/terminal records and

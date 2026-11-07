@@ -54,6 +54,19 @@ to its actual executable identity and detect replacement rather than skipping
 integrity checks to accommodate a new release. Session topology and operations
 outside the base profile remain unsupported.
 
+Two ordinary root-reference policies select observation only. They aren't exact
+admission or launch authority, and the launch identity rule above is unchanged.
+`codex-binding-root-window-v1` covers stable Codex `>0.163.0` and `<0.170.0`
+with source-only evidence: the task declaration must equal the root creation
+header, but that header doesn't prove the writer version, and no native asset is
+a prerequisite. Optional Codex file assurance isn't implemented, isn't a Claude
+dependency and isn't a hidden activation gate. `claude-binding-root-window-v1`
+covers stable Claude Code `>2.1.306` and `<2.2.0` and requires receipt PID/start,
+publisher and local disk pins; those pins don't prove the mapped process image.
+Each evidence mode needs its own risk acceptance. Both policies are implemented
+for offline acceptance, ordinary-window collection disabled pending separate
+product activation and native acceptance.
+
 ## Data trust and reporting
 
 Persist three distinct compatibility states:
@@ -78,6 +91,17 @@ model/date and arithmetic requirements still apply. Do not mix these estimates
 into verified aggregates, confirmed cost claims or inferential adoption decisions.
 Each report must expose the unverified and invalidated portions, including an
 all-unverified task; filtering them out must not produce an apparent measured zero.
+
+Ordinary-window reports use a separate versioned projection,
+`ordinary-window-task-v1`, and leave legacy report shapes unchanged. Root-source
+references stay `compatibility_unverified`. Coverage is `root_only` with
+`rootOwnership:unverified`, `possibleChildContribution:unknown` and children
+`unobserved`; detected children carry null usage and cost, and detection
+completeness stays unknown. Coverage is recorded for eventless roots. Tokens and
+costs are split into verified, compatibility-unverified, legacy-unverified and
+invalidated partitions with null complete totals. A required-contract failure
+commits no usage or cursor advance, and a later incompatibility invalidates the
+affected cohort. An observed ownership contradiction stops collection.
 
 ## Detection and correction
 
@@ -227,6 +251,13 @@ unavailable for those profiles, and frozen real experiments remain exact.
 Verification entry points are `tests/source-compatibility.test.ts`,
 `tests/cli/source-compatibility-cli.test.ts`, `tests/source-trust-report.test.ts`,
 the native workflow adapter/admission tests, and `npm run check` under Node 24.
+
+The ordinary root-reference policies above are not rows in this table. Static
+assessment reports them as separate finite policy lanes, distinct from exact
+admission lanes; a policy lane doesn't read activation state, doesn't clear
+`exact_only` on legacy lanes and doesn't make a release usable. The approved
+order is: registry, closed windows, difference judgment, then selective
+promotion. Native acceptance, promotion and publication gates stay in force.
 
 ## Explicit ordinary-root Codex pilot parser reuse
 

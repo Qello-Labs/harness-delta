@@ -56,6 +56,16 @@ and follows supported native child relations. Children do not call the skill.
 Repeated calls confirm binding; multiple tasks require one explicit selection.
 A common cwd, model statement, environment hint or guessed UUID is never proof.
 
+The ordinary root-reference policies `codex-binding-root-window-v1` (Codex
+`>0.163.0`, `<0.170.0`) and `claude-binding-root-window-v1` (Claude Code
+`>2.1.306`, `<2.2.0`) are implemented for offline acceptance, ordinary-window
+collection disabled pending separate product activation and native acceptance.
+They are not exact admissions and are not listed among the supported versions.
+No window package, helper or setup is delivered here, and installing this skill
+doesn't open a window. A root-source reference isn't root-own usage: ownership
+stays unverified and child coverage and cost stay null. See
+[ADR 013](../decisions/013-forward-version-compatibility.md#profile-selection-and-scope).
+
 ## Project agent connection setup
 
 In Local setup, select the registered project and open **Agent connection setup**.

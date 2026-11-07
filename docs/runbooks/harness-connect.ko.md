@@ -52,6 +52,14 @@ instrumentation이 있으면 평소처럼 연 부모가 신뢰 가능한 receipt
 연결을 확인하고 여러 작업이면 한 번 명시적으로 선택합니다. 같은 cwd, 모델 진술,
 환경 힌트나 추측 UUID는 증거가 아닙니다.
 
+일반 root 참조 정책 `codex-binding-root-window-v1`(Codex `>0.163.0`, `<0.170.0`)과
+`claude-binding-root-window-v1`(Claude Code `>2.1.306`, `<2.2.0`)은 오프라인 검증용으로
+구현되었으며, 일반 창(window) 수집은 별도 제품 활성화와 native 검증 전까지 비활성 상태입니다.
+정확 admission이 아니며 지원 버전 목록에도 없습니다. 여기서는 window 패키지, helper, 설정을
+제공하지 않으며 이 스킬을 설치해도 window가 열리지 않습니다. root 소스 참조는 root 자체
+사용량이 아닙니다. 소유는 미검증으로 남고 자식 관측 범위와 비용은 null입니다.
+[ADR 013](../decisions/013-forward-version-compatibility.md#profile-selection-and-scope)을 참고하세요.
+
 ## 프로젝트 에이전트 연결 설정
 
 로컬 설정에서 등록 프로젝트를 선택하고 **에이전트 연결 설정**을 엽니다.
