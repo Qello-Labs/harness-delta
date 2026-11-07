@@ -5,7 +5,7 @@ export const operations = ['launch', 'link', 'collect', 'restart', 'resume'];
 export const topologies = ['root', 'root_direct_child', 'bounded_family'];
 // Imperative operation fences have no exported descriptor. Drift requires a fresh rule review.
 export const scopeSourceDigests = Object.freeze({
-  'src/codex-workflow-adapter.ts': '1b69d9d1ed067b25f509c9c8416a64197c7d505de42bda3e962f18065f541168',
+  'src/codex-workflow-adapter.ts': '14044d27e6db4c930cf3ece93b14a77051c1b305be636fa90cbf9b8b68378041',
   'src/claude-workflow-adapter.ts': '344a6483aba255249ae59a7f53e0f8937ed60c79ce3767b85df1c188f5928ac4',
   'src/session-binding-contract.ts': 'c01de8b3c48c6a7db75247771031160a5f06745ad53c29323a658e9ef10e1454',
   'src/ordinary-session-binding.ts': '34f59f9b76ebaa37eab0ecbdfd3fae5247e29739b2132758561cf1526b974085',
