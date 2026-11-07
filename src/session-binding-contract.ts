@@ -19,14 +19,24 @@ export interface NativeConnectionProof {
   readonly processId: string;
   readonly productVersion: string;
 }
-export const VerifiedSessionIdentitySchema = z.strictObject({
-  product: BindingProductSchema, productVersion: ProductVersionSchema, sessionId: IdSchema,
-  sourceRef: z.string().min(1).max(4096), sourceIdentity: IdSchema,
-  cwd: z.string().min(1).max(4096), identityEvidenceId: IdSchema,
-  parentSessionId: IdSchema.nullable(), createdAt: TimestampSchema,
-  agentMetadata: AgentMetadataSchema.optional(),
-  nativeMapping: z.strictObject({ nativeSessionId: IdSchema, processId: IdSchema.nullable(), agentId: IdSchema.nullable() }).optional(),
-}).refine(value => !value.agentMetadata || (value.product === 'codex' ? value.agentMetadata.source === 'codex_session_meta' : value.agentMetadata.source === 'claude_hook'));
+export const VerifiedSessionIdentitySchema = z
+  .strictObject({
+    product: BindingProductSchema,
+    productVersion: ProductVersionSchema,
+    sessionId: IdSchema,
+    sourceRef: z.string().min(1).max(4096),
+    sourceIdentity: IdSchema,
+    cwd: z.string().min(1).max(4096),
+    identityEvidenceId: IdSchema,
+    parentSessionId: IdSchema.nullable(),
+    createdAt: TimestampSchema,
+    agentMetadata: AgentMetadataSchema.optional(),
+    nativeMapping: z.strictObject({ nativeSessionId: IdSchema, processId: IdSchema.nullable(), agentId: IdSchema.nullable() }).optional()
+  })
+  .refine(
+    value =>
+      !value.agentMetadata || (value.product === 'codex' ? value.agentMetadata.source === 'codex_session_meta' : value.agentMetadata.source === 'claude_hook')
+  );
 export type VerifiedSessionIdentity = z.infer<typeof VerifiedSessionIdentitySchema>;
 /** Legacy bindings omit display metadata. Changes to a name do not alter scope. */
 export function bindingIdentityKey(value: VerifiedSessionIdentity): string {
@@ -47,16 +57,26 @@ export interface ChildDiscovery {
   gaps: string[];
 }
 export const BindingUsageRecordSchema = z.strictObject({
-  requestId: IdSchema, sessionId: IdSchema, occurredAt: TimestampSchema,
-  turnId: IdSchema.nullable(), effort: IdSchema.nullable(),
+  requestId: IdSchema,
+  sessionId: IdSchema,
+  occurredAt: TimestampSchema,
+  turnId: IdSchema.nullable(),
+  effort: IdSchema.nullable(),
   // Runtime evidence is allocated transactionally by the coordinator. Retain
   // the native reading shape and attribution constraints before that allocation.
-  payload: z.strictObject(UsageV2Schema.shape).omit({ runtime_evidence_id: true })
+  payload: z
+    .strictObject(UsageV2Schema.shape)
+    .omit({ runtime_evidence_id: true })
     .refine(value => value.attribution !== 'verified' || value.model !== null)
-    .refine(value => value.attribution !== 'ambiguous' || value.model === null),
+    .refine(value => value.attribution !== 'ambiguous' || value.model === null)
 });
 export type BindingUsageRecord = z.infer<typeof BindingUsageRecordSchema>;
-export interface UsageBatch { records: BindingUsageRecord[]; excludedRecords?: BindingUsageRecord[]; cursor: string; gaps: string[] }
+export interface UsageBatch {
+  records: BindingUsageRecord[];
+  excludedRecords?: BindingUsageRecord[];
+  cursor: string;
+  gaps: string[];
+}
 /** Exclusions scoped by the caller to one task, binding and source identity.
  * Supply the same durable ledger on every read; it grants no source authority. */
 export interface BindingBaselineLedger {
@@ -92,5 +112,10 @@ export interface SessionBindingProvider {
   // Null returns the initial owned snapshot. The coordinator discards it for
   // roots/restarts, and retains it for a new child born in the observed interval.
   readUsage(session: VerifiedSessionIdentity, cursor: string | null, scope: CandidateScope, boundary?: BindingReadBoundary): Promise<UsageBatch>;
-  readWindowUsage?(session: VerifiedSessionIdentity, cursor: string | null, scope: CandidateScope, boundary: OrdinaryWindowReadBoundary): Promise<OrdinaryWindowUsageBatch>;
+  readWindowUsage?(
+    session: VerifiedSessionIdentity,
+    cursor: string | null,
+    scope: CandidateScope,
+    boundary: OrdinaryWindowReadBoundary
+  ): Promise<OrdinaryWindowUsageBatch>;
 }

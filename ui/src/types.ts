@@ -5,7 +5,7 @@ import type { AgentDisplayMetadata } from './session-labels.js';
 import type { RecruitmentWindow } from '../../src/web/local-web-recruitment.js';
 import type { ApplicationMode } from './application-mode.js';
 import type { localWebSupport } from '../../src/web/local-web-domain.js';
-import type { aggregateOrdinaryWindowReport } from '../../src/comparison/reports/ordinary-window.js';
+import type { aggregateOrdinaryWindowMetrics as aggregateOrdinaryWindowReport } from '../../src/pricing/metrics-ordinary-window.js';
 export type OrdinaryWindowReport = ReturnType<typeof aggregateOrdinaryWindowReport>;
 export type { ReportSourceTrust } from '../../src/pricing/report-source-trust.js';
 export type SupportDetails = ReturnType<typeof localWebSupport>;

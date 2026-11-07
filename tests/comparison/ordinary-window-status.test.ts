@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { aggregateOrdinaryWindowReport } from '../../src/comparison/reports/ordinary-window.js';
+import { aggregateOrdinaryWindowMetrics as aggregateOrdinaryWindowReport } from '../../src/pricing/metrics-ordinary-window.js';
 import { emptyOrdinaryWindowCoverage } from '../../src/core/ordinary-window-policy.js';
 import { revokeOrdinaryWindowActivation } from '../../src/core/ordinary-window-store.js';
 import { windowReportCutoff, windowReportFixture } from '../helpers/ordinary-window-report-fixture.js';

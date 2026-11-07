@@ -140,7 +140,6 @@ function implementationDigest() {
     'store',
     'source-compatibility',
     'core/ordinary-window-policy',
-    'config-confirmation',
     'core/configuration-evidence',
     'comparison/config-confirmation-write',
     'package-paths',

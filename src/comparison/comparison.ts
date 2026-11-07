@@ -4,10 +4,9 @@ import { preparePriceBasis } from '../pricing/price-catalog-store.js';
 import { FlexibleVariantSchema, FlexibleProtocolDraftSchema, FlexibleProtocolSchema, PriceTableSchema } from '../flexible-contracts.js';
 import { lookupFileProfile } from '../adapter-profiles.js';
 import { comparisonTimestamp, parseComparison, ProtocolDraftSchema, ProtocolSchema, VariantSchema } from '../comparison-contracts.js';
-import { comparisonProtocol, comparisonVariant, protocolRow } from '../core/protocol-store.js';
+import { comparisonVariant, protocolRow } from '../core/protocol-store.js';
 import type { ProtocolRow } from '../core/protocol-store.js';
 
-export { comparisonProtocol, protocolRow };
 import type { Store } from '../store.js';
 import { requireLatestClaudeWorkflowProfile } from '../claude-workflow-versions.js';
 

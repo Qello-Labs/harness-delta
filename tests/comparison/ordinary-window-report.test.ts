@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from 'vitest';
-import { aggregateOrdinaryWindowReport } from '../../src/comparison/reports/ordinary-window.js';
-import { readOrdinaryWindowStatus } from '../../src/comparison/reports/ordinary-window-state.js';
+import { aggregateOrdinaryWindowMetrics as aggregateOrdinaryWindowReport } from '../../src/pricing/metrics-ordinary-window.js';
+import { readOrdinaryWindowStatus } from '../../src/core/ordinary-window-evidence.js';
 import { aggregateOrdinaryTaskReport } from '../../src/comparison/reports/ordinary-task.js';
 import { readObservedCostReport } from '../../src/pricing/observed-cost-report.js';
 import { emptyOrdinaryWindowCoverage } from '../../src/core/ordinary-window-policy.js';
