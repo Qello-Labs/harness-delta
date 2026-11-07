@@ -530,13 +530,89 @@ function nativeChildExecution(store: Store, e: Execution, c: WorkflowExecutionCo
   e.direct_child = { session_id: bound.session_id, source_path: bound.source_path };
   return { rootTurn: root.turn, childTurn: child.turn, rootRuntime: root.runtime, childRuntime: child.runtime };
 }
+type WorkflowQualification = { validate(): void; expectedMarker: string | null; replay: boolean; onMarker(): void; onSpawn(): void; maxOwnResponses: number };
+function prepareWorkflowInvocation(
+  e: Execution,
+  c: WorkflowExecutionContext,
+  synthetic: boolean,
+  qualification: WorkflowQualification | undefined,
+  verifiedBinary: VerifiedBinary | undefined
+) {
+  const unchanged =
+    verifiedBinary !== undefined &&
+    verifiedBinary.path === e.binary.path &&
+    verifiedBinary.sha256 === e.binary.sha256 &&
+    verifiedBinary.identity === fileIdentity(e.binary.path);
+  if (!unchanged && hash(file(e.binary.path, workflowMaxImageBytes)) !== e.binary.sha256) throw new Error('binary_mismatch');
+  if (!synthetic && !qualification) verifyCodexVersion(e);
+  if (hash(file(e.hook_recorder, 65536)) !== hookRecorderSha) throw new Error('invalid_hook_recorder');
+  const prompt = file(e.prompt_file!, 1024 * 1024);
+  const text = prompt.toString('utf8');
+  if (!Buffer.from(text).equals(prompt) || text.includes('\0')) throw new Error('invalid_prompt');
+  const instructions = c.instructions.length === 1 ? c.instructions[0]!.content : c.instructions.map(i => `[${i.artifact_id}]\n${i.content}`).join('\n\n');
+  if (Buffer.byteLength(instructions) > 32768) throw new Error('instruction_size');
+  return { prompt, instructions };
+}
+function workflowSpawnArguments(
+  e: Execution,
+  c: WorkflowExecutionContext,
+  instructions: string,
+  hook: string,
+  qualification: WorkflowQualification | undefined
+) {
+  // Pinned exec otherwise applies the headless Never override. Explicit
+  // AutoReview preserves on-request without bypassing sandbox or trust.
+  const args = [
+    'exec',
+    '-c',
+    `developer_instructions=${JSON.stringify(instructions)}`,
+    '-c',
+    'approval_policy="on-request"',
+    '-c',
+    'approvals_reviewer="auto_review"',
+    '-c',
+    `agents.enabled=${e.child_runtime ? 'true' : 'false'}`,
+    '--sandbox',
+    e.sandbox
+  ];
+  // Explicit verification opt-in only. A specified effective trust value
+  // avoids 0.160.0's implicit persistent-trust branch at thread/start.
+  // This also disables project-local config/hooks/rules for this invocation.
+  // The pinned override parser splits the left-hand key on every dot and
+  // does not decode quoted keys. Put the path in the parsed TOML value.
+  if (e.project_trust) args.push('-c', `projects={${JSON.stringify(c.projectRoot)}={trust_level="untrusted"}}`);
+  if (qualification) args.push('--skip-git-repo-check', '--json');
+  const trustedStates: string[] = [];
+  for (const [event, label] of [['SessionStart', 'session_start'], ...(e.child_runtime ? [['SubagentStart', 'subagent_start']] : [])] as [string, string][]) {
+    args.push('-c', `hooks.${event}=[{hooks=[{type="command",command="${hook}",timeout=5}]}]`);
+    const trusted = hash(JSON.stringify({ event_name: label, hooks: [{ async: false, command: hook, timeout: 5, type: 'command' }] }));
+    trustedStates.push(`"/<session-flags>/config.toml:${label}:0:0"={trusted_hash="sha256:${trusted}"}`);
+  }
+  args.push('-c', `hooks.state={${trustedStates.join(',')}}`);
+  if (e.child_runtime)
+    args.push(
+      '-c',
+      `agents.default_subagent_model=${JSON.stringify(e.child_runtime.model)}`,
+      '-c',
+      `agents.default_subagent_reasoning_effort=${JSON.stringify(e.child_runtime.effort)}`,
+      '-c',
+      'agents.max_depth=1'
+    );
+  if (c.runtime.model !== null) args.push('--model', c.runtime.model);
+  if (c.runtime.effort !== null) args.push('-c', `model_reasoning_effort=${JSON.stringify(c.runtime.effort)}`);
+  if (e.operation === 'resume') args.push('resume', e.session_id!);
+  args.push('-');
+  if (JSON.parse(args.find(a => a.startsWith('developer_instructions='))!.slice('developer_instructions='.length)) !== instructions)
+    throw new Error('instruction_mismatch');
+  return args;
+}
 async function execute(
   store: Store,
   execution: Execution,
   c: WorkflowExecutionContext,
   synthetic: boolean,
   script?: string,
-  qualification?: { validate(): void; expectedMarker: string | null; replay: boolean; onMarker(): void; onSpawn(): void; maxOwnResponses: number },
+  qualification?: WorkflowQualification,
   nativeFamily?: NativeFamily,
   verifiedBinary?: VerifiedBinary
 ): Promise<WorkflowAdapterResult> {
@@ -1178,19 +1254,7 @@ async function execute(
     } else if (e.operation === 'launch' || e.operation === 'resume') {
       // Re-hash unless this exact file identity was hashed by preflight.
       guard();
-      const unchanged =
-        verifiedBinary !== undefined &&
-        verifiedBinary.path === e.binary.path &&
-        verifiedBinary.sha256 === e.binary.sha256 &&
-        verifiedBinary.identity === fileIdentity(e.binary.path);
-      if (!unchanged && hash(file(e.binary.path, workflowMaxImageBytes)) !== e.binary.sha256) throw new Error('binary_mismatch');
-      if (!synthetic && !qualification) verifyCodexVersion(e);
-      if (hash(file(e.hook_recorder, 65536)) !== hookRecorderSha) throw new Error('invalid_hook_recorder');
-      const prompt = file(e.prompt_file!, 1024 * 1024);
-      const text = prompt.toString('utf8');
-      if (!Buffer.from(text).equals(prompt) || text.includes('\0')) throw new Error('invalid_prompt');
-      const instructions = c.instructions.length === 1 ? c.instructions[0]!.content : c.instructions.map(i => `[${i.artifact_id}]\n${i.content}`).join('\n\n');
-      if (Buffer.byteLength(instructions) > 32768) throw new Error('instruction_size');
+      const { prompt, instructions } = prepareWorkflowInvocation(e, c, synthetic, qualification, verifiedBinary);
       dir = mkdtempSync('/tmp/hdw-');
       chmodSync(dir, 0o700);
       const socket = join(dir, 'hook.sock');
@@ -1294,53 +1358,7 @@ async function execute(
         server!.listen(socket, ok);
       });
       chmodSync(socket, 0o600);
-      // Pinned exec otherwise applies the headless Never override. Explicit
-      // AutoReview preserves on-request without bypassing sandbox or trust.
-      const args = [
-        'exec',
-        '-c',
-        `developer_instructions=${JSON.stringify(instructions)}`,
-        '-c',
-        'approval_policy="on-request"',
-        '-c',
-        'approvals_reviewer="auto_review"',
-        '-c',
-        `agents.enabled=${e.child_runtime ? 'true' : 'false'}`,
-        '--sandbox',
-        e.sandbox
-      ];
-      // Explicit verification opt-in only. A specified effective trust value
-      // avoids 0.160.0's implicit persistent-trust branch at thread/start.
-      // This also disables project-local config/hooks/rules for this invocation.
-      // The pinned override parser splits the left-hand key on every dot and
-      // does not decode quoted keys. Put the path in the parsed TOML value.
-      if (e.project_trust) args.push('-c', `projects={${JSON.stringify(c.projectRoot)}={trust_level="untrusted"}}`);
-      if (qualification) args.push('--skip-git-repo-check', '--json');
-      const trustedStates: string[] = [];
-      for (const [event, label] of [['SessionStart', 'session_start'], ...(e.child_runtime ? [['SubagentStart', 'subagent_start']] : [])] as [
-        string,
-        string
-      ][]) {
-        args.push('-c', `hooks.${event}=[{hooks=[{type="command",command="${hook}",timeout=5}]}]`);
-        const trusted = hash(JSON.stringify({ event_name: label, hooks: [{ async: false, command: hook, timeout: 5, type: 'command' }] }));
-        trustedStates.push(`"/<session-flags>/config.toml:${label}:0:0"={trusted_hash="sha256:${trusted}"}`);
-      }
-      args.push('-c', `hooks.state={${trustedStates.join(',')}}`);
-      if (e.child_runtime)
-        args.push(
-          '-c',
-          `agents.default_subagent_model=${JSON.stringify(e.child_runtime.model)}`,
-          '-c',
-          `agents.default_subagent_reasoning_effort=${JSON.stringify(e.child_runtime.effort)}`,
-          '-c',
-          'agents.max_depth=1'
-        );
-      if (c.runtime.model !== null) args.push('--model', c.runtime.model);
-      if (c.runtime.effort !== null) args.push('-c', `model_reasoning_effort=${JSON.stringify(c.runtime.effort)}`);
-      if (e.operation === 'resume') args.push('resume', e.session_id!);
-      args.push('-');
-      if (JSON.parse(args.find(a => a.startsWith('developer_instructions='))!.slice('developer_instructions='.length)) !== instructions)
-        throw new Error('instruction_mismatch');
+      const args = workflowSpawnArguments(e, c, instructions, hook, qualification);
       guard();
       activeBinaryIdentity = fileIdentity(e.binary.path);
       stage = 'process';
