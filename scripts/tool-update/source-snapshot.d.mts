@@ -1,5 +1,6 @@
 export const legacyAssessmentRuleRevision: 'static-assessment-v1';
-export const assessmentRuleRevision: 'static-assessment-v2';
+export const expandedAssessmentRuleRevision: 'static-assessment-v2';
+export const assessmentRuleRevision: 'static-assessment-v3';
 export const assessmentSourcePathLimit: 44;
 export const legacySourcePathAllowlist: readonly string[];
 export const sourcePathAllowlist: readonly string[];
@@ -14,6 +15,8 @@ export interface Compatibility {
   readonly rule_revision: string;
 }
 export interface SourceRegistry {
+  readonly ordinaryWindows: readonly import('../../src/core/ordinary-window-policy.js').OrdinaryWindowPolicy[];
+  readonly resolveOrdinaryWindow: typeof import('../../src/core/ordinary-window-policy.js').resolveOrdinaryWindow;
   readonly retiredClaudeWorkflowVersions: readonly string[];
   readonly resolve: (product: string, version: string, source: import('./lanes.mjs').Lane['route'], profileId: string) => Compatibility | null;
   readonly ruleRevision: string;

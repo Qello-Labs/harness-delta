@@ -8,7 +8,8 @@ import { digest, fail, ToolUpdateError } from './manifest.mjs';
 import { scopeSourceDigests } from './lanes.mjs';
 
 export const legacyAssessmentRuleRevision = 'static-assessment-v1';
-export const assessmentRuleRevision = 'static-assessment-v2';
+export const expandedAssessmentRuleRevision = 'static-assessment-v2';
+export const assessmentRuleRevision = 'static-assessment-v3';
 export const assessmentSourcePathLimit = 44;
 export const legacySourcePathAllowlist = Object.freeze([
   "package-lock.json",
@@ -176,12 +177,13 @@ export async function withSourceSnapshot(root, project) {
       if (hash(Buffer.from(text)) !== scopeSourceDigests[path]) fail('source_scope_changed');
     }
     const load = name => import(pathToFileURL(join(temporary, `src/${name}.js`)).href);
-    const [compatibility, profiles, readiness, codex, claude, core] = await Promise.all([
+    const [compatibility, profiles, readiness, codex, claude, core, ordinary] = await Promise.all([
       load('source-compatibility'), load('adapter-profiles'), load('readiness'),
-      load('codex-binding-admission'), load('claude-binding-admission'), load('core/tool-version-profiles'),
+      load('codex-binding-admission'), load('claude-binding-admission'), load('core/tool-version-profiles'), load('core/ordinary-window-policy'),
     ]);
     const value = await project({
       resolve: compatibility.resolveSourceCompatibility, ruleRevision: compatibility.compatibilityRuleRevision,
+      ordinaryWindows: ordinary.ordinaryWindowPolicies, resolveOrdinaryWindow: ordinary.resolveOrdinaryWindow,
       windows: compatibility.sourceCompatibilityWindows, files: profiles.registeredFileProfiles,
       evidence: readiness.productionSourceEvidence, codexAdmissions: codex.codexBindingAdmissions,
       claudeAdmissions: claude.claudeBindingAdmissions, retiredClaudeWorkflowVersions: core.retiredClaudeWorkflowVersions,

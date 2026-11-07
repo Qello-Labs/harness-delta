@@ -17,13 +17,13 @@ export const scopeSourceDigests = Object.freeze({
 export const laneSchema = z.strictObject({
   product: z.enum(['codex', 'claude_code']),
   route: z.enum(routes),
-  profile_id: z.string().max(128).regex(/^(?:codex-file-(?:legacy|checkpoint)-v1|claude-file-message-components-v1|codex-workflow-(?:own-response|direct-child)-v1|claude-workflow-(?:own-trace|direct-child)-v1|codex-binding-[0-9]{5,27}-direct-family-v1|claude-binding-(?:[0-9]{5,27}|[0-9]{1,9}-[0-9]{1,9}-[0-9]{1,9})-family-v1)$/),
+  profile_id: z.string().max(128).regex(/^(?:codex-file-(?:legacy|checkpoint)-v1|claude-file-message-components-v1|codex-workflow-(?:own-response|direct-child)-v1|claude-workflow-(?:own-trace|direct-child)-v1|codex-binding-[0-9]{5,27}-direct-family-v1|claude-binding-(?:[0-9]{5,27}|[0-9]{1,9}-[0-9]{1,9}-[0-9]{1,9})-family-v1|(?:codex|claude)-binding-root-window-v1)$/),
   operation: z.enum(operations),
   topology: z.enum(topologies),
 });
 export const laneKey = row => [row.product, row.route, row.profile_id, row.operation, row.topology].join(':');
 
-export function sourceLanes({ windows, files, evidence, codexAdmissions, claudeAdmissions }) {
+export function sourceLanes({ windows, files, evidence, codexAdmissions, claudeAdmissions, ordinaryWindows = [] }) {
   const profiles = new Map();
   const add = (product, route, profile_id) => profiles.set(`${product}:${route}:${profile_id}`, { product, route, profile_id });
   for (const row of windows) add(row.product, row.source, row.profile_id);
@@ -42,5 +42,8 @@ export function sourceLanes({ windows, files, evidence, codexAdmissions, claudeA
     for (const topology of binding ? ['root', 'bounded_family'] : [child ? 'root_direct_child' : 'root'])
       for (const operation of ops) lanes.push(laneSchema.parse({ ...row, topology, operation }));
   }
+  for (const policy of ordinaryWindows)
+    for (const operation of policy.operations)
+      lanes.push(laneSchema.parse({ product: policy.product, route: policy.source, profile_id: policy.policyId, operation, topology: 'root' }));
   return lanes.sort((a, b) => laneKey(a).localeCompare(laneKey(b), 'en'));
 }

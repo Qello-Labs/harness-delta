@@ -65,6 +65,8 @@ async function reviewed(input = fixture(), baseline?: Baseline) {
 function syntheticRegistry(base?: string): SourceRegistry {
   return {
     ruleRevision: 'forward-version-v1',
+    ordinaryWindows: [],
+    resolveOrdinaryWindow: () => null,
     retiredClaudeWorkflowVersions: [],
     resolve: () => null,
     windows: base
@@ -130,9 +132,9 @@ test('reviewed schema 6 preserves every schema 3 lane field when selection polic
   // Then
   expect(result.schema_version).toBe(6);
   if (result.schema_version !== 6) throw new Error('schema_6_required');
-  expect(result.lanes).toHaveLength(36);
+  expect(result.lanes).toHaveLength(39);
   const previousLanes = result.lanes
-    .filter(row => row.profile_id !== 'codex-binding-01660-direct-family-v1')
+    .filter(row => !['codex-binding-01660-direct-family-v1', 'codex-binding-root-window-v1'].includes(row.profile_id))
     .map(row => {
       const { selection_policy, ...previous } = row;
       expect(selection_policy).toBeDefined();
@@ -141,7 +143,7 @@ test('reviewed schema 6 preserves every schema 3 lane field when selection polic
   expect(previousLanes).toHaveLength(28);
   // Frozen from schema 3 before the descriptive field was implemented.
   expect(digest(previousLanes)).toBe('adcb1651d9942ea5a5e27298cd6fe5be0a43b4a3613d118c875f8af9d8634d90');
-  expect(digest(plain.lanes.filter(row => row.profile_id !== 'codex-binding-01660-direct-family-v1'))).toBe(
+  expect(digest(plain.lanes.filter(row => !['codex-binding-01660-direct-family-v1', 'codex-binding-root-window-v1'].includes(row.profile_id)))).toBe(
     '356ee379727d6dcdfd211428b62ea7ef21151134075979bf40a7a71c8271d228'
   );
   expect(plain.schema_version).toBe(5);
@@ -317,7 +319,7 @@ test('all transition codes including null remain valid strict policy values', as
   expect(parsed.every(value => value.success)).toBe(true);
 });
 
-test('36-lane assessments fit the unchanged byte limit and oversized records are rejected', async () => {
+test('39-lane assessments fit the unchanged byte limit and oversized records are rejected', async () => {
   // Given
   const result = await reviewed();
   const release = fixture().observation.releases[0];
@@ -334,7 +336,7 @@ test('36-lane assessments fit the unchanged byte limit and oversized records are
   const parsed = assessmentSchema.safeParse(oversized);
 
   // Then
-  expect(result.lanes).toHaveLength(36);
+  expect(result.lanes).toHaveLength(39);
   expect(Buffer.byteLength(canonical(result))).toBeLessThanOrEqual(maxRecordBytes);
   expect(Buffer.byteLength(canonical(oversized))).toBeGreaterThan(maxRecordBytes);
   expect(parsed.success).toBe(false);
