@@ -13,7 +13,8 @@ export function evaluateCostCoverage(input: CostCoverageEvidence): CostCoverageD
 export function mergeCostFacts(previous: CostCoverageEvidence['facts'], next: CostCoverageEvidence['facts']): CostCoverageEvidence['facts'] {
   const before = parseComparison(CostFactsSchema, previous, 'invalid_cost_coverage');
   const after = parseComparison(CostFactsSchema, next, 'invalid_cost_coverage');
-  for (const fact of CostFactsSchema.keyof().options) before[fact] = before[fact] === 'violated' || after[fact] === 'violated' ? 'violated'
-    : before[fact] === 'unknown' || after[fact] === 'unknown' ? 'unknown' : 'verified';
+  for (const fact of CostFactsSchema.keyof().options)
+    before[fact] =
+      before[fact] === 'violated' || after[fact] === 'violated' ? 'violated' : before[fact] === 'unknown' || after[fact] === 'unknown' ? 'unknown' : 'verified';
   return before;
 }
