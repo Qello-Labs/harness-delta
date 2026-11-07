@@ -131,7 +131,7 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
     ...createLocalWebProjectHandlers(options, { life, metadata, taskDto, bindings, providers, codexProjects, picker }),
     task: taskDto,
     ordinaryWindowReport: (taskId, cutoff) => readLocalWebOrdinaryWindowReport(store, taskId, cutoff),
-    createTask: createLocalWebTaskCreation(options, { profileFor, taskDto, sharedSetups, metadata }),
+    createTask: createLocalWebTaskCreation(options, { profileFor, taskDto, sharedSetups, metadata, claudeWindow }),
     ...createLocalWebSetupHandlers(options, { picker, row, metadata, sharedSetups, setupReviews }),
     ...createLocalWebApplicationHandlers(row, applications),
     taskAction: createLocalWebTaskActions({

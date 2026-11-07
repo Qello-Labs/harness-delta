@@ -1,8 +1,10 @@
 export const legacyAssessmentRuleRevision: 'static-assessment-v1';
 export const expandedAssessmentRuleRevision: 'static-assessment-v2';
 export const assessmentRuleRevision: 'static-assessment-v3';
-export const assessmentSourcePathLimit: 48;
+export const assessmentSourcePathLimit: 52;
+export const expandedAssessmentSourcePathLimit: 48;
 export const legacySourcePathAllowlist: readonly string[];
+export const expandedSourcePathAllowlist: readonly string[];
 export const sourcePathAllowlist: readonly string[];
 export interface Compatibility {
   readonly state: 'verified' | 'compatibility_unverified';

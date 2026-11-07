@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { IdSchema } from '../contracts.js';
 import type { ClaudeWindowBinaryAdapters } from '../claude-process-binary.js';
 import { Lifecycle, utcNow } from '../lifecycle.js';
-import { ordinaryTask, revokeOrdinaryObservation } from '../ordinary-observation.js';
+import { createOrdinaryWindowTask, ordinaryProjectSettings, ordinaryTask, revokeOrdinaryObservation } from '../ordinary-observation.js';
 import { collectOrdinaryClaudeWindow, connectOrdinaryClaudeWindow } from '../ordinary-session-binding.js';
 import {
   assertOrdinaryWindowAuthority,
@@ -16,6 +16,15 @@ import {
 import { ordinaryWindowDecisionKeyForSelection, readOrdinaryWindowDecision } from '../core/ordinary-window-activation.js';
 import type { Store } from '../store.js';
 import type { createLocalWebMetadata } from './local-web-metadata-store.js';
+import { withLiveWebMetadataScope } from './local-web-metadata.js';
+
+const prepareSchema = z.strictObject({
+  name: z.string().trim().min(1).max(200),
+  criterion_ids: z.array(IdSchema).min(1).max(256),
+  type: IdSchema.optional(),
+  expected_size: IdSchema.optional(),
+  assignee: IdSchema.optional()
+});
 
 export const ClaudeWindowConnectSchema = z.strictObject({
   project_id: IdSchema,
@@ -31,17 +40,21 @@ const directory = z
   .min(1)
   .max(4096)
   .refine(value => isAbsolute(value) && !/[\0\r\n]/.test(value));
-const frozenSetupSchema = z.strictObject({
-  schema_version: z.literal(1),
-  kind: z.literal('claude_window_setup'),
-  selection_hash: z.string().regex(/^[a-f0-9]{64}$/),
-  configuration: z.strictObject({
-    product_version: z.string().min(1).max(100),
-    project_root: directory,
-    receipt_directory: directory,
-    claude_projects_directory: directory
+const frozenSetupSchema = z
+  .strictObject({
+    schema_version: z.literal(1),
+    kind: z.literal('claude_window_setup'),
+    selection_hash: z.string().regex(/^[a-f0-9]{64}$/),
+    bundle_mode: z.literal('ordinary_window').optional(),
+    bundle_revision: z.literal('claude-window-bundle-v1').optional(),
+    configuration: z.strictObject({
+      product_version: z.string().min(1).max(100),
+      project_root: directory,
+      receipt_directory: directory,
+      claude_projects_directory: directory
+    })
   })
-});
+  .refine(value => (value.bundle_mode === undefined) === (value.bundle_revision === undefined));
 const closedReasons = z.enum([
   'binding_window_activation_required',
   'binding_scope_revoked',
@@ -179,6 +192,54 @@ class LocalClaudeWindowControl {
       selected_root_id: connectedRoot
     };
   }
+  prepare(projectId: string, input: z.infer<typeof prepareSchema>) {
+    const parsed = prepareSchema.parse(input);
+    return withLiveWebMetadataScope(this.store, { projectId }, () =>
+      this.metadata.database.transaction(() => {
+        const settings = ordinaryProjectSettings(this.store, projectId);
+        if (!settings || settings.bundle_mode !== 'ordinary_window' || settings.bundle_revision !== 'claude-window-bundle-v1')
+          throw new Error('ordinary_project_setup_required');
+        const project = this.store.get<{ local_root: string | null }>('SELECT local_root FROM projects WHERE id=?', [projectId]);
+        if (!project?.local_root) throw new Error('unknown_project');
+        const receiptDirectory = join(project.local_root, '.harness-delta/claude-window-receipts');
+        if (settings.receipt_directory !== receiptDirectory) throw new Error('binding_scope_mismatch');
+        const taskId = createOrdinaryWindowTask(this.store, {
+          schema_version: 2,
+          mode: 'ordinary_window',
+          project_id: projectId,
+          product: 'claude_code',
+          declared_version: settings.product_version,
+          policy_id: 'claude-binding-root-window-v1',
+          criterion_ids: parsed.criterion_ids,
+          ...(parsed.type ? { type: parsed.type } : {}),
+          ...(parsed.expected_size ? { expected_size: parsed.expected_size } : {}),
+          ...(parsed.assignee ? { assignee: parsed.assignee } : {})
+        });
+        const selection = assertOrdinaryWindowPrepared(this.store, taskId);
+        this.metadata.insertTask({
+          id: taskId,
+          name: parsed.name,
+          profileId: 'ordinary-claude-window-v1',
+          projectId,
+          setup: frozenSetupSchema.parse({
+            schema_version: 1,
+            kind: 'claude_window_setup',
+            bundle_mode: 'ordinary_window',
+            bundle_revision: 'claude-window-bundle-v1',
+            selection_hash: ordinaryWindowSelectionHash(selection),
+            configuration: {
+              product_version: settings.product_version,
+              project_root: project.local_root,
+              receipt_directory: receiptDirectory,
+              claude_projects_directory: settings.claude_projects_directory
+            }
+          })
+        });
+        return this.task(taskId);
+      })()
+    );
+  }
+
   private bindingOptions(taskId: string, value: ReturnType<LocalClaudeWindowControl['authorize']>) {
     return {
       store: this.store,

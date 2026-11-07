@@ -14,6 +14,14 @@ export interface OrdinarySetup {
   project_id: string;
   configured: boolean;
   product: 'claude_code';
+  bundle_mode?: 'exact' | 'ordinary_window';
+  window?: {
+    readonly policy_id: 'claude-binding-root-window-v1';
+    readonly policy_revision: 'claude-ordinary-root-window-v1';
+    readonly evidence_mode: 'publisher_verified_local_pin';
+    readonly collection_enabled: false;
+    readonly reason: string;
+  };
   product_version: string;
   installation: {
     state: 'absent' | 'installed' | 'update_available' | 'blocked';
@@ -23,6 +31,8 @@ export interface OrdinarySetup {
     destination: string;
     receiptDirectory: string;
     hookRegistration: 'unverified';
+    bundleMode?: 'ordinary_window';
+    bundleRevision?: 'claude-window-bundle-v1';
     blockers: string[];
   };
   admission: { profile_id: string; admitted: boolean; qualified: boolean; max_family_members: number; model_family: 'claude' };
@@ -78,6 +88,14 @@ export interface BindingSummary extends CostAmounts {
 }
 export interface Task {
   mode?: 'ordinary' | 'comparison';
+  ordinary_window?: {
+    readonly product: 'codex' | 'claude_code';
+    readonly policy_id: string;
+    readonly policy_revision: string;
+    readonly evidence_mode: 'source_only' | 'publisher_verified_local_pin';
+    readonly collection_enabled: false;
+    readonly reason: string;
+  };
   recruitment?: RecruitmentWindow;
   harness?: { arm: 'A' | 'B' | null; variant_id: string | null; version: string | null; application_mode: ApplicationMode };
   connection_readiness?: {

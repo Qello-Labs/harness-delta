@@ -1,5 +1,9 @@
 import { createHash } from 'node:crypto';
 import { OrdinaryWindowSelectionSchema } from '../core/ordinary-window-policy.js';
+import { ordinaryWindowSelection } from '../core/ordinary-window-store.js';
+import { aggregateOrdinaryWindowMetrics } from '../pricing/metrics-ordinary-window.js';
+import { parseTaskMetadata } from '../flexible-contracts.js';
+import type { Store } from '../store.js';
 import { projectOrdinaryActions } from './local-web-task-actions-projection.js';
 import type { Lifecycle } from '../lifecycle.js';
 import type { ordinaryTask } from '../ordinary-observation.js';
@@ -100,5 +104,73 @@ export function projectOrdinaryTask(data: OrdinaryTaskData) {
       support: admission.admitted ? 'claude_family' : 'ordinary_qualification_pending'
     },
     reason: record.reason === 'measurement_paused' ? null : record.reason
+  };
+}
+
+export function projectClosedClaudeWindowTask(input: { readonly store: Store; readonly life: Lifecycle; readonly id: string; readonly record: PrivateTask }) {
+  const { store, life, id, record } = input;
+  const selection = ordinaryWindowSelection(store, id);
+  if (!selection || selection.policy.product !== 'claude_code' || record.profile_id !== 'ordinary-claude-window-v1')
+    throw new Error('binding_window_unavailable');
+  const task = life.task(id);
+  const summary = life.summary(id);
+  const report = aggregateOrdinaryWindowMetrics(store, id, new Date().toISOString());
+  const costs = [report.cost.verified, report.cost.compatibility_unverified, report.cost.legacy_unverified, report.cost.invalidated];
+  const version =
+    '"' +
+    createHash('sha256')
+      .update(JSON.stringify({ task, record, usage: report.usage, costs }))
+      .digest('hex') +
+    '"';
+  return {
+    id,
+    mode: 'ordinary' as const,
+    name: record.name,
+    project_id: task.project_id,
+    setup_id: record.profile_id,
+    version,
+    state: task.state,
+    status: task.state === 'finalized' ? summary.outcome : 'waiting_for_session',
+    ordinary_window: {
+      product: 'claude_code' as const,
+      policy_id: selection.policy.policyId,
+      policy_revision: selection.policy.ruleRevision,
+      evidence_mode: 'publisher_verified_local_pin' as const,
+      collection_enabled: false as const,
+      reason: 'binding_window_activation_required',
+      usage_scope: 'root_only',
+      root_ownership: 'unverified',
+      possible_child_contribution: 'unknown',
+      automatic_children: false
+    },
+    measurement: {
+      state: task.state === 'finalized' ? 'measurement_ended' : 'waiting_connection',
+      active_ms: null,
+      requests: report.usage.event_count,
+      window: { started_at: task.started_at, ends_at: task.finalized_at },
+      end_condition: 'explicit_stop'
+    },
+    preparation: {
+      state: 'prepared',
+      configuration_evidence: 'task_snapshot_pinned',
+      native_context_evidence: 'unverified',
+      freshness_evidence: 'unverified',
+      tool_use_evidence: 'unavailable'
+    },
+    outcome: summary.outcome === null ? null : { status: summary.outcome, assessed_at: task.finalized_at },
+    attempt: summary.rework_count + 1,
+    price: {
+      partial_amount: report.cost.verified.partial_amount,
+      currency: report.cost.currency,
+      compatibility_unverified_partial_amount: report.cost.compatibility_unverified.partial_amount,
+      legacy_unverified_partial_amount: report.cost.legacy_unverified.partial_amount,
+      unpriced_events: costs.reduce((sum, value) => sum + value.unpriced_events, 0),
+      basis: report.cost.price_table_hash
+    },
+    criteria: parseTaskMetadata(JSON.parse(task.metadata)).criterion_ids,
+    actions: [],
+    startup: null,
+    source: null,
+    reason: 'binding_window_activation_required'
   };
 }
