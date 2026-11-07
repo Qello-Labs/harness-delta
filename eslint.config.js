@@ -40,7 +40,6 @@ const complexityLimits = {
   "src/web/local-web-setup-review.ts": 31,
   "src/pricing/metrics.ts": 37,
   "src/nested-candidate.ts": 51,
-  "src/ordinary-session-binding.ts": 48,
   "src/sources/otel-journal.ts": 37,
   "src/sources/otel-projection.ts": 33,
   "src/pricing/price-catalog.ts": 50,
@@ -49,7 +48,6 @@ const complexityLimits = {
   "src/comparison/reports/flexible-comparison.ts": 41,
   "src/session-binding-claude.ts": 96,
   "src/session-binding-codex.ts": 76,
-  "src/session-binding-service.ts": 48,
   "src/store.ts": 37,
   "src/workflow/task-workflow.ts": 33,
   "tests/qualification/codex-session-binding-qualification.test.ts": 51,
@@ -85,10 +83,8 @@ const functionLineLimits = {
   "src/web/local-web-server.ts": 276,
   "src/web/local-web-setup-review.ts": 208,
   "src/web/local-web-shared.ts": 237,
-  "src/ordinary-session-binding.ts": 871,
   "src/comparison/reports/comparison-readable.ts": 225,
   "src/comparison/reports/flexible-comparison.ts": 201,
-  "src/session-binding-service.ts": 834,
   "tests/claude-human-pilot.test.ts": 158,
   "tests/claude-ordinary-provider.test.ts": 445,
   "tests/codex-connection-setup-http.test.ts": 253,
@@ -114,7 +110,15 @@ export default defineConfig(
   {
     rules: {
       complexity: ["error", 30],
-      "max-lines-per-function": ["error", { max: 150, skipBlankLines: true, skipComments: true, IIFEs: true }]
+      "max-lines-per-function": [
+        "error",
+        {
+          max: 150,
+          skipBlankLines: true,
+          skipComments: true,
+          IIFEs: true
+        }
+      ]
     }
   },
   {
@@ -139,6 +143,16 @@ export default defineConfig(
   })),
   ...Object.entries(functionLineLimits).map(([file, maximum]) => ({
     files: [file],
-    rules: { "max-lines-per-function": ["error", { max: maximum, skipBlankLines: true, skipComments: true, IIFEs: true }] }
+    rules: {
+      "max-lines-per-function": [
+        "error",
+        {
+          max: maximum,
+          skipBlankLines: true,
+          skipComments: true,
+          IIFEs: true
+        }
+      ]
+    }
   }))
 );
