@@ -110,15 +110,7 @@ export default defineConfig(
   {
     rules: {
       complexity: ["error", 30],
-      "max-lines-per-function": [
-        "error",
-        {
-          max: 150,
-          skipBlankLines: true,
-          skipComments: true,
-          IIFEs: true
-        }
-      ]
+      "max-lines-per-function": ["error", { max: 150, skipBlankLines: true, skipComments: true, IIFEs: true }]
     }
   },
   {
@@ -143,16 +135,6 @@ export default defineConfig(
   })),
   ...Object.entries(functionLineLimits).map(([file, maximum]) => ({
     files: [file],
-    rules: {
-      "max-lines-per-function": [
-        "error",
-        {
-          max: maximum,
-          skipBlankLines: true,
-          skipComments: true,
-          IIFEs: true
-        }
-      ]
-    }
+    rules: { "max-lines-per-function": ["error", { max: maximum, skipBlankLines: true, skipComments: true, IIFEs: true }] }
   }))
 );
