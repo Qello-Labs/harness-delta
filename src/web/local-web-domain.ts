@@ -38,6 +38,7 @@ import { revokeBindingQualification } from '../session-binding-qualification-lea
 import type { SessionBindingProvider } from '../session-binding-contract.js';
 
 import { createCodexProjectSetupManager } from './local-web-codex.js';
+import { createCodexWindowControl } from './local-web-codex-window-control.js';
 
 export interface LocalWebDomainOptions {
   store: Store;
@@ -72,6 +73,7 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
   const privateDb = metadata.database;
   const codexProjects = createCodexProjectSetupManager(store, privateDb);
   metadata.initialize();
+  const codexWindow = createCodexWindowControl(store, metadata, codexProjects);
   const jobs = new Map<string, Job>();
   const picker = options.picker ?? nativeLocalPicker;
   const { saveProfiles, profiles } = metadata;
@@ -119,6 +121,7 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
   });
   const domain: LocalWebDomain = {
     metadataStore: store,
+    codexWindow,
     ...createLocalWebProjectHandlers(options, { life, metadata, taskDto, bindings, providers, codexProjects, picker }),
     task: taskDto,
     ordinaryWindowReport: (taskId, cutoff) => readLocalWebOrdinaryWindowReport(store, taskId, cutoff),

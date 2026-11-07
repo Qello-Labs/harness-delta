@@ -21,6 +21,7 @@ import { ModuleKind, ScriptTarget, transpileModule } from 'typescript';
 import { afterEach, expect, test, vi } from 'vitest';
 import { z } from 'zod';
 import { hashBytes } from '../../src/core/repository-files.js';
+import { bounded, observedProcess } from '../../scripts/tool-update/fixtures.mjs';
 import {
   installCodexConnectInstallation as install,
   previewCodexConnectInstallation as preview,
@@ -527,6 +528,8 @@ test('compiled installer uses its bundled recorder without checkout scripts', ()
     'connect/codex-connect-installation',
     'codex-binding-admission',
     'core/repository-files',
+    'core/ordinary-window-policy',
+    'contracts',
     'core/tool-version-profiles',
     'package-paths'
   ]) {
@@ -632,3 +635,186 @@ test('moving an installed project does not transfer its ownership to a replaceme
   expect(remove(f.project, f.options).blockers).toContain('codex_connect_changed_project_root');
   expect(snapshot(f.project)).toBe(before);
 });
+
+function windowInstallationFixture() {
+  const f = fixture();
+  const windowPackageRoot = join(dirname(f.project), 'window-package');
+  const windowHookSource = join(dirname(f.project), 'window-source/window-hook.mjs');
+  put(windowPackageRoot, 'SKILL.md', 'synthetic window skill');
+  put(windowPackageRoot, 'scripts/connect.mjs', 'export const pendingOnly = true;\n');
+  put(dirname(f.project), 'window-source/window-hook.mjs', 'export const syntheticWindowHook = true;\n');
+  const options: CodexConnectInstallationOptions = {
+    ...f.options,
+    bundleMode: 'ordinary_window',
+    productVersion: '0.167.0',
+    windowPackageRoot,
+    windowHookSource
+  };
+  return { ...f, options, exactOptions: f.options, windowPackageRoot, windowHookSource };
+}
+const windowRecorderPath = metadata + '/session-binding-codex-window-hook.mjs';
+const windowReceipts = '.harness-delta/window-receipts';
+
+test('explicit window migration retains exact helpers commands and pending receipt state', () => {
+  const f = windowInstallationFixture();
+  install(f.project, reviewed(f.project, f.exactOptions));
+  const exactCommand = hooks(f.project).hooks.SessionStart[1];
+  const exactClient = readFileSync(join(f.project, target, 'scripts/connect.mjs'));
+  const exactRecorder = readFileSync(join(f.project, recorder));
+  put(f.project, metadata + '/receipts/existing.json', '{"synthetic":"exact"}');
+  put(f.packageRoot, 'scripts/connect.mjs', 'changed upstream exact helper');
+  put(dirname(f.hookSource), 'recorder.mjs', 'changed upstream exact recorder');
+  const before = snapshot(f.project);
+  const proposed = preview(f.project, f.options);
+  expect(proposed).toMatchObject({ bundleMode: 'ordinary_window', bundleRevision: 'codex-window-bundle-v1', receiptDirectory: windowReceipts, blockers: [] });
+  expect(snapshot(f.project)).toBe(before);
+  expect(install(f.project, reviewed(f.project, f.options)).state).toBe('installed');
+  expect(readFileSync(join(f.project, target, 'scripts/connect.mjs'))).toEqual(exactClient);
+  expect(readFileSync(join(f.project, recorder))).toEqual(exactRecorder);
+  expect(hooks(f.project).hooks.SessionStart[1]).toEqual(exactCommand);
+  expect(hooks(f.project).hooks.SessionStart[0]).toEqual(unrelated);
+  expect(hooks(f.project).hooks.SessionStart).toHaveLength(3);
+  expect(readFileSync(join(f.project, target, 'scripts/connect-window.mjs'))).toEqual(readFileSync(join(f.windowPackageRoot, 'scripts/connect.mjs')));
+  expect(readFileSync(join(f.project, windowRecorderPath))).toEqual(readFileSync(f.windowHookSource));
+  const manifest = z
+    .object({ schema_version: z.literal(2), bundle_mode: z.literal('ordinary_window'), bundle_revision: z.literal('codex-window-bundle-v1') })
+    .parse(JSON.parse(readFileSync(join(f.project, metadata, 'installation.json'), 'utf8')) as unknown);
+  expect(manifest.schema_version).toBe(2);
+  expect(readdirSync(join(f.project, windowReceipts))).toEqual([]);
+  expect(readFileSync(join(f.project, metadata + '/receipts/existing.json'), 'utf8')).toBe('{"synthetic":"exact"}');
+});
+test('fresh window installation has generic lifecycle commands and no emission control', () => {
+  const f = windowInstallationFixture();
+  const result = install(f.project, reviewed(f.project, f.options));
+  const command = [
+    realpathSync(process.execPath),
+    join(f.project, windowRecorderPath),
+    '--receipt-directory',
+    join(f.project, windowReceipts),
+    '--project-root',
+    f.project
+  ]
+    .map(quote)
+    .join(' ');
+  expect(hooks(f.project).hooks.SessionStart[1]).toEqual({ hooks: [{ type: 'command', command }] });
+  expect(hooks(f.project).hooks.SubagentStart).toEqual([{ hooks: [{ type: 'command', command }] }]);
+  expect(result.installedHash).toBe(result.packageHash);
+  expect(readdirSync(join(f.project, windowReceipts))).toEqual([]);
+  expect(lstatSync(join(f.project, windowReceipts)).mode & 0o777).toBe(0o700);
+  expect(preview(f.project, { ...f.options, productVersion: '0.169.0', sourceRoots: [join(dirname(f.project), 'not-yet-created-source')] }).changes).toEqual(
+    []
+  );
+});
+test('an exact preview cannot authorize window migration', () => {
+  const f = windowInstallationFixture();
+  const exact = reviewed(f.project, f.exactOptions);
+  const before = snapshot(f.project);
+  expect(() =>
+    install(f.project, { ...f.options, expectedPackageHash: exact.expectedPackageHash, expectedInstalledHash: exact.expectedInstalledHash })
+  ).toThrow('codex_connect_installation_preview_changed');
+  expect(snapshot(f.project)).toBe(before);
+});
+test.each(['selected skill', 'window recorder', 'hook document', 'edited owned helper', 'unowned window hook'])(
+  'window %s drift refuses stale or unowned changes',
+  kind => {
+    const f = windowInstallationFixture();
+    install(f.project, reviewed(f.project, f.exactOptions));
+    const accepted = reviewed(f.project, f.options);
+    if (kind === 'selected skill') put(f.windowPackageRoot, 'SKILL.md', 'changed selected input');
+    else if (kind === 'window recorder') put(dirname(f.windowHookSource), 'window-hook.mjs', 'changed selected input');
+    else if (kind === 'hook document') put(f.project, hooksPath, JSON.stringify({ ...hooks(f.project), changed: true }));
+    else if (kind === 'edited owned helper') put(f.project, target + '/scripts/connect.mjs', 'unreviewed edit');
+    else {
+      const document = hooks(f.project);
+      document.hooks.SessionStart.push({ hooks: [{ type: 'command', command: 'node ' + join(f.project, windowRecorderPath) + ' --other-option' }] });
+      put(f.project, hooksPath, JSON.stringify(document));
+    }
+    const before = snapshot(f.project);
+    if (kind === 'edited owned helper' || kind === 'unowned window hook') expect(install(f.project, accepted).state).toBe('blocked');
+    else expect(() => install(f.project, accepted)).toThrow('codex_connect_installation_preview_changed');
+    expect(snapshot(f.project)).toBe(before);
+  }
+);
+test('window removal preserves both receipt directories and all unrelated hooks', () => {
+  const f = windowInstallationFixture();
+  install(f.project, reviewed(f.project, f.exactOptions));
+  install(f.project, reviewed(f.project, f.options));
+  put(f.project, windowReceipts + '/ordinary-window-control.json', '{"synthetic":"inactive"}');
+  put(f.project, metadata + '/receipts/retained.json', '{"synthetic":true}');
+  expect(remove(f.project, reviewed(f.project, f.options, 'remove')).state).toBe('absent');
+  expect(hooks(f.project).hooks.SessionStart).toEqual([unrelated]);
+  expect(hooks(f.project).hooks.SubagentStart).toEqual([]);
+  expect(readFileSync(join(f.project, windowReceipts, 'ordinary-window-control.json'), 'utf8')).toBe('{"synthetic":"inactive"}');
+  expect(readFileSync(join(f.project, metadata, 'receipts/retained.json'), 'utf8')).toBe('{"synthetic":true}');
+  expect(existsSync(join(f.project, recorder))).toBe(false);
+  expect(existsSync(join(f.project, windowRecorderPath))).toBe(false);
+});
+test('failed window manifest commit restores the entire exact installation', () => {
+  const f = windowInstallationFixture();
+  install(f.project, reviewed(f.project, f.exactOptions));
+  const accepted = reviewed(f.project, f.options),
+    before = snapshot(f.project);
+  fault.commit = true;
+  expect(() => install(f.project, accepted)).toThrow('codex_connect_installation_unavailable');
+  expect(snapshot(f.project)).toBe(before);
+});
+test.each(['symlink receipt directory', 'unowned recorder'])('unsafe window %s cannot be adopted', kind => {
+  const f = windowInstallationFixture();
+  mkdirSync(join(f.project, '.harness-delta'), { recursive: true, mode: 0o700 });
+  if (kind === 'symlink receipt directory') symlinkSync(f.sourceRoot, join(f.project, windowReceipts));
+  else put(f.project, windowRecorderPath, readFileSync(f.windowHookSource, 'utf8'));
+  const before = snapshot(f.project);
+  expect(install(f.project, f.options).state).toBe('blocked');
+  expect(snapshot(f.project)).toBe(before);
+});
+test.each(['0.163.0', '0.170.0', '0.167.0-beta.1'])('window installer refuses excluded version %s', productVersion => {
+  const f = windowInstallationFixture();
+  expect(preview(f.project, { ...f.options, productVersion }).blockers).toContain('codex_connect_product_version_unsupported');
+});
+
+test.each([false, true])(
+  'window installer uses only owned package/project I/O; calibrated native metadata read=%s',
+  async calibrate => {
+    const f = windowInstallationFixture();
+    const messages: unknown[] = [];
+    let stderr = '',
+      stdout = '';
+    const launched = observedProcess(
+      process.execPath,
+      [fileURLToPath(new URL('../helpers/codex-window-hook-tripwire.mjs', import.meta.url))],
+      {
+        cwd: f.project,
+        env: {
+          ...process.env,
+          CODEX_WINDOW_NATIVE_PREFIXES: JSON.stringify([f.sourceRoot]),
+          CODEX_WINDOW_SCRIPT: fileURLToPath(new URL('../helpers/codex-window-installation-probe.mjs', import.meta.url)),
+          CODEX_INSTALL_OPTIONS: JSON.stringify(f.options),
+          CODEX_INSTALL_PROJECT: f.project,
+          CODEX_INSTALL_MODULE: fileURLToPath(new URL('../../dist/connect/codex-connect-installation.js', import.meta.url)),
+          CODEX_INSTALL_CALIBRATE: calibrate ? '1' : '0'
+        },
+        stdio: ['ignore', 'pipe', 'pipe', 'ipc']
+      },
+      child => {
+        child.on('message', (message: unknown) => messages.push(message));
+        child.once('spawn', () => {
+          child.stdout?.on('data', (bytes: Buffer) => {
+            stdout += bytes.toString();
+          });
+          child.stderr?.on('data', (bytes: Buffer) => {
+            stderr += bytes.toString();
+          });
+        });
+      }
+    );
+    expect(await bounded(launched.closed, 10000)).toEqual([0, null]);
+    expect(stdout).toBe('');
+    expect(stderr).toBe('');
+    const effects = z.object({ kind: z.literal('effects'), effects: z.object({ nativeCalls: z.number(), processCalls: z.number() }) });
+    const observed = messages.map(message => effects.safeParse(message)).find(result => result.success);
+    expect(observed?.data?.effects).toEqual({ nativeCalls: calibrate ? 1 : 0, processCalls: 0 });
+    expect(messages.filter(message => z.object({ kind: z.literal('ready') }).safeParse(message).success)).toHaveLength(1);
+    expect(messages).toContainEqual({ kind: 'installation', state: 'installed', blockers: [] });
+  },
+  15000
+);

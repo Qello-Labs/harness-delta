@@ -15,6 +15,12 @@ import { IdSchema } from '../contracts.js';
 import { CodexSessionBindingProvider } from '../session-binding-codex.js';
 import type { Store } from '../store.js';
 import { withLiveWebMetadataScope } from './local-web-metadata.js';
+import {
+  codexWindowConfiguration,
+  codexWindowInstallationOptions,
+  CodexWindowPreferenceSchema,
+  inspectCodexWindowSetup
+} from './local-web-codex-window-setup.js';
 
 const sourceRoot = z
   .string()
@@ -29,21 +35,24 @@ const settingsSchema = z.strictObject({
     .max(16)
     .refine(paths => new Set(paths).size === paths.length)
 });
-export const CodexProjectActionSchema = z.strictObject({
-  operation: z.enum(['configure', 'preview-install', 'install', 'preview-remove', 'remove', 'recover-lock']),
-  product_version: settingsSchema.shape.product_version.optional(),
-  source_roots: settingsSchema.shape.source_roots.optional(),
-  expected_package_hash: z
-    .string()
-    .regex(/^[a-f0-9]{64}$/)
-    .nullable()
-    .optional(),
-  expected_installed_hash: z
-    .string()
-    .regex(/^[a-f0-9]{64}$/)
-    .nullable()
-    .optional()
-});
+export const CodexProjectActionSchema = z
+  .strictObject({
+    operation: z.enum(['configure', 'preview-install', 'install', 'preview-remove', 'remove', 'recover-lock']),
+    mode: z.enum(['exact', 'ordinary_window']).optional(),
+    product_version: z.union([settingsSchema.shape.product_version, CodexWindowPreferenceSchema.shape.product_version]).optional(),
+    source_roots: settingsSchema.shape.source_roots.optional(),
+    expected_package_hash: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/)
+      .nullable()
+      .optional(),
+    expected_installed_hash: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/)
+      .nullable()
+      .optional()
+  })
+  .refine(input => input.mode === undefined || input.operation === 'configure');
 export type CodexProjectAction = z.infer<typeof CodexProjectActionSchema>;
 
 export function codexReceiptDirectoryState(path: string): 'ready' | 'missing' | 'unsafe' {
@@ -57,6 +66,73 @@ export function codexReceiptDirectoryState(path: string): 'ready' | 'missing' | 
   }
 }
 
+function inspectExactCodexSetup(
+  store: Store,
+  projectId: string,
+  root: string,
+  saved: z.infer<typeof settingsSchema> | undefined,
+  effective: z.infer<typeof settingsSchema>
+) {
+  const admission = getCodexBindingAdmission(effective.product_version);
+  if (!admission) throw new Error('codex_connect_product_version_unsupported');
+  const options = { productVersion: effective.product_version, sourceRoots: effective.source_roots };
+  const installation = statusCodexConnectInstallation(root, options);
+  const receiptPath = join(root, installation.receiptDirectory);
+  const receiptDirectory = codexReceiptDirectoryState(receiptPath);
+  let reason: string | null = !saved
+    ? 'codex_connect_not_configured'
+    : receiptDirectory === 'missing'
+      ? 'receipt_directory_missing'
+      : receiptDirectory === 'unsafe'
+        ? 'receipt_directory_unsafe'
+        : installation.state !== 'installed'
+          ? (installation.blockers[0] ?? 'codex_connect_package_missing')
+          : null;
+  if (reason === null) {
+    try {
+      new CodexSessionBindingProvider({
+        receiptDirectory: receiptPath,
+        sourceRoots: effective.source_roots,
+        projectRoot: root,
+        productVersion: effective.product_version
+      });
+    } catch {
+      reason = 'codex_connect_source_missing';
+    }
+  }
+  const connection = store.get<{ roots: number; observing: number }>(
+    `SELECT COUNT(*) AS roots, COALESCE(SUM(CASE WHEN b.state='observing' THEN 1 ELSE 0 END),0) AS observing
+     FROM session_bindings b JOIN tasks t ON t.id=b.task_id
+     WHERE t.project_id=? AND b.root_id=b.session_id AND json_extract(b.identity,'$.product')='codex'`,
+    [projectId]
+  );
+  return {
+    project_id: projectId,
+    configured: saved !== undefined,
+    product: 'codex' as const,
+    product_version: effective.product_version,
+    source_roots: effective.source_roots,
+    installation,
+    available_versions: codexBindingAdmissions.map(version => version.productVersion),
+    unqualified_versions: codexBindingAdmissions
+      .filter(version => !isQualifiedCodexBindingAdmission(version.productVersion))
+      .map(version => version.productVersion),
+    readiness: {
+      receipt_directory: receiptDirectory,
+      provider: reason === null ? ('ready' as const) : ('blocked' as const),
+      reason,
+      hook_trust: 'manual_confirmation_required' as const,
+      requires_new_session: true as const
+    },
+    connection: connection ?? { roots: 0, observing: 0 },
+    admission: {
+      profile_id: admission.profileId,
+      qualified: isQualifiedCodexBindingAdmission(effective.product_version),
+      max_family_members: admission.maxFamilyMembers
+    }
+  };
+}
+
 export function createCodexProjectSetupManager(store: Store, metadata: Database.Database) {
   metadata.exec('CREATE TABLE IF NOT EXISTS web_codex_connections(project_id TEXT PRIMARY KEY, settings TEXT NOT NULL)');
   function project(projectId: string) {
@@ -68,7 +144,7 @@ export function createCodexProjectSetupManager(store: Store, metadata: Database.
     project(projectId);
     const row = metadata.prepare('SELECT settings FROM web_codex_connections WHERE project_id=?').get(projectId);
     const saved = z.object({ settings: z.string() }).optional().parse(row);
-    return saved ? settingsSchema.parse(JSON.parse(saved.settings) as unknown) : undefined;
+    return saved ? z.union([settingsSchema, CodexWindowPreferenceSchema]).parse(JSON.parse(saved.settings) as unknown) : undefined;
   }
   function defaults() {
     return settingsSchema.parse({
@@ -82,7 +158,7 @@ export function createCodexProjectSetupManager(store: Store, metadata: Database.
       return undefined;
     }
     const saved = settings(projectId);
-    return saved
+    return saved && !('mode' in saved)
       ? {
           product: 'codex' as const,
           product_version: saved.product_version,
@@ -91,6 +167,11 @@ export function createCodexProjectSetupManager(store: Store, metadata: Database.
           project_root: project(projectId)
         }
       : undefined;
+  }
+  function windowConfiguration(projectId: string) {
+    project(projectId);
+    const saved = settings(projectId);
+    return saved && 'mode' in saved ? codexWindowConfiguration(project(projectId), saved) : undefined;
   }
   function pruneDeleted() {
     const rows = z.array(z.object({ project_id: z.string() })).parse(metadata.prepare('SELECT project_id FROM web_codex_connections').all());
@@ -105,77 +186,34 @@ export function createCodexProjectSetupManager(store: Store, metadata: Database.
   function inspect(projectId: string) {
     const root = project(projectId);
     const saved = settings(projectId);
-    const effective = saved ?? defaults();
-    const admission = getCodexBindingAdmission(effective.product_version);
-    if (!admission) throw new Error('codex_connect_product_version_unsupported');
-    const options = { productVersion: effective.product_version, sourceRoots: effective.source_roots };
-    const installation = statusCodexConnectInstallation(root, options);
-    const receiptPath = join(root, installation.receiptDirectory);
-    const receiptDirectory = codexReceiptDirectoryState(receiptPath);
-    let reason: string | null = !saved
-      ? 'codex_connect_not_configured'
-      : receiptDirectory === 'missing'
-        ? 'receipt_directory_missing'
-        : receiptDirectory === 'unsafe'
-          ? 'receipt_directory_unsafe'
-          : installation.state !== 'installed'
-            ? (installation.blockers[0] ?? 'codex_connect_package_missing')
-            : null;
-    if (reason === null) {
-      try {
-        new CodexSessionBindingProvider({
-          receiptDirectory: receiptPath,
-          sourceRoots: effective.source_roots,
-          projectRoot: root,
-          productVersion: effective.product_version
-        });
-      } catch {
-        reason = 'codex_connect_source_missing';
-      }
+    if (saved && 'mode' in saved) {
+      return inspectCodexWindowSetup(store, projectId, root, saved);
     }
-    const connection = store.get<{ roots: number; observing: number }>(
-      `SELECT COUNT(*) AS roots, COALESCE(SUM(CASE WHEN b.state='observing' THEN 1 ELSE 0 END),0) AS observing
-       FROM session_bindings b JOIN tasks t ON t.id=b.task_id
-       WHERE t.project_id=? AND b.root_id=b.session_id AND json_extract(b.identity,'$.product')='codex'`,
-      [projectId]
-    );
-    return {
-      project_id: projectId,
-      configured: saved !== undefined,
-      product: 'codex' as const,
-      product_version: effective.product_version,
-      source_roots: effective.source_roots,
-      installation,
-      available_versions: codexBindingAdmissions.map(version => version.productVersion),
-      unqualified_versions: codexBindingAdmissions
-        .filter(version => !isQualifiedCodexBindingAdmission(version.productVersion))
-        .map(version => version.productVersion),
-      readiness: {
-        receipt_directory: receiptDirectory,
-        provider: reason === null ? ('ready' as const) : ('blocked' as const),
-        reason,
-        hook_trust: 'manual_confirmation_required' as const,
-        requires_new_session: true as const
-      },
-      connection: connection ?? { roots: 0, observing: 0 },
-      admission: {
-        profile_id: admission.profileId,
-        qualified: isQualifiedCodexBindingAdmission(effective.product_version),
-        max_family_members: admission.maxFamilyMembers
-      }
-    };
+    const effective = saved ?? defaults();
+    return inspectExactCodexSetup(store, projectId, root, saved, effective);
   }
+
   function action(projectId: string, input: CodexProjectAction) {
     const parsed = CodexProjectActionSchema.parse(input);
     const root = project(projectId);
-    const effective = settings(projectId) ?? defaults();
-    const options = { productVersion: effective.product_version, sourceRoots: effective.source_roots };
+    const saved = settings(projectId);
+    const effective = saved ?? defaults();
+    const options =
+      'mode' in effective
+        ? codexWindowInstallationOptions(effective)
+        : {
+            productVersion: effective.product_version,
+            sourceRoots: effective.source_roots
+          };
     if (
       ['configure', 'install', 'remove', 'recover-lock'].includes(parsed.operation) &&
       store.get(
         `SELECT 1 FROM session_bindings b JOIN tasks t ON t.id=b.task_id
-        WHERE t.project_id=? AND b.state='observing' AND json_extract(b.identity,'$.product')='codex'`,
-        [projectId]
+        WHERE t.project_id=? AND b.state='observing' AND json_extract(b.identity,'$.product')='codex'
+        UNION ALL SELECT 1 FROM binding_root_segments s JOIN tasks t ON t.id=s.task_id
+        JOIN ordinary_window_selections w ON w.task_id=t.id
+        WHERE t.project_id=? AND s.product='codex' AND s.state IN ('acquiring','observing')`,
+        [projectId, projectId]
       )
     )
       throw new Error('codex_connect_in_use');
@@ -184,10 +222,19 @@ export function createCodexProjectSetupManager(store: Store, metadata: Database.
         recoverCodexConnectInstallationLock(root, options);
         return inspect(projectId);
       case 'configure': {
-        const next = settingsSchema.parse({
+        const windowMode = parsed.mode === 'ordinary_window' || (parsed.mode === undefined && 'mode' in effective);
+        const fields = {
           product_version: parsed.product_version ?? effective.product_version,
           source_roots: parsed.source_roots ?? effective.source_roots
-        });
+        };
+        const next = windowMode
+          ? CodexWindowPreferenceSchema.parse({
+              schema_version: 2,
+              mode: 'ordinary_window',
+              product: 'codex',
+              ...fields
+            })
+          : settingsSchema.parse(fields);
         return withLiveWebMetadataScope(store, { projectId }, () => {
           metadata
             .prepare('INSERT INTO web_codex_connections(project_id,settings) VALUES(?,?) ON CONFLICT(project_id) DO UPDATE SET settings=excluded.settings')
@@ -220,5 +267,5 @@ export function createCodexProjectSetupManager(store: Store, metadata: Database.
       }
     }
   }
-  return { inspect, action, configuration, pruneDeleted };
+  return { inspect, action, configuration, windowConfiguration, pruneDeleted };
 }

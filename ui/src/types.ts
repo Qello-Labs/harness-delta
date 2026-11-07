@@ -151,6 +151,9 @@ export interface CodexSetup {
   project_id: string;
   configured: boolean;
   product: 'codex';
+  mode?: 'ordinary_window';
+  schema_version?: 2;
+  window?: { policy_id: string; policy_revision: string; evidence_mode: 'source_only'; collection_enabled: false; reason: string };
   product_version: string;
   available_versions: string[];
   unqualified_versions: string[];
@@ -163,10 +166,12 @@ export interface CodexSetup {
     destination: string;
     receiptDirectory: string;
     hookRegistration: 'unverified';
+    bundleMode?: 'ordinary_window';
+    bundleRevision?: 'codex-window-bundle-v1';
     blockers: readonly string[];
   };
   readiness: {
-    receipt_directory: 'ready' | 'missing' | 'unsafe';
+    receipt_directory: 'ready' | 'missing' | 'unsafe' | 'unverified';
     provider: 'ready' | 'blocked';
     reason: string | null;
     hook_trust: 'manual_confirmation_required';

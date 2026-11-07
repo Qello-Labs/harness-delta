@@ -70,7 +70,7 @@ test.each(versions)('schema %i reads its finite closure and preserves portable f
   const parsed = assessmentSchema.parse(input);
 
   expect(parsed).toEqual(input);
-  expect(parsed.source_paths).toHaveLength(schemaVersion <= 4 ? 31 : 44);
+  expect(parsed.source_paths).toHaveLength(schemaVersion <= 4 ? 31 : 47);
 });
 
 test.each([5, 6] as const)('schema %i reads both named expanded revisions without rewriting v2 records', schemaVersion => {
@@ -103,7 +103,7 @@ test.each([1, 2, 3, 4] as const)('legacy schema %i refuses expanded writer contr
 test.each(versions)('schema %i rejects unknown paths duplicates and over-bound lists', schemaVersion => {
   const input = record(schemaVersion);
   const path = 'src/source-compatibility.ts';
-  const limit = schemaVersion <= 4 ? 32 : 44;
+  const limit = schemaVersion <= 4 ? 32 : 47;
 
   for (const source_paths of [[], ['../SECRET'], ['src/unlisted-control.ts'], [path, path]])
     expect(assessmentSchema.safeParse({ ...input, source_paths }).success).toBe(false);

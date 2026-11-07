@@ -24,7 +24,10 @@ const parserPaths = [
   'src/core/ordinary-window-activation.ts',
   'src/core/ordinary-window-decision.ts',
   'src/cli/ordinary-window-activation-cli.ts',
-  'scripts/session-binding-codex-window-hook.mjs'
+  'scripts/session-binding-codex-window-hook.mjs',
+  'src/connect/codex-connect-installation.ts',
+  'skills/harness-connect-window-codex/SKILL.md',
+  'skills/harness-connect-window-codex/scripts/connect.mjs'
 ] as const;
 const temporary: string[] = [];
 afterEach(async () => {
@@ -411,9 +414,9 @@ test('rejects aggregate capture above 16 MiB even when each hash-only input fits
   ).rejects.toMatchObject({ code: 'source_snapshot_unavailable' });
   expect(projected).toBe(false);
 });
-test('the expanded snapshot consumes the approved finite 44-path contract', async () => {
+test('the expanded snapshot consumes the finite 47-path C2 contract', async () => {
   const snapshot = await withSourceSnapshot(root, () => null);
-  expect(snapshot.source_paths).toHaveLength(44);
+  expect(snapshot.source_paths).toHaveLength(47);
 });
 test('loads nested source imports and retirement metadata without dist', async () => {
   const directory = await sourceFixture();
@@ -426,7 +429,7 @@ test('loads nested source imports and retirement metadata without dist', async (
   expect(snapshot.value.retired).toEqual(['2.1.288', '2.1.291']);
   expect(snapshot.value.admitted?.state).toBe('verified');
   expect(snapshot.source_paths).toEqual(sourcePathAllowlist);
-  expect(snapshot.source_paths).toHaveLength(44);
+  expect(snapshot.source_paths).toHaveLength(47);
 });
 test.each([
   ['escape', "import '../../package.json' with { type: 'json' };"],

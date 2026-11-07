@@ -17,6 +17,8 @@ import { registerLocalWebTaskReadRoutes } from './local-web-ordinary-window-repo
 import { OrdinaryProjectActionSchema, type OrdinaryProjectAction } from './local-web-ordinary.js';
 import { CodexProjectActionSchema, type CodexProjectAction } from './local-web-codex.js';
 import type { Store } from '../store.js';
+import type { CodexWindowControl } from './local-web-codex-window-control.js';
+import { registerCodexWindowRoutes } from './local-web-codex-window-http.js';
 import { registerWebMetadata, withLiveWebMetadataScope, type WebMetadataScope } from './local-web-metadata.js';
 
 /** Accepted imports retain imported:true; counts describe actual transactional saves. */
@@ -25,6 +27,7 @@ export type LocalWebSetupImportResult = { cancelled: true } | { imported: true; 
 /** Transport boundary only; implementations call the shared domain/Store. */
 export interface LocalWebDomain {
   readonly metadataStore: Store;
+  readonly codexWindow?: CodexWindowControl;
   bootstrap(): unknown;
   task(id: string): { version: string } & Record<string, unknown>;
   ordinaryWindowReport?(this: void, taskId: string, cutoff: string): unknown;
@@ -241,6 +244,9 @@ const safeCodes = new Set([
   'ordinary_configuration_changed',
   'binding_window_activation_required',
   'binding_window_unavailable',
+  'binding_fresh_root_required',
+  'binding_window_trial_expired',
+  'binding_window_trial_budget_exhausted',
   'binding_version_out_of_window',
   'binding_ordinary_assignment_conflict',
   'binding_root_only_required',
@@ -335,6 +341,26 @@ function sameSecret(input: string | undefined, expected: string): boolean {
   return actual.byteLength === required.byteLength && timingSafeEqual(actual, required);
 }
 
+function mutationTask(domain: LocalWebDomain, taskId: string, windowControl: CodexWindowControl | undefined) {
+  return windowControl ? windowControl.task(taskId) : domain.task(taskId);
+}
+function validateWindowMutationResult(control: CodexWindowControl | undefined, taskId: string | undefined, result: unknown, status: number) {
+  if (control && status === 200) control.validateReplay(taskId ?? z.object({ task_id: id }).parse(result).task_id, result);
+}
+function completedMutationScope(scope: WebMetadataScope, url: string, status: number, result: unknown, windowControl: CodexWindowControl | undefined) {
+  const resultId =
+    status === 200 && windowControl
+      ? z.object({ task_id: id }).parse(result).task_id
+      : status === 200 && result && typeof result === 'object' && 'id' in result && typeof result.id === 'string'
+        ? result.id
+        : undefined;
+  return {
+    ...scope,
+    ...((url === '/api/tasks' || windowControl) && resultId ? { taskId: resultId } : {}),
+    ...(url === '/api/projects' && resultId ? { projectId: resultId } : {})
+  };
+}
+
 /** No listening is done here. The entry binds 127.0.0.1 only; injection supports focused tests. */
 export function createLocalWebServer(options: LocalWebOptions) {
   const url = new URL(options.origin);
@@ -407,12 +433,13 @@ export function createLocalWebServer(options: LocalWebOptions) {
   });
   registerLocalWebTaskReadRoutes(app, options.domain, id);
   app.get('/api/bootstrap', async () => ({ csrf, data: await options.domain.bootstrap() }));
-  const mutation = async <T>(
+  const mutation = async function <T>(
     request: { body: unknown; url: string; headers: Record<string, unknown> },
     parse: (input: unknown) => T,
     execute: (input: T) => Promise<unknown>,
-    taskId?: string
-  ) => {
+    taskId?: string,
+    windowControl?: CodexWindowControl
+  ) {
     const key = z.uuid().parse(request.headers['idempotency-key']);
     const body = parse(request.body);
     const hash = createHash('sha256')
@@ -429,7 +456,7 @@ export function createLocalWebServer(options: LocalWebOptions) {
       const old = records.prepare('SELECT * FROM web_actions WHERE id=?').get(key) as
         { request_hash: string; state: string; response: string; status: number } | undefined;
       if (old?.state === 'deleted') return { status: 400, result: { error: 'deleted_identifier' } };
-      const task = taskId ? options.domain.task(taskId) : null;
+      const task = taskId ? mutationTask(options.domain, taskId, windowControl) : null;
       const projectId =
         task && typeof task.project_id === 'string'
           ? task.project_id
@@ -441,6 +468,7 @@ export function createLocalWebServer(options: LocalWebOptions) {
         if (old.request_hash !== hash) throw new Error('ui_action_conflict');
         if (old.state === 'pending') throw new Error('ui_action_uncertain');
         const cached: unknown = JSON.parse(old.response);
+        validateWindowMutationResult(windowControl, taskId, cached, old.status);
         if (request.url === '/api/tasks' && old.status === 200 && cached && typeof cached === 'object' && 'id' in cached && typeof cached.id === 'string')
           options.domain.task(cached.id);
         return { status: old.status, result: cached };
@@ -455,16 +483,12 @@ export function createLocalWebServer(options: LocalWebOptions) {
       let status = 200;
       try {
         result = await execute(body);
+        validateWindowMutationResult(windowControl, taskId, result, 200);
       } catch (error) {
         result = { error: localWebError(error) };
         status = 400;
       }
-      const resultId = status === 200 && result && typeof result === 'object' && 'id' in result && typeof result.id === 'string' ? result.id : undefined;
-      const completedScope = {
-        ...scope,
-        ...(request.url === '/api/tasks' && resultId ? { taskId: resultId } : {}),
-        ...(request.url === '/api/projects' && resultId ? { projectId: resultId } : {})
-      };
+      const completedScope = completedMutationScope(scope, request.url, status, result, windowControl);
       try {
         withLiveWebMetadataScope(store, completedScope, () => {
           const saved = records
@@ -523,6 +547,7 @@ export function createLocalWebServer(options: LocalWebOptions) {
     return options.domain.saveReviewedSetup(z.strictObject({ token: z.uuid() }).parse(input).token);
   });
   addMutation('/api/tasks', createInput, async input => options.domain.createTask(createInput.parse(input)));
+  registerCodexWindowRoutes(app, options.domain.codexWindow, { csrf, mutation, errorCode: localWebError });
   app.get<{ Params: { id: string } }>('/api/projects/:id/ordinary-setup', request => {
     if (!options.domain.ordinaryProject) throw new Error('invalid_ui_request');
     return options.domain.ordinaryProject(id.parse(request.params.id));
