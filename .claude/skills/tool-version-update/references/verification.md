@@ -51,6 +51,36 @@ The existing
 [parent-workflow evidence](../../../../docs/validation/claude-workflow-02196-source-readiness.md)
 is a comparison recipe, not evidence for another version.
 
+## Closed Codex root-reference boundary
+
+The separate Codex window bundle/setup is implemented for offline acceptance,
+ordinary-window collection disabled pending separate product activation and native
+acceptance. Once those product-specific gates are separately accepted, the finite
+`codex-binding-root-window-v1` may supply descriptive `source_only` root references
+for stable `0.163.0 < v < 0.170.0` before per-target deeper conformance. This limited
+exception, including an in-window minor transition, adds no exact target row and
+does not establish writer/executable/publisher/process identity or root-own usage.
+Children, verified exact support, bound changes and promotion still need the deeper
+gate. Blocked releases, failed required contracts, observed contradictions and
+revocation still stop collection; there is no fallback around a failure.
+
+Window inputs use the separate `ordinary_window_execution_pins` kind, schema 1 in
+its own namespace, with `pin_scheme_revision: ordinary-window-execution-v1`.
+`snapshotWindowPins` / `assertWindowPins` in `scripts/tool-update/fixtures.mjs`
+and `validateWindowExecutionPins` in `scripts/tool-update/window-execution-pins.mjs`
+validate a code-owned Codex map independently for source and built selection.
+Raw producer, selected window skill and instrument inputs, matching built copies,
+full source/build trees, runtime, package and lock are frozen; raw-only drift with
+fixed dist and built-only drift with fixed raw must both fail. The old exact
+`snapshotPins`, `assertPins` and approval schema 1 retain their meaning.
+
+A pin packet proves input equality, not authority: it neither activates collection
+nor authorizes a native/target/backend run, budget, publisher/variant change or cap
+renewal. No Codex window execution runner or Claude window map is implied. Existing
+exact runner recipes cannot be repurposed for a window target. The historical PR #70
+unqualified exact 0.166.0 candidate exception is not a precedent for future exact
+rows. See [ADR 013](../../../../docs/decisions/013-forward-version-compatibility.md#codex-root-reference-exception).
+
 ## Actual target-binary verification
 
 Before a native/backend call, finish the source review and synthetic regressions.

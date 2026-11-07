@@ -135,6 +135,44 @@ not the historical evidence above.
 - No new native trial was run, and no earlier observation is promoted. The
   qualification criteria above remain the record of what was and wasn't shown.
 
+## Codex ordinary-window addendum (collection disabled)
+
+The Codex `ordinary_window` path extends this descriptive-mode context without
+changing the historical Claude decision above. It is implemented for offline
+acceptance, ordinary-window collection disabled pending separate product activation
+and native acceptance. It grants no protocol, allocation, arm, launch, resume,
+child connection, exchange or inferential adoption authority.
+
+Explicit project setup saves a schema 2 window preference, including a stable
+declared version inside `0.163.0 < v < 0.170.0` and permitted source roots. A
+separately prepared task freezes that declaration, `codex-binding-root-window-v1`,
+roots and price table. The task must be explicitly active before receipt/provider
+or source work, with a separately accepted live activation for that project,
+product, policy and evidence mode. Assigned tasks are rejected before reads;
+configuration, installation and static selection do not create that authority.
+
+Window installation is explicit preview/apply of owned files. Its schema 2
+manifest records `ordinary_window` and `codex-window-bundle-v1`, retains exact
+helper bytes and commands, and keeps edited-file, unsafe-path, stale-preview,
+unrelated-hook and in-use guards. Existing schema 1 settings, exact installation
+meaning, frozen tasks and defaults are not automatically migrated.
+
+Connection uses a fresh eligible startup root and pending receipt, returns
+`automatic_children:false`, and remains `source_only` and
+`compatibility_unverified`. Creation-header equality does not verify the current
+writer, executable, publisher or process; a root source is not root-own usage,
+and possible child contribution is unknown. Child usage/cost stay unobserved and
+null; root references remain partial, never complete totals or comparison evidence.
+
+After pause or observer restart, the old root cannot be reused: a fresh startup
+root/segment and baseline are required. Resume/fork/compaction and unsupported
+lifecycle evidence fence the old connection. N -> N+1 needs a new declared-version
+task and fresh root, not a per-patch generic helper rewrite. No past usage, task
+assignment or price pin changes and no missed interval is backfilled. These rules
+do not change the earlier exact Claude pause/resume behavior. See
+[ADR 013](013-forward-version-compatibility.md#codex-root-reference-exception)
+and [Harness Connect](../runbooks/harness-connect.md#codex-ordinary-window-setup-collection-disabled).
+
 ## Consequences
 
 Everyday work can be prepared for observation without a comparison protocol,

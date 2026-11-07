@@ -55,8 +55,9 @@ instrumentation이 있으면 평소처럼 연 부모가 신뢰 가능한 receipt
 일반 root 참조 정책 `codex-binding-root-window-v1`(Codex `>0.163.0`, `<0.170.0`)과
 `claude-binding-root-window-v1`(Claude Code `>2.1.306`, `<2.2.0`)은 오프라인 검증용으로
 구현되었으며, 일반 창(window) 수집은 별도 제품 활성화와 native 검증 전까지 비활성 상태입니다.
-정확 admission이 아니며 지원 버전 목록에도 없습니다. 여기서는 window 패키지, helper, 설정을
-제공하지 않으며 이 스킬을 설치해도 window가 열리지 않습니다. root 소스 참조는 root 자체
+정확 admission이 아니며 지원 버전 목록에도 없습니다. 별도의 Codex window 패키지, helper와
+닫힌 설정은 아래에서 제공하지만 Claude window 패키지는 제공하지 않습니다. 설정을 저장하거나
+패키지를 설치해도 window가 활성화되지는 않습니다. root 소스 참조는 root 자체
 사용량이 아닙니다. 소유는 미검증으로 남고 자식 관측 범위와 비용은 null입니다.
 [ADR 013](../decisions/013-forward-version-compatibility.md#profile-selection-and-scope)을 참고하세요.
 
@@ -66,7 +67,7 @@ instrumentation이 있으면 평소처럼 연 부모가 신뢰 가능한 receipt
 **Codex** 또는 **Claude Code**를 선택합니다. 설정 저장, 파일 설치, native hook
 신뢰와 세션 연결은 서로 다른 상태입니다.
 
-Codex는 정확한 버전과 허용 source root를 검토한 뒤 설정을 저장합니다.
+Codex의 **정확 버전** 모드에서는 정확한 버전과 허용 source root를 검토한 뒤 설정을 저장합니다.
 설치 미리보기를 확인하고 적용합니다. 검토한 설치는 소유한 skill과 recorder를
 복사하고, 프로젝트의 `.codex/hooks.json`에 hook 항목을 병합하며,
 `.harness-delta/codex-connect/receipts`를 비공개 권한으로 생성합니다.
@@ -92,6 +93,56 @@ hook이나 skill 파일을 교체하지 않고 복구합니다. Node runtime을 
 **종료된 설치 잠금 복구**는 소유 프로세스의 종료가 확인되고 남은 트랜잭션이
 없을 때만 사용합니다. 소유 기록이 없거나 `transaction-*` 증거가 남아 있으면
 수동 검토가 필요합니다. 복구는 해당 증거를 버리거나 살아 있는 잠금을 해제하지 않습니다.
+
+## Codex 일반 window 설정 (수집 비활성)
+
+이 별도 경로는 오프라인 검증용으로 구현되었으며, 일반 window 수집은 별도 제품 활성화와
+native 검증 전까지 비활성 상태입니다. 활성 지원 항목이나 정확 admission이 아니며 native
+시험 실행 권한도 아닙니다. 위의 정확 버전 절차와 저장된 기본값은 바뀌지 않습니다.
+
+1. **에이전트 연결 설정**에서 **Codex**, **일반 window**를 선택합니다.
+   `0.163.0 < v < 0.170.0` 안의 안정 버전을 직접 입력하고 허용 source root를 검토합니다.
+   양 경계와 같은 버전, prerelease와 build suffix는 거부하며 상한 갱신에는 별도 결정이 필요합니다.
+2. 명시한 설정을 저장하고 설치 미리보기의 소유 상대 경로를 검토한 뒤 적용합니다.
+   window 모드로 한 번 명시적으로 옮기는 절차이며 기존 정확 설정이나 작업의 자동 변환이 아닙니다.
+   편집되거나 소유하지 않은 파일, 안전하지 않은 경로, 오래된 미리보기, 다른 hook과의 충돌,
+   사용 중인 root는 계속 변경을 차단합니다.
+3. 설정을 새로고침합니다. 수집은 여전히 비활성입니다. 설정 저장, 파일 복사, hook 신뢰,
+   pending receipt 메타데이터와 허가된 연결은 서로 다릅니다. 설치는 작업을 준비하거나 시작하지
+   않으며 emission control도 만들지 않습니다.
+
+소유 manifest `.harness-delta/codex-connect/installation.json`에는 schema 2,
+`bundle_mode: ordinary_window`와 `codex-window-bundle-v1`을 기록합니다. 설치기는
+`skills/harness-connect-window-codex`를 선택하며 기존 정확 helper
+`.agents/skills/harness-connect/scripts/connect.mjs`를 유지하고 window helper를 그 옆의
+`scripts/connect-window.mjs`로 설치합니다. 소유한 기존 정확 hook 명령과 다른 hook을
+보존합니다. 범용 window recorder는 `.harness-delta/window-receipts`를 사용하며 native
+원본을 탐색하거나 릴리스별 버전 literal을 포함하지 않습니다. 정확 schema 1은 그대로입니다.
+
+window 작업은 A/B 배정 작업이 아닌 별도
+`POST /api/projects/:id/codex-window-prepare-v1` API로 준비하며 지정 버전, 정책,
+프로젝트 root와 가격표를 고정합니다. 연결에는 명시적으로 활성화된 준비 작업, 별도의 유효한
+제품 활성화, 적격한 새 startup root와 opaque pending receipt가 필요합니다. helper는
+직접 받은 origin·프로젝트·작업·receipt ID만 사용하며 파일, 환경 힌트나 프로세스 ancestry로
+작업이나 receipt를 찾지 않습니다. 버전이 지정된 작업 화면을 읽고 같은 origin의
+CSRF·version·idempotency 보호 요청을 보낸 뒤 유효한 root 연결을 다시 검사합니다.
+성공 응답은 `automatic_children:false`이며 활성화 route나 암묵적 작업 시작은 추가하지 않았습니다.
+
+`source_only` provider는 지정 버전과 root 생성 header를 비교합니다. 이 header는 현재
+writer, 실행 파일, publisher나 프로세스를 검증하지 않습니다. native asset 검사는 사전 조건이
+아니며 선택적 파일 assurance는 구현하지 않았습니다. root 소스 사용량은 root 자체 사용량이
+아닙니다. 소유는 미검증이고 자식 기여 가능성은 알 수 없으며 자식 사용량·비용은 미관측 null로
+남고 0이 아닙니다. 참조값은 `compatibility_unverified`와 부분 비용을 유지하며 추론, 배정,
+launch, resume이나 자식 확장을 제공하지 않습니다.
+
+일시정지나 observer 재시작 뒤에는 새 적격 startup root/segment와 기준점이 필요하며 기존
+root는 재사용할 수 없습니다. resume·fork·compaction이나 미지원 lifecycle 근거는 정확
+helper로 fallback하지 않고 이전 연결을 차단합니다. 버전/header 불일치, 권한 상실이나 원본의
+모순은 해당 관측을 중단합니다. 범위 안 N -> N+1 업그레이드에는 새 지정 버전을 명시적으로
+저장하고 새 root로 새 작업을 준비합니다. 고정 작업·가격 pin·과거 관측은 옮기지 않습니다.
+범용 helper는 patch마다 다시 쓸 필요가 없고 누락·오프라인 구간도 backfill하지 않습니다.
+[ADR 016](../decisions/016-ordinary-observation.md#codex-ordinary-window-addendum-collection-disabled)과
+[버전 정책](../decisions/013-forward-version-compatibility.md#codex-root-reference-exception)을 참고하세요.
 
 ## Codex 0.163.0 제한 일반 profile
 

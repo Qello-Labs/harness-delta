@@ -156,8 +156,11 @@ Ordinary-window reports (`ordinary-window-task-v1`) keep their own cost partitio
 verified, compatibility-unverified, legacy-unverified and invalidated. Valid
 amounts remain partial; the invalidated partition records excluded observations
 and has no usable amount. Complete amounts and per-success denominators are null. Root
-ownership stays unverified, and child cost is null because children are
-`unobserved`. These windows are implemented for offline acceptance, ordinary-window
+ownership stays unverified: root-source observations are not root-own usage, and
+possible child contribution is unknown. `automatic_children:false` means no
+automatic child enrollment, not proof of zero child contribution. Child usage and
+cost remain `unobserved`/null, not zero; these partial references establish neither
+complete cost nor native acceptance. These windows are implemented for offline acceptance, ordinary-window
 collection disabled pending separate product activation and native acceptance.
 
 ## 5. Read a separate sealed instrumented window

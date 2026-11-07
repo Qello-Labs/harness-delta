@@ -95,7 +95,8 @@ not on reaching this screen.
 
 Select **Codex** to switch products. Before configuration, the example shows
 **Not configured**, `Files: absent`, unverified hook trust and 0 linked roots.
-Select **Configure Codex** to save the displayed version and permitted source roots.
+In **Exact version** mode, select **Configure Codex** to save the displayed version
+and permitted source roots.
 
 ![Codex setup before configuration](../guide/images/settings-03-codex-before.png)
 
@@ -108,8 +109,8 @@ file and receipt directory, then select **Install reviewed package**.
 
 `Files: installed` does not change **Hook trust: unverified** or **Linked roots: 0**.
 Review native hook trust and start or resume Codex before connecting a task.
-**Refresh status** rereads setup; it does not connect a session. Codex still requires
-a separate assigned route: the [Codex 0.162.1 bounded ordinary profile](harness-connect.md#codex-01621-bounded-ordinary-profile)
+**Refresh status** rereads setup; it does not connect a session. **Exact version**
+keeps its existing assigned-route gates: the [Codex 0.162.1 bounded ordinary profile](harness-connect.md#codex-01621-bounded-ordinary-profile)
 or the [Codex 0.163.0 bounded ordinary profile](harness-connect.md#codex-01630-bounded-ordinary-profile).
 It is not the assignment-free ordinary Claude mode. New project setup defaults to
 Codex 0.163.0; the version selector retains both and also exposes Codex 0.166.0 as an
@@ -125,9 +126,11 @@ is `ordinary_admission` only, with required `--scenario root_normal_observer_res
 Native execution needs separate exact-intent consent; H4 host-spawn/Detached and
 H5 env-null-transcript paths are excluded, with no file/workflow fallback or native resume.
 
-The root-window selector is shown disabled: it sends no configure, install or
-activation request, and the exact version selectors and saved settings above are
-unchanged. Ordinary root windows are implemented for offline acceptance,
+Select **Ordinary window** to save an explicitly declared stable Codex version
+within `0.163.0 < v < 0.170.0`. Window-mode owned-copy migration requires explicit
+installation preview and apply; saving the preference or installing the package
+does not activate collection. Saved exact settings never migrate automatically.
+The closed Codex window setup is implemented for offline acceptance,
 ordinary-window collection disabled pending separate product activation and native
 acceptance. To read saved window evidence, open `#ordinary-window-task-v1` and enter
 a task ID and cutoff, or open
@@ -135,8 +138,8 @@ a task ID and cutoff, or open
 reads `GET /api/tasks/:id/ordinary-window-report-v1?cutoff=...` and is descriptive
 only; it doesn't launch, prepare, activate or collect. It shows root and child
 coverage as Unobserved when no event arrived, the four token and cost partitions,
-and the ownership and identity limits. The usual bootstrap, task and collection
-routes stay closed for window tasks.
+and the ownership and identity limits. Legacy unversioned bootstrap, task and
+collection routes stay closed for window tasks.
 
 ### Prepare and check a comparison file
 

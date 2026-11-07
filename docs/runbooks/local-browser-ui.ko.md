@@ -91,7 +91,7 @@ Claude에서 그 작업의 호출 문구를 실행하세요. 이 화면에 도�
 ### Codex 설정 상태 구분
 
 **Codex**를 눌러 제품을 전환합니다. 설정 전 예시는 **설정 전**·`파일: absent`·
-**Hook 신뢰: 미확인**·**연결된 루트: 0**입니다. **Codex 설정**을 누르면 표시된
+**Hook 신뢰: 미확인**·**연결된 루트: 0**입니다. **정확 버전** 모드에서 **Codex 설정**을 누르면 표시된
 버전과 허용 소스 루트를 저장합니다.
 
 ![Codex 설정 전](../guide/images/settings-03-codex-before.png)
@@ -105,8 +105,8 @@ Claude에서 그 작업의 호출 문구를 실행하세요. 이 화면에 도�
 
 `파일: installed`여도 **Hook 신뢰: 미확인**과 **연결된 루트: 0**은 그대로입니다.
 네이티브 hook 신뢰를 확인하고 Codex를 새로 시작하거나 재개한 뒤 작업을 연결하세요.
-**상태 새로고침**은 설정을 다시 읽을 뿐 세션을 연결하지 않습니다. Codex에는
-배정 없는 일반 Claude 모드가 아닌 별도 배정 경로가 필요합니다.
+**상태 새로고침**은 설정을 다시 읽을 뿐 세션을 연결하지 않습니다. **정확 버전**은
+배정 없는 일반 Claude 모드가 아닌 기존의 별도 배정 경로 조건을 유지합니다.
 [Codex 0.162.1 제한 일반 profile](harness-connect.ko.md#codex-01621-제한-일반-profile) 또는
 [Codex 0.163.0 제한 일반 profile](harness-connect.ko.md#codex-01630-제한-일반-profile)입니다.
 새 프로젝트 설정의 기본값은 Codex 0.163.0이며, 버전 선택기는 두 버전을 유지하면서
@@ -122,15 +122,17 @@ Codex 0.166.0을 **UNQUALIFIED CANDIDATE**(`qualified:false`)로도 표시합니
 native 실행에는 정확한 intent별 별도 동의가 필요하며, H4 host-spawn/Detached와
 H5 env-null-transcript 경로는 제외됩니다. file/workflow fallback과 native resume은 없습니다.
 
-root window 선택기는 비활성으로 표시되며 설정, 설치, 활성화 요청을 보내지 않습니다. 위의
-정확 버전 선택기와 저장된 설정은 그대로입니다. 일반 root 창은 오프라인 검증용으로 구현되었으며,
+**일반 window**를 선택해 `0.163.0 < v < 0.170.0` 범위의 Codex 안정 버전을 직접 지정하고
+저장할 수 있습니다. window 모드 소유 복사본 migration은 명시적인 설치 미리보기와 적용이
+필요하며, 설정 저장이나 패키지 설치는 수집을 활성화하지 않습니다. 저장된 정확 버전 설정은
+자동으로 migration하지 않습니다. 수집이 닫힌 Codex window 설정은 오프라인 검증용으로 구현되었으며,
 일반 창(window) 수집은 별도 제품 활성화와 native 검증 전까지 비활성 상태입니다. 저장된
 window 근거를 보려면 `#ordinary-window-task-v1`을 열고 작업 ID와 cutoff를 입력하거나
 `#ordinary-window-task-v1?task=<ID>&cutoff=<ISO>&locale=en|ko`를 바로 여세요. 이 화면은
 `GET /api/tasks/:id/ordinary-window-report-v1?cutoff=...`를 읽는 설명용 화면이며 launch, 준비,
 활성화, 수집을 하지 않습니다. 이벤트가 없으면 root와 자식 관측 범위를 Unobserved로 표시하고,
-네 가지 토큰·비용 구분과 소유·identity 한계를 보여 줍니다. 기존 bootstrap, 작업, 수집 경로는
-window 작업에서 닫혀 있습니다.
+네 가지 토큰·비용 구분과 소유·identity 한계를 보여 줍니다. 기존의 버전 없는 bootstrap,
+작업, 수집 경로는 window 작업에서 닫혀 있습니다.
 
 ### 비교 파일 준비와 확인
 

@@ -209,6 +209,13 @@ capability evidence, R03 human outcomes, R05 partial usage and the delivery
 gates apply unchanged. Preparing an ordinary task doesn't establish source
 support. See [ADR 016](decisions/016-ordinary-observation.md).
 
+The Codex descriptive window extension requires an explicitly active prepared task,
+a fresh eligible root and separate live window authority before receipt/source
+access; an assigned task cannot use it. It is implemented for offline acceptance,
+ordinary-window collection disabled pending separate product activation and native
+acceptance. Its [ADR 016 addendum](decisions/016-ordinary-observation.md#codex-ordinary-window-addendum-collection-disabled)
+adds no launch, children, arm means or inference; source support remains R02.
+
 The initial allocation proposal is balanced 1:1 blocks with fixed size/strata and
 one authoritative allocator per stratum. Persist before revealing the assignment;
 keep future allocations hidden. Detect conflicting allocators and reassignment

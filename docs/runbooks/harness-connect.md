@@ -61,8 +61,9 @@ The ordinary root-reference policies `codex-binding-root-window-v1` (Codex
 `>2.1.306`, `<2.2.0`) are implemented for offline acceptance, ordinary-window
 collection disabled pending separate product activation and native acceptance.
 They are not exact admissions and are not listed among the supported versions.
-No window package, helper or setup is delivered here, and installing this skill
-doesn't open a window. A root-source reference isn't root-own usage: ownership
+The separate Codex window bundle, helper and closed setup are delivered below;
+no Claude window package is delivered here. Saving settings or installing either
+package does not activate a window. A root-source reference isn't root-own usage: ownership
 stays unverified and child coverage and cost stay null. See
 [ADR 013](../decisions/013-forward-version-compatibility.md#profile-selection-and-scope).
 
@@ -72,7 +73,7 @@ In Local setup, select the registered project and open **Agent connection setup*
 Choose **Codex** or **Claude Code**. Saved settings, installed files, native hook
 trust and linked sessions are separate states.
 
-For Codex, review the exact version and permitted source roots, then save the
+For Codex in **Exact version** mode, review the exact version and permitted source roots, then save the
 configuration. Preview installation before applying it. The reviewed installation
 copies the owned skill and recorder, merges its entries into project-local
 `.codex/hooks.json`, and creates `.harness-delta/codex-connect/receipts` with private
@@ -98,6 +99,65 @@ Node runtime upgrade and preview an update if its pinned executable path changed
 Use **Recover stopped installer** only for a proved-dead owner with no remaining
 transaction. A missing owner record or saved `transaction-*` evidence requires
 manual review; recovery never discards that evidence or releases a live lock.
+
+## Codex ordinary-window setup (collection disabled)
+
+This separate path is implemented for offline acceptance, ordinary-window collection
+disabled pending separate product activation and native acceptance. It is not an
+active-support entry, an exact admission or permission to run a native trial.
+The exact procedures above and their saved defaults remain unchanged.
+
+1. In **Agent connection setup**, choose **Codex**, then **Ordinary window**.
+   Explicitly enter a stable version strictly within `0.163.0 < v < 0.170.0` and
+   review the permitted source roots. Equality at either bound, prereleases and
+   build suffixes are rejected; the upper bound needs a separate renewal decision.
+2. Save that explicit preference, preview installation, review the relative owned
+   paths and apply the reviewed package. This is one explicit window-mode migration,
+   not automatic conversion of existing exact settings or tasks. Edited/unowned
+   files, unsafe paths, stale previews, unrelated-hook conflicts and in-use roots
+   still block changes.
+3. Refresh setup. Collection remains disabled: saved settings, copied files, hook
+   trust, pending receipt metadata and an authorized connection are distinct facts.
+   Installation neither prepares nor starts a task and creates no emission control.
+
+The owned manifest at `.harness-delta/codex-connect/installation.json` records
+schema 2, `bundle_mode: ordinary_window` and `codex-window-bundle-v1`. The
+installer selects `skills/harness-connect-window-codex`, keeps the historical
+exact helper at `.agents/skills/harness-connect/scripts/connect.mjs`, and installs
+the selected window helper as `scripts/connect-window.mjs` beside it. Existing
+owned exact hook commands and unrelated hooks are retained. The generic window
+recorder uses `.harness-delta/window-receipts`; it does not discover native
+sources or contain a per-release version literal. Exact schema 1 is unchanged.
+
+Window task preparation uses the separate
+`POST /api/projects/:id/codex-window-prepare-v1` API, not an assigned A/B task.
+It freezes the declared version, policy, project roots and price table. A connect
+needs that explicitly active prepared task, a separate live product activation,
+an eligible fresh startup root and the opaque pending receipt. The helper uses
+only explicitly supplied origin, project, task and receipt IDs; it never discovers
+a task or receipt from files, environment hints or process ancestry. It reads the
+versioned task view, sends a same-origin CSRF/version/idempotency-protected request,
+and rechecks live root linkage. A successful response states
+`automatic_children:false`; no activation route or implicit start was added.
+
+The `source_only` provider compares the declared version with the root creation
+header. That header does not verify the current writer, executable, publisher or
+process; native asset inspection is not a prerequisite, and optional file assurance
+is not implemented. Root-source usage is not root-own usage: ownership is
+unverified, possible child contribution is unknown, and child usage/cost remain
+unobserved and null, never zero. References stay `compatibility_unverified` with
+partial cost and no inference, assignment, launch, resume or child expansion.
+
+After a pause or observer restart, a new eligible startup root/segment and baseline
+are required; the old root cannot be reused. Resume/fork/compaction or unsupported
+lifecycle evidence fences the old connection instead of falling back to an exact
+helper. A version/header mismatch, lost authority or source contradiction stops
+the affected observation. For an in-window N -> N+1 upgrade, explicitly save the
+new declaration and prepare a new task with a fresh root; frozen tasks, price pins
+and old observations do not migrate. Generic helpers need no per-patch rewrite,
+and missed/offline intervals are never backfilled. See
+[ADR 016](../decisions/016-ordinary-observation.md#codex-ordinary-window-addendum-collection-disabled)
+and the [version policy](../decisions/013-forward-version-compatibility.md#codex-root-reference-exception).
 
 ## Codex 0.163.0 bounded ordinary profile
 
