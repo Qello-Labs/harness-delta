@@ -18,7 +18,7 @@ export const scopeSourceDigests = Object.freeze({
 	"src/session-binding-contract.ts":
 		"c01de8b3c48c6a7db75247771031160a5f06745ad53c29323a658e9ef10e1454",
 	"src/ordinary-session-binding.ts":
-		"82292e9178147d0ecfbe22e25383da514b5b25ee63f43e93a4db5a11eec9722d",
+		"34f59f9b76ebaa37eab0ecbdfd3fae5247e29739b2132758561cf1526b974085",
 	"src/session-binding-service.ts":
 		"4b49f8e7dc1c4a7554493577bff35331d2b634d1c6d62e631722462c475c1176",
 	"src/claude-workflow-versions.ts":
