@@ -39,6 +39,8 @@ import type { SessionBindingProvider } from '../session-binding-contract.js';
 
 import { createCodexProjectSetupManager } from './local-web-codex.js';
 import { createCodexWindowControl } from './local-web-codex-window-control.js';
+import { createClaudeWindowControl } from './local-web-claude-window-control.js';
+import type { ClaudeWindowBinaryAdapters } from '../claude-process-binary.js';
 
 export interface LocalWebDomainOptions {
   store: Store;
@@ -47,6 +49,8 @@ export interface LocalWebDomainOptions {
   picker?: (kind: 'project' | 'session' | 'setup') => Promise<string | null>;
   adapterFactory?: (store: Store, execution: unknown) => WorkflowAdapter;
   bindingProviders?: SessionBindingProvider[];
+  /** Trusted backend instrumentation only; does not grant collection authority. */
+  claudeWindowBinaryAdapters?: ClaudeWindowBinaryAdapters;
   /** Internal consumed, isolated qualification intent; never profile/browser input. */
   qualificationLease?: BindingQualificationLease;
   /** Trusted execution instrumentation; does not grant collection authority. */
@@ -74,6 +78,7 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
   const codexProjects = createCodexProjectSetupManager(store, privateDb);
   metadata.initialize();
   const codexWindow = createCodexWindowControl(store, metadata, codexProjects);
+  const claudeWindow = createClaudeWindowControl(store, metadata, options.claudeWindowBinaryAdapters);
   const jobs = new Map<string, Job>();
   const picker = options.picker ?? nativeLocalPicker;
   const { saveProfiles, profiles } = metadata;
@@ -122,6 +127,7 @@ export function createLocalWebDomain(options: LocalWebDomainOptions): LocalWebDo
   const domain: LocalWebDomain = {
     metadataStore: store,
     codexWindow,
+    claudeWindow,
     ...createLocalWebProjectHandlers(options, { life, metadata, taskDto, bindings, providers, codexProjects, picker }),
     task: taskDto,
     ordinaryWindowReport: (taskId, cutoff) => readLocalWebOrdinaryWindowReport(store, taskId, cutoff),

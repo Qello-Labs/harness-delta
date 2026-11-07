@@ -1,7 +1,21 @@
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { closeSync, constants, fstatSync, openSync, readSync, realpathSync } from 'node:fs';
-import { isAbsolute } from 'node:path';
+import {
+  closeSync,
+  constants,
+  fchmodSync,
+  fstatSync,
+  lstatSync,
+  mkdtempSync,
+  openSync,
+  readSync,
+  realpathSync,
+  rmdirSync,
+  type Stats,
+  unlinkSync,
+  writeSync
+} from 'node:fs';
+import { basename, isAbsolute, join } from 'node:path';
 import { claudeBindingAdmissions, claudeBindingRuntimeSupported } from './claude-binding-admission.js';
 import { toolVersionReadCeilings } from './core/tool-version-profiles.js';
 
@@ -143,6 +157,460 @@ const validWindowProcess = (metadata: ClaudeWindowProcessMetadata | null, pid: n
   metadata.parentPid > 0 &&
   metadata.parentPid !== pid;
 
+function windowNativeFailure(): never {
+  throw new ClaudeWindowBinaryError('binding_executable_identity_unverified');
+}
+
+function windowNativeCleanup(operation: () => void): void {
+  try {
+    operation();
+  } catch (error) {
+    if (error instanceof Error) windowNativeFailure();
+    windowNativeFailure();
+  }
+}
+
+function windowNativeStat(stat: Stats): ClaudeWindowImageStat {
+  return {
+    device: stat.dev,
+    inode: stat.ino,
+    size: stat.size,
+    mode: stat.mode,
+    mtimeMs: stat.mtimeMs,
+    ctimeMs: stat.ctimeMs,
+    regularFile: stat.isFile()
+  };
+}
+
+class ClaudeWindowNativeBoundary {
+  constructor(readonly authorize: () => void) {}
+
+  step<T>(operation: () => T): T {
+    this.authorize();
+    if (process.platform !== 'darwin' || process.arch !== 'arm64') {
+      return windowNativeFailure();
+    }
+    try {
+      return operation();
+    } catch (error) {
+      if (error instanceof Error) return windowNativeFailure();
+      return windowNativeFailure();
+    } finally {
+      this.authorize();
+    }
+  }
+
+  uid(): number {
+    const uid = this.step(() => process.getuid?.());
+    if (uid === undefined || !Number.isSafeInteger(uid) || uid < 0) {
+      return windowNativeFailure();
+    }
+    return uid;
+  }
+
+  process(pid: number): ClaudeWindowProcessMetadata | null {
+    this.authorize();
+    if (!Number.isSafeInteger(pid) || pid < 1) return null;
+    const text = this.step(() =>
+      execFileSync('/bin/ps', ['-p', String(pid), '-o', 'pid=,uid=,ppid=,lstart='], {
+        encoding: 'utf8',
+        timeout: 2000,
+        maxBuffer: 4096,
+        env: { LC_ALL: 'C', LANG: 'C' },
+        stdio: ['ignore', 'pipe', 'ignore']
+      })
+    );
+    const rows = text.trim().split('\n');
+    if (rows.length !== 1) return null;
+    const match = /^\s*(\d+)\s+(\d+)\s+(\d+)\s+([A-Z][a-z]{2} [A-Z][a-z]{2}\s+\d{1,2} \d{2}:\d{2}:\d{2} \d{4})\s*$/.exec(rows[0] ?? '');
+    if (!match) return null;
+    const foundPid = Number(match[1]),
+      uid = Number(match[2]),
+      parentPid = Number(match[3]),
+      start = match[4];
+    if (foundPid !== pid || !Number.isSafeInteger(uid) || uid < 0 || !Number.isSafeInteger(parentPid) || parentPid < 1 || parentPid === pid || !start)
+      return null;
+    return { pid, uid, parentPid, start };
+  }
+
+  image(pid: number): ReturnType<ClaudeWindowBinaryAdapters['readImage']> {
+    this.authorize();
+    if (!Number.isSafeInteger(pid) || pid < 1) return null;
+    const text = this.step(() =>
+      execFileSync('/usr/sbin/lsof', ['-a', '-p', String(pid), '-d', 'txt', '-Fpfn'], {
+        encoding: 'utf8',
+        timeout: 2000,
+        maxBuffer: 65536,
+        stdio: ['ignore', 'pipe', 'ignore']
+      })
+    );
+    const fields = text.split('\n');
+    if (fields.at(-1) === '') fields.pop();
+    if (fields.length !== 3 || fields[0] !== `p${pid}` || fields[1] !== 'ftxt') return null;
+    const name = fields[2];
+    if (!name?.startsWith('n')) return null;
+    const path = name.slice(1);
+    if (!isAbsolute(path) || path.includes('\0') || path.split('/').some(part => part === '.' || part === '..')) return null;
+    if (path.includes('.app/') || (basename(path) !== 'claude' && !/\/claude\/versions\/\d+\.\d+\.\d+$/.test(path))) return null;
+    return { path, layout: 'standalone', requiredHost: null };
+  }
+
+  stat(fd: number): ClaudeWindowImageStat {
+    return windowNativeStat(this.step(() => fstatSync(fd)));
+  }
+
+  read(fd: number, buffer: Buffer, offset: number, length: number, position: number): number {
+    this.authorize();
+    if (
+      !Number.isSafeInteger(offset) ||
+      offset < 0 ||
+      !Number.isSafeInteger(length) ||
+      length < 1 ||
+      length > 65536 ||
+      offset + length > buffer.length ||
+      !Number.isSafeInteger(position) ||
+      position < 0 ||
+      position + length > claudeWindowImageLimits.cli
+    )
+      return windowNativeFailure();
+    return this.step(() => readSync(fd, buffer, offset, length, position));
+  }
+}
+
+interface ClaudeWindowOwnedSnapshot {
+  directory: string | null;
+  directoryStat: Stats | null;
+  path: string | null;
+  fileStat: Stats | null;
+  writable: number | null;
+  readonlyFd: number | null;
+}
+
+function sameWindowIdentity(left: Stats, right: Stats): boolean {
+  return sameWindowInode(left, right) && left.mode === right.mode;
+}
+
+function sameWindowInode(left: Stats, right: Stats): boolean {
+  return left.dev === right.dev && left.ino === right.ino && left.uid === right.uid;
+}
+
+class ClaudeWindowSnapshotVerifier {
+  readonly #native: ClaudeWindowNativeBoundary;
+  readonly #fd: number;
+  readonly #scratch: string;
+  readonly #source: ClaudeWindowImageStat;
+  readonly #owned: ClaudeWindowOwnedSnapshot = {
+    directory: null,
+    directoryStat: null,
+    path: null,
+    fileStat: null,
+    writable: null,
+    readonlyFd: null
+  };
+  #parent: Stats | null = null;
+  #sealed: ClaudeWindowImageStat | null = null;
+
+  constructor(native: ClaudeWindowNativeBoundary, fd: number, scratch: string) {
+    this.#native = native;
+    this.#fd = fd;
+    this.#scratch = scratch;
+    this.#source = native.stat(fd);
+  }
+
+  verify(): ReturnType<ClaudeWindowImageHandle['verifySignature']> {
+    try {
+      this.#prepare();
+      const sha256 = this.#copy();
+      const writable = this.#owned.writable;
+      const path = this.#owned.path;
+      if (writable === null || path === null) {
+        return windowNativeFailure();
+      }
+      this.#native.step(() => fchmodSync(writable, 0o500));
+      const previous = this.#owned.fileStat;
+      const sealed = this.#native.step(() => fstatSync(writable));
+      if (previous === null || !sameWindowInode(previous, sealed) || (sealed.mode & 0o777) !== 0o500 || sealed.size !== this.#source.size)
+        return windowNativeFailure();
+      this.#owned.fileStat = sealed;
+      this.#sealed = windowNativeStat(sealed);
+      this.#native.step(() => {
+        closeSync(writable);
+        this.#owned.writable = null;
+      });
+      this.#native.step(() => {
+        this.#owned.readonlyFd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+      });
+      this.#check();
+      if (this.#hash() !== sha256) return windowNativeFailure();
+      const signature = this.#signature(path, sha256);
+      if (this.#hash() !== sha256) return windowNativeFailure();
+      this.#check();
+      return { signature, sha256, stat: this.#source };
+    } finally {
+      windowNativeCleanup(() => this.#cleanup());
+    }
+  }
+
+  #prepare(): void {
+    const native = this.#native,
+      source = this.#source;
+    if (
+      !source.regularFile ||
+      !Number.isSafeInteger(source.size) ||
+      source.size < 32 ||
+      source.size > claudeWindowImageLimits.cli ||
+      (source.mode & 0o111) === 0
+    )
+      return windowNativeFailure();
+    if (!isAbsolute(this.#scratch) || native.step(() => realpathSync(this.#scratch)) !== this.#scratch) return windowNativeFailure();
+    const uid = native.uid(),
+      parent = native.step(() => lstatSync(this.#scratch));
+    if (!parent.isDirectory() || parent.uid !== uid || (parent.mode & 0o077) !== 0) return windowNativeFailure();
+    this.#parent = parent;
+    native.step(() => {
+      this.#owned.directory = mkdtempSync(join(this.#scratch, 'claude-image-'));
+    });
+    const directory = this.#owned.directory;
+    if (directory === null) return windowNativeFailure();
+    const directoryStat = native.step(() => {
+      const stat = lstatSync(directory);
+      this.#owned.directoryStat = stat;
+      return stat;
+    });
+    if (!directoryStat.isDirectory() || directoryStat.uid !== uid || (directoryStat.mode & 0o777) !== 0o700) return windowNativeFailure();
+    this.#owned.path = join(directory, 'image');
+    const path = this.#owned.path;
+    native.step(() => {
+      this.#owned.writable = openSync(path, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
+    });
+    const writable = this.#owned.writable;
+    if (writable === null) return windowNativeFailure();
+    const fileStat = native.step(() => {
+      const stat = fstatSync(writable);
+      this.#owned.fileStat = stat;
+      return stat;
+    });
+    if (!fileStat.isFile() || fileStat.uid !== uid || fileStat.nlink !== 1 || (fileStat.mode & 0o777) !== 0o600) return windowNativeFailure();
+    this.#check();
+  }
+
+  #check(): void {
+    const native = this.#native,
+      owned = this.#owned;
+    if (!sameWindowFile(this.#source, native.stat(this.#fd))) {
+      return windowNativeFailure();
+    }
+    if (
+      this.#parent === null ||
+      !sameWindowIdentity(
+        this.#parent,
+        native.step(() => lstatSync(this.#scratch))
+      )
+    )
+      return windowNativeFailure();
+    if (
+      owned.directory === null ||
+      owned.directoryStat === null ||
+      !sameWindowIdentity(
+        owned.directoryStat,
+        native.step(() => lstatSync(owned.directory ?? windowNativeFailure()))
+      )
+    )
+      return windowNativeFailure();
+    const fd = owned.readonlyFd ?? owned.writable;
+    if (fd === null || owned.path === null || owned.fileStat === null) {
+      return windowNativeFailure();
+    }
+    const opened = native.step(() => fstatSync(fd)),
+      named = native.step(() => lstatSync(owned.path ?? windowNativeFailure()));
+    if (!sameWindowIdentity(owned.fileStat, opened) || !sameWindowIdentity(opened, named) || !opened.isFile() || opened.nlink !== 1)
+      return windowNativeFailure();
+    if (owned.readonlyFd !== null && (opened.size !== this.#source.size || !sameWindowFile(windowNativeStat(opened), windowNativeStat(named))))
+      return windowNativeFailure();
+    if (this.#sealed !== null && !sameWindowFile(this.#sealed, windowNativeStat(opened))) return windowNativeFailure();
+  }
+
+  #copy(): string {
+    const writable = this.#owned.writable;
+    if (writable === null) return windowNativeFailure();
+    const buffer = Buffer.alloc(65536),
+      hash = createHash('sha256');
+    const header = Buffer.alloc(16);
+    for (let offset = 0; offset < this.#source.size;) {
+      this.#check();
+      const length = Math.min(buffer.length, this.#source.size - offset);
+      const count = this.#native.read(this.#fd, buffer, 0, length, offset);
+      if (!Number.isSafeInteger(count) || count < 1 || count > length) {
+        return windowNativeFailure();
+      }
+      if (offset < header.length) {
+        buffer.copy(header, offset, 0, Math.min(count, header.length - offset));
+      }
+      hash.update(buffer.subarray(0, count));
+      for (let written = 0; written < count;) {
+        const position = written;
+        const amount = this.#native.step(() => writeSync(writable, buffer, position, count - position, offset + position));
+        if (!Number.isSafeInteger(amount) || amount < 1 || amount > count - written) return windowNativeFailure();
+        written += amount;
+      }
+      offset += count;
+    }
+    if (header.readUInt32LE(0) !== 0xfeedfacf || header.readUInt32LE(4) !== 0x0100000c || header.readUInt32LE(12) !== 2) return windowNativeFailure();
+    this.#check();
+    return hash.digest('hex');
+  }
+
+  #hash(): string {
+    const fd = this.#owned.readonlyFd;
+    if (fd === null) return windowNativeFailure();
+    const hash = createHash('sha256'),
+      buffer = Buffer.alloc(65536);
+    for (let offset = 0; offset < this.#source.size;) {
+      this.#check();
+      const length = Math.min(buffer.length, this.#source.size - offset);
+      const count = this.#native.read(fd, buffer, 0, length, offset);
+      if (!Number.isSafeInteger(count) || count < 1 || count > length) {
+        return windowNativeFailure();
+      }
+      hash.update(buffer.subarray(0, count));
+      offset += count;
+    }
+    this.#check();
+    return hash.digest('hex');
+  }
+
+  #signature(path: string, sha256: string): ClaudeWindowSignature {
+    this.#check();
+    const requirement = '=anchor apple generic and certificate leaf[subject.OU] = "Q6L2SF6YDW" and identifier "com.anthropic.claude-code"';
+    const verified = this.#native.step(() =>
+      spawnSync('/usr/bin/codesign', ['--verify', '--strict', '-R', requirement, path], {
+        encoding: 'utf8',
+        timeout: 2000,
+        maxBuffer: 65536,
+        stdio: ['ignore', 'pipe', 'pipe']
+      })
+    );
+    this.#check();
+    if (verified.error || verified.signal !== null || verified.status !== 0) return windowNativeFailure();
+    if (this.#hash() !== sha256) return windowNativeFailure();
+    const display = this.#native.step(() =>
+      spawnSync('/usr/bin/codesign', ['--display', '--verbose=4', path], {
+        encoding: 'utf8',
+        timeout: 2000,
+        maxBuffer: 65536,
+        stdio: ['ignore', 'pipe', 'pipe']
+      })
+    );
+    this.#check();
+    if (display.error || display.signal !== null || display.status !== 0 || typeof display.stderr !== 'string') return windowNativeFailure();
+    const values = new Map<string, string>();
+    for (const line of display.stderr.split('\n')) {
+      const field = /^(TeamIdentifier|Identifier|CDHash)=(.*)$/.exec(line);
+      if (!field) continue;
+      const key = field[1],
+        value = field[2];
+      if (key === undefined || value === undefined || values.has(key)) {
+        return windowNativeFailure();
+      }
+      values.set(key, value);
+    }
+    const team = values.get('TeamIdentifier'),
+      identifier = values.get('Identifier'),
+      cdHash = values.get('CDHash');
+    if (team !== 'Q6L2SF6YDW' || identifier !== 'com.anthropic.claude-code' || cdHash === undefined || !/^[a-f0-9]{40,64}$/.test(cdHash))
+      return windowNativeFailure();
+    return { valid: true, team, identifier, cdHash };
+  }
+
+  #cleanup(): void {
+    // Cleanup of owned artifacts is permitted after revocation; never follow a replacement.
+    const owned = this.#owned;
+    try {
+      if (owned.directory !== null && owned.directoryStat === null) owned.directoryStat = lstatSync(owned.directory);
+      if (owned.writable !== null && owned.fileStat === null) owned.fileStat = fstatSync(owned.writable);
+    } catch (error) {
+      if (!(error instanceof Error)) return windowNativeFailure();
+      return windowNativeFailure();
+    } finally {
+      try {
+        try {
+          if (owned.writable !== null) closeSync(owned.writable);
+        } finally {
+          if (owned.readonlyFd !== null) closeSync(owned.readonlyFd);
+        }
+      } finally {
+        try {
+          if (owned.directory !== null && owned.directoryStat !== null && sameWindowIdentity(owned.directoryStat, lstatSync(owned.directory))) {
+            try {
+              if (owned.path !== null && owned.fileStat !== null && sameWindowInode(owned.fileStat, lstatSync(owned.path))) unlinkSync(owned.path);
+            } finally {
+              rmdirSync(owned.directory);
+            }
+          }
+        } catch (error) {
+          if (error instanceof Error) windowNativeFailure();
+          windowNativeFailure();
+        }
+      }
+    }
+  }
+}
+
+export function createClaudeWindowBinaryAdapters(options: {
+  readonly assertAuthorized: () => void;
+  readonly scratchDirectory: string;
+}): ClaudeWindowBinaryAdapters {
+  const native = new ClaudeWindowNativeBoundary(options.assertAuthorized);
+  return {
+    currentUid: () => native.uid(),
+    readProcess: pid => native.process(pid),
+    readImage: pid => native.image(pid),
+    realpath: path => native.step(() => realpathSync(path)),
+    stat: path => windowNativeStat(native.step(() => lstatSync(path))),
+    open: path => {
+      let fd: number | null = null;
+      try {
+        native.step(() => {
+          fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+        });
+      } catch (error) {
+        if (fd !== null) {
+          const acquired = fd;
+          windowNativeCleanup(() => closeSync(acquired));
+        }
+        throw error;
+      }
+      if (fd === null) return windowNativeFailure();
+      const opened = fd;
+      let closed = false;
+      const requireOpen = () => {
+        native.authorize();
+        if (closed) return windowNativeFailure();
+      };
+      return {
+        stat: () => {
+          requireOpen();
+          return native.stat(opened);
+        },
+        read: (buffer, offset, length, position) => {
+          requireOpen();
+          return native.read(opened, buffer, offset, length, position);
+        },
+        verifySignature: () => {
+          requireOpen();
+          return new ClaudeWindowSnapshotVerifier(native, opened, options.scratchDirectory).verify();
+        },
+        close: () => {
+          if (!closed) {
+            closed = true;
+            windowNativeCleanup(() => closeSync(opened));
+          }
+        }
+      };
+    }
+  };
+}
+
 /** One reader belongs to one segment; failed identity checks cannot establish a new pin. */
 export class ClaudeWindowBinaryReader {
   readonly #adapters: ClaudeWindowBinaryAdapters;
@@ -192,6 +660,7 @@ export class ClaudeWindowBinaryReader {
     try {
       value = operation();
     } catch {
+      this.#authorize();
       return this.#fail();
     }
     this.#authorize();

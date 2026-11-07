@@ -499,3 +499,19 @@ test.each(['bytes', 'identity'] as const)('rejects a transient signature %s subs
   expect(f.state.canonical).toBe(imagePath);
   expect(f.events.filter(name => name === 'close')).toHaveLength(1);
 });
+
+test('preserves live authority loss raised inside a compound native operation', () => {
+  const f = fixture();
+  const reader = f.reader();
+  f.state.after = name => {
+    if (name === 'signature') {
+      f.state.active = false;
+      throw new Error('SYNTHETIC_COMPOUND_SCOPE_LOST');
+    }
+  };
+
+  expect(() => reader.snapshot(3107)).toThrow('binding_window_activation_required');
+
+  expect(f.unauthorized()).toBe(0);
+  expect(f.events.filter(name => name === 'close')).toHaveLength(1);
+});
