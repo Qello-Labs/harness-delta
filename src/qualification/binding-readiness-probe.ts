@@ -2,7 +2,7 @@ import { closeSync, constants, fstatSync, lstatSync, openSync, readSync, readdir
 import { isAbsolute, join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { z } from 'zod';
-import type { ChildReadinessObservation } from '../binding-child-readiness.js';
+import type { ChildReadinessObservation } from '../binding/binding-child-readiness.js';
 
 const uuid = z.string().uuid();
 const timestamp = z.string().datetime();

@@ -3,14 +3,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test, vi } from 'vitest';
 import { main } from '../../src/cli.js';
-import { Lifecycle } from '../../src/lifecycle.js';
+import { Lifecycle } from '../../src/core/lifecycle.js';
 import { createOrdinaryTask, ordinaryTask, saveOrdinaryProjectSettings } from '../../src/ordinary-observation.js';
 import { Store } from '../../src/store.js';
 import { aggregateOrdinaryTaskReport } from '../../src/comparison/reports/ordinary-task.js';
 import { ordinaryBindingFixture } from '../helpers/ordinary-session-binding-fixture.js';
 import { bundledPriceCatalog, digest } from '../../src/pricing/price-catalog.js';
-import { refreshPriceCatalog } from '../../src/price-catalog-store.js';
-import { recordObservationGap } from '../../src/runtime-history.js';
+import { refreshPriceCatalog } from '../../src/pricing/price-catalog-store.js';
+import { recordObservationGap } from '../../src/core/runtime-history.js';
 
 test('ordinary report uses actual bound usage and retains its basis after a catalog update', async () => {
   const f = ordinaryBindingFixture();

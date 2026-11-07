@@ -3,10 +3,10 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Store } from '../../src/store.js';
-import { Lifecycle } from '../../src/lifecycle.js';
+import { Lifecycle } from '../../src/core/lifecycle.js';
 import { Deletion } from '../../src/deletion.js';
-import { aggregateTask } from '../../src/metrics.js';
-import { Collector } from '../../src/collection.js';
+import { aggregateTask } from '../../src/pricing/metrics.js';
+import { Collector } from '../../src/sources/collection.js';
 import { ManagedObservation, recoverManagedRuns, taskManagedEvidence } from '../../src/sources/managed-observation.js';
 import type { ManagedProducer } from '../../src/sources/managed-protocol.js';
 

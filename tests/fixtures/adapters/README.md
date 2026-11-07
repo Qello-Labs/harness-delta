@@ -25,7 +25,7 @@ Missing reasoning is missing, not zero. Pause, rotation, compaction, nonzero
 reasoning, and parent-inclusive counters are not established by these fixtures.
 
 0.158.0 synthetic boundaries and production integration are covered in
-`tests/codex-topology.test.ts` and `tests/codex-production.test.ts`. Live admission
+`tests/codex-topology.test.ts` and `tests/sources/codex-production.test.ts`. Live admission
 is separately bound to the source registry entry; synthetic tests alone cannot
 promote a version.
 

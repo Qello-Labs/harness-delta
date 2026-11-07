@@ -1,7 +1,7 @@
 import { resolveSourceCompatibility, pinSessionCompatibility, invalidateCompatibility } from '../source-compatibility.js';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { IdSchema, TimestampSchema } from '../contracts.js';
-import { authorizeClaudeTraceScope, ingestClaudeTraceBatch, type ClaudeTraceBatchResult } from '../claude-trace-candidate.js';
+import { authorizeClaudeTraceScope, ingestClaudeTraceBatch, type ClaudeTraceBatchResult } from './claude-trace-candidate.js';
 import type { CandidateScope, ClaudeTraceProductVersion } from '../nested-candidate.js';
 import {
   claudeProbeProductVersion,
@@ -10,8 +10,8 @@ import {
   isClaudeWorkflowProductVersion
 } from '../claude-workflow-versions.js';
 import { decodeLogsRequest, type DecodedRecord } from '../sources/otel-projection.js';
-import { recordObservationGap } from '../runtime-history.js';
-import type { Clock } from '../lifecycle.js';
+import { recordObservationGap } from '../core/runtime-history.js';
+import type { Clock } from '../core/lifecycle.js';
 import type { Store } from '../store.js';
 import { toolVersionRecipe } from '../core/tool-version-profiles.js';
 

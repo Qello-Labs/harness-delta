@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
-import { Lifecycle } from '../src/lifecycle.js';
+import { Lifecycle } from '../src/core/lifecycle.js';
 import { Store } from '../src/store.js';
 import { EventSchema } from '../src/contracts.js';
 
@@ -66,7 +66,7 @@ test.each([
   }
 });
 
-import { Collector } from '../src/collection.js';
+import { Collector } from '../src/sources/collection.js';
 import {
   effectiveSourceCompatibility,
   invalidateCompatibility,

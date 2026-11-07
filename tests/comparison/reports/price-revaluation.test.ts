@@ -1,9 +1,9 @@
 import { expect, test } from 'vitest';
 import { Store } from '../../../src/store.js';
-import { Lifecycle } from '../../../src/lifecycle.js';
+import { Lifecycle } from '../../../src/core/lifecycle.js';
 import { Deletion } from '../../../src/deletion.js';
 import { bundledPriceCatalog, digest } from '../../../src/pricing/price-catalog.js';
-import { preparePriceBasis, refreshPriceCatalog } from '../../../src/price-catalog-store.js';
+import { preparePriceBasis, refreshPriceCatalog } from '../../../src/pricing/price-catalog-store.js';
 import { captureTaskCostSnapshot, createPriceRevaluation, readPriceRevaluation } from '../../../src/comparison/reports/price-revaluation.js';
 
 const now = '2026-10-06T15:00:00Z';

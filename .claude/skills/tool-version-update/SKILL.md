@@ -35,7 +35,7 @@ loads this file. Resolve links from this directory, not the Codex entry.
    | Exact file admissions | `src/adapter-profiles.ts`, `src/codex-admissions.json` |
    | Exact workflow evidence and Claude retirement | `src/readiness.ts`, `src/claude-workflow-versions.ts` |
    | Codex ordinary root candidates and receipt producer | `src/session-binding-codex.ts`, `scripts/session-binding-codex-hook.mjs` |
-   | Ordinary task authority and topology | `src/session-binding-human-pilot.ts`, `src/session-binding-claude-human-pilot.ts` |
+   | Ordinary task authority and topology | `src/binding/session-binding-human-pilot.ts`, `src/binding/session-binding-claude-human-pilot.ts` |
    | Claude ordinary candidates and source semantics | `src/session-binding-claude.ts` |
    | UI route display and provider construction | `src/web/local-web-domain.ts` |
 

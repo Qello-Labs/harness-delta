@@ -5,9 +5,9 @@ import { join } from 'node:path';
 import { expect, test, vi } from 'vitest';
 import { main } from '../../src/cli.js';
 import { Store } from '../../src/store.js';
-import { Lifecycle } from '../../src/lifecycle.js';
+import { Lifecycle } from '../../src/core/lifecycle.js';
 import { bundledPriceCatalog, digest } from '../../src/pricing/price-catalog.js';
-import { ensureBundledCatalog, readPriceCatalogStatus } from '../../src/price-catalog-store.js';
+import { ensureBundledCatalog, readPriceCatalogStatus } from '../../src/pricing/price-catalog-store.js';
 import { compiledWorker } from '../helpers/compiled-worker.js';
 
 test('default estimate, trusted local refresh and separate repricing work without manual price registration', async () => {

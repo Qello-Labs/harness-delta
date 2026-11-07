@@ -1,8 +1,8 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { prepareExternalTask } from '../../src/external-session-service.js';
-import { ApplicationCoordinator, requireApplication } from '../../src/harness-application.js';
+import { prepareExternalTask } from '../../src/workflow/external-session-service.js';
+import { ApplicationCoordinator, requireApplication } from '../../src/harness/harness-application.js';
 import { registerHarness } from '../../src/harness/harness-config.js';
 import { hashBytes } from '../../src/core/repository-files.js';
 import { localWebFixture } from './local-web-fixture.js';

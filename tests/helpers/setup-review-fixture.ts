@@ -2,10 +2,10 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { localWebFixture } from './local-web-fixture.js';
 import { comparisonProtocol, comparisonVariant, protocolRow } from '../../src/core/protocol-store.js';
-import { readPriceTable } from '../../src/pricing.js';
+import { readPriceTable } from '../../src/pricing/pricing.js';
 import { registerHarness, generateComparison } from '../../src/harness/harness-config.js';
 import { Store } from '../../src/store.js';
-import { Lifecycle } from '../../src/lifecycle.js';
+import { Lifecycle } from '../../src/core/lifecycle.js';
 import { createLocalWebDomain } from '../../src/web/local-web-domain.js';
 
 export function setupReviewFixture(registerProject = true) {

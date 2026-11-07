@@ -8,7 +8,7 @@ import { claudeProjectDirName, ClaudeSessionBindingProvider } from '../src/sessi
 import type { CandidateScope } from '../src/nested-candidate.js';
 import type { ClaudeBindingOptions } from '../src/session-binding-claude.js';
 import { Store } from '../src/store.js';
-import { Lifecycle } from '../src/lifecycle.js';
+import { Lifecycle } from '../src/core/lifecycle.js';
 import { createOrdinaryTask, saveOrdinaryProjectSettings } from '../src/ordinary-observation.js';
 import { createOrdinarySessionBindingService } from '../src/ordinary-session-binding.js';
 

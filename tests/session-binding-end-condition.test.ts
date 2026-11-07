@@ -4,14 +4,14 @@ import { join } from 'node:path';
 import { afterEach, expect, test, vi } from 'vitest';
 import { codexWorkflowFixture } from './helpers/codex-workflow-fixture.js';
 import { CodexSessionBindingProvider } from '../src/session-binding-codex.js';
-import { issueCodexHumanPilotScope, codexHumanPilotProfileId } from '../src/session-binding-human-pilot.js';
-import { ExternalTaskSetupSchema, prepareExternalTask, externalTaskResult, recordExternalTaskOutcome } from '../src/external-session-service.js';
+import { issueCodexHumanPilotScope, codexHumanPilotProfileId } from '../src/binding/session-binding-human-pilot.js';
+import { ExternalTaskSetupSchema, prepareExternalTask, externalTaskResult, recordExternalTaskOutcome } from '../src/workflow/external-session-service.js';
 import {
   externalContract,
   bindingCollectionControl,
   registerBindingCollectionControl,
   revokeBindingCollectionControl
-} from '../src/external-session-contract.js';
+} from '../src/core/external-session-contract.js';
 import { createSessionBindingService } from '../src/session-binding-service.js';
 import type { BindingUsageRecord, VerifiedSessionIdentity } from '../src/session-binding-contract.js';
 import { Store } from '../src/store.js';

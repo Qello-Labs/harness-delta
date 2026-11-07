@@ -1,5 +1,5 @@
 import { Store } from '../../src/store.js';
-import { registerVariant, registerProtocol, freezeProtocol } from '../../src/comparison.js';
+import { registerVariant, registerProtocol, freezeProtocol } from '../../src/comparison/comparison.js';
 import { assignTask } from '../../src/comparison/allocation.js';
 import { createComparisonSnapshot } from '../../src/comparison/reports/comparison-snapshot.js';
 import { buildExchangePackage } from './legacy-exchange.js';

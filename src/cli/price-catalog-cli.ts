@@ -3,9 +3,9 @@ import { constants } from 'node:fs';
 import { open } from 'node:fs/promises';
 import type { Command } from 'commander';
 import { bundledCatalogBytes, catalogByteLimit, digest } from '../pricing/price-catalog.js';
-import { preparePriceBasis, refreshPriceCatalog } from '../price-catalog-store.js';
+import { preparePriceBasis, refreshPriceCatalog } from '../pricing/price-catalog-store.js';
 import { readOnlinePriceCatalogStatus, refreshOnlinePriceCatalog } from '../pricing/price-catalog-online.js';
-import { selectTaskPriceTable } from '../price-catalog-selection.js';
+import { selectTaskPriceTable } from '../pricing/price-catalog-selection.js';
 import {
   captureComparisonCostSnapshot,
   captureTaskCostSnapshot,
@@ -13,7 +13,7 @@ import {
   readPriceRevaluation
 } from '../comparison/reports/price-revaluation.js';
 import { captureInstrumentedCostSnapshot, createInstrumentedValuation, readInstrumentedValuation } from '../instrumented-codex/instrumented-codex-cost.js';
-import type { LegacyInputBasis } from '../pricing.js';
+import type { LegacyInputBasis } from '../pricing/pricing.js';
 import type { Store } from '../store.js';
 
 export function registerPriceCatalogCommands(prices: Command, store: () => Store, print: (value: unknown) => void): void {

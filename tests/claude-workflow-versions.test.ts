@@ -3,10 +3,10 @@ import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from '
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
-import { prepareClaudeNativeProbe } from '../src/claude-native-probe.js';
-import { verifyClaudeProbeBinary } from '../src/claude-probe-supervisor.js';
+import { prepareClaudeNativeProbe } from '../src/qualification/claude-native-probe.js';
+import { verifyClaudeProbeBinary } from '../src/qualification/claude-probe-supervisor.js';
 import { ClaudeProbeCoordinator, type ClaudeProbeOptions } from '../src/qualification/claude-probe-coordinator.js';
-import { ingestClaudeTraceBatch } from '../src/claude-trace-candidate.js';
+import { ingestClaudeTraceBatch } from '../src/qualification/claude-trace-candidate.js';
 import { ClaudeWorkflowExecutionSchema, createClaudeWorkflowAdapter } from '../src/claude-workflow-adapter.js';
 import {
   claudeWorkflowProductVersions,

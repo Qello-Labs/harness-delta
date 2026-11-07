@@ -3,9 +3,9 @@ import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { expect, test, vi } from 'vitest';
-import { takeFamilyDiagnostic } from '../src/binding-family-diagnostics.js';
+import { takeFamilyDiagnostic } from '../src/binding/binding-family-diagnostics.js';
 import { createSessionBindingService } from '../src/session-binding-service.js';
-import { issueClaudeHumanPilotScope, assertClaudeHumanPilotSource } from '../src/session-binding-claude-human-pilot.js';
+import { issueClaudeHumanPilotScope, assertClaudeHumanPilotSource } from '../src/binding/session-binding-claude-human-pilot.js';
 import { createLocalWebDomain } from '../src/web/local-web-domain.js';
 import { ClaudeSessionBindingProvider, claudeProjectDirName } from '../src/session-binding-claude.js';
 import { localWebFixture } from './helpers/local-web-fixture.js';

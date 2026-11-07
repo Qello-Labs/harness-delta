@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { comparisonTimestamp, ConfirmationInputSchema, ConfigurationRecordSchema, parseComparison } from '../comparison-contracts.js';
 import { parseProtocol } from '../flexible-contracts.js';
 import { comparisonVariant, protocolRow } from '../core/protocol-store.js';
-import { Lifecycle } from '../lifecycle.js';
+import { Lifecycle } from '../core/lifecycle.js';
 import {
   assignedTask,
   bindConfigurationToSession,

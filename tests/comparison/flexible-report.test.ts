@@ -99,8 +99,8 @@ test('partial_mean_is_not_primary_and_deadline_is_half_open', async () => {
 
 test('late_arrival_new_revision_and_v2_task_report_dispatch', async () => {
   const { aggregateFlexibleTaskReport } = await import('../../src/comparison/reports/flexible-comparison.js');
-  const { putUsageWithEvidence } = await import('../../src/runtime-history.js');
-  const { aggregateTask } = await import('../../src/metrics.js');
+  const { putUsageWithEvidence } = await import('../../src/core/runtime-history.js');
+  const { aggregateTask } = await import('../../src/pricing/metrics.js');
   let receipt = '2026-01-01T03:00:00Z';
   const store = new Store(':memory:', () => receipt);
   try {
@@ -200,7 +200,7 @@ test('late_start_does_not_rewrite_historical_not_started_state', () => {
   }
 });
 test('report_id_namespace_is_unique_across_both_version_tables', async () => {
-  const { registerVariant, registerProtocol, freezeProtocol } = await import('../../src/comparison.js');
+  const { registerVariant, registerProtocol, freezeProtocol } = await import('../../src/comparison/comparison.js');
   const legacy = await import('../helpers/comparison-fixture.js');
   const store = new Store(':memory:');
   try {

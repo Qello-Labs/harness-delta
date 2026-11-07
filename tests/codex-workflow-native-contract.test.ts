@@ -1,9 +1,9 @@
 import { expect, test, vi } from 'vitest';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import * as collection from '../src/collection.js';
+import * as collection from '../src/sources/collection.js';
 import { createSyntheticCodexWorkflowAdapter } from '../src/codex-workflow-adapter.js';
-import { runAssignedWorkflow } from '../src/task-workflow.js';
+import { runAssignedWorkflow } from '../src/workflow/task-workflow.js';
 import { codexWorkflowFixture } from './helpers/codex-workflow-fixture.js';
 
 const runtime = { model: 'gpt-6-astra', effort: 'high' };

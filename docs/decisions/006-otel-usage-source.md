@@ -347,7 +347,7 @@ never across products, because token semantics differ.
 ## Offline receiver (Follow-up 2)
 
 An internal, synthetic-only implementation exists in `src/otel-receiver.ts`,
-`src/otel-journal.ts`, `src/otel-projection.ts` and migration
+`src/sources/otel-journal.ts`, `src/otel-projection.ts` and migration
 `005_otel_receiver.sql`. It is not exported from the package entry point. It
 has no CLI, launches no product process and enables no telemetry. No real
 product version is supported: every accepted version needs an injected profile

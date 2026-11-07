@@ -11,7 +11,7 @@ import { createOrdinarySessionBindingService } from '../../src/ordinary-session-
 import { bindingSourceSupported, createSessionBindingService } from '../../src/session-binding-service.js';
 import { aggregateOrdinaryTaskReport } from '../../src/comparison/reports/ordinary-task.js';
 import { createOrdinaryWindowTask, ordinaryTaskSettings } from '../../src/ordinary-observation.js';
-import { captureObservedCostInput } from '../../src/observed-cost-report.js';
+import { captureObservedCostInput } from '../../src/pricing/observed-cost-report.js';
 import { readOrdinaryWindowBatch } from '../../src/ordinary-window-binding.js';
 import { localWebError } from '../../src/web/local-web-server.js';
 import { Deletion } from '../../src/deletion.js';

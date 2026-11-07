@@ -1,6 +1,6 @@
-import { applicationRequired } from '../harness-application.js';
-import { registerBindingCollectionControl } from '../external-session-contract.js';
-import { prepareExternalTask, type ExternalTaskSetup } from '../external-session-service.js';
+import { applicationRequired } from '../harness/harness-application.js';
+import { registerBindingCollectionControl } from '../core/external-session-contract.js';
+import { prepareExternalTask, type ExternalTaskSetup } from '../workflow/external-session-service.js';
 import { ordinaryTask } from '../ordinary-observation.js';
 import type { LocalWebProfile } from './local-web-profile.js';
 import type { PrivateTask } from './local-web-metadata-store.js';

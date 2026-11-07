@@ -1,8 +1,8 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { utcNow, type Clock } from '../lifecycle.js';
-import { admitOtelRequest, closeOtelProcess, ingestOtelLogs, otelNow, registerOtelProcess, type OtelLaunch } from '../otel-journal.js';
+import { utcNow, type Clock } from '../core/lifecycle.js';
+import { admitOtelRequest, closeOtelProcess, ingestOtelLogs, otelNow, registerOtelProcess, type OtelLaunch } from './otel-journal.js';
 import { decodeLogsRequest, type OtelVersionProfile } from './otel-projection.js';
 import type { Store } from '../store.js';
 

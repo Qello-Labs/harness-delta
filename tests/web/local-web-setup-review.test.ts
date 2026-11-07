@@ -4,12 +4,12 @@ import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import { expect, test, vi } from 'vitest';
 import { setupReviewFixture } from '../helpers/setup-review-fixture.js';
-import { registerVariant } from '../../src/comparison.js';
+import { registerVariant } from '../../src/comparison/comparison.js';
 import { createLocalWebDomain, LocalWebProfileSchema } from '../../src/web/local-web-domain.js';
 import { createLocalWebServer } from '../../src/web/local-web-server.js';
 import * as harnessConfig from '../../src/harness/harness-config.js';
 import * as repositoryFiles from '../../src/core/repository-files.js';
-import { Lifecycle } from '../../src/lifecycle.js';
+import { Lifecycle } from '../../src/core/lifecycle.js';
 import type { SetupSaveResult } from '../../src/web/local-web-setup-review.js';
 
 test('path-only transport review inspects registered comparison references without registrations or a save token', async () => {

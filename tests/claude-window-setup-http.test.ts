@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import { Lifecycle } from '../src/lifecycle.js';
+import { Lifecycle } from '../src/core/lifecycle.js';
 import { ordinaryProjectSettings, ordinaryTask } from '../src/ordinary-observation.js';
 import { claudeWindowSetupHttpFixture } from './helpers/claude-window-setup-http-fixture.js';
 const staging = vi.hoisted((): { activate?: () => void } => ({}));

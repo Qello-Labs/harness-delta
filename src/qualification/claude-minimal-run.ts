@@ -16,9 +16,9 @@ import {
 import { dirname, join } from 'node:path';
 import { z } from 'zod';
 import { IdSchema } from '../contracts.js';
-import { Lifecycle } from '../lifecycle.js';
+import { Lifecycle } from '../core/lifecycle.js';
 import { Store } from '../store.js';
-import { prepareClaudeProbeSupervisor } from '../claude-probe-supervisor.js';
+import { prepareClaudeProbeSupervisor } from './claude-probe-supervisor.js';
 import { claudeProbeProductVersion } from '../claude-workflow-versions.js';
 import { implementationExtension, implementationPath } from '../package-paths.js';
 import { toolVersionRecipe } from '../core/tool-version-profiles.js';
@@ -33,20 +33,20 @@ const digest = (bytes: string | Buffer) => createHash('sha256').update(bytes).di
 function implementationDigest(): string {
   const names = [
     'qualification/claude-minimal-run',
-    'claude-probe-supervisor',
-    'claude-native-probe',
+    'qualification/claude-probe-supervisor',
+    'qualification/claude-native-probe',
     'qualification/claude-probe-coordinator',
     'qualification/claude-probe-gateway',
     'qualification/claude-probe-hook-mediator',
-    'claude-trace-candidate',
+    'qualification/claude-trace-candidate',
     'claude-workflow-versions',
     'nested-candidate',
     'sources/otel-projection',
     'sources/otel-launch-settings',
-    'runtime-history',
+    'core/runtime-history',
     'contracts',
     'flexible-contracts',
-    'lifecycle',
+    'core/lifecycle',
     'store',
     'source-compatibility',
     'core/ordinary-window-policy',

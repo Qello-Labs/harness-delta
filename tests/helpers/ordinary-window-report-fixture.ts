@@ -1,6 +1,6 @@
 import type { SourceCompatibility } from '../../src/contracts.js';
-import type { ReportSourceTrust } from '../../src/report-source-trust.js';
-import { recordRuntimeEvidence } from '../../src/runtime-history.js';
+import type { ReportSourceTrust } from '../../src/pricing/report-source-trust.js';
+import { recordRuntimeEvidence } from '../../src/core/runtime-history.js';
 import { ordinaryWindowFixture } from './ordinary-window-fixture.js';
 
 export const windowReportCutoff = '2026-11-06T01:10:00.000Z';

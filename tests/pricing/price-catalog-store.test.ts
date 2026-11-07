@@ -1,8 +1,8 @@
 import { expect, test, vi } from 'vitest';
 import { Store } from '../../src/store.js';
 import { compilePriceBasis, bundledPriceCatalog, digest } from '../../src/pricing/price-catalog.js';
-import { ensureBundledCatalog, preparePriceBasis, readPriceBasis, readPriceCatalogStatus, refreshPriceCatalog } from '../../src/price-catalog-store.js';
-import { registerProtocol, registerVariant, freezeProtocol } from '../../src/comparison.js';
+import { ensureBundledCatalog, preparePriceBasis, readPriceBasis, readPriceCatalogStatus, refreshPriceCatalog } from '../../src/pricing/price-catalog-store.js';
+import { registerProtocol, registerVariant, freezeProtocol } from '../../src/comparison/comparison.js';
 import { showProtocol } from '../../src/readiness-store.js';
 import { makeFlexibleFixture } from '../helpers/flexible-fixture.js';
 import { seedProject, beforeRecruitment } from '../helpers/comparison-fixture.js';

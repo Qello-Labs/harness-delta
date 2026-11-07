@@ -18,10 +18,10 @@ import { z } from 'zod';
 import { IdSchema, TaskMetadataSchema } from '../contracts.js';
 import { RuntimeEvidenceSchema, UsageV2Schema } from '../flexible-contracts.js';
 import { selectedArtifactSnapshot } from '../core/configuration-evidence.js';
-import { Lifecycle } from '../lifecycle.js';
+import { Lifecycle } from '../core/lifecycle.js';
 import { Store } from '../store.js';
 import { pinnedCodexWorkflowBinarySha, runCodexQualificationPhase, verifyCodexWorkflowStartupContract } from '../codex-workflow-adapter.js';
-import type { WorkflowAdapterResult, WorkflowExecutionContext } from '../task-workflow.js';
+import type { WorkflowAdapterResult, WorkflowExecutionContext } from '../workflow/task-workflow.js';
 import { implementationExtension, implementationPath } from '../package-paths.js';
 
 const hash = (data: string | Buffer) => createHash('sha256').update(data).digest('hex');
@@ -127,16 +127,16 @@ function implementationDigest() {
   const names = [
     'qualification/codex-workflow-qualification',
     'codex-workflow-adapter',
-    'codex-workflow-journal',
+    'workflow/codex-workflow-journal',
     'codex-candidate-rollout',
-    'codex-candidate-permissions',
+    'workflow/codex-candidate-permissions',
     'nested-candidate',
-    'runtime-history',
-    'collection',
-    'source-errors',
+    'core/runtime-history',
+    'sources/collection',
+    'core/source-errors',
     'contracts',
     'flexible-contracts',
-    'lifecycle',
+    'core/lifecycle',
     'store',
     'source-compatibility',
     'core/ordinary-window-policy',

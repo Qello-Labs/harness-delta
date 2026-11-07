@@ -5,12 +5,12 @@ import type Database from 'better-sqlite3';
 import { z } from 'zod';
 import { LocalWebProfileSchema, type LocalWebProfile } from './local-web-profile.js';
 import { comparisonProtocol, comparisonVariant, protocolRow } from '../core/protocol-store.js';
-import { buildExternalTaskSetup } from '../external-session-service.js';
+import { buildExternalTaskSetup } from '../workflow/external-session-service.js';
 import type { Store } from '../store.js';
 import { comparisonRelativePath, readComparison, checkOriginalTools } from '../harness/harness-config.js';
 import { ensureRepositoryDirectory, hashBytes, readRepositoryFile, readStrictJson } from '../core/repository-files.js';
 import { checkSharedBinding } from './local-web-shared-guard.js';
-import { readPriceTable } from '../pricing.js';
+import { readPriceTable } from '../pricing/pricing.js';
 import { withLiveWebMetadataScope } from './local-web-metadata.js';
 // Private path strings retain their exact filesystem spelling.
 function privateJson(value: unknown): string {

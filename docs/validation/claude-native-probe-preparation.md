@@ -35,7 +35,7 @@ complete cost or inference.
 
 ## Preparation and admission interfaces
 
-`prepareClaudeNativeProbe` in `src/claude-native-probe.ts` validates caller-supplied
+`prepareClaudeNativeProbe` in `src/qualification/claude-native-probe.ts` validates caller-supplied
 exact binary identity, Claude Code 2.1.288, `claude-sonnet-5-5` and `high` effort.
 The identity declaration is caller evidence, not executable/backend attestation.
 Preparation writes an immutable token-free manifest and private disposable
@@ -180,7 +180,7 @@ checks above and does not authorize a model/API-request retry.
 ## Offline checks
 
 ```sh
-npm test -- tests/claude-native-probe.test.ts tests/qualification/claude-probe-coordinator.test.ts
+npm test -- tests/qualification/claude-native-probe.test.ts tests/qualification/claude-probe-coordinator.test.ts
 npm run check
 ```
 

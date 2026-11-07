@@ -1,8 +1,8 @@
-import { pendingChildReadiness } from './binding-child-readiness.js';
-import { familyDiscovery, familyProviderError } from './binding-family-diagnostics.js';
+import { pendingChildReadiness } from './binding/binding-child-readiness.js';
+import { familyDiscovery, familyProviderError } from './binding/binding-family-diagnostics.js';
 import { bindingIdentityKey } from './session-binding-contract.js';
-import { readCacheWriteTtl } from './cache-write-ttl.js';
-import { claudeAgentMetadata } from './agent-metadata.js';
+import { readCacheWriteTtl } from './sources/cache-write-ttl.js';
+import { claudeAgentMetadata } from './sources/agent-metadata.js';
 import { getClaudeBindingAdmission, isClaudeModel } from './claude-binding-admission.js';
 import { legacyClaudeTranscriptProfiles, lookupToolVersionProfile, orderedToolVersionProfiles } from './core/tool-version-profiles.js';
 import { readClaudeProcessBinary, type ClaudeProcessBinary, ClaudeWindowBinaryReader, createClaudeWindowBinaryAdapters, type ClaudeWindowBinaryAdapters } from './claude-process-binary.js';

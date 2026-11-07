@@ -1,5 +1,5 @@
 import { Store } from '../../src/store.js';
-import { registerVariant, registerProtocol, freezeProtocol } from '../../src/comparison.js';
+import { registerVariant, registerProtocol, freezeProtocol } from '../../src/comparison/comparison.js';
 import { makeFlexibleFixture } from './flexible-fixture.js';
 import { assignmentInput, beforeRecruitment, seedProject } from './comparison-fixture.js';
 export function seedFlexibleComparison(store: Store) {

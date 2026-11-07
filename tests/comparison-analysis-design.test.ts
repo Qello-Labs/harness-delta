@@ -30,7 +30,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Store } from '../src/store.js';
 import { assignTask } from '../src/comparison/allocation.js';
-import { freezeProtocol, registerProtocol, registerVariant } from '../src/comparison.js';
+import { freezeProtocol, registerProtocol, registerVariant } from '../src/comparison/comparison.js';
 import { assignmentInput, assignmentTime, beforeRecruitment, protocol, seedProject, variantA, variantB } from './helpers/comparison-fixture.js';
 import type { StudyDesign } from '../scripts/analysis-validation/contracts.js';
 const pair = (b: number, r: number, sameStratum = true): StudyDesign => {

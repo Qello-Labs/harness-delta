@@ -4,9 +4,9 @@ import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import type { PriceTable } from '../../src/flexible-contracts.js';
 import { Store } from '../../src/store.js';
-import { Lifecycle } from '../../src/lifecycle.js';
-import { registerVariant, registerProtocol, freezeProtocol } from '../../src/comparison.js';
-import { registerPriceTable } from '../../src/pricing.js';
+import { Lifecycle } from '../../src/core/lifecycle.js';
+import { registerVariant, registerProtocol, freezeProtocol } from '../../src/comparison/comparison.js';
+import { registerPriceTable } from '../../src/pricing/pricing.js';
 import { makeFlexibleFixture } from './flexible-fixture.js';
 import { assignmentInput } from './comparison-fixture.js';
 

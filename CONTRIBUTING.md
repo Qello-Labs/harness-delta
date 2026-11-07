@@ -388,7 +388,7 @@ User instructions are in the [cost guide](docs/runbooks/observed-cost.md)
 ([한국어](docs/runbooks/observed-cost.ko.md)). From a Node 24 or 26 checkout:
 
 ```sh
-npm test -- tests/observed-cost.test.ts tests/observed-cost-cli.test.ts tests/pricing.test.ts tests/task-cost.test.ts
+npm test -- tests/pricing/observed-cost.test.ts tests/pricing/observed-cost-cli.test.ts tests/pricing/pricing.test.ts tests/pricing/task-cost.test.ts
 ```
 
 These synthetic checks establish arithmetic and reporting behavior, not whole-task

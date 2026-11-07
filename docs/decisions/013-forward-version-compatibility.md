@@ -314,7 +314,7 @@ profiles; `real_allocation`, complete-cost qualification and inference remain
 unavailable for those profiles, and frozen real experiments remain exact.
 
 Verification entry points are `tests/source-compatibility.test.ts`,
-`tests/cli/source-compatibility-cli.test.ts`, `tests/source-trust-report.test.ts`,
+`tests/cli/source-compatibility-cli.test.ts`, `tests/pricing/source-trust-report.test.ts`,
 the native workflow adapter/admission tests, and `npm run check` under Node 24.
 
 The ordinary root-reference policies above are not rows in this table. Static

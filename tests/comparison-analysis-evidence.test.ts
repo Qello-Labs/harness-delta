@@ -40,7 +40,7 @@ import { ProtocolSchema, VariantSchema } from '../src/comparison-contracts.js';
 import { TaskMetadataSchema } from '../src/contracts.js';
 import { metadata, protocol, variantA, variantB, assignmentInput, beforeRecruitment, assignmentTime } from './helpers/comparison-fixture.js';
 import { reportStore } from './helpers/comparison-report-fixture.js';
-import { registerProtocol, freezeProtocol } from '../src/comparison.js';
+import { registerProtocol, freezeProtocol } from '../src/comparison/comparison.js';
 import { assignTask } from '../src/comparison/allocation.js';
 function reportInput(): ComparisonSnapshotInput {
   const assigned = '2026-01-01T00:00:00.000Z',

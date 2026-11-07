@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { Store } from '../../src/store.js';
-import { Lifecycle } from '../../src/lifecycle.js';
-import { aggregateTask, tokensPerSuccess, changeRate } from '../../src/metrics.js';
+import { Lifecycle } from '../../src/core/lifecycle.js';
+import { aggregateTask, tokensPerSuccess, changeRate } from '../../src/pricing/metrics.js';
 import { freezePeriod, periodReport } from '../../src/comparison/reports/period.js';
 const meta = { type: 'feature', expected_size: 'small', assignee: 'u1', product: 'synthetic', model: 'synthetic', criterion_ids: ['c1'] };
 const config = {

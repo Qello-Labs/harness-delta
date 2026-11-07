@@ -1,6 +1,6 @@
 import { Store } from '../../dist/store.js';
 import { createLocalWebBindingProviders } from '../../dist/web/local-web-binding-providers.js';
-import { Lifecycle } from '../../dist/lifecycle.js';
+import { Lifecycle } from '../../dist/core/lifecycle.js';
 import { createOrdinaryWindowTask } from '../../dist/ordinary-observation.js';
 import { connectOrdinaryCodexWindow, createOrdinarySessionBindingService } from '../../dist/ordinary-session-binding.js';
 import { createSessionBindingService } from '../../dist/session-binding-service.js';

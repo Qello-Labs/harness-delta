@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { codexWorkflowFixture } from './codex-workflow-fixture.js';
 import { createSyntheticCodexWorkflowAdapter } from '../../src/codex-workflow-adapter.js';
-import { runAssignedWorkflow } from '../../src/task-workflow.js';
+import { runAssignedWorkflow } from '../../src/workflow/task-workflow.js';
 
 export function codexNativeChildFixture(mode = 'callback-first', f = codexWorkflowFixture()) {
   const permissions = `permission_profile:{type:'managed',file_system:{type:'restricted',entries:[{path:{type:'special',value:{kind:'root'}},access:'read'}]},network:'restricted'}`;

@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { createSyntheticCodexWorkflowAdapter } from '../../src/codex-workflow-adapter.js';
-import { readObservedCostReport } from '../../src/observed-cost-report.js';
-import { runAssignedWorkflow } from '../../src/task-workflow.js';
+import { readObservedCostReport } from '../../src/pricing/observed-cost-report.js';
+import { runAssignedWorkflow } from '../../src/workflow/task-workflow.js';
 import { codexWorkflowFixture } from '../helpers/codex-workflow-fixture.js';
 
 async function fixture() {

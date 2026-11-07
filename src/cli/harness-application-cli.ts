@@ -1,6 +1,6 @@
 import type { Command } from 'commander';
 import type { Store } from '../store.js';
-import { ApplicationCoordinator } from '../harness-application.js';
+import { ApplicationCoordinator } from '../harness/harness-application.js';
 
 export function registerApplicationCommands(program: Command, db: () => Store, print: (value: unknown) => void) {
   const application = program.command('application').description('Preview restoration and check staged application files');

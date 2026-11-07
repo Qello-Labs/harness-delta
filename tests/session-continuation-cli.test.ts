@@ -5,12 +5,12 @@ import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { expect, test } from 'vitest';
 import { Store } from '../src/store.js';
-import type { TaskReport } from '../src/metrics.js';
+import type { TaskReport } from '../src/pricing/metrics.js';
 import type { AssignmentReceipt } from '../src/comparison/allocation.js';
 import { makeFlexibleFixture } from './helpers/flexible-fixture.js';
 import { assignmentInput, beforeRecruitment, seedProject } from './helpers/comparison-fixture.js';
-import { registerVariant, registerProtocol, freezeProtocol } from '../src/comparison.js';
-import { registerPriceTable } from '../src/pricing.js';
+import { registerVariant, registerProtocol, freezeProtocol } from '../src/comparison/comparison.js';
+import { registerPriceTable } from '../src/pricing/pricing.js';
 import { compiledWorker } from './helpers/compiled-worker.js';
 import { jsonLines } from './helpers/collection-fixture.js';
 

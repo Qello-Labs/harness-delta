@@ -2,7 +2,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, expect, test, vi } from 'vitest';
 import { readOrdinaryWindowBindingReport } from '../../src/ordinary-session-binding.js';
-import { recordObservationGap } from '../../src/runtime-history.js';
+import { recordObservationGap } from '../../src/core/runtime-history.js';
 import { emptyOrdinaryWindowCoverage } from '../../src/core/ordinary-window-policy.js';
 import { OrdinaryWindowReportView } from './OrdinaryWindowReport.js';
 import { OrdinaryWindowNotice } from './OrdinaryWindowNotice.js';

@@ -4,14 +4,14 @@ import { createHash, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { addTokens, TimestampSchema } from './contracts.js';
 import { getClaudeBindingAdmission, isClaudeModel } from './claude-binding-admission.js';
-import { childReadinessDeadline } from './binding-child-readiness.js';
-import { assertApplicationWorkingIdentity, bindApplicationEpoch, effectiveTaskWorkspace } from './harness-application.js';
-import { Lifecycle, utcNow, type Clock } from './lifecycle.js';
+import { childReadinessDeadline } from './binding/binding-child-readiness.js';
+import { assertApplicationWorkingIdentity, bindApplicationEpoch, effectiveTaskWorkspace } from './harness/harness-application.js';
+import { Lifecycle, utcNow, type Clock } from './core/lifecycle.js';
 import { assertOrdinaryTaskPrepared, ordinaryTask, ordinaryTaskSettings } from './ordinary-observation.js';
-import { captureObservedCostInput } from './observed-cost-report.js';
-import { projectCatalogCost } from './catalog-cost-report.js';
-import { readPriceBasis } from './price-catalog-store.js';
-import { putUsageWithEvidence, recordObservationGap } from './runtime-history.js';
+import { captureObservedCostInput } from './pricing/observed-cost-report.js';
+import { projectCatalogCost } from './pricing/catalog-cost-report.js';
+import { readPriceBasis } from './pricing/price-catalog-store.js';
+import { putUsageWithEvidence, recordObservationGap } from './core/runtime-history.js';
 import { assertCompatibilityAllowed, pinSessionCompatibility, resolveSourceCompatibility } from './source-compatibility.js';
 import {
   BindingUsageRecordSchema,

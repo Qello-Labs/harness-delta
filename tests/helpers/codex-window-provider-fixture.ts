@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { appendFileSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Lifecycle } from '../../src/lifecycle.js';
+import { Lifecycle } from '../../src/core/lifecycle.js';
 import { Store } from '../../src/store.js';
 import { createOrdinaryWindowTask } from '../../src/ordinary-observation.js';
 import { collectOrdinaryCodexWindow, connectOrdinaryCodexWindow } from '../../src/ordinary-session-binding.js';

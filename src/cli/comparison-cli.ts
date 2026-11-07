@@ -1,8 +1,8 @@
-import { registerPriceTable, readPriceTable } from '../pricing.js';
+import { registerPriceTable, readPriceTable } from '../pricing/pricing.js';
 import { registerObservedCostCommand } from './pricing-cli.js';
 import { PriceTableSchema, parseTaskMetadata } from '../flexible-contracts.js';
 import { parseComparison } from '../comparison-contracts.js';
-import { readRuntimeHistory } from '../runtime-history.js';
+import { readRuntimeHistory } from '../core/runtime-history.js';
 import { comparisonReadiness, showProtocol } from '../readiness-store.js';
 import { readFileSync } from 'node:fs';
 import { createComparisonSnapshot, readComparisonSnapshot } from '../comparison/reports/comparison-snapshot.js';
@@ -10,7 +10,7 @@ import { renderComparisonReport } from '../comparison/reports/comparison-render.
 import type { ComparisonSnapshotRequest } from '../comparison/reports/comparison-contracts.js';
 import type { Command } from 'commander';
 import { assignTask } from '../comparison/allocation.js';
-import { freezeProtocol, registerVariant, registerProtocolWithCatalogDefaults, showVariant } from '../comparison.js';
+import { freezeProtocol, registerVariant, registerProtocolWithCatalogDefaults, showVariant } from '../comparison/comparison.js';
 import { registerPriceCatalogCommands } from './price-catalog-cli.js';
 import { configurationHistory } from '../core/configuration-evidence.js';
 import { confirmConfiguration } from '../comparison/config-confirmation-write.js';

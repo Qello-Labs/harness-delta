@@ -1,11 +1,11 @@
 import { expect, test, vi } from 'vitest';
 import { readFileSync, writeFileSync, renameSync } from 'node:fs';
 import { createCodexWorkflowAdapter, createSyntheticCodexWorkflowAdapter } from '../src/codex-workflow-adapter.js';
-import { runAssignedWorkflow } from '../src/task-workflow.js';
-import { stopCodexWorkflow, codexWorkflowCostFacts, recoverCodexWorkflow } from '../src/codex-workflow-journal.js';
-import { Lifecycle } from '../src/lifecycle.js';
-import * as collection from '../src/collection.js';
-import { SourceFailure } from '../src/source-errors.js';
+import { runAssignedWorkflow } from '../src/workflow/task-workflow.js';
+import { stopCodexWorkflow, codexWorkflowCostFacts, recoverCodexWorkflow } from '../src/workflow/codex-workflow-journal.js';
+import { Lifecycle } from '../src/core/lifecycle.js';
+import * as collection from '../src/sources/collection.js';
+import { SourceFailure } from '../src/core/source-errors.js';
 import { codexWorkflowFixture } from './helpers/codex-workflow-fixture.js';
 import type { RuntimeEvidence } from '../src/flexible-contracts.js';
 
@@ -531,7 +531,7 @@ test.each(['completed', 'replaced'])(
     try {
       const { createHash } = await import('node:crypto');
       const { chmodSync } = await import('node:fs');
-      const { registerProtocol, freezeProtocol } = await import('../src/comparison.js');
+      const { registerProtocol, freezeProtocol } = await import('../src/comparison/comparison.js');
       const { FlexibleProtocolSchema } = await import('../src/flexible-contracts.js');
       const saved = FlexibleProtocolSchema.parse(
         JSON.parse(f.store.get<{ settings: string }>('SELECT settings FROM comparison_protocols WHERE id=?', ['comparison-1'])!.settings)

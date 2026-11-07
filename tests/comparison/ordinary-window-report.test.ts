@@ -2,11 +2,11 @@ import { afterEach, expect, test } from 'vitest';
 import { aggregateOrdinaryWindowReport } from '../../src/comparison/reports/ordinary-window.js';
 import { readOrdinaryWindowStatus } from '../../src/comparison/reports/ordinary-window-state.js';
 import { aggregateOrdinaryTaskReport } from '../../src/comparison/reports/ordinary-task.js';
-import { readObservedCostReport } from '../../src/observed-cost-report.js';
+import { readObservedCostReport } from '../../src/pricing/observed-cost-report.js';
 import { emptyOrdinaryWindowCoverage } from '../../src/core/ordinary-window-policy.js';
 import { Deletion } from '../../src/deletion.js';
-import { Lifecycle } from '../../src/lifecycle.js';
-import { recordObservationGap } from '../../src/runtime-history.js';
+import { Lifecycle } from '../../src/core/lifecycle.js';
+import { recordObservationGap } from '../../src/core/runtime-history.js';
 import { readOrdinaryWindowBatch } from '../../src/ordinary-window-binding.js';
 import { windowReportCutoff, windowReportFixture } from '../helpers/ordinary-window-report-fixture.js';
 

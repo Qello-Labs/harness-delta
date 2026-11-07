@@ -6,14 +6,14 @@ import { evaluateReadiness, productionSourceEvidence, productionAnalysisEvidence
 import { evaluateCostCoverage } from '../src/cost-coverage.js';
 import { main } from '../src/cli.js';
 import { Store } from '../src/store.js';
-import { Lifecycle } from '../src/lifecycle.js';
-import { registerVariant, registerProtocol, freezeProtocol } from '../src/comparison.js';
+import { Lifecycle } from '../src/core/lifecycle.js';
+import { registerVariant, registerProtocol, freezeProtocol } from '../src/comparison/comparison.js';
 import { showProtocol } from '../src/readiness-store.js';
-import { registerPriceTable } from '../src/pricing.js';
+import { registerPriceTable } from '../src/pricing/pricing.js';
 import { comparisonReadiness } from '../src/readiness-store.js';
-import { codexWorkflowProfileId } from '../src/codex-workflow-journal.js';
+import { codexWorkflowProfileId } from '../src/workflow/codex-workflow-journal.js';
 import { createCodexWorkflowAdapter, pinnedCodexWorkflowBinarySha } from '../src/codex-workflow-adapter.js';
-import { runAssignedWorkflow } from '../src/task-workflow.js';
+import { runAssignedWorkflow } from '../src/workflow/task-workflow.js';
 import { makeFlexibleFixture } from './helpers/flexible-fixture.js';
 import { assignmentInput } from './helpers/comparison-fixture.js';
 

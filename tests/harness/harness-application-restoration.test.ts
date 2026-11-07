@@ -1,10 +1,10 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import { assertAppliedHarness } from '../../src/harness-application.js';
+import { assertAppliedHarness } from '../../src/harness/harness-application.js';
 import { hashBytes } from '../../src/core/repository-files.js';
-import { releaseExternalWorkflow } from '../../src/external-session-workflow.js';
-import { Lifecycle } from '../../src/lifecycle.js';
+import { releaseExternalWorkflow } from '../../src/workflow/external-session-workflow.js';
+import { Lifecycle } from '../../src/core/lifecycle.js';
 import { apply, begin, bytes, fixture, git, restore } from '../helpers/harness-application-restoration-fixture.js';
 
 // Keep subprocess deadlines observable while complete application fixtures run.

@@ -6,10 +6,10 @@ import { z } from 'zod';
 import Database from 'better-sqlite3';
 import { isDeepStrictEqual } from 'node:util';
 import { Store } from '../store.js';
-import { Lifecycle } from '../lifecycle.js';
-import { registerVariant, freezeProtocol } from '../comparison.js';
+import { Lifecycle } from '../core/lifecycle.js';
+import { registerVariant, freezeProtocol } from '../comparison/comparison.js';
 import { comparisonProtocol, protocolRow } from '../core/protocol-store.js';
-import { registerProtocolWithCatalogDefaults } from '../comparison.js';
+import { registerProtocolWithCatalogDefaults } from '../comparison/comparison.js';
 import { selectedArtifactSnapshot } from '../core/configuration-evidence.js';
 import { createLocalWebDomain, LocalWebProfileSchema } from '../web/local-web-domain.js';
 import { createLocalWebServer } from '../web/local-web-server.js';
@@ -37,7 +37,7 @@ import {
   noteBindingQualificationTransition,
   noteQualificationCollectorError,
   type QualificationStopWitness
-} from '../session-binding-qualification-lease.js';
+} from '../binding/session-binding-qualification-lease.js';
 import { assertCompatibilityAllowed, resolveSourceCompatibility, sessionCompatibility } from '../source-compatibility.js';
 import { getCodexBindingAdmission, isAdmittedCodexBindingProtocol } from '../codex-binding-admission.js';
 import { setTimeout as delay } from 'node:timers/promises';

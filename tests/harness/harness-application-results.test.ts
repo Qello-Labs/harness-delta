@@ -3,10 +3,10 @@ import { writeFileSync, readFileSync, mkdirSync, symlinkSync, unlinkSync, exists
 import { join } from 'node:path';
 import { expect, test } from 'vitest';
 import { localWebFixture } from '../helpers/local-web-fixture.js';
-import { prepareExternalTask } from '../../src/external-session-service.js';
+import { prepareExternalTask } from '../../src/workflow/external-session-service.js';
 import { registerHarness } from '../../src/harness/harness-config.js';
 import { hashBytes } from '../../src/core/repository-files.js';
-import { ApplicationCoordinator, requireApplication, assertAppliedHarness, assertApplicationWorkingIdentity } from '../../src/harness-application.js';
+import { ApplicationCoordinator, requireApplication, assertAppliedHarness, assertApplicationWorkingIdentity } from '../../src/harness/harness-application.js';
 test('an already matching harness completes only after its unchanged outputs and checks are reported', () => {
   const f = fixture();
   try {

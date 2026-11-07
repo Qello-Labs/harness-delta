@@ -3,7 +3,7 @@ import { isAbsolute, join } from 'node:path';
 import { z } from 'zod';
 import { IdSchema } from '../contracts.js';
 import type { ClaudeWindowBinaryAdapters } from '../claude-process-binary.js';
-import { Lifecycle, utcNow } from '../lifecycle.js';
+import { Lifecycle, utcNow } from '../core/lifecycle.js';
 import { createOrdinaryWindowTask, ordinaryProjectSettings, ordinaryTask, revokeOrdinaryObservation } from '../ordinary-observation.js';
 import { collectOrdinaryClaudeWindow, connectOrdinaryClaudeWindow } from '../ordinary-session-binding.js';
 import {

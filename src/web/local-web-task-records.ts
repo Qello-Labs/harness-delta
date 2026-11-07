@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { CodexWorkflowExecutionSchema } from '../codex-workflow-adapter.js';
-import { ExternalTaskSetupSchema } from '../external-session-service.js';
+import { ExternalTaskSetupSchema } from '../workflow/external-session-service.js';
 import type { Store } from '../store.js';
 import type { createLocalWebMetadata, PrivateTask, Source } from './local-web-metadata-store.js';
 import type { createSharedSetupManager } from './local-web-shared.js';

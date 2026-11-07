@@ -7,7 +7,7 @@ import { localWebFixture } from './helpers/local-web-fixture.js';
 import { createLocalWebDomain, LocalWebProfileSchema } from '../src/web/local-web-domain.js';
 import { registerHarness, generateComparison } from '../src/harness/harness-config.js';
 import { comparisonVariant } from '../src/core/protocol-store.js';
-import { codexRootHumanPilotProfileId } from '../src/session-binding-human-pilot.js';
+import { codexRootHumanPilotProfileId } from '../src/binding/session-binding-human-pilot.js';
 import { createHash } from 'node:crypto';
 
 test.each(['0.162.0', '0.162.1'])(

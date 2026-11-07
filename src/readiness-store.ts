@@ -5,7 +5,7 @@ import type { FlexibleProtocol } from './flexible-contracts.js';
 import type { Store } from './store.js';
 import { protocolRow } from './core/protocol-store.js';
 import { parseProtocol, FlexibleProtocolDraftSchema, type CostCoverageEvidence } from './flexible-contracts.js';
-import { codexWorkflowCostFacts } from './codex-workflow-journal.js';
+import { codexWorkflowCostFacts } from './workflow/codex-workflow-journal.js';
 import { evaluateCostCoverage } from './cost-coverage.js';
 import { evaluateReadiness, productionSourceEvidence, syntheticSourceEvidence } from './readiness.js';
 import { getCodexBindingAdmission, isAdmittedCodexBindingProtocol } from './codex-binding-admission.js';

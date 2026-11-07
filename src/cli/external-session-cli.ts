@@ -2,11 +2,11 @@ import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import type { Command } from 'commander';
 import { z } from 'zod';
-import { AssignedWorkflowInputSchema, type WorkflowAdapter } from '../task-workflow.js';
+import { AssignedWorkflowInputSchema, type WorkflowAdapter } from '../workflow/task-workflow.js';
 import { CodexWorkflowExecutionSchema } from '../codex-workflow-adapter.js';
-import { prepareExternalWorkflow, runExternalWorkflow, externalWorkflowState, releaseExternalWorkflow } from '../external-session-workflow.js';
+import { prepareExternalWorkflow, runExternalWorkflow, externalWorkflowState, releaseExternalWorkflow } from '../workflow/external-session-workflow.js';
 import type { Store } from '../store.js';
-import { externalContract } from '../external-session-contract.js';
+import { externalContract } from '../core/external-session-contract.js';
 import {
   ExternalTaskSetupSchema,
   collectExternalTask,
@@ -17,7 +17,7 @@ import {
   pauseExternalTask,
   prepareExternalTask,
   recordExternalTaskOutcome
-} from '../external-session-service.js';
+} from '../workflow/external-session-service.js';
 
 function readInput(path: string): unknown {
   try {

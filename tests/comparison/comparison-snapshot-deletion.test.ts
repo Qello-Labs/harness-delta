@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { assignTask } from '../../src/comparison/allocation.js';
-import { registerProtocol, freezeProtocol } from '../../src/comparison.js';
+import { registerProtocol, freezeProtocol } from '../../src/comparison/comparison.js';
 import { Deletion } from '../../src/deletion.js';
 import { createComparisonSnapshot, readComparisonSnapshot } from '../../src/comparison/reports/comparison-snapshot.js';
 import { assignmentInput, beforeRecruitment, protocol } from '../helpers/comparison-fixture.js';

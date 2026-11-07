@@ -4,7 +4,7 @@ import { IdSchema, TaskMetadataSchema, TimestampSchema, TokenSchema, ReasonSchem
 import { ProtocolSchema, VariantSchema, parseComparison } from '../../comparison-contracts.js';
 import { FlexibleProtocolSchema, FlexibleVariantSchema, FlexibleTaskMetadataSchema, PriceTableSchema } from '../../flexible-contracts.js';
 import { FlexibleTaskReportSchema } from '../reports/flexible-comparison.js';
-import { costFormulaVersion } from '../../pricing.js';
+import { costFormulaVersion } from '../../pricing/pricing.js';
 import { codePointOrder } from '../reports/comparison-task.js';
 import { canonicalJson } from '../../core/canonical-json.js';
 

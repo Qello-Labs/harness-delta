@@ -1,8 +1,8 @@
 import { afterEach, expect, test } from 'vitest';
-import { aggregateTask, aggregateTaskReportV2 } from '../../src/metrics.js';
+import { aggregateTask, aggregateTaskReportV2 } from '../../src/pricing/metrics.js';
 import { aggregateOrdinaryTaskReportV2 } from '../../src/comparison/reports/ordinary-task.js';
 import { aggregateOrdinaryWindowReport } from '../../src/comparison/reports/ordinary-window.js';
-import { captureOrdinaryWindowCostInput } from '../../src/observed-cost-report.js';
+import { captureOrdinaryWindowCostInput } from '../../src/pricing/observed-cost-report.js';
 import { freezePeriod, periodReport } from '../../src/comparison/reports/period.js';
 import { emptyOrdinaryWindowCoverage } from '../../src/core/ordinary-window-policy.js';
 import { readOrdinaryWindowBindingReport } from '../../src/ordinary-session-binding.js';

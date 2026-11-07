@@ -15,12 +15,12 @@ import {
 } from './instrumented-codex-contracts.js';
 import { TimestampSchema } from '../contracts.js';
 import type { Store } from '../store.js';
-import { readPriceTable } from '../pricing.js';
-import { readPriceBasis } from '../price-catalog-store.js';
+import { readPriceTable } from '../pricing/pricing.js';
+import { readPriceBasis } from '../pricing/price-catalog-store.js';
 import { ChildProcess } from 'node:child_process';
 import { resolveInstrumentedBuildIdentity } from './instrumented-codex-build-identity.js';
 import { InstrumentedLaunchReceiptSchema, InstrumentedRetirementReceiptSchema } from './instrumented-codex-contracts.js';
-import { Lifecycle } from '../lifecycle.js';
+import { Lifecycle } from '../core/lifecycle.js';
 import { parseProtocol } from '../flexible-contracts.js';
 
 type PreparationInput = {

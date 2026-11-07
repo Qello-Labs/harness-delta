@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { Store } from '../../store.js';
 import { IdSchema } from '../../contracts.js';
-import { type Clock, utcNow } from '../../lifecycle.js';
+import { type Clock, utcNow } from '../../core/lifecycle.js';
 import { parseExchange, uuid, time } from './contracts.js';
 import { registeredDestination } from './mapping.js';
 import { invalidateExchangeProtocol } from './invalidation.js';

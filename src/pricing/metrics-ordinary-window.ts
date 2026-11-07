@@ -1,8 +1,8 @@
 import { addTokens, TimestampSchema } from '../contracts.js';
-import { captureOrdinaryWindowCostInput } from '../observed-cost-report.js';
-import { projectCatalogCost } from '../catalog-cost-report.js';
-import { readPriceBasis } from '../price-catalog-store.js';
-import { reportCompatibility, type ReportSourceTrust, reportSourceTrust } from '../report-source-trust.js';
+import { captureOrdinaryWindowCostInput } from './observed-cost-report.js';
+import { projectCatalogCost } from './catalog-cost-report.js';
+import { readPriceBasis } from './price-catalog-store.js';
+import { reportCompatibility, type ReportSourceTrust, reportSourceTrust } from './report-source-trust.js';
 import type { UsageEvent } from '../flexible-contracts.js';
 import type { Store } from '../store.js';
 import { readOrdinaryWindowStatus } from '../core/ordinary-window-evidence.js';

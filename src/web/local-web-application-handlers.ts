@@ -1,4 +1,4 @@
-import type { ApplicationCoordinator } from '../harness-application.js';
+import type { ApplicationCoordinator } from '../harness/harness-application.js';
 import type { PrivateTask } from './local-web-metadata-store.js';
 import type { LocalWebDomain } from './local-web-server.js';
 

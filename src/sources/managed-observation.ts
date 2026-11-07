@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import type { CoverageEvidence, CoverageMetric } from '../core/coverage.js';
-import { utcNow, type Clock } from '../lifecycle.js';
+import { utcNow, type Clock } from '../core/lifecycle.js';
 import type { Store } from '../store.js';
-import { assertScope, beginRun, interruptRun, lockTask, managedNow, patchFacts, putUsage, runEvidence, runRow } from '../managed-journal.js';
+import { assertScope, beginRun, interruptRun, lockTask, managedNow, patchFacts, putUsage, runEvidence, runRow } from './managed-journal.js';
 import {
   batchSchema,
   isOpen,
@@ -15,7 +15,7 @@ import {
   type RunRow,
   type StopReason
 } from './managed-protocol.js';
-export { recoverManagedRuns, taskManagedEvidence } from '../managed-journal.js';
+export { recoverManagedRuns, taskManagedEvidence } from './managed-journal.js';
 
 /** Internal synthetic controller. The owner drives poll(), including deadline checks.
  * No product process, timer, telemetry, CLI or background collection is started here.

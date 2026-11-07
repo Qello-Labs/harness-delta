@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { Deletion } from '../src/deletion.js';
-import { Lifecycle } from '../src/lifecycle.js';
+import { Lifecycle } from '../src/core/lifecycle.js';
 import { Store } from '../src/store.js';
 import { createOrdinaryWindowTask } from '../src/ordinary-observation.js';
 import { recordOrdinaryWindowSegment } from '../src/core/ordinary-window-store.js';

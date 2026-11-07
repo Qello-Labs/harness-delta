@@ -16,12 +16,12 @@ import {
   qualificationRecordedRequests,
   qualificationStopReached,
   qualificationStopWitness
-} from '../../src/session-binding-qualification-lease.js';
+} from '../../src/binding/session-binding-qualification-lease.js';
 import { Store } from '../../src/store.js';
 import { protocolRow } from '../../src/core/protocol-store.js';
 import { effectiveSourceCompatibility, sessionCompatibility } from '../../src/source-compatibility.js';
-import { externalTaskState } from '../../src/external-session-service.js';
-import { runExternalWorkflow } from '../../src/external-session-workflow.js';
+import { externalTaskState } from '../../src/workflow/external-session-service.js';
+import { runExternalWorkflow } from '../../src/workflow/external-session-workflow.js';
 import { leaseBindingQualificationFixture, prepareBindingQualificationFixture } from '../helpers/codex-binding-qualification-fixture.js';
 
 const cleanups: (() => void)[] = [];

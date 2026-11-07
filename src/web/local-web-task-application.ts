@@ -1,13 +1,13 @@
 import { existsSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { comparisonVariant } from '../core/protocol-store.js';
-import { bindingCollectionControl } from '../external-session-contract.js';
-import { applicationRequired, requireApplication } from '../harness-application.js';
+import { bindingCollectionControl } from '../core/external-session-contract.js';
+import { applicationRequired, requireApplication } from '../harness/harness-application.js';
 
 import { durablePrivateBytes, hashBytes, readRepositoryFile } from '../core/repository-files.js';
 import { verifyCommonArtifacts, type ExternalPreparationSpec } from '../workflow/external-session-managed-file.js';
 import { assertSharedTask, sharedTaskPair } from './local-web-shared-guard.js';
-import { utcNow, type Clock } from '../lifecycle.js';
+import { utcNow, type Clock } from '../core/lifecycle.js';
 import type { Store } from '../store.js';
 
 const usedTables = [

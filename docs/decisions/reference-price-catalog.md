@@ -412,7 +412,7 @@ User procedure: [English](../runbooks/reference-price-catalog.md)
 ([한국어](../runbooks/reference-price-catalog.ko.md)). Synthetic verification:
 
 ```sh
-npm test -- tests/pricing/price-catalog.test.ts tests/pricing/price-catalog-store.test.ts tests/pricing/price-catalog-selection.test.ts tests/cli/price-catalog-cli.test.ts tests/pricing/price-catalog-online.test.ts tests/catalog-cost-report.test.ts tests/comparison/reports/price-revaluation.test.ts tests/reference-price-update.test.ts tests/haiku-request-pricing.test.ts
+npm test -- tests/pricing/price-catalog.test.ts tests/pricing/price-catalog-store.test.ts tests/pricing/price-catalog-selection.test.ts tests/cli/price-catalog-cli.test.ts tests/pricing/price-catalog-online.test.ts tests/pricing/catalog-cost-report.test.ts tests/comparison/reports/price-revaluation.test.ts tests/pricing/reference-price-update.test.ts tests/pricing/haiku-request-pricing.test.ts
 ```
 
 These checks cover catalog identity, cache retention, exact matching, frozen pins,

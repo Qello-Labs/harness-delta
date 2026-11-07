@@ -3,10 +3,10 @@ import { join } from 'node:path';
 import { afterEach, expect, test, vi } from 'vitest';
 import { main } from '../src/cli.js';
 import { createSyntheticCodexWorkflowAdapter } from '../src/codex-workflow-adapter.js';
-import { recoverCodexWorkflow, stopCodexWorkflow } from '../src/codex-workflow-journal.js';
+import { recoverCodexWorkflow, stopCodexWorkflow } from '../src/workflow/codex-workflow-journal.js';
 import { recoverClaudeWorkflow } from '../src/claude-workflow-adapter.js';
-import { runAssignedWorkflow, workflowTaskStatus } from '../src/task-workflow.js';
-import type { WorkflowAdapter, WorkflowAdapterResult } from '../src/task-workflow.js';
+import { runAssignedWorkflow, workflowTaskStatus } from '../src/workflow/task-workflow.js';
+import type { WorkflowAdapter, WorkflowAdapterResult } from '../src/workflow/task-workflow.js';
 import { codexWorkflowFixture } from './helpers/codex-workflow-fixture.js';
 
 const runtime = { model: null, effort: null };
@@ -182,7 +182,7 @@ test('--confirmation supplies a fresh confirmation ID without editing the config
 test('finish discloses whether the outcome counts toward deadline status', async () => {
   const f = codexWorkflowFixture();
   try {
-    const { finishAssignedWorkflow } = await import('../src/task-workflow.js');
+    const { finishAssignedWorkflow } = await import('../src/workflow/task-workflow.js');
     const first = await runAssignedWorkflow(f.store, f.input, stub(), runtime);
     const late = new Date(Date.parse(first.followup_ends_at) + 60000).toISOString();
     expect(finishAssignedWorkflow(f.store, first.task_id, 'failed', [], () => late)).toEqual({
@@ -208,7 +208,7 @@ test('finish discloses whether the outcome counts toward deadline status', async
 test('new reports disclose a late outcome separately; version 1 inputs project unchanged', async () => {
   const f = codexWorkflowFixture();
   try {
-    const { finishAssignedWorkflow } = await import('../src/task-workflow.js');
+    const { finishAssignedWorkflow } = await import('../src/workflow/task-workflow.js');
     const { createComparisonSnapshot } = await import('../src/comparison/reports/comparison-snapshot.js');
     const { projectFlexibleComparison, FlexibleSnapshotInputSchema } = await import('../src/comparison/reports/flexible-comparison.js');
     const { renderComparisonReport } = await import('../src/comparison/reports/comparison-render.js');
@@ -260,7 +260,7 @@ test('another in-progress run prevents pausing; a paused task suggests continuin
     };
     expect(await runAssignedWorkflow(f.store, f.input, racing, runtime)).toMatchObject({ state: 'active', activation_reverted: false });
     // The pause itself marks the stranded run's interval; recover afterwards cannot add another and says so.
-    const { Lifecycle } = await import('../src/lifecycle.js');
+    const { Lifecycle } = await import('../src/core/lifecycle.js');
     f.store.execute(
       "INSERT INTO sessions(id,project_id,task_id,product,product_version) SELECT 'stranded-session',project_id,id,'synthetic','1.0.0' FROM tasks",
       []

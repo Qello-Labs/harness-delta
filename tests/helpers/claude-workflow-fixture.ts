@@ -3,9 +3,9 @@ import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSy
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { claudeWorkflowProfileId } from '../../src/claude-workflow-versions.js';
-import { registerVariant, registerProtocol, freezeProtocol } from '../../src/comparison.js';
-import { registerPriceTable } from '../../src/pricing.js';
-import { Lifecycle } from '../../src/lifecycle.js';
+import { registerVariant, registerProtocol, freezeProtocol } from '../../src/comparison/comparison.js';
+import { registerPriceTable } from '../../src/pricing/pricing.js';
+import { Lifecycle } from '../../src/core/lifecycle.js';
 import { Store } from '../../src/store.js';
 import { makeFlexibleFixture } from './flexible-fixture.js';
 import { assignmentInput } from './comparison-fixture.js';

@@ -3,7 +3,7 @@ import { chmodSync, existsSync, linkSync, readFileSync, rmdirSync, statSync, sym
 import { join } from 'node:path';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import * as restoration from '../../src/harness/harness-application-restoration.js';
-import { ApplicationCoordinator } from '../../src/harness-application.js';
+import { ApplicationCoordinator } from '../../src/harness/harness-application.js';
 import { canonicalJson, hashBytes } from '../../src/core/repository-files.js';
 import { localWebError } from '../../src/web/local-web-server.js';
 import { apply, begin, bytes, fixture, git, restore } from '../helpers/harness-application-restoration-fixture.js';
