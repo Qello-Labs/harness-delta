@@ -176,6 +176,34 @@ export interface CodexQualificationPhase {
   fixtureScript?: string;
   onNativeSpawn?(): void;
 }
+function verifyCodexQualificationRuntime(
+  e: Execution,
+  c: WorkflowExecutionContext,
+  q: CodexQualificationPhase,
+  lease: { validation_kind: string; fixture_script: string | null; child_session_id?: string; child_source_path?: string },
+  phase: 'launch' | 'resume' | 'replay',
+  family: boolean
+) {
+  if (lease.validation_kind === 'synthetic') {
+    if (!q.fixtureScript || q.fixtureScript !== lease.fixture_script || realpathSync(e.binary.path) !== realpathSync(process.execPath))
+      throw new Error('codex_qualification_scope_invalid');
+  } else if (lease.validation_kind !== 'real_operations' || q.fixtureScript || e.binary.sha256 !== pinnedCodexWorkflowBinarySha)
+    throw new Error('codex_qualification_scope_invalid');
+  if (
+    phase !== 'replay' &&
+    (c.runtime.model !== (phase === 'launch' ? 'gpt-6-astra' : 'gpt-6.1-sol') ||
+      c.runtime.effort !== 'high' ||
+      q.expectedMarker !== c.instructions[0]?.content.match(new RegExp(`QUALIFICATION_${phase.toUpperCase()}=([a-f0-9]{32})`))?.[1])
+  )
+    throw new Error('codex_qualification_scope_invalid');
+  if (
+    family &&
+    (phase === 'launch'
+      ? e.child_runtime?.model !== 'gpt-6.1-sol' || e.child_runtime.effort !== 'high' || e.direct_child !== undefined
+      : e.child_runtime !== undefined || e.direct_child?.session_id !== lease.child_session_id || e.direct_child?.source_path !== lease.child_source_path)
+  )
+    throw new Error('codex_qualification_scope_invalid');
+}
 /** Explicit internal qualification entry; never an admission flag or a native
  * synthetic factory. Requires the intent-bound, reserved, isolated lease created
  * by executeCodexWorkflowQualification. The shared engine owns all native I/O. */
@@ -247,25 +275,7 @@ export async function runCodexQualificationPhase(store: Store, input: unknown, c
     )
       throw new Error('codex_qualification_scope_invalid');
     if (Date.now() >= q.deadline) throw new Error('deadline');
-    if (lease.validation_kind === 'synthetic') {
-      if (!q.fixtureScript || q.fixtureScript !== lease.fixture_script || realpathSync(e.binary.path) !== realpathSync(process.execPath))
-        throw new Error('codex_qualification_scope_invalid');
-    } else if (lease.validation_kind !== 'real_operations' || q.fixtureScript || e.binary.sha256 !== pinnedCodexWorkflowBinarySha)
-      throw new Error('codex_qualification_scope_invalid');
-    if (
-      phase !== 'replay' &&
-      (c.runtime.model !== (phase === 'launch' ? 'gpt-6-astra' : 'gpt-6.1-sol') ||
-        c.runtime.effort !== 'high' ||
-        q.expectedMarker !== c.instructions[0]?.content.match(new RegExp(`QUALIFICATION_${phase.toUpperCase()}=([a-f0-9]{32})`))?.[1])
-    )
-      throw new Error('codex_qualification_scope_invalid');
-    if (
-      family &&
-      (phase === 'launch'
-        ? e.child_runtime?.model !== 'gpt-6.1-sol' || e.child_runtime.effort !== 'high' || e.direct_child !== undefined
-        : e.child_runtime !== undefined || e.direct_child?.session_id !== lease.child_session_id || e.direct_child?.source_path !== lease.child_source_path)
-    )
-      throw new Error('codex_qualification_scope_invalid');
+    verifyCodexQualificationRuntime(e, c, q, lease, phase, family);
     c.assertActive();
   };
   validate();
@@ -1329,18 +1339,11 @@ function collectWorkflowSnapshot(flow: WorkflowRun, baseline = false, baselineCh
   });
 }
 
-async function execute(
-  store: Store,
-  execution: Execution,
-  c: WorkflowExecutionContext,
-  synthetic: boolean,
-  script?: string,
-  qualification?: WorkflowQualification,
-  nativeFamily?: NativeFamily,
-  verifiedBinary?: VerifiedBinary
-): Promise<WorkflowAdapterResult> {
-  const flow = createWorkflowRun(store, execution, c, synthetic, script, qualification, nativeFamily, verifiedBinary);
-  const { e, started, compatibility, application } = flow;
+type WorkflowQualificationOutput = { pending: string; total: number; markers: number; spawnItem: string | undefined };
+type WorkflowQualificationRow = { type: string; item?: ({ type: string; text?: string | undefined } & Record<string, unknown>) | undefined };
+
+function registerWorkflowRun(flow: WorkflowRun) {
+  const { store, e, c, qualification, started } = flow;
   store.immediateTransaction(() => {
     c.assertActive();
     qualification?.validate();
@@ -1369,338 +1372,11 @@ async function execute(
   };
   process.once('SIGINT', interrupt);
   process.once('SIGTERM', interrupt);
+  return interrupt;
+}
 
-  // A read racing a native append sees the file change underneath it and yields no
-  // snapshot. The transaction ingests nothing, so the next poll rereads; identity,
-  // truncation and prefix checks still fail closed. Bounded so a source that never
-  // settles keeps failing with unstable_read.
-
-  try {
-    guardWorkflowScope(flow);
-    if (realpathSync(e.codex_home) !== e.codex_home || !lstatSync(e.codex_home).isDirectory()) throw new Error('unsafe_home');
-    if (e.operation !== 'launch') {
-      const linked = store.get<{ source_path: string | null }>('SELECT source_path FROM sessions WHERE id=?', [e.session_id!]);
-      const path =
-        e.source_path ??
-        (synthetic
-          ? store.get<{ source_path: string }>(
-              'SELECT source_path FROM codex_workflow_runs WHERE session_id=? AND source_path IS NOT NULL ORDER BY started_at LIMIT 1',
-              [e.session_id!]
-            )?.source_path
-          : linked?.source_path);
-      if (!path) throw new Error('explicit_source_required');
-      bindWorkflowRoot(flow, e.session_id!, path, e.operation !== 'link');
-      if (e.direct_child) bindWorkflowChild(flow);
-      while (!attemptWorkflowRead(flow, () => collectWorkflowSnapshot(flow, true))) {
-        // tick() runs guard() first, so stop, pause and revocation end this loop too.
-        if (Date.now() - Date.parse(started) >= e.timeout_ms) {
-          flow.stage = 'process';
-          throw new Error('deadline');
-        }
-        await delay(e.poll_ms);
-      }
-      flow.baselineAt = new Date().toISOString();
-    }
-    if (e.operation === 'link') {
-      store.execute('UPDATE codex_workflow_runs SET application=? WHERE id=?', [application, e.run_id]);
-    } else if (e.operation === 'launch' || e.operation === 'resume') {
-      // Re-hash unless this exact file identity was hashed by preflight.
-      guardWorkflowScope(flow);
-      const { prompt, instructions } = prepareWorkflowInvocation(e, c, synthetic, qualification, verifiedBinary);
-      flow.dir = mkdtempSync('/tmp/hdw-');
-      chmodSync(flow.dir, 0o700);
-      const socket = join(flow.dir, 'hook.sock');
-      const hook = join(flow.dir, 'hook');
-      writeFileSync(hook, `#!/bin/sh\nexec ${quote(realpathSync(process.execPath))} ${quote(e.hook_recorder)} ${quote(socket)}\n`, { mode: 0o700 });
-      flow.server = createServer(connection => {
-        flow.connections.add(connection);
-        connection.on('close', () => flow.connections.delete(connection));
-        let data = '';
-        let handled = false;
-        connection.setTimeout(5000, () => connection.destroy());
-        connection.on('error', () => {});
-        connection.on('data', chunk => {
-          if (handled) {
-            flow.failure = 'hook_rejected';
-            connection.destroy();
-            return;
-          }
-          data += chunk.toString('utf8');
-          if (Buffer.byteLength(data) > 65536) {
-            flow.failure = 'invalid_hook';
-            connection.destroy();
-            return;
-          }
-          if (!data.endsWith('\n')) return;
-          handled = true;
-          if (data.indexOf('\n') !== data.length - 1) {
-            flow.failure = 'hook_rejected';
-            connection.end('error\n');
-            return;
-          }
-          const job = (async () => {
-            try {
-              flow.stage = 'hook';
-              const value = CodexWorkflowHookSchema.parse(JSON.parse(data));
-              const isChild = value.hook_event_name === 'SubagentStart';
-              if (isChild) {
-                // A second/deeper child never acquires source-read permission.
-                if (
-                  !e.child_runtime ||
-                  !flow.hookSeen ||
-                  flow.childHookSeen ||
-                  e.direct_child ||
-                  !value.agent_id ||
-                  value.agent_id === flow.session ||
-                  value.session_id !== flow.session ||
-                  !value.turn_id ||
-                  value.cwd !== c.projectRoot ||
-                  value.model !== e.child_runtime.model ||
-                  (flow.pendingChildId && flow.pendingChildId !== value.agent_id)
-                )
-                  throw new Error('unsupported_session');
-                flow.childHookSeen = true;
-                flow.childInitialTurn = value.turn_id;
-                e.direct_child = { session_id: value.agent_id, source_path: value.transcript_path };
-                bindWorkflowChild(flow);
-              } else {
-                if (
-                  flow.hookSeen ||
-                  flow.hookWork ||
-                  value.agent_id != null ||
-                  value.cwd !== c.projectRoot ||
-                  value.source !== (e.operation === 'resume' ? 'resume' : 'startup') ||
-                  (e.session_id && value.session_id !== e.session_id) ||
-                  (e.operation === 'resume' && value.transcript_path !== flow.source)
-                )
-                  throw new Error('unsupported_session');
-                assertRootHookRuntime(value, e.child_runtime !== undefined, c.runtime.model);
-                bindWorkflowRoot(flow, value.session_id, value.transcript_path, e.operation === 'resume');
-                flow.initialTurn = value.turn_id;
-              }
-              const headerDeadline = Math.min(Date.now() + 5000, Date.parse(started) + e.timeout_ms);
-              while (true) {
-                flow.stage = 'root_header';
-                if (flow.closing) throw new Error('stop_requested');
-                if (Date.now() >= headerDeadline) throw new Error('initial_source_incomplete');
-                if (attemptWorkflowRead(flow, () => collectWorkflowSnapshot(flow, !isChild, isChild))?.value) break;
-                await delay(e.poll_ms);
-              }
-              if (!isChild) {
-                flow.baselineAt = started;
-                flow.hookSeen = true;
-              }
-              connection.end('ok\n');
-            } catch (error) {
-              captureWorkflowDiagnostic(flow, flow.stage, error);
-              flow.failure ??= safeReason(error);
-              connection.end('error\n');
-            }
-          })();
-          flow.hookWork = job;
-          flow.hookJobs.add(job);
-          void job.finally(() => {
-            flow.hookJobs.delete(job);
-            flow.hookWork = undefined;
-          });
-        });
-      });
-      await new Promise<void>((ok, no) => {
-        flow.server!.once('error', no);
-        flow.server!.listen(socket, ok);
-      });
-      chmodSync(socket, 0o600);
-      const args = workflowSpawnArguments(e, c, instructions, hook, qualification);
-      guardWorkflowScope(flow);
-      flow.activeBinaryIdentity = fileIdentity(e.binary.path);
-      flow.stage = 'process';
-      flow.child = spawn(e.binary.path, synthetic || (qualification && script) ? [script!, ...args] : args, {
-        cwd: c.projectRoot,
-        env: { ...process.env, CODEX_HOME: e.codex_home },
-        detached: true,
-        stdio: ['pipe', qualification ? 'pipe' : 'ignore', 'ignore']
-      });
-      if (flow.child.pid !== undefined) qualification?.onSpawn();
-      if (qualification) {
-        let pending = '';
-        let total = 0;
-        let markers = 0;
-        let spawnItem: string | undefined;
-        flow.child.stdout!.on('data', (chunk: Buffer) => {
-          try {
-            guardWorkflowScope(flow);
-          } catch (error) {
-            captureWorkflowDiagnostic(flow, 'scope', error);
-            flow.failure = 'qualification_scope_lost';
-            return;
-          }
-          total += chunk.length;
-          if (total > 65536) {
-            captureWorkflowDiagnostic(flow, 'stdout', new Error('qualification_output_invalid'));
-            flow.failure = 'qualification_output_invalid';
-            return;
-          }
-          // No decode or backfill of stdout delivered before native root binding.
-          if (!flow.hookSeen) return;
-          pending += chunk.toString('utf8');
-          let index: number;
-          while ((index = pending.indexOf('\n')) >= 0) {
-            const line = pending.slice(0, index);
-            pending = pending.slice(index + 1);
-            if (!line) continue;
-            let eventKind: CodexWorkflowDiagnostic['event_kind'] = 'invalid_item';
-            try {
-              const row = z
-                .object({ type: z.string(), item: z.object({ type: z.string(), text: z.string().optional() }).passthrough().optional() })
-                .parse(JSON.parse(line));
-              // Fixed enums only: no item body, producer name, IDs or arguments
-              // survive this callback. Unknown producer values become other_item.
-              eventKind =
-                row.item?.type === 'agent_message'
-                  ? 'agent_message'
-                  : row.item?.type === 'reasoning'
-                    ? 'reasoning'
-                    : row.item?.type === 'collab_tool_call' && row.item.tool === 'spawn_agent'
-                      ? 'collab_spawn'
-                      : row.item?.type === 'collab_tool_call' && row.item.tool === 'wait'
-                        ? 'collab_wait'
-                        : row.item?.type === 'collab_tool_call' && row.item.tool === 'close_agent'
-                          ? 'collab_close'
-                          : 'other_item';
-              if (['item.started', 'item.updated', 'item.completed'].includes(row.type) && row.item) {
-                if (row.item.type === 'agent_message' && row.type === 'item.completed') {
-                  if (++markers !== 1 || row.item.text?.trim() !== qualification.expectedMarker) throw new Error('marker_mismatch');
-                  qualification.onMarker();
-                } else if (row.item.type === 'agent_message') continue;
-                else if (e.child_runtime && row.item.type === 'collab_tool_call') {
-                  const activity = z
-                    .object({
-                      id: IdSchema,
-                      type: z.literal('collab_tool_call'),
-                      tool: z.enum(['spawn_agent', 'wait', 'close_agent']),
-                      sender_thread_id: z.uuid(),
-                      receiver_thread_ids: z.array(z.uuid()).max(1),
-                      status: z.enum(['in_progress', 'completed'])
-                    })
-                    .parse(row.item);
-                  if (activity.sender_thread_id !== flow.session) throw new Error('qualification_sender_mismatch');
-                  if (activity.receiver_thread_ids.some(id => id === flow.session || (e.direct_child && id !== e.direct_child.session_id)))
-                    throw new Error('qualification_receiver_mismatch');
-                  if (activity.tool === 'spawn_agent') {
-                    if (spawnItem && spawnItem !== activity.id) throw new Error('qualification_spawn_changed');
-                    spawnItem = activity.id;
-                  }
-                  if (activity.status === 'completed') {
-                    if (!e.direct_child) throw new Error('qualification_child_unbound');
-                    // Native V2 wait omits receivers. Only an already verified
-                    // hook/source binding supplies identity; final source activity
-                    // and child own usage checks remain mandatory.
-                    const boundWait =
-                      activity.tool === 'wait' &&
-                      activity.receiver_thread_ids.length === 0 &&
-                      flow.childHookSeen &&
-                      !!store.get('SELECT 1 FROM codex_workflow_children WHERE run_id=? AND session_id=? AND source_identity IS NOT NULL', [
-                        e.run_id,
-                        e.direct_child.session_id
-                      ]);
-                    if (activity.receiver_thread_ids.length !== 1 && !boundWait) throw new Error('qualification_receiver_missing');
-                    if (activity.receiver_thread_ids.length === 1 && activity.receiver_thread_ids[0] !== e.direct_child.session_id)
-                      throw new Error('qualification_receiver_mismatch');
-                  }
-                } else if (row.item.type !== 'reasoning') throw new Error('unexpected_qualification_item');
-              }
-            } catch (error) {
-              captureWorkflowDiagnostic(flow, 'stdout', error, eventKind);
-              flow.failure = 'qualification_marker_failed';
-            }
-          }
-        });
-        flow.child.stdout!.on('end', () => {
-          if (pending.length) {
-            captureWorkflowDiagnostic(flow, 'stdout', new Error('qualification_output_invalid'));
-            flow.failure = 'qualification_output_invalid';
-          }
-        });
-      }
-      flow.child.on('error', error => {
-        captureWorkflowDiagnostic(flow, 'process', error);
-        flow.failure = 'process_error';
-        flow.exited = true;
-      });
-      flow.child.on('exit', code => {
-        flow.exitCode = code;
-        flow.exited = true;
-      });
-      flow.child.stdin!.on('error', () => {});
-      flow.child.stdin!.end(prompt);
-      store.execute('UPDATE codex_workflow_runs SET application=? WHERE id=?', [application, e.run_id]);
-    }
-    if (e.operation !== 'link')
-      while (true) {
-        guardWorkflowScope(flow);
-        if (flow.failure) throw new Error(flow.failure);
-        if (codexWorkflowRun(store, e.run_id)?.stop_requested) {
-          flow.failure = 'stop_requested';
-          break;
-        }
-        if (Date.now() - Date.parse(started) >= e.timeout_ms) {
-          captureWorkflowDiagnostic(flow, 'process', new Error('deadline'));
-          flow.failure = 'deadline';
-          break;
-        }
-        const read = flow.hookSeen || e.operation === 'collect' ? attemptWorkflowRead(flow, () => collectWorkflowSnapshot(flow)) : { value: true };
-        if (qualification?.replay) {
-          stopCodexWorkflow(store, e.run_id);
-          continue;
-        }
-        // Completion needs a stable read taken after the exit was observed, so the
-        // final appended usage is never skipped by an unstable last poll.
-        if (flow.exited && !read) {
-          await delay(e.poll_ms);
-          continue;
-        }
-        if (flow.exited) {
-          flow.stage = 'process';
-          if (!flow.hookSeen) throw new Error('hook_missing');
-          if (!flow.metadataReady) throw new Error('initial_source_incomplete');
-          if (flow.exitCode !== 0) throw new Error('process_failed');
-          if (
-            e.child_runtime &&
-            (!flow.childHookSeen ||
-              !e.direct_child ||
-              flow.pendingChildId !== e.direct_child.session_id ||
-              !store.get('SELECT 1 FROM events WHERE task_id=? AND session_id=?', [c.taskId, e.direct_child.session_id]))
-          )
-            throw new Error('hook_missing');
-          break;
-        }
-        await delay(e.poll_ms);
-      }
-  } catch (error) {
-    captureWorkflowDiagnostic(flow, flow.stage, error);
-    flow.failure = safeReason(error);
-  } finally {
-    flow.closing = true;
-    if (flow.child?.pid) {
-      try {
-        process.kill(-flow.child.pid, 'SIGTERM');
-      } catch {
-        /* already exited */
-      }
-      await delay(50);
-      try {
-        process.kill(-flow.child.pid, 'SIGKILL');
-      } catch {
-        /* already exited */
-      }
-    }
-    for (const connection of flow.connections) connection.destroy();
-    await Promise.all([...flow.hookJobs]);
-    if (flow.server) await new Promise<void>(ok => flow.server!.close(() => ok()));
-    if (flow.dir) rmSync(flow.dir, { recursive: true, force: true });
-    process.removeListener('SIGINT', interrupt);
-    process.removeListener('SIGTERM', interrupt);
-  }
+function finalizeWorkflowRun(flow: WorkflowRun): WorkflowAdapterResult {
+  const { store, e, c, compatibility, application } = flow;
   if (
     compatibility?.state === 'compatibility_unverified' &&
     flow.failure &&
@@ -1742,4 +1418,400 @@ async function execute(
     // link/collect observe a process the adapter did not start; it may still be running.
     ...(e.operation === 'launch' || e.operation === 'resume' ? { process_started: flow.child?.pid !== undefined } : {})
   };
+}
+
+function bindWorkflowChildHook(flow: WorkflowRun, value: z.infer<typeof CodexWorkflowHookSchema>) {
+  const { e, c } = flow;
+
+  // A second/deeper child never acquires source-read permission.
+  if (
+    !e.child_runtime ||
+    !flow.hookSeen ||
+    flow.childHookSeen ||
+    e.direct_child ||
+    !value.agent_id ||
+    value.agent_id === flow.session ||
+    value.session_id !== flow.session ||
+    !value.turn_id ||
+    value.cwd !== c.projectRoot ||
+    value.model !== e.child_runtime.model ||
+    (flow.pendingChildId && flow.pendingChildId !== value.agent_id)
+  )
+    throw new Error('unsupported_session');
+
+  flow.childHookSeen = true;
+
+  flow.childInitialTurn = value.turn_id;
+
+  e.direct_child = { session_id: value.agent_id, source_path: value.transcript_path };
+
+  bindWorkflowChild(flow);
+}
+
+function bindWorkflowRootHook(flow: WorkflowRun, value: z.infer<typeof CodexWorkflowHookSchema>) {
+  const { e, c } = flow;
+
+  if (
+    flow.hookSeen ||
+    flow.hookWork ||
+    value.agent_id != null ||
+    value.cwd !== c.projectRoot ||
+    value.source !== (e.operation === 'resume' ? 'resume' : 'startup') ||
+    (e.session_id && value.session_id !== e.session_id) ||
+    (e.operation === 'resume' && value.transcript_path !== flow.source)
+  )
+    throw new Error('unsupported_session');
+
+  assertRootHookRuntime(value, e.child_runtime !== undefined, c.runtime.model);
+
+  bindWorkflowRoot(flow, value.session_id, value.transcript_path, e.operation === 'resume');
+
+  flow.initialTurn = value.turn_id;
+}
+
+async function receiveWorkflowHook(flow: WorkflowRun, data: string, connection: Socket) {
+  const { e, started } = flow;
+  try {
+    flow.stage = 'hook';
+    const value = CodexWorkflowHookSchema.parse(JSON.parse(data));
+    const isChild = value.hook_event_name === 'SubagentStart';
+    if (isChild) bindWorkflowChildHook(flow, value);
+    else bindWorkflowRootHook(flow, value);
+    const headerDeadline = Math.min(Date.now() + 5000, Date.parse(started) + e.timeout_ms);
+    while (true) {
+      flow.stage = 'root_header';
+      if (flow.closing) throw new Error('stop_requested');
+      if (Date.now() >= headerDeadline) throw new Error('initial_source_incomplete');
+      if (attemptWorkflowRead(flow, () => collectWorkflowSnapshot(flow, !isChild, isChild))?.value) break;
+      await delay(e.poll_ms);
+    }
+    if (!isChild) {
+      flow.baselineAt = started;
+      flow.hookSeen = true;
+    }
+    connection.end('ok\n');
+  } catch (error) {
+    captureWorkflowDiagnostic(flow, flow.stage, error);
+    flow.failure ??= safeReason(error);
+    connection.end('error\n');
+  }
+}
+
+function createWorkflowHookServer(flow: WorkflowRun) {
+  const { e } = flow;
+  flow.dir = mkdtempSync('/tmp/hdw-');
+  chmodSync(flow.dir, 0o700);
+  const socket = join(flow.dir, 'hook.sock');
+  const hook = join(flow.dir, 'hook');
+  writeFileSync(hook, `#!/bin/sh\nexec ${quote(realpathSync(process.execPath))} ${quote(e.hook_recorder)} ${quote(socket)}\n`, { mode: 0o700 });
+  flow.server = createServer(connection => {
+    flow.connections.add(connection);
+    connection.on('close', () => flow.connections.delete(connection));
+    let data = '';
+    let handled = false;
+    connection.setTimeout(5000, () => connection.destroy());
+    connection.on('error', () => {});
+    connection.on('data', chunk => {
+      if (handled) {
+        flow.failure = 'hook_rejected';
+        connection.destroy();
+        return;
+      }
+      data += chunk.toString('utf8');
+      if (Buffer.byteLength(data) > 65536) {
+        flow.failure = 'invalid_hook';
+        connection.destroy();
+        return;
+      }
+      if (!data.endsWith('\n')) return;
+      handled = true;
+      if (data.indexOf('\n') !== data.length - 1) {
+        flow.failure = 'hook_rejected';
+        connection.end('error\n');
+        return;
+      }
+      const job = receiveWorkflowHook(flow, data, connection);
+      flow.hookWork = job;
+      flow.hookJobs.add(job);
+      void job.finally(() => {
+        flow.hookJobs.delete(job);
+        flow.hookWork = undefined;
+      });
+    });
+  });
+  return { socket, hook };
+}
+
+function consumeWorkflowQualificationItem(flow: WorkflowRun, output: WorkflowQualificationOutput, row: WorkflowQualificationRow, q: WorkflowQualification) {
+  const { store, e } = flow;
+  if (['item.started', 'item.updated', 'item.completed'].includes(row.type) && row.item) {
+    if (row.item.type === 'agent_message' && row.type === 'item.completed') {
+      if (++output.markers !== 1 || row.item.text?.trim() !== q.expectedMarker) throw new Error('marker_mismatch');
+      q.onMarker();
+    } else if (row.item.type === 'agent_message') return;
+    else if (e.child_runtime && row.item.type === 'collab_tool_call') {
+      const activity = z
+        .object({
+          id: IdSchema,
+          type: z.literal('collab_tool_call'),
+          tool: z.enum(['spawn_agent', 'wait', 'close_agent']),
+          sender_thread_id: z.uuid(),
+          receiver_thread_ids: z.array(z.uuid()).max(1),
+          status: z.enum(['in_progress', 'completed'])
+        })
+        .parse(row.item);
+      if (activity.sender_thread_id !== flow.session) throw new Error('qualification_sender_mismatch');
+      if (activity.receiver_thread_ids.some(id => id === flow.session || (e.direct_child && id !== e.direct_child.session_id)))
+        throw new Error('qualification_receiver_mismatch');
+      if (activity.tool === 'spawn_agent') {
+        if (output.spawnItem && output.spawnItem !== activity.id) throw new Error('qualification_spawn_changed');
+        output.spawnItem = activity.id;
+      }
+      if (activity.status === 'completed') {
+        if (!e.direct_child) throw new Error('qualification_child_unbound');
+        // Native V2 wait omits receivers. Only an already verified
+        // hook/source binding supplies identity; final source activity
+        // and child own usage checks remain mandatory.
+        const boundWait =
+          activity.tool === 'wait' &&
+          activity.receiver_thread_ids.length === 0 &&
+          flow.childHookSeen &&
+          !!store.get('SELECT 1 FROM codex_workflow_children WHERE run_id=? AND session_id=? AND source_identity IS NOT NULL', [
+            e.run_id,
+            e.direct_child.session_id
+          ]);
+        if (activity.receiver_thread_ids.length !== 1 && !boundWait) throw new Error('qualification_receiver_missing');
+        if (activity.receiver_thread_ids.length === 1 && activity.receiver_thread_ids[0] !== e.direct_child.session_id)
+          throw new Error('qualification_receiver_mismatch');
+      }
+    } else if (row.item.type !== 'reasoning') throw new Error('unexpected_qualification_item');
+  }
+}
+
+function observeWorkflowQualificationOutput(flow: WorkflowRun, child: ChildProcess, q: WorkflowQualification) {
+  const output: WorkflowQualificationOutput = { pending: '', total: 0, markers: 0, spawnItem: undefined };
+  child.stdout!.on('data', (chunk: Buffer) => {
+    try {
+      guardWorkflowScope(flow);
+    } catch (error) {
+      captureWorkflowDiagnostic(flow, 'scope', error);
+      flow.failure = 'qualification_scope_lost';
+      return;
+    }
+    output.total += chunk.length;
+    if (output.total > 65536) {
+      captureWorkflowDiagnostic(flow, 'stdout', new Error('qualification_output_invalid'));
+      flow.failure = 'qualification_output_invalid';
+      return;
+    }
+    // No decode or backfill of stdout delivered before native root binding.
+    if (!flow.hookSeen) return;
+    output.pending += chunk.toString('utf8');
+    let index: number;
+    while ((index = output.pending.indexOf('\n')) >= 0) {
+      const line = output.pending.slice(0, index);
+      output.pending = output.pending.slice(index + 1);
+      if (!line) continue;
+      let eventKind: CodexWorkflowDiagnostic['event_kind'] = 'invalid_item';
+      try {
+        const row = z
+          .object({ type: z.string(), item: z.object({ type: z.string(), text: z.string().optional() }).passthrough().optional() })
+          .parse(JSON.parse(line));
+        // Fixed enums only: no item body, producer name, IDs or arguments
+        // survive this callback. Unknown producer values become other_item.
+        eventKind =
+          row.item?.type === 'agent_message'
+            ? 'agent_message'
+            : row.item?.type === 'reasoning'
+              ? 'reasoning'
+              : row.item?.type === 'collab_tool_call' && row.item.tool === 'spawn_agent'
+                ? 'collab_spawn'
+                : row.item?.type === 'collab_tool_call' && row.item.tool === 'wait'
+                  ? 'collab_wait'
+                  : row.item?.type === 'collab_tool_call' && row.item.tool === 'close_agent'
+                    ? 'collab_close'
+                    : 'other_item';
+        consumeWorkflowQualificationItem(flow, output, row, q);
+      } catch (error) {
+        captureWorkflowDiagnostic(flow, 'stdout', error, eventKind);
+        flow.failure = 'qualification_marker_failed';
+      }
+    }
+  });
+  child.stdout!.on('end', () => {
+    if (output.pending.length) {
+      captureWorkflowDiagnostic(flow, 'stdout', new Error('qualification_output_invalid'));
+      flow.failure = 'qualification_output_invalid';
+    }
+  });
+}
+
+function spawnWorkflowProcess(flow: WorkflowRun, args: string[], prompt: Buffer) {
+  const { store, e, c, synthetic, script, qualification, application } = flow;
+  guardWorkflowScope(flow);
+  flow.activeBinaryIdentity = fileIdentity(e.binary.path);
+  flow.stage = 'process';
+  flow.child = spawn(e.binary.path, synthetic || (qualification && script) ? [script!, ...args] : args, {
+    cwd: c.projectRoot,
+    env: { ...process.env, CODEX_HOME: e.codex_home },
+    detached: true,
+    stdio: ['pipe', qualification ? 'pipe' : 'ignore', 'ignore']
+  });
+  if (flow.child.pid !== undefined) qualification?.onSpawn();
+  if (qualification) observeWorkflowQualificationOutput(flow, flow.child, qualification);
+  flow.child.on('error', error => {
+    captureWorkflowDiagnostic(flow, 'process', error);
+    flow.failure = 'process_error';
+    flow.exited = true;
+  });
+  flow.child.on('exit', code => {
+    flow.exitCode = code;
+    flow.exited = true;
+  });
+  flow.child.stdin!.on('error', () => {});
+  flow.child.stdin!.end(prompt);
+  store.execute('UPDATE codex_workflow_runs SET application=? WHERE id=?', [application, e.run_id]);
+}
+
+function bindExistingWorkflowSession(flow: WorkflowRun) {
+  const { store, e, synthetic } = flow;
+  const linked = store.get<{ source_path: string | null }>('SELECT source_path FROM sessions WHERE id=?', [e.session_id!]);
+  const path =
+    e.source_path ??
+    (synthetic
+      ? store.get<{ source_path: string }>(
+          'SELECT source_path FROM codex_workflow_runs WHERE session_id=? AND source_path IS NOT NULL ORDER BY started_at LIMIT 1',
+          [e.session_id!]
+        )?.source_path
+      : linked?.source_path);
+  if (!path) throw new Error('explicit_source_required');
+  bindWorkflowRoot(flow, e.session_id!, path, e.operation !== 'link');
+  if (e.direct_child) bindWorkflowChild(flow);
+}
+
+function observeWorkflowRun(flow: WorkflowRun) {
+  const { store, e, c, qualification, started } = flow;
+  guardWorkflowScope(flow);
+  if (flow.failure) throw new Error(flow.failure);
+  if (codexWorkflowRun(store, e.run_id)?.stop_requested) {
+    flow.failure = 'stop_requested';
+    return 'done';
+  }
+  if (Date.now() - Date.parse(started) >= e.timeout_ms) {
+    captureWorkflowDiagnostic(flow, 'process', new Error('deadline'));
+    flow.failure = 'deadline';
+    return 'done';
+  }
+  const read = flow.hookSeen || e.operation === 'collect' ? attemptWorkflowRead(flow, () => collectWorkflowSnapshot(flow)) : { value: true };
+  if (qualification?.replay) {
+    stopCodexWorkflow(store, e.run_id);
+    return 'replay';
+  }
+  // Completion needs a stable read taken after the exit was observed, so the
+  // final appended usage is never skipped by an unstable last poll.
+  if (flow.exited && !read) return 'unstable';
+  if (flow.exited) {
+    flow.stage = 'process';
+    if (!flow.hookSeen) throw new Error('hook_missing');
+    if (!flow.metadataReady) throw new Error('initial_source_incomplete');
+    if (flow.exitCode !== 0) throw new Error('process_failed');
+    if (
+      e.child_runtime &&
+      (!flow.childHookSeen ||
+        !e.direct_child ||
+        flow.pendingChildId !== e.direct_child.session_id ||
+        !store.get('SELECT 1 FROM events WHERE task_id=? AND session_id=?', [c.taskId, e.direct_child.session_id]))
+    )
+      throw new Error('hook_missing');
+    return 'done';
+  }
+  return 'poll';
+}
+
+async function execute(
+  store: Store,
+  execution: Execution,
+  c: WorkflowExecutionContext,
+  synthetic: boolean,
+  script?: string,
+  qualification?: WorkflowQualification,
+  nativeFamily?: NativeFamily,
+  verifiedBinary?: VerifiedBinary
+): Promise<WorkflowAdapterResult> {
+  const flow = createWorkflowRun(store, execution, c, synthetic, script, qualification, nativeFamily, verifiedBinary);
+  const { e, started, application } = flow;
+  const interrupt = registerWorkflowRun(flow);
+
+  // A read racing a native append sees the file change underneath it and yields no
+  // snapshot. The transaction ingests nothing, so the next poll rereads; identity,
+  // truncation and prefix checks still fail closed. Bounded so a source that never
+  // settles keeps failing with unstable_read.
+
+  try {
+    guardWorkflowScope(flow);
+    if (realpathSync(e.codex_home) !== e.codex_home || !lstatSync(e.codex_home).isDirectory()) throw new Error('unsafe_home');
+    if (e.operation !== 'launch') {
+      bindExistingWorkflowSession(flow);
+      while (!attemptWorkflowRead(flow, () => collectWorkflowSnapshot(flow, true))) {
+        // Collection checks scope first, so stop, pause and revocation end this loop too.
+        if (Date.now() - Date.parse(started) >= e.timeout_ms) {
+          flow.stage = 'process';
+          throw new Error('deadline');
+        }
+        await delay(e.poll_ms);
+      }
+      flow.baselineAt = new Date().toISOString();
+    }
+    if (e.operation === 'link') {
+      store.execute('UPDATE codex_workflow_runs SET application=? WHERE id=?', [application, e.run_id]);
+    } else if (e.operation === 'launch' || e.operation === 'resume') {
+      // Re-hash unless this exact file identity was hashed by preflight.
+      guardWorkflowScope(flow);
+      const { prompt, instructions } = prepareWorkflowInvocation(e, c, synthetic, qualification, verifiedBinary);
+      const { socket, hook } = createWorkflowHookServer(flow);
+      await new Promise<void>((ok, no) => {
+        flow.server!.once('error', no);
+        flow.server!.listen(socket, ok);
+      });
+      chmodSync(socket, 0o600);
+      const args = workflowSpawnArguments(e, c, instructions, hook, qualification);
+      spawnWorkflowProcess(flow, args, prompt);
+    }
+    if (e.operation !== 'link')
+      while (true) {
+        const step = observeWorkflowRun(flow);
+        if (step === 'done') break;
+        if (step === 'replay') continue;
+        if (step === 'unstable') {
+          await delay(e.poll_ms);
+          continue;
+        }
+        await delay(e.poll_ms);
+      }
+  } catch (error) {
+    captureWorkflowDiagnostic(flow, flow.stage, error);
+    flow.failure = safeReason(error);
+  } finally {
+    flow.closing = true;
+    if (flow.child?.pid) {
+      try {
+        process.kill(-flow.child.pid, 'SIGTERM');
+      } catch {
+        /* already exited */
+      }
+      await delay(50);
+      try {
+        process.kill(-flow.child.pid, 'SIGKILL');
+      } catch {
+        /* already exited */
+      }
+    }
+    for (const connection of flow.connections) connection.destroy();
+    await Promise.all([...flow.hookJobs]);
+    if (flow.server) await new Promise<void>(ok => flow.server!.close(() => ok()));
+    if (flow.dir) rmSync(flow.dir, { recursive: true, force: true });
+    process.removeListener('SIGINT', interrupt);
+    process.removeListener('SIGTERM', interrupt);
+  }
+  return finalizeWorkflowRun(flow);
 }
