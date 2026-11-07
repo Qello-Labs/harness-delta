@@ -10,6 +10,8 @@ const destination = '.claude/skills/harness-connect';
 const metadata = '.harness-delta/claude-connect';
 const manifestPath = `${metadata}/installation.json`;
 const configPath = 'scripts/claude-connect-config.mjs';
+const windowReceiptDirectory = '.harness-delta/claude-window-receipts';
+const windowBundleRevision = 'claude-window-bundle-v1';
 const digest = z.string().regex(/^[a-f0-9]{64}$/);
 const relative = z.string().refine(safeRelativePath);
 const manifestSchema = z.strictObject({
@@ -17,15 +19,31 @@ const manifestSchema = z.strictObject({
   package: z.literal('harness-connect'),
   root_identity: z.string(),
   files: z
-    .array(z.strictObject({ path: relative, shipped_sha256: digest.nullable(), installed_sha256: digest }))
+    .array(
+      z.strictObject({
+        path: relative,
+        shipped_sha256: digest.nullable(),
+        installed_sha256: digest
+      })
+    )
     .min(1)
     .max(256)
 });
-type Manifest = z.infer<typeof manifestSchema>;
+const windowManifestSchema = manifestSchema.extend({
+  schema_version: z.literal(2),
+  bundle_mode: z.literal('ordinary_window'),
+  bundle_revision: z.literal(windowBundleRevision)
+});
+const installationManifestSchema = z.union([manifestSchema, windowManifestSchema]);
+type Manifest = z.infer<typeof installationManifestSchema>;
 const lockOwnerSchema = z.strictObject({ pid: z.number().int().positive() });
 export interface ClaudeConnectInstallationOptions {
+  readonly bundleMode?: 'exact' | 'ordinary_window';
   /** Trusted development seam, never a UI-selected destination. */
   readonly packageRoot?: string;
+  readonly windowPackageRoot?: string;
+  /** Trusted backend proof; never discovers native processes or sources. */
+  readonly windowInUse?: boolean | (() => boolean);
   readonly expectedPackageHash?: string | null;
   readonly expectedInstalledHash?: string | null;
 }
@@ -45,6 +63,8 @@ export interface ClaudeConnectInstallationStatus {
   readonly installedHash: string | null;
   readonly destination: typeof destination;
   readonly receiptDirectory: string;
+  readonly bundleMode?: 'ordinary_window';
+  readonly bundleRevision?: typeof windowBundleRevision;
   readonly hookRegistration: 'unverified';
   readonly blockers: readonly string[];
 }
@@ -81,8 +101,9 @@ function entry(root: string, path: string, source = false) {
     if (
       stat.isDirectory() &&
       ((stat.mode & 0o022) !== 0 || (typeof process.getuid === 'function' && stat.uid !== process.getuid() && !(source && stat.uid === 0)))
-    )
+    ) {
       fail('unsafe_path');
+    }
     if (index === parts.length - 1) return stat;
   }
   return null;
@@ -95,8 +116,9 @@ function rootIdentity(root: string, source = false): string {
     realpathSync(root) !== resolve(root) ||
     (stat.mode & 0o022n) !== 0n ||
     (typeof process.getuid === 'function' && stat.uid !== BigInt(process.getuid()) && !(source && stat.uid === 0n))
-  )
+  ) {
     fail('unsafe_project_root');
+  }
   return `${stat.dev}:${stat.ino}:${stat.birthtimeNs}`;
 }
 function tree(root: string, prefix = '', source = false): Map<string, Buffer> {
@@ -113,16 +135,32 @@ function tree(root: string, prefix = '', source = false): Map<string, Buffer> {
       if (!children.size) fail('unowned_directory');
       for (const [child, bytes] of children) files.set(child, bytes);
     } else {
-      if (!stat.isFile() || (!source && stat.nlink !== 1)) fail('unsafe_path');
+      if (!stat.isFile() || (!source && stat.nlink !== 1)) {
+        fail('unsafe_path');
+      }
       files.set(path, readRepositoryFile(root, path));
     }
     if (files.size > 256) fail('package_invalid');
   }
   return files;
 }
-const bundleHash = (files: Map<string, Buffer>) =>
-  hashBytes(JSON.stringify([...files].sort(([a], [b]) => a.localeCompare(b)).map(([path, bytes]) => [path, hashBytes(bytes)])));
+const bundleHash = (files: Map<string, Buffer>, windowIdentity?: string) => {
+  const hashes = [...files].sort(([a], [b]) => a.localeCompare(b)).map(([path, bytes]) => [path, hashBytes(bytes)]);
+  return hashBytes(
+    JSON.stringify(
+      windowIdentity === undefined
+        ? hashes
+        : {
+            bundle_mode: 'ordinary_window',
+            bundle_revision: windowBundleRevision,
+            root_identity: windowIdentity,
+            files: hashes
+          }
+    )
+  );
+};
 function packageSource(options: ClaudeConnectInstallationOptions): { files: Map<string, Buffer>; shipped: Map<string, Buffer> } {
+  const window = options.bundleMode === 'ordinary_window';
   const sourceRoot = options.packageRoot ?? packagedSkillPath('harness-connect');
   rootIdentity(sourceRoot, true);
   const shipped = tree(sourceRoot, '', true);
@@ -135,7 +173,10 @@ function packageSource(options: ClaudeConnectInstallationOptions): { files: Map<
     configPath,
     Buffer.from(
       "import { fileURLToPath } from 'node:url';\n" +
-        "process.env.HARNESS_DELTA_CLAUDE_RECEIPT_DIR = fileURLToPath(new URL('../../../../.harness-delta/claude-connect/receipts/', import.meta.url));\n"
+        `process.env.HARNESS_DELTA_CLAUDE_RECEIPT_DIR = fileURLToPath(new URL('../../../../${metadata}/receipts/', import.meta.url));\n` +
+        (window
+          ? `process.env.HARNESS_DELTA_CLAUDE_WINDOW_RECEIPT_DIR = fileURLToPath(new URL('../../../../${windowReceiptDirectory}', import.meta.url));\n`
+          : '')
     )
   );
   // Both recorder and locator must use the same project-local directory without settings edits.
@@ -145,6 +186,28 @@ function packageSource(options: ClaudeConnectInstallationOptions): { files: Map<
     const text = bytes.toString('utf8');
     const split = text.startsWith('#!') ? text.indexOf('\n') + 1 : 0;
     files.set(path, Buffer.from(text.slice(0, split) + "import './claude-connect-config.mjs';\n" + text.slice(split)));
+  }
+  if (window) {
+    const windowRoot = options.windowPackageRoot ?? packagedSkillPath('harness-connect-window-claude');
+    const selected = tree(windowRoot, '', true);
+    for (const path of ['SKILL.md', 'scripts/connect.mjs', 'scripts/claude-session-hook.mjs']) if (!selected.has(path)) fail('package_invalid');
+    if (selected.has(configPath)) fail('package_invalid');
+    for (const [path, bytes] of selected) {
+      const installed =
+        path === 'scripts/connect.mjs'
+          ? 'scripts/connect-window.mjs'
+          : path === 'scripts/claude-session-hook.mjs'
+            ? 'scripts/claude-window-session-hook.mjs'
+            : path;
+      if (path !== 'SKILL.md' && shipped.has(installed)) fail('package_invalid');
+      shipped.set(installed, bytes);
+      if (path === 'scripts/claude-session-hook.mjs') {
+        const text = bytes.toString('utf8');
+        const split = text.startsWith('#!') ? text.indexOf('\n') + 1 : 0;
+        files.set(installed, Buffer.from(text.slice(0, split) + "import './claude-connect-config.mjs';\n" + text.slice(split)));
+      } else files.set(installed, bytes);
+    }
+    if (files.size > 256) fail('package_invalid');
   }
   return { files, shipped };
 }
@@ -156,7 +219,9 @@ function inspectOwned(projectRoot: string) {
     if (!stat) return;
     identities.set(path, `${stat.dev}:${stat.ino}:${stat.birthtimeMs}`);
     if (stat.isDirectory() && path.startsWith(destination)) {
-      for (const name of readdirSync(join(projectRoot, path))) pin(`${path}/${name}`);
+      for (const name of readdirSync(join(projectRoot, path))) {
+        pin(`${path}/${name}`);
+      }
     }
   };
   for (const path of ['.claude', '.claude/skills', destination, '.harness-delta', metadata, manifestPath]) pin(path);
@@ -167,37 +232,82 @@ function inspectOwned(projectRoot: string) {
     (!privateDirectory.isDirectory() ||
       (privateDirectory.mode & 0o077) !== 0 ||
       (typeof process.getuid === 'function' && privateDirectory.uid !== process.getuid()))
-  )
+  ) {
     fail('metadata_unsafe');
+  }
   const manifestStat = entry(projectRoot, manifestPath);
   if (!manifestStat) {
     if (target) fail('package_unowned');
-    return { identity, identities, manifest: null, bytes: null, files: new Map<string, Buffer>() };
+    return {
+      identity,
+      identities,
+      manifest: null,
+      bytes: null,
+      files: new Map<string, Buffer>()
+    };
   }
   if (
     !manifestStat.isFile() ||
     manifestStat.nlink !== 1 ||
     (manifestStat.mode & 0o077) !== 0 ||
     (typeof process.getuid === 'function' && manifestStat.uid !== process.getuid())
-  )
+  ) {
     fail('manifest_unsafe');
+  }
   const bytes = readRepositoryFile(projectRoot, manifestPath);
-  const parsed = manifestSchema.safeParse(readStrictJson(bytes));
+  const parsed = installationManifestSchema.safeParse(readStrictJson(bytes));
   if (!parsed.success) return fail('manifest_invalid');
   const manifest = parsed.data;
   if (manifest.root_identity !== identity) fail('changed_project_root');
   if (!target?.isDirectory()) fail('package_drift');
   const files = tree(join(projectRoot, destination));
   const names = new Set(manifest.files.map(file => file.path));
-  if (names.size !== manifest.files.length || names.size !== files.size) fail('package_drift');
+  if (names.size !== manifest.files.length || names.size !== files.size) {
+    fail('package_drift');
+  }
   for (const file of manifest.files) {
     const installed = files.get(file.path);
-    if (!installed || hashBytes(installed) !== file.installed_sha256) fail('package_drift');
+    if (!installed || hashBytes(installed) !== file.installed_sha256) {
+      fail('package_drift');
+    }
   }
   return { identity, identities, manifest, bytes, files };
 }
 function blocker(error: unknown): string {
   return error instanceof ClaudeConnectInstallationError ? error.code : 'installation_unavailable';
+}
+function assertWindowIdle(options: ClaudeConnectInstallationOptions): void {
+  if (typeof options.windowInUse === 'function' ? options.windowInUse() : options.windowInUse) fail('ordinary_installation_in_use');
+}
+function metadataBlockers(projectRoot: string, window: boolean): string[] {
+  const blockers: string[] = [];
+  if (window) {
+    try {
+      const receipts = entry(projectRoot, windowReceiptDirectory);
+      if (receipts && (!receipts.isDirectory() || (receipts.mode & 0o077) !== 0 || (typeof process.getuid === 'function' && receipts.uid !== process.getuid())))
+        fail('metadata_unsafe');
+    } catch (error) {
+      blockers.push(blocker(error));
+    }
+  }
+  try {
+    if (entry(projectRoot, `${metadata}/installation-lock`)) {
+      const ownerPath = `${metadata}/installation-lock/owner.json`;
+      const owner = lockOwnerSchema.safeParse(entry(projectRoot, ownerPath) ? readStrictJson(readRepositoryFile(projectRoot, ownerPath)) : null);
+      if (!owner.success) blockers.push('installation_recovery_required');
+      else {
+        try {
+          process.kill(owner.data.pid, 0);
+          blockers.push('installation_busy');
+        } catch (error) {
+          blockers.push(error instanceof Error && 'code' in error && error.code === 'ESRCH' ? 'installation_recovery_required' : 'installation_busy');
+        }
+      }
+    }
+  } catch (error) {
+    blockers.push(blocker(error));
+  }
+  return blockers;
 }
 function plan(projectRoot: string, options: ClaudeConnectInstallationPreviewOptions) {
   const operation = options.operation ?? 'install';
@@ -209,29 +319,17 @@ function plan(projectRoot: string, options: ClaudeConnectInstallationPreviewOpti
   } catch (error) {
     blockers.push(blocker(error));
   }
-  if (owned) {
-    try {
-      if (entry(projectRoot, `${metadata}/installation-lock`)) {
-        const ownerPath = `${metadata}/installation-lock/owner.json`;
-        const owner = lockOwnerSchema.safeParse(entry(projectRoot, ownerPath) ? readStrictJson(readRepositoryFile(projectRoot, ownerPath)) : null);
-        if (!owner.success) blockers.push('installation_recovery_required');
-        else {
-          try {
-            process.kill(owner.data.pid, 0);
-            blockers.push('installation_busy');
-          } catch (error) {
-            blockers.push(error instanceof Error && 'code' in error && error.code === 'ESRCH' ? 'installation_recovery_required' : 'installation_busy');
-          }
-        }
-      }
-    } catch (error) {
-      blockers.push(blocker(error));
-    }
-  }
+  const installedWindow = owned?.manifest?.schema_version === 2;
+  const bundleMode = options.bundleMode ?? (installedWindow ? 'ordinary_window' : 'exact');
+  const window = bundleMode === 'ordinary_window';
+  const guardedWindow = window || installedWindow;
+  if (owned) blockers.push(...metadataBlockers(projectRoot, guardedWindow));
   try {
-    source = packageSource(options);
+    source = packageSource({ ...options, bundleMode });
   } catch {
-    if (operation === 'install') blockers.push('package_source_unavailable');
+    if (operation === 'install') {
+      blockers.push('package_source_unavailable');
+    }
   }
   const changes: ClaudeConnectInstallationChange[] = [];
   const wanted = operation === 'remove' ? new Map<string, Buffer>() : source?.files;
@@ -241,13 +339,21 @@ function plan(projectRoot: string, options: ClaudeConnectInstallationPreviewOpti
         after = wanted.get(path);
       const beforeHash = before ? hashBytes(before) : null,
         afterHash = after ? hashBytes(after) : null;
-      if (beforeHash !== afterHash)
+      if (beforeHash !== afterHash) {
         changes.push({
           path: `${destination}/${path}`,
           action: beforeHash === null ? 'create' : afterHash === null ? 'delete' : 'update',
           beforeHash,
           afterHash
         });
+      }
+    }
+  }
+  if (guardedWindow && owned && !blockers.length && (changes.length || (operation === 'install' && window !== installedWindow))) {
+    try {
+      assertWindowIdle(options);
+    } catch (error) {
+      blockers.push(blocker(error));
     }
   }
   const preview: ClaudeConnectInstallationPreview = {
@@ -255,20 +361,26 @@ function plan(projectRoot: string, options: ClaudeConnectInstallationPreviewOpti
       ? 'blocked'
       : !owned?.manifest
         ? 'absent'
-        : source && bundleHash(source.files) !== bundleHash(owned.files)
+        : source && (window !== installedWindow || bundleHash(source.files) !== bundleHash(owned.files))
           ? 'update_available'
           : 'installed',
     source: source ? 'available' : 'unavailable',
-    packageHash: source ? bundleHash(source.files) : null,
-    installedHash: owned?.manifest ? bundleHash(owned.files) : null,
+    packageHash: source && (!window || owned) ? bundleHash(source.files, window ? owned?.identity : undefined) : null,
+    installedHash: owned?.manifest ? bundleHash(owned.files, installedWindow ? owned.identity : undefined) : null,
     destination,
-    receiptDirectory: `${metadata}/receipts`,
+    receiptDirectory: window ? windowReceiptDirectory : `${metadata}/receipts`,
+    ...(window
+      ? {
+          bundleMode: 'ordinary_window' as const,
+          bundleRevision: windowBundleRevision
+        }
+      : {}),
     hookRegistration: 'unverified',
     operation,
-    changes,
+    changes: blockers.length ? [] : changes,
     blockers
   };
-  return { preview, owned, source };
+  return { preview, owned, source, window, guardedWindow };
 }
 export function previewClaudeConnectInstallation(projectRoot: string, options: ClaudeConnectInstallationPreviewOptions = {}): ClaudeConnectInstallationPreview {
   return plan(projectRoot, options).preview;
@@ -282,21 +394,46 @@ export function statusClaudeConnectInstallation(projectRoot: string, options: Cl
     installedHash: result.installedHash,
     destination: result.destination,
     receiptDirectory: result.receiptDirectory,
+    ...(result.bundleMode
+      ? {
+          bundleMode: result.bundleMode,
+          bundleRevision: result.bundleRevision
+        }
+      : {}),
     hookRegistration: result.hookRegistration,
     blockers: result.blockers
   };
 }
+function assertPreviewMatches(options: ClaudeConnectInstallationPreviewOptions, preview: ClaudeConnectInstallationPreview): void {
+  if (options.expectedPackageHash !== undefined && options.expectedPackageHash !== preview.packageHash) fail('installation_preview_changed');
+  if (options.expectedInstalledHash !== undefined && options.expectedInstalledHash !== preview.installedHash) fail('installation_preview_changed');
+}
+function assertOwnedUnchanged(projectRoot: string, owned: ReturnType<typeof inspectOwned>): void {
+  const current = inspectOwned(projectRoot);
+  if (
+    current.identity !== owned.identity ||
+    bundleHash(current.files) !== bundleHash(owned.files) ||
+    [...owned.identities].some(([path, identity]) => current.identities.get(path) !== identity) ||
+    !((current.bytes === null && owned.bytes === null) || current.bytes?.equals(owned.bytes ?? Buffer.alloc(0)))
+  )
+    fail('changed_path');
+}
 function apply(projectRoot: string, options: ClaudeConnectInstallationPreviewOptions): ClaudeConnectInstallationStatus {
   const planned = plan(projectRoot, options);
-  const { owned, source, preview } = planned;
-  if (options.expectedPackageHash !== undefined && options.expectedPackageHash !== preview.packageHash) return fail('installation_preview_changed');
-  if (options.expectedInstalledHash !== undefined && options.expectedInstalledHash !== preview.installedHash) return fail('installation_preview_changed');
+  const { owned, source, preview, window, guardedWindow } = planned;
+  assertPreviewMatches(options, preview);
   if (preview.blockers.length || !owned) return preview;
   if (preview.operation === 'remove' && !owned.manifest) return preview;
   if (preview.operation === 'install' && !source) return preview;
-  if (preview.operation === 'install' && owned.manifest && !preview.changes.length) return preview;
+  if (preview.operation === 'install' && owned.manifest && !preview.changes.length && window === (owned.manifest.schema_version === 2)) return preview;
+  if (guardedWindow && (options.expectedPackageHash === undefined || options.expectedInstalledHash === undefined)) {
+    return fail('installation_preview_required');
+  }
   const createdDirectories: string[] = [];
   const ensure = (path: string) => {
+    if (rootIdentity(projectRoot) !== owned.identity) {
+      fail('changed_project_root');
+    }
     let relativePath = '';
     for (const part of path.split('/')) {
       relativePath = relativePath ? `${relativePath}/${part}` : part;
@@ -318,7 +455,9 @@ function apply(projectRoot: string, options: ClaudeConnectInstallationPreviewOpt
     staged = false;
   try {
     ensure(metadata);
-    mkdirSync(join(projectRoot, metadata, 'installation-lock'), { mode: 0o700 });
+    mkdirSync(join(projectRoot, metadata, 'installation-lock'), {
+      mode: 0o700
+    });
     locked = true;
     durablePrivateBytes(projectRoot, `${metadata}/installation-lock/owner.json`, Buffer.from(JSON.stringify({ pid: process.pid })));
     ensure('.claude/skills');
@@ -326,9 +465,10 @@ function apply(projectRoot: string, options: ClaudeConnectInstallationPreviewOpt
     staged = true;
     if (preview.operation === 'install' && source) {
       ensure(`${transaction}/package`);
-      for (const [path, bytes] of source.files) durablePrivateBytes(projectRoot, `${transaction}/package/${path}`, bytes);
-      const manifest: Manifest = {
-        schema_version: 1,
+      for (const [path, bytes] of source.files) {
+        durablePrivateBytes(projectRoot, `${transaction}/package/${path}`, bytes);
+      }
+      const common = {
         package: 'harness-connect',
         root_identity: owned.identity,
         files: [...source.files]
@@ -338,17 +478,19 @@ function apply(projectRoot: string, options: ClaudeConnectInstallationPreviewOpt
             shipped_sha256: source.shipped.has(path) ? hashBytes(source.shipped.get(path) ?? Buffer.alloc(0)) : null,
             installed_sha256: hashBytes(bytes)
           }))
-      };
+      } as const;
+      const manifest: Manifest = window
+        ? {
+            ...common,
+            schema_version: 2,
+            bundle_mode: 'ordinary_window',
+            bundle_revision: windowBundleRevision
+          }
+        : { schema_version: 1, ...common };
       durablePrivateBytes(projectRoot, `${transaction}/manifest.json`, Buffer.from(JSON.stringify(manifest) + '\n'));
     }
-    const current = inspectOwned(projectRoot);
-    if (
-      current.identity !== owned.identity ||
-      bundleHash(current.files) !== bundleHash(owned.files) ||
-      [...owned.identities].some(([path, identity]) => current.identities.get(path) !== identity) ||
-      !((current.bytes === null && owned.bytes === null) || current.bytes?.equals(owned.bytes ?? Buffer.alloc(0)))
-    )
-      fail('changed_path');
+    assertOwnedUnchanged(projectRoot, owned);
+    if (guardedWindow) assertWindowIdle(options);
     if (owned.manifest) {
       renameSync(join(projectRoot, destination), join(projectRoot, transaction, 'previous'));
       moved = true;
@@ -362,11 +504,14 @@ function apply(projectRoot: string, options: ClaudeConnectInstallationPreviewOpt
   } catch (error) {
     try {
       if (installed) {
-        if (rootIdentity(projectRoot) !== owned.identity || !source || bundleHash(tree(join(projectRoot, destination))) !== bundleHash(source.files))
+        if (rootIdentity(projectRoot) !== owned.identity || !source || bundleHash(tree(join(projectRoot, destination))) !== bundleHash(source.files)) {
           fail('package_drift');
+        }
         rmSync(join(projectRoot, destination), { recursive: true });
       }
-      if (moved) renameSync(join(projectRoot, transaction, 'previous'), join(projectRoot, destination));
+      if (moved) {
+        renameSync(join(projectRoot, transaction, 'previous'), join(projectRoot, destination));
+      }
     } catch {
       rollbackFailed = true;
       throw new ClaudeConnectInstallationError('installation_rollback_failed');
@@ -375,14 +520,26 @@ function apply(projectRoot: string, options: ClaudeConnectInstallationPreviewOpt
   } finally {
     try {
       if (staged && !rollbackFailed) {
+        if (rootIdentity(projectRoot) !== owned.identity) {
+          fail('changed_project_root');
+        }
+        entry(projectRoot, transaction);
+        if (committed && moved) {
+          entry(projectRoot, `${transaction}/previous`);
+        }
         if (committed && moved && bundleHash(tree(join(projectRoot, transaction, 'previous'))) !== bundleHash(owned.files)) {
           fail('installation_cleanup_failed');
         }
-        rmSync(join(projectRoot, transaction), { recursive: true, force: true });
+        rmSync(join(projectRoot, transaction), {
+          recursive: true,
+          force: true
+        });
       }
     } finally {
       if (locked && !rollbackFailed) {
-        if (entry(projectRoot, `${metadata}/installation-lock/owner.json`)) unlinkSync(join(projectRoot, metadata, 'installation-lock/owner.json'));
+        if (entry(projectRoot, `${metadata}/installation-lock/owner.json`)) {
+          unlinkSync(join(projectRoot, metadata, 'installation-lock/owner.json'));
+        }
         rmdirSync(join(projectRoot, metadata, 'installation-lock'));
       }
     }
@@ -407,9 +564,13 @@ export function removeClaudeConnectInstallation(projectRoot: string, options: Cl
 export function recoverClaudeConnectInstallationLock(projectRoot: string, options: ClaudeConnectInstallationOptions = {}): ClaudeConnectInstallationStatus {
   inspectOwned(projectRoot);
   const lock = `${metadata}/installation-lock`;
-  if (!entry(projectRoot, lock)) return statusClaudeConnectInstallation(projectRoot, options);
+  if (!entry(projectRoot, lock)) {
+    return statusClaudeConnectInstallation(projectRoot, options);
+  }
   const ownerPath = `${lock}/owner.json`;
-  if (!entry(projectRoot, ownerPath)) return fail('installation_recovery_required');
+  if (!entry(projectRoot, ownerPath)) {
+    return fail('installation_recovery_required');
+  }
   const owner = lockOwnerSchema.parse(readStrictJson(readRepositoryFile(projectRoot, ownerPath)));
   try {
     process.kill(owner.pid, 0);
@@ -420,8 +581,9 @@ export function recoverClaudeConnectInstallationLock(projectRoot: string, option
   if (
     readdirSync(join(projectRoot, lock)).some(name => name !== 'owner.json') ||
     readdirSync(join(projectRoot, metadata)).some(name => name.startsWith('transaction-'))
-  )
+  ) {
     return fail('installation_recovery_required');
+  }
   unlinkSync(join(projectRoot, ownerPath));
   rmdirSync(join(projectRoot, lock));
   return statusClaudeConnectInstallation(projectRoot, options);

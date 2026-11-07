@@ -14,13 +14,24 @@ const absolutePath = z
   .min(1)
   .max(4096)
   .refine(value => isAbsolute(value) && !value.includes('\0'));
-export const OrdinaryProjectSettingsSchema = z.strictObject({
-  schema_version: z.literal(1),
-  product: z.literal('claude_code'),
-  product_version: ProductVersionSchema,
-  receipt_directory: absolutePath,
-  claude_projects_directory: absolutePath
-});
+export const OrdinaryProjectSettingsSchema = z
+  .strictObject({
+    schema_version: z.literal(1),
+    product: z.literal('claude_code'),
+    product_version: ProductVersionSchema,
+    receipt_directory: absolutePath,
+    claude_projects_directory: absolutePath,
+    bundle_mode: z.enum(['exact', 'ordinary_window']).optional(),
+    bundle_revision: z.literal('claude-window-bundle-v1').optional()
+  })
+  .refine(
+    settings =>
+      settings.bundle_mode === 'ordinary_window'
+        ? settings.bundle_revision === 'claude-window-bundle-v1' &&
+          resolveOrdinaryWindow('claude_code', settings.product_version, 'claude-binding-root-window-v1') !== null
+        : settings.bundle_revision === undefined,
+    'ordinary_bundle_mode_mismatch'
+  );
 export type OrdinaryProjectSettings = z.infer<typeof OrdinaryProjectSettingsSchema>;
 export const OrdinaryTaskInputSchema = z.strictObject({
   project_id: IdSchema,
@@ -87,6 +98,7 @@ export function createOrdinaryTask(store: Store, input: OrdinaryTaskInput, clock
   store.immediateTransaction(() => {
     const settings = ordinaryProjectSettings(store, spec.project_id);
     if (!settings) throw new Error('ordinary_project_setup_required');
+    if (settings.bundle_mode === 'ordinary_window') throw new Error('binding_window_unavailable');
     const at = new Date(TimestampSchema.parse(clock())).toISOString();
     const basis = preparePriceBasis(store, at);
     const metadata = FlexibleTaskMetadataSchema.parse({

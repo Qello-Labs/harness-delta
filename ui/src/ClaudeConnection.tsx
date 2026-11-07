@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import { Check, Copy, Pause, Play } from 'lucide-react';
 import { Button } from './components/ui/button.js';
 import { Badge } from './components/ui/badge.js';
@@ -6,17 +6,91 @@ import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card.j
 import { claudeConnectionBlocker, claudeConnectionStage, claudeConnectPrompt } from './claude-connection-state.js';
 import type { Locale, Task } from './types.js';
 
-export function ClaudeConnection({
-  task,
-  projectName,
-  origin,
-  locale,
-  busy,
-  online,
-  onAction,
-  reason,
-  installation
-}: {
+export function ordinaryWindowReason(code: string, locale: Locale) {
+  const labels: Readonly<Record<string, readonly [string, string]>> = {
+    binding_window_activation_required: [
+      'Separate product activation and native acceptance are required.',
+      '별도 제품 활성화와 네이티브 acceptance가 필요합니다.'
+    ],
+    ordinary_window_collection_disabled: ['Window collection is disabled.', 'Window 수집은 비활성 상태입니다.'],
+    binding_scope_revoked: ['Observation authority was revoked.', '관측 권한이 철회됐습니다.'],
+    binding_scope_mismatch: ['The observation scope does not match.', '관측 범위가 일치하지 않습니다.'],
+    binding_ordinary_assignment_conflict: ['Comparison assignment is not allowed for this window.', '이 window에서는 비교 배정을 허용하지 않습니다.'],
+    compatibility_invalidated: ['Compatibility evidence was invalidated.', '호환성 증거가 무효화됐습니다.'],
+    binding_window_trial_expired: ['The bounded trial has expired.', '제한된 trial이 만료됐습니다.'],
+    binding_window_trial_budget_exhausted: ['The bounded trial budget is exhausted.', '제한된 trial 예산이 소진됐습니다.'],
+    binding_fresh_root_required: ['A fresh root is required.', '새 루트가 필요합니다.'],
+    binding_window_unavailable: ['The window is unavailable.', 'Window를 사용할 수 없습니다.'],
+    binding_version_out_of_window: ['The declared version is outside the window.', '지정 버전이 window 범위 밖입니다.'],
+    ordinary_project_setup_required: ['Save project settings first.', '프로젝트 설정을 먼저 저장하세요.'],
+    ordinary_preparation_required: ['Prepare a new task first.', '새 작업을 먼저 준비하세요.'],
+    ordinary_configuration_changed: ['Project configuration changed; prepare a new task.', '프로젝트 설정이 변경됐습니다. 새 작업을 준비하세요.'],
+    installation_recovery_required: ['The interrupted installation needs review.', '중단된 설치를 검토해야 합니다.'],
+    installation_preview_changed: ['Installation changed; review a new preview.', '설치 상태가 변경됐습니다. 새 미리보기를 검토하세요.'],
+    ordinary_installation_in_use: ['The installed package is in use.', '설치된 패키지를 사용 중입니다.'],
+    unsafe_path: ['A package path is unsafe.', '패키지 경로가 안전하지 않습니다.'],
+    unsafe_project_root: ['The project root is unsafe.', '프로젝트 루트가 안전하지 않습니다.'],
+    changed_path: ['A package path changed.', '패키지 경로가 변경됐습니다.'],
+    unowned_directory: ['A directory is not owned by this package.', '이 패키지가 소유하지 않은 디렉토리입니다.'],
+    package_invalid: ['The package is invalid.', '패키지가 올바르지 않습니다.'],
+    metadata_unsafe: ['Package metadata permissions are unsafe.', '패키지 메타데이터 권한이 안전하지 않습니다.'],
+    package_unowned: ['Existing package files are not owned.', '기존 패키지 파일의 소유권이 없습니다.'],
+    manifest_unsafe: ['The installation manifest is unsafe.', '설치 manifest가 안전하지 않습니다.'],
+    manifest_invalid: ['The installation manifest is invalid.', '설치 manifest가 올바르지 않습니다.'],
+    changed_project_root: ['The project root changed.', '프로젝트 루트가 변경됐습니다.'],
+    package_drift: ['Installed package files changed.', '설치된 패키지 파일이 변경됐습니다.'],
+    installation_busy: ['The installer is busy.', '설치 작업이 진행 중입니다.'],
+    package_source_unavailable: ['The package source is unavailable.', '패키지 원본을 사용할 수 없습니다.'],
+    installation_preview_required: ['Review an installation preview first.', '설치 미리보기를 먼저 검토하세요.'],
+    installation_cleanup_failed: ['Installation cleanup needs review.', '설치 정리 상태를 검토해야 합니다.'],
+    installation_unavailable: ['Installation status is unavailable.', '설치 상태를 확인할 수 없습니다.']
+  };
+  const label = Object.hasOwn(labels, code) ? labels[code] : undefined;
+  return label
+    ? label[locale === 'ko' ? 1 : 0]
+    : locale === 'ko'
+      ? 'Window 상태를 확인할 수 없습니다. 수집은 비활성 상태입니다.'
+      : 'Window status is unknown. Collection remains disabled.';
+}
+
+export function OrdinaryWindowStatus({ product, locale, reason }: { product: 'codex' | 'claude_code'; locale: Locale; reason?: string }) {
+  const t = (en: string, ko: string) => (locale === 'ko' ? ko : en);
+  return (
+    <div className="space-y-2 text-sm text-muted-foreground" role="status" data-window-collection="disabled">
+      <p>
+        {product === 'claude_code'
+          ? t(
+              'Publisher-verified local pin: disk identity only, not release verification or mapped-image proof.',
+              'Publisher-verified local pin: 디스크 신원만 확인하며 릴리스 검증이나 매핑된 이미지 증명이 아닙니다.'
+            )
+          : t(
+              'source_only: source evidence only, without publisher or native-image proof.',
+              'source_only: 소스 증거만 사용하며 게시자나 네이티브 이미지 증명이 아닙니다.'
+            )}
+      </p>
+      <p>
+        {t(
+          'Root source is not root-owned usage. Root ownership is unverified. Possible child contribution is unknown; children are never linked automatically.',
+          '루트 소스는 루트 소유 사용량이 아닙니다. 루트 소유권은 미확인입니다. 자식 기여 가능성은 알 수 없으며 자식을 자동 연결하지 않습니다.'
+        )}
+      </p>
+      <p>
+        {product === 'claude_code'
+          ? t(
+              'Collection is disabled pending separate Claude activation and native acceptance. Saving settings, preparing a task or installing files does not activate collection.',
+              '별도 Claude 활성화와 네이티브 acceptance 전까지 수집은 비활성입니다. 설정 저장·작업 준비·파일 설치는 수집을 활성화하지 않습니다.'
+            )
+          : t(
+              'Collection is disabled pending separate Codex activation and native acceptance.',
+              '별도 Codex 활성화와 네이티브 acceptance 전까지 수집은 비활성입니다.'
+            )}
+      </p>
+      {reason && <p>{ordinaryWindowReason(reason, locale)}</p>}
+    </div>
+  );
+}
+
+type ClaudeConnectionProps = {
   task: Task;
   projectName: string;
   origin: string;
@@ -26,7 +100,31 @@ export function ClaudeConnection({
   onAction: (code: string) => void;
   reason: (code: string) => string;
   installation?: ReactNode;
-}) {
+};
+
+export function ClaudeConnection(props: ClaudeConnectionProps) {
+  const { task, locale } = props;
+  const t = (en: string, ko: string) => (locale === 'ko' ? ko : en);
+  if (task.ordinary_window) {
+    return (
+      <Card data-ordinary-window-task={task.id}>
+        <CardHeader>
+          <CardTitle>
+            {task.ordinary_window.product === 'claude_code'
+              ? t('Claude ordinary window', 'Claude 일반 window')
+              : t('Codex ordinary window', 'Codex 일반 window')}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <OrdinaryWindowStatus product={task.ordinary_window.product} locale={locale} reason={task.ordinary_window.reason} />
+        </CardContent>
+      </Card>
+    );
+  }
+  return <ExactClaudeConnection {...props} />;
+}
+
+function ExactClaudeConnection({ task, projectName, origin, locale, busy, online, onAction, reason, installation }: ClaudeConnectionProps) {
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle');
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const stage = claudeConnectionStage(task);
@@ -154,7 +252,9 @@ export function ClaudeConnection({
             return (
               <li key={label} className="flex flex-1 items-center gap-2" aria-current={current ? 'step' : undefined}>
                 <span
-                  className={`flex size-6 shrink-0 items-center justify-center rounded-full ${current ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}
+                  className={`flex size-6 shrink-0 items-center justify-center rounded-full ${
+                    current ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                  }`}
                 >
                   {done ? <Check className="size-3.5" aria-hidden="true" /> : index + 1}
                 </span>

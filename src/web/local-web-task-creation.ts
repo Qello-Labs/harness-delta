@@ -2,7 +2,8 @@ import { projectBaseline } from './local-web-native.js';
 import { randomUUID } from 'node:crypto';
 import { buildExternalTaskSetup, createExternalTask, prepareExternalTask } from '../external-session-service.js';
 import type { ExternalTaskSetup } from '../external-session-service.js';
-import { createOrdinaryTask, ordinaryTaskSettings } from '../ordinary-observation.js';
+import { createOrdinaryTask, ordinaryProjectSettings, ordinaryTaskSettings } from '../ordinary-observation.js';
+import type { createClaudeWindowControl } from './local-web-claude-window-control.js';
 import { registerBindingCollectionControl } from '../external-session-contract.js';
 import { withLiveWebMetadataScope } from './local-web-metadata.js';
 import { assertSharedTask } from './local-web-shared-guard.js';
@@ -18,6 +19,7 @@ type TaskCreationDependencies = {
   readonly taskDto: LocalWebDomain['task'];
   readonly sharedSetups: ReturnType<typeof createSharedSetupManager>;
   readonly metadata: ReturnType<typeof createLocalWebMetadata>;
+  readonly claudeWindow: ReturnType<typeof createClaudeWindowControl>;
 };
 function createTask(input: LocalWebCreateTaskInput, options: LocalWebDomainOptions, dependencies: TaskCreationDependencies) {
   const store = options.store;
@@ -25,6 +27,16 @@ function createTask(input: LocalWebCreateTaskInput, options: LocalWebDomainOptio
   if (options.nativePilot) throw new Error('binding_pilot_control_only');
   if (options.qualificationLease) throw new Error('binding_qualification_control_only');
   if ('mode' in input) {
+    if (ordinaryProjectSettings(store, input.project_id)?.bundle_mode === 'ordinary_window') {
+      const prepared = dependencies.claudeWindow.prepare(input.project_id, {
+        name: input.name,
+        criterion_ids: input.criterion_ids,
+        ...(input.type ? { type: input.type } : {}),
+        ...(input.size ? { expected_size: input.size } : {}),
+        ...(input.assignee ? { assignee: input.assignee } : {})
+      });
+      return Promise.resolve(taskDto(prepared.task_id));
+    }
     const id = createOrdinaryTask(store, {
       project_id: input.project_id,
       criterion_ids: input.criterion_ids,

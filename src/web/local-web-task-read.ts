@@ -1,4 +1,6 @@
 import { localWebSupport } from './local-web-support.js';
+import { ordinaryWindowSelection } from '../core/ordinary-window-store.js';
+import { projectClosedClaudeWindowTask } from './local-web-task-projection-ordinary.js';
 import { readOrdinaryTask } from './local-web-task-read-ordinary.js';
 export { readOrdinaryTask } from './local-web-task-read-ordinary.js';
 import type { Job } from './local-web-binding-observation.js';
@@ -193,7 +195,11 @@ export function readExternalTask(context: LocalWebTaskReadContext, base: TaskBas
 export function createLocalWebTaskReader(context: LocalWebTaskReadContext) {
   return (id: string) => {
     const record = context.row(id);
-    if (ordinaryTask(context.store, id)) return projectOrdinaryTask(readOrdinaryTask(context, id, record));
+    if (ordinaryTask(context.store, id)) {
+      if (ordinaryWindowSelection(context.store, id)?.policy.product === 'claude_code')
+        return projectClosedClaudeWindowTask({ store: context.store, life: context.life, id, record });
+      return projectOrdinaryTask(readOrdinaryTask(context, id, record));
+    }
     const base = readTaskBase(context, id, record);
     if (
       !externalContract(context.store, id) ||

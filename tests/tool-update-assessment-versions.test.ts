@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 import { assessmentSchema, consumedContracts } from '../scripts/tool-update/assessment.mjs';
 import { boundedParse, canonical, maxRecordBytes } from '../scripts/tool-update/manifest.mjs';
-import { legacySourcePathAllowlist, sourcePathAllowlist } from '../scripts/tool-update/source-snapshot.mjs';
+import { expandedSourcePathAllowlist, legacySourcePathAllowlist, sourcePathAllowlist } from '../scripts/tool-update/source-snapshot.mjs';
 
 const versions = [1, 2, 3, 4, 5, 6] as const;
 const policy = { parser_base_transition: 'none', baseline_transition: null, next_step: 'selected_exact' } as const;
@@ -44,7 +44,7 @@ function record(schemaVersion: (typeof versions)[number]) {
     observation_id: 'b'.repeat(64),
     baseline_digest: null,
     source_digest: 'c'.repeat(64),
-    source_paths: schemaVersion <= 4 ? legacySourcePathAllowlist : sourcePathAllowlist,
+    source_paths: schemaVersion <= 4 ? legacySourcePathAllowlist : expandedSourcePathAllowlist,
     rule_revision: schemaVersion <= 4 ? 'static-assessment-v1' : 'static-assessment-v2',
     review_sources: [{ version: '0.158.0', commit: 'd'.repeat(40), path: 'codex-rs/protocol/src/protocol.rs', availability: 'not_assessed' }],
     lanes: [lane]
@@ -78,6 +78,10 @@ test.each([5, 6] as const)('schema %i reads both named expanded revisions withou
 
   for (const rule_revision of ['static-assessment-v2', 'static-assessment-v3']) {
     expect(assessmentSchema.parse({ ...input, rule_revision })).toEqual({ ...input, rule_revision });
+  }
+  for (const path of sourcePathAllowlist.filter(path => !expandedSourcePathAllowlist.includes(path))) {
+    expect(assessmentSchema.safeParse({ ...input, source_paths: [path] }).success).toBe(false);
+    expect(assessmentSchema.parse({ ...input, rule_revision: 'static-assessment-v3', source_paths: [path] }).source_paths).toEqual([path]);
   }
 });
 

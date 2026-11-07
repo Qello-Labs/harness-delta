@@ -10,7 +10,8 @@ import { scopeSourceDigests } from './lanes.mjs';
 export const legacyAssessmentRuleRevision = 'static-assessment-v1';
 export const expandedAssessmentRuleRevision = 'static-assessment-v2';
 export const assessmentRuleRevision = 'static-assessment-v3';
-export const assessmentSourcePathLimit = 48;
+export const assessmentSourcePathLimit = 52;
+export const expandedAssessmentSourcePathLimit = 48;
 export const legacySourcePathAllowlist = Object.freeze([
   "package-lock.json",
   "package.json",
@@ -50,7 +51,7 @@ const modules = [
   'codex-binding-admission', 'claude-binding-admission', 'claude-workflow-versions', 'core/tool-version-profiles', 'core/ordinary-window-policy',
 ];
 const scopePaths = Object.keys(scopeSourceDigests);
-const hashOnlyPaths = [
+const expandedHashOnlyPaths = [
   "src/claude-process-binary.ts",
   "src/nested-candidate.ts",
   "src/codex-candidate-rollout.ts",
@@ -73,11 +74,19 @@ const hashOnlyPaths = [
   "skills/harness-connect-window-codex/SKILL.md",
   "skills/harness-connect-window-codex/scripts/connect.mjs"
 ];
-export const sourcePathAllowlist = Object.freeze([
+const hashOnlyPaths = [
+  ...expandedHashOnlyPaths,
+  "src/connect/claude-connect-installation.ts",
+  "skills/harness-connect-window-claude/SKILL.md",
+  "skills/harness-connect-window-claude/scripts/connect.mjs",
+  "skills/harness-connect-window-claude/scripts/claude-session-hook.mjs"
+];
+export const expandedSourcePathAllowlist = Object.freeze([
   ...new Set([...modules.map(name => `src/${name}.ts`), 'src/codex-admissions.json',
-    'src/core/tool-version-profiles.json', 'src/core/tool-version-recipes.json', 'src/core/tool-version-identities.json', ...scopePaths, ...hashOnlyPaths]),
+    'src/core/tool-version-profiles.json', 'src/core/tool-version-recipes.json', 'src/core/tool-version-identities.json', ...scopePaths, ...expandedHashOnlyPaths]),
   'package.json', 'package-lock.json',
 ].sort());
+export const sourcePathAllowlist = Object.freeze([...new Set([...expandedSourcePathAllowlist, ...hashOnlyPaths])].sort());
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 
 function snapshotImports(ts, path, output) {

@@ -4,7 +4,8 @@ import {
 } from './manifest.mjs';
 import { candidateSchema, observationSchema } from './discovery.mjs';
 import { laneKey, laneSchema, sourceLanes } from './lanes.mjs';
-import { assessmentRuleRevision, expandedAssessmentRuleRevision, assessmentSourcePathLimit, legacyAssessmentRuleRevision, legacySourcePathAllowlist,
+import { assessmentRuleRevision, expandedAssessmentRuleRevision, assessmentSourcePathLimit, expandedAssessmentSourcePathLimit,
+  expandedSourcePathAllowlist, legacyAssessmentRuleRevision, legacySourcePathAllowlist,
   sourcePathAllowlist, withSourceSnapshot } from './source-snapshot.mjs';
 
 export const consumedContracts = [
@@ -102,6 +103,7 @@ const expandedAssessmentFields = {
   rule_revision: z.enum([expandedAssessmentRuleRevision, assessmentRuleRevision]),
   lanes: z.array(laneAssessment(false, true)).min(1).max(128),
 };
+const expandedSourcePathsSchema = z.array(z.enum(expandedSourcePathAllowlist)).min(1).max(expandedAssessmentSourcePathLimit);
 const inventoryScope = z.enum(['legacy_full_inventory', 'latest_and_npm_review_range']);
 const transitionSchema = z.enum(['none', 'minor', 'major']).nullable();
 const selectionPolicySchema = z.strictObject({
@@ -139,6 +141,11 @@ export const assessmentSchema = z.discriminatedUnion('schema_version', [
         value.unused_review_ids.some(id => !value.review_ids.includes(id)) ||
         value.lanes.some(row => row.gates.contracts_reviewed !== gateOf(row.review.contracts))))
     context.addIssue({ code: 'custom', message: 'invalid_assessment' });
+  if (value.rule_revision === expandedAssessmentRuleRevision) {
+    const legacyScope = expandedSourcePathsSchema.safeParse(value.source_paths);
+    if (!legacyScope.success) for (const issue of legacyScope.error.issues)
+      context.addIssue({ ...issue, path: ['source_paths', ...issue.path] });
+  }
   const invalidPolicy = value.lanes.some(row => {
     const policy = ordinaryLaneRules.find(policy => policy.profile === row.profile_id);
     if (!policy) return row.rule_revision !== 'forward-version-v1' || row.compatibility !== null &&
