@@ -201,6 +201,19 @@ node scripts/tool-update.mjs assess \
 어느 상태에도 해당하지 않으면 경로를 추측하지 않고 `invalid_record`로 실패합니다.
 평가 레코드의 크기 제한은 256 KiB 그대로입니다.
 
+`static-assessment-v3` writer는 schema 5(검토 없음) 또는 6(검토 포함)을 출력합니다.
+reader는 `static-assessment-v1`의 schema 1–4와 명시된 `static-assessment-v2` 또는
+`static-assessment-v3` 리비전의 schema 5/6을 계속 읽습니다. 두 root 정책 ID는 v3에서만
+허용하며 v2 레코드를 다시 쓰지 않습니다. v3 schema는 일반 root 참조 정책 레인 두 개,
+`codex-binding-root-window-v1`과 `claude-binding-root-window-v1`을 추가합니다. 규칙 리비전은
+`codex-ordinary-root-window-v1`과 `claude-ordinary-root-window-v1`입니다. 각 레인은 root만
+다룹니다. link, collect, restart만 있고 `exact_only:false`, 깊이 0, 멤버 하나이며 launch, resume,
+family 레인은 없습니다. 이 유한 정책 레인은 정확 admission 레인과 다릅니다. 정적 선택은 활성화
+상태를 읽지 않고, 기존 레인의 `exact_only`를 해제하지 않으며, 릴리스를 사용 가능하게 만들지
+않습니다. 정책 레인의 `selected_window`는 선택만 설명합니다. 기존 레인 값은 새 schema에서도 그대로입니다.
+두 정책은 오프라인 검증용으로 구현되었으며, 일반 창(window) 수집은 별도 제품 활성화와 native
+검증 전까지 비활성 상태입니다.
+
 ## 계약 검토 레코드
 
 계약 검토 레코드는 유지보수자의 수동 주장입니다. "이 레인과 이 릴리스 간선에서 소비하는 계약은
@@ -349,6 +362,8 @@ schema 1, 2, 3 평가도 계속 읽을 수 있고 기존 레코드를 다시 쓰
   별도 실행 승인이 필요한 이후 단계입니다.
 - 지원, 자격(qualification), 허용, 기본값 변경은 여전히 [개발 워크플로](workflow.md)와 제품
   요구사항을 따릅니다.
+- 승인된 순서는 registry, 닫힌 일반 창, 차이 판단, 선택적 승격입니다. 이후의 native, 승격,
+  게시 게이트는 모두 그대로 적용됩니다.
 
 ## 공식 메타데이터 계약
 

@@ -125,6 +125,19 @@ is `ordinary_admission` only, with required `--scenario root_normal_observer_res
 Native execution needs separate exact-intent consent; H4 host-spawn/Detached and
 H5 env-null-transcript paths are excluded, with no file/workflow fallback or native resume.
 
+The root-window selector is shown disabled: it sends no configure, install or
+activation request, and the exact version selectors and saved settings above are
+unchanged. Ordinary root windows are implemented for offline acceptance,
+ordinary-window collection disabled pending separate product activation and native
+acceptance. To read saved window evidence, open `#ordinary-window-task-v1` and enter
+a task ID and cutoff, or open
+`#ordinary-window-task-v1?task=<ID>&cutoff=<ISO>&locale=en|ko` directly. The page
+reads `GET /api/tasks/:id/ordinary-window-report-v1?cutoff=...` and is descriptive
+only; it doesn't launch, prepare, activate or collect. It shows root and child
+coverage as Unobserved when no event arrived, the four token and cost partitions,
+and the ownership and identity limits. The usual bootstrap, task and collection
+routes stay closed for window tasks.
+
 ### Prepare and check a comparison file
 
 Only continue here for A/B work. In **2. Prepare comparison settings**, choose how

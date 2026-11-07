@@ -1,4 +1,4 @@
-import type { Snapshot, Task } from './types.js';
+import type { OrdinaryWindowReport, Snapshot, Task } from './types.js';
 let csrf = '';
 export class LocalApiError extends Error {
   constructor(readonly code: string) {
@@ -20,6 +20,11 @@ export async function bootstrap(signal?: AbortSignal): Promise<Snapshot> {
 }
 export async function task(id: string, signal?: AbortSignal): Promise<Task> {
   return response<Task>(await fetch(`/api/tasks/${encodeURIComponent(id)}`, { cache: 'no-store', ...(signal ? { signal } : {}) }));
+}
+export async function ordinaryWindowReport(id: string, cutoff: string, signal: AbortSignal): Promise<OrdinaryWindowReport> {
+  return response<OrdinaryWindowReport>(
+    await fetch(`/api/tasks/${encodeURIComponent(id)}/ordinary-window-report-v1?cutoff=${encodeURIComponent(cutoff)}`, { cache: 'no-store', signal })
+  );
 }
 export async function mutate<T>(route: string, body: unknown, version?: string): Promise<T> {
   return response<T>(

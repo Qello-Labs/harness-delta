@@ -46,6 +46,8 @@ content. File/DB failures use fixed diagnostics; no raw private paths are printe
 
 Create the team report before applying deletion notices; retirement is irreversible.
 
+Native ordinary root-window observations can't enter an exchange package or a team report.
+
 ## Import and local controls
 
 Register a destination project with `node dist/cli.js --db team.db project add destination --root .`.

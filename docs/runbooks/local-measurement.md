@@ -182,6 +182,22 @@ For developer conformance, exact-version registration and native update controls
 use the [admission procedure](codex-version-admission.md). These are manual,
 separately authorized validation steps, never part of installation or collection.
 
+Ordinary root-reference windows for Codex (`>0.163.0`, `<0.170.0`) and Claude Code
+(`>2.1.306`, `<2.2.0`) are implemented for offline acceptance, ordinary-window
+collection disabled pending separate product activation and native acceptance.
+They don't change the exact gates above. Saved window evidence is read with
+`node dist/cli.js --db ./local.db report ordinary-window <task-id> --cutoff <UTC>`
+(`--format json|markdown`), and `compatibility ordinary-window status <task-id>`
+reports state; `--decision` describes the local decision and never authorizes
+collection. The report, `ordinary-window-task-v1`, records root coverage even
+without events, marks root ownership unverified and child coverage `unobserved`
+with null child usage, and keeps verified, compatibility-unverified,
+legacy-unverified and invalidated tokens apart, with no complete total. These
+partitions never enter the legacy totals above. `compatibility ordinary-window
+activate <packet-file>` and `revoke <packet-file>` record maintainer decisions,
+not launch or native evidence. Product activation needs its own approval;
+this guide grants none.
+
 ## Recovery and limits
 
 Errors use fixed codes. Source identity changes, truncation, invalid scope/version,

@@ -1,4 +1,5 @@
-import type { CostAmounts as Amounts, Locale } from './types.js';
+import type { CostAmounts as Amounts, Locale, OrdinaryWindowReport, ReportSourceTrust } from './types.js';
+import { windowReportCode } from './window-report-codes.js';
 
 /** Reference partitions are displayed independently, never added to verified cost. */
 export function CostAmounts({ value, locale }: { value: Amounts; locale: Locale }) {
@@ -34,5 +35,24 @@ export function CostAmounts({ value, locale }: { value: Amounts; locale: Locale 
         </span>
       )}
     </>
+  );
+}
+
+export function WindowCostAmount({ cost, trust, locale }: { cost: OrdinaryWindowReport['cost']; trust: ReportSourceTrust; locale: Locale }) {
+  const value = cost[trust];
+  const t = (en: string, ko: string) => (locale === 'ko' ? ko : en);
+  return (
+    <span data-window-cost={trust}>
+      <span className="block">
+        {trust === 'invalidated'
+          ? t('Excluded', '제외')
+          : value.partial_amount === null
+            ? t('Unavailable', '미확정')
+            : `${windowReportCode(cost.currency, locale).label} ${value.partial_amount}`}
+      </span>
+      {value.unpriced_events > 0 && (
+        <span className="block text-xs text-muted-foreground">{t(`${value.unpriced_events} unpriced`, `단가 없음 ${value.unpriced_events}개`)}</span>
+      )}
+    </span>
   );
 }

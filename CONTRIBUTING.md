@@ -364,6 +364,10 @@ Changes to the workflow/binding scope files listed in
 `scripts/tool-update/lanes.mjs` require a fresh operation/topology review and
 matching scope digests. Tests fail closed on drift; do not update the hashes
 without reviewing the rules they protect.
+Ordinary root-window policy lanes are implemented for offline acceptance,
+ordinary-window collection disabled pending separate product activation and native
+acceptance; see [ADR 013](docs/decisions/013-forward-version-compatibility.md#implemented-windows-and-evidence)
+and [local measurement](docs/runbooks/local-measurement.md#versions-conformance-and-update-controls).
 
 ## Observed-cost verification
 

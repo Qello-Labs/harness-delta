@@ -1,17 +1,18 @@
 import { useContext } from 'react';
-import type { Task } from '../types';
+import type { Locale, OrdinaryWindowReport, Task } from '../types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { SessionUsageTable } from '../SessionUsageTable';
 import { SupportGuidance } from '../SupportGuidance';
-import { ActionContext, LocaleContext, Action } from '../app-controls';
+import { Action, ActionContext, LocaleContext } from '../app-controls';
+import { windowReportCode } from '../window-report-codes.js';
 export function SessionFamily({ task }: { task: Task }) {
   const controls = useContext(ActionContext);
   const locale = useContext(LocaleContext);
   const t = (en: string, ko: string) => (locale === 'ko' ? ko : en);
   const binding = task.binding;
   if (!binding) return null;
-  if (task.support_details?.context === 'synthetic_validation_only')
+  if (task.support_details?.context === 'synthetic_validation_only') {
     return (
       <Card>
         <CardContent className="p-5">
@@ -19,6 +20,7 @@ export function SessionFamily({ task }: { task: Task }) {
         </CardContent>
       </Card>
     );
+  }
   return (
     <Card>
       <CardHeader>
@@ -142,6 +144,73 @@ export function SessionFamily({ task }: { task: Task }) {
             )}
           </p>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+export function WindowSessionFamily({ report, locale }: { report: OrdinaryWindowReport; locale: Locale }) {
+  const t = (en: string, ko: string) => (locale === 'ko' ? ko : en);
+  const unobserved = t('Unobserved', '미관측');
+  return (
+    <Card data-window-coverage={windowReportCode(report.coverage.status, locale).code}>
+      <CardHeader>
+        <CardTitle>{t('Root-source coverage', 'Root 원본 관측 범위')}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="max-w-prose text-sm">
+          {t(
+            'Root-source references are not independently attributable root-own usage. Root ownership is unverified; possible child contribution and detection completeness remain unknown.',
+            'Root 원본 참고 관측은 root 자체 사용량으로 독립 귀속할 수 없습니다. Root 소유권은 미확인이며 자식 기여 가능성과 탐지 완전성은 알 수 없습니다.'
+          )}
+        </p>
+        <p className="text-sm text-muted-foreground">
+          {t('Coverage reflects the current Store, independently of the usage cutoff.', '관측 범위는 사용량 cutoff와 별개인 현재 Store 상태입니다.')}
+        </p>
+        {report.coverage.segments.length === 0 && <p data-window-root="unobserved">{t('Root coverage: Unobserved', 'Root 관측 범위: 미관측')}</p>}
+        {report.coverage.segments.map(segment => (
+          <div key={segment.root_session_id} className="space-y-2 border-t pt-3" data-window-root={windowReportCode(segment.coverage.status, locale).code}>
+            <p className="break-all text-sm font-medium">{segment.root_session_id}</p>
+            <dl className="grid gap-x-4 gap-y-1 text-sm sm:grid-cols-2">
+              <dt>{t('Coverage', '관측 범위')}</dt>
+              <dd>{windowReportCode(segment.coverage.status, locale).label}</dd>
+              <dt>{t('Actual source version', '실제 원본 버전')}</dt>
+              <dd>{segment.actual_source_version ?? unobserved}</dd>
+              <dt>{t('Version evidence', '버전 증거')}</dt>
+              <dd className="break-all">{windowReportCode(segment.source_version_basis, locale).label}</dd>
+              <dt>{t('Publisher proof', '배포자 증명')}</dt>
+              <dd className="break-all">{windowReportCode(segment.publisher_proof, locale).label}</dd>
+              <dt>{t('Mapped-image proof', '메모리 매핑 이미지 증명')}</dt>
+              <dd>{windowReportCode(segment.mapped_image_proof, locale).label}</dd>
+              <dt>{t('Writer version', '기록 프로세스 버전')}</dt>
+              <dd>{windowReportCode(segment.writer_version, locale).label}</dd>
+            </dl>
+            {segment.coverage.detectedChildren.map(child => (
+              <p key={child.identity} className="break-all text-sm" data-window-child="unobserved">
+                {child.identity} — {unobserved} · {t('usage and cost unavailable', '사용량·비용 미확정')}
+              </p>
+            ))}
+          </div>
+        ))}
+        <p className="text-sm" data-window-child="unobserved">
+          {t(
+            'Other children: Unobserved. Metadata detection is incomplete; no child tokens or cost are inferred.',
+            '그 외 자식: 미관측. 메타데이터 탐지는 불완전하며 자식 토큰·비용을 추정하지 않습니다.'
+          )}
+        </p>
+        <p className="max-w-prose text-sm text-muted-foreground">
+          {report.selection.policy.evidenceMode === 'source_only'
+            ? t(
+                'Codex version evidence is a root-creation header, not the current writer. Executable, publisher and process proof are unavailable.',
+                'Codex 버전 증거는 root 생성 헤더이며 현재 기록 프로세스의 버전이 아닙니다. 실행 파일·배포자·프로세스 증명은 미확정입니다.'
+              )
+            : report.selection.policy.evidenceMode === 'publisher_verified_local_pin'
+              ? t(
+                  'Claude PID, publisher and disk-asset pins are required by its policy; disk identity does not prove the mapped process image. Native acceptance remains pending.',
+                  'Claude 정책은 PID·배포자·디스크 자산 pin을 요구합니다. 디스크 신원은 실행 중 매핑 이미지를 증명하지 않으며 네이티브 수용 검증은 대기 중입니다.'
+                )
+              : windowReportCode(report.selection.policy.evidenceMode, locale).label}
+        </p>
       </CardContent>
     </Card>
   );

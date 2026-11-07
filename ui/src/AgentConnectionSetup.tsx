@@ -4,10 +4,22 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './com
 import { Badge } from './components/ui/badge.js';
 import { RefreshCw } from 'lucide-react';
 import { OrdinaryObservationSetup } from './OrdinaryObservationSetup.js';
+import { OrdinaryWindowNotice } from './OrdinaryWindowNotice.js';
 import * as api from './api.js';
 import type { CodexSetup, Locale } from './types.js';
 
 type Product = 'codex' | 'claude_code';
+type SetupOperation = 'configure' | 'preview-install' | 'install' | 'preview-remove' | 'remove' | 'recover-lock';
+
+function codexSetupInput(operation: SetupOperation, status: CodexSetup | null, selectedVersion: string | null) {
+  return {
+    operation,
+    ...(operation === 'configure' ? { product_version: selectedVersion ?? status?.product_version, source_roots: status?.source_roots } : {}),
+    ...(operation === 'install' || operation === 'remove'
+      ? { expected_package_hash: status?.installation.packageHash ?? null, expected_installed_hash: status?.installation.installedHash ?? null }
+      : {})
+  };
+}
 
 const reasonLabels: Record<string, (t: (en: string, ko: string) => string) => string> = {
   receipt_directory_missing: t => t('Receipt directory does not exist yet.', 'Receipt 디렉토리가 아직 없습니다.'),
@@ -39,10 +51,11 @@ function readinessReason(code: string | null, t: (en: string, ko: string) => str
 async function readSetup(route: string, signal?: AbortSignal): Promise<CodexSetup> {
   const reply = await fetch(route, { cache: 'no-store', ...(signal ? { signal } : {}) });
   const value: unknown = await reply.json();
-  if (!reply.ok)
+  if (!reply.ok) {
     throw new api.LocalApiError(
       typeof value === 'object' && value !== null && 'error' in value && typeof value.error === 'string' ? value.error : 'codex_setup_unavailable'
     );
+  }
   return value as CodexSetup;
 }
 
@@ -90,28 +103,21 @@ export function AgentConnectionSetup({
         }
       })
       .catch((failure: unknown) => {
-        if (!controller.signal.aborted) setError(failure instanceof api.LocalApiError ? failure.code : 'local_operation_failed');
+        if (!controller.signal.aborted) {
+          setError(failure instanceof api.LocalApiError ? failure.code : 'local_operation_failed');
+        }
       });
     return () => controller.abort();
   }, [route, product]);
 
-  async function operate(operation: 'configure' | 'preview-install' | 'install' | 'preview-remove' | 'remove' | 'recover-lock') {
+  async function operate(operation: SetupOperation) {
     if (reading || busy) return;
     const started = generation.current;
     setReading(true);
     setPreview(null);
     setError(null);
     try {
-      const value = await perform<CodexSetup>(route, {
-        operation,
-        ...(operation === 'configure' ? { product_version: selectedVersion ?? status?.product_version, source_roots: status?.source_roots } : {}),
-        ...(operation === 'install' || operation === 'remove'
-          ? {
-              expected_package_hash: status?.installation.packageHash ?? null,
-              expected_installed_hash: status?.installation.installedHash ?? null
-            }
-          : {})
-      });
+      const value = await perform<CodexSetup>(route, codexSetupInput(operation, status, selectedVersion));
       if (started !== generation.current) return;
       if (value) {
         setStatus(value);
@@ -135,7 +141,9 @@ export function AgentConnectionSetup({
         if (started === generation.current) setStatus(value);
       })
       .catch((failure: unknown) => {
-        if (started === generation.current) setError(failure instanceof api.LocalApiError ? failure.code : 'local_operation_failed');
+        if (started === generation.current) {
+          setError(failure instanceof api.LocalApiError ? failure.code : 'local_operation_failed');
+        }
       })
       .finally(() => {
         if (started === generation.current) setReading(false);
@@ -177,6 +185,7 @@ export function AgentConnectionSetup({
         {product === 'claude_code' && <OrdinaryObservationSetup projectId={projectId} locale={locale} busy={busy} perform={perform} />}
         {product === 'codex' && (
           <>
+            <OrdinaryWindowNotice product="codex" locale={locale} />
             {error && (
               <p role="alert" className="text-sm text-destructive">
                 {t(

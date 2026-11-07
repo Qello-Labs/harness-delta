@@ -216,6 +216,22 @@ reasons, compatibility, windows, review coverage, gates, or live checks.
 An unmatched state fails with `invalid_record` rather than guessing a path.
 The assessment record limit remains 256 KiB.
 
+The `static-assessment-v3` writer emits schema 5 (without reviews) or 6 (with
+reviews). Readers retain schemas 1–4 with `static-assessment-v1` and schemas 5/6
+with their named `static-assessment-v2` or `static-assessment-v3` revision.
+The two root-policy IDs are accepted only with v3; v2 records are not rewritten.
+The v3 schemas add two ordinary root-reference
+policy lanes, `codex-binding-root-window-v1` and `claude-binding-root-window-v1`,
+with rule revisions `codex-ordinary-root-window-v1` and
+`claude-ordinary-root-window-v1`. Each covers root only: link, collect and restart,
+`exact_only:false`, depth 0 and one member, with no launch, resume or family lane.
+These finite policy lanes are distinct from exact admission lanes. Static selection
+doesn't read activation state, doesn't clear `exact_only` on legacy lanes and
+doesn't make a release usable; `selected_window` on a policy lane describes
+selection only. Legacy lanes keep their values in the new schemas. Both policies are
+implemented for offline acceptance, ordinary-window collection disabled pending
+separate product activation and native acceptance.
+
 ## Contract review records
 
 A contract review record is a manual claim by a maintainer: "for this lane and this
@@ -375,6 +391,9 @@ Fix the cause and run again. Don't edit records by hand.
   vendor binaries is a future stage that needs its own execution approval.
 - Support, qualification, admission, and default changes still follow the
   [development workflow](workflow.md) and the product requirements.
+- The approved order is registry, closed ordinary windows, difference judgment,
+  then selective promotion. Each later native, promotion and publication gate
+  still applies.
 
 ## Official metadata contracts
 

@@ -91,6 +91,9 @@ workflow source shows the own-trace row for Claude Code 2.1.296; pass
 exists for it. Contract failures block the affected
 version/source; network, deadline and ordinary process errors remain observation gaps.
 See [ADR 013](../decisions/013-forward-version-compatibility.md) for windows and recovery.
+Ordinary root-reference windows add no launch, resume or child expansion to these
+workflows; they are implemented for offline acceptance, ordinary-window collection
+disabled pending separate product activation and native acceptance.
 
 
 ## Begin an assigned task
