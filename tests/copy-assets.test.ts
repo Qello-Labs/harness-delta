@@ -5,6 +5,9 @@ import { dirname, join } from 'node:path';
 import { expect, test } from 'vitest';
 
 test.each([
+  ['config-confirmation', 'core/configuration-evidence'],
+  ['comparison/reports/ordinary-window', 'pricing/metrics-ordinary-window'],
+  ['comparison/reports/ordinary-window-state', 'core/ordinary-window-evidence'],
   ['harness/harness-managed-file', 'workflow/external-session-managed-file'],
   ['qualification/codex-failure-diagnostics', 'workflow/bounded-candidate-diagnostics'],
   ['pricing/price-revaluation', 'comparison/reports/price-revaluation'],

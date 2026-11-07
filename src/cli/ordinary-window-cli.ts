@@ -1,5 +1,5 @@
 import type { Command } from 'commander';
-import { aggregateOrdinaryWindowReport } from '../comparison/reports/ordinary-window.js';
+import { aggregateOrdinaryWindowMetrics as aggregateOrdinaryWindowReport } from '../pricing/metrics-ordinary-window.js';
 import { renderReport } from '../comparison/reports/render.js';
 import type { Store } from '../store.js';
 

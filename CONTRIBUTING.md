@@ -104,10 +104,12 @@ single quotes by default, semicolons, no trailing commas, and optional arrow
 parameter parentheses. Existing double-quote-only files retain that style.
 Property quotes and embedded fixture text are preserved.
 
-Keep the explicit `.prettierignore` exclusions for reviewed byte-sensitive source
-and operation inputs, scripts, skills, documentation, fixtures, generated output,
-and vendored UI components. Do not autoformat pinned inputs or update evidence
-hashes to make a formatter pass. The formatting-only revision is recorded in
+Source TypeScript, including reviewed pinned modules, follows Prettier. Keep the
+explicit `.prettierignore` exclusions for evidence data and operation inputs,
+scripts, skills, documentation, fixtures, generated output, and vendored UI
+components. Pinned source changes still require an approved digest re-issue; do
+not update evidence hashes merely to make a formatter pass. Formatting-only
+revisions are recorded in
 `.git-blame-ignore-revs`; use `git blame --ignore-revs-file .git-blame-ignore-revs`
 when inspecting logic history.
 

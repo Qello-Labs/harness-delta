@@ -4,7 +4,7 @@ import { afterEach, expect, test } from 'vitest';
 
 import { revokeOrdinaryWindowDecision } from '../src/core/ordinary-window-store.js';
 
-import { aggregateOrdinaryWindowReport } from '../src/comparison/reports/ordinary-window.js';
+import { aggregateOrdinaryWindowMetrics as aggregateOrdinaryWindowReport } from '../src/pricing/metrics-ordinary-window.js';
 import type { OrdinaryWindowUsageBatch } from '../src/session-binding-contract.js';
 import { ordinaryWindowFixture } from './helpers/ordinary-window-fixture.js';
 import { windowRevocationPacket } from './helpers/ordinary-window-decision-fixture.js';

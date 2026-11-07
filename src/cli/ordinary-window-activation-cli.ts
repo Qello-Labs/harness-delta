@@ -1,7 +1,7 @@
 import { closeSync, constants, fstatSync, openSync, readSync } from 'node:fs';
 import type { Command } from 'commander';
 import type { Store } from '../store.js';
-import { readOrdinaryWindowStatus } from '../comparison/reports/ordinary-window-state.js';
+import { readOrdinaryWindowStatus } from '../core/ordinary-window-evidence.js';
 import { activateOrdinaryWindowDecision, ordinaryWindowDecisionKeyForSelection, ordinaryWindowDecisionStatus } from '../core/ordinary-window-activation.js';
 import { ordinaryWindowSelection, revokeOrdinaryWindowDecision } from '../core/ordinary-window-store.js';
 import { publishOrdinaryWindowEmissionControl } from '../ordinary-window-emission.js';

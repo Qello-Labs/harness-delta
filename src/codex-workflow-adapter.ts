@@ -19,7 +19,7 @@ import {
 } from './workflow/codex-workflow-journal.js';
 import { resolveSourceCompatibility, assertCompatibilityAllowed, pinSessionCompatibility, invalidateCompatibility } from './source-compatibility.js';
 import { putUsageWithEvidence, recordObservationGap, requireActiveScope } from './core/runtime-history.js';
-import { bindConfigurationToSession } from './config-confirmation.js';
+import { bindConfigurationToSession } from './core/configuration-evidence.js';
 import { checkCandidatePermissions } from './workflow/codex-candidate-permissions.js';
 import { SourceFailure, sourceCategory } from './core/source-errors.js';
 import { RuntimeEvidenceSchema } from './flexible-contracts.js';

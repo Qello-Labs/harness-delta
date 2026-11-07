@@ -4,7 +4,7 @@ import { basename, dirname, join, sep } from 'node:path';
 import { z } from 'zod';
 import { IdSchema, ModelSchema } from './contracts.js';
 import { lookupToolVersionProfile } from './core/tool-version-profiles.js';
-import { bindConfigurationToSession } from './config-confirmation.js';
+import { bindConfigurationToSession } from './core/configuration-evidence.js';
 import { authorizeClaudeTraceScope } from './qualification/claude-trace-candidate.js';
 import { prepareClaudeProbeSupervisor, verifyClaudeProbeBinary, verifyClaudeWorkflowVersion } from './qualification/claude-probe-supervisor.js';
 import { claudeWorkflowChildAgentType } from './qualification/claude-native-probe.js';

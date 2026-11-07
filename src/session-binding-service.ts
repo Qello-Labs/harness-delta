@@ -14,10 +14,10 @@ import { Lifecycle, utcNow, type Clock } from './core/lifecycle.js';
 import { parseTaskMetadata, parseProtocol } from './flexible-contracts.js';
 import { externalContract, bindingCollectionControl } from './core/external-session-contract.js';
 import { assertExternalPrepared } from './workflow/external-session-workflow.js';
-import { bindConfigurationToSession } from './config-confirmation.js';
+import { bindConfigurationToSession } from './core/configuration-evidence.js';
 import { putUsageWithEvidence, recordObservationGap } from './core/runtime-history.js';
 import { selectTaskPriceTable } from './pricing/price-catalog-selection.js';
-import { comparisonProtocol, protocolRow } from './comparison/comparison.js';
+import { comparisonProtocol, protocolRow } from './core/protocol-store.js';
 import {
   BindingUsageRecordSchema,
   bindingIdentityKey,

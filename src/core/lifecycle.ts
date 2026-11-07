@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { realpathSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { z } from 'zod';
-import { requireConfigurationConfirmation, bindConfigurationToSession } from '../config-confirmation.js';
+import { requireConfigurationConfirmation, bindConfigurationToSession } from './configuration-evidence.js';
 import { assertCompatibilityAllowed, pinSessionCompatibility, resolveSourceCompatibility } from '../source-compatibility.js';
 import { IdSchema, ProductVersionSchema, TimestampSchema } from '../contracts.js';
 import type { Store } from '../store.js';
