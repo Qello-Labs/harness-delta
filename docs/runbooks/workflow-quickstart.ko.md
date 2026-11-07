@@ -31,6 +31,19 @@ Claude Code 2.1.296(`claude-workflow-own-trace-v1`, 부모 전용; `claude-workf
 범위가 일반 세션 연결을 허용하지는 않습니다.
 skill 설치나 브라우저 작업 준비만으로 관측 권한이 생기지 않습니다.
 
+## 닫힌 Codex 일반 window 준비
+
+별도의 [Codex window 설정](harness-connect.ko.md#codex-일반-window-설정-수집-비활성)은
+오프라인 검증용으로 구현되었으며, 일반 window 수집은 별도 제품 활성화와 native 검증 전까지
+비활성 상태입니다. 지원되는 launch workflow나 A/B 절차가 아니며 아래 지원표에 넣지 않습니다.
+
+**Codex > 일반 window**를 명시적으로 선택하고 `0.163.0 < v < 0.170.0` 안의 안정 버전을
+지정해 저장한 뒤, 한 번 수행하는 소유 파일 이전을 미리보고 검토한 파일만 적용합니다. 저장이나
+설치는 수집을 활성화하거나 작업을 시작하지 않습니다. 별도로 허가된 활성화와 native 검증 뒤에도
+명시적으로 활성화된 window 작업과 적격한 새 startup root가 필요합니다. N -> N+1에서는 새
+지정 버전 작업과 새 root/기준점을 준비합니다. 범용 helper를 patch마다 다시 쓰거나 고정 설정·
+가격을 옮기거나 누락 구간을 backfill하지 않습니다. 기존 정확 절차·helper·기본값은 별개로 유지합니다.
+
 ## 지원 범위와 실행 비용
 
 | 경로 | 지원 범위 |

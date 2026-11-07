@@ -31,6 +31,22 @@ These paths have different source and authority gates. A launch-workflow
 compatibility window does not authorize an ordinary session connection.
 Installing the skill or preparing a browser task does not authorize observation.
 
+## Closed Codex ordinary-window preparation
+
+The separate [Codex window setup](harness-connect.md#codex-ordinary-window-setup-collection-disabled)
+is implemented for offline acceptance, ordinary-window collection disabled pending
+separate product activation and native acceptance. It is not another supported
+launch workflow or an A/B procedure. Keep it outside the support table below.
+
+Choose **Codex > Ordinary window** explicitly, declare a stable version within
+`0.163.0 < v < 0.170.0`, save, preview the one-time owned-copy migration and apply
+only the reviewed files. Saving or installing does not activate collection or
+start a task. After a separately authorized activation and native acceptance, an
+explicitly active window task and eligible fresh startup root are still required.
+For N -> N+1, prepare a new declared-version task and a fresh root/baseline; do not
+rewrite generic helpers per patch, migrate frozen settings/prices or backfill
+missed intervals. Existing exact procedures, helpers and defaults remain separate.
+
 ## Support and costs before you start
 
 | Path | Supported boundary |

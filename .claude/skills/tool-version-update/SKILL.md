@@ -30,6 +30,8 @@ loads this file. Resolve links from this directory, not the Codex entry.
    | Contract | Files |
    | --- | --- |
    | Finite file and workflow windows; parser lineage | `src/source-compatibility.ts` |
+   | Separate closed ordinary root-reference policies and live authority | `src/core/ordinary-window-policy.ts`, `src/core/ordinary-window-store.ts` |
+   | Codex payload-only window bundle and explicit closed setup | `skills/harness-connect-window-codex/`, `src/connect/codex-connect-installation.ts`, `src/web/local-web-codex-window-*.ts` |
    | Exact file admissions | `src/adapter-profiles.ts`, `src/codex-admissions.json` |
    | Exact workflow evidence and Claude retirement | `src/readiness.ts`, `src/claude-workflow-versions.ts` |
    | Codex ordinary root candidates and receipt producer | `src/session-binding-codex.ts`, `scripts/session-binding-codex-hook.mjs` |
@@ -46,8 +48,9 @@ loads this file. Resolve links from this directory, not the Codex entry.
    An installed version and a previously remembered "latest" are not release evidence.
 6. Map acceptance to evidence before editing. Keep exact verified support,
    `compatibility_unverified`, ordinary candidate pilots and unsupported routes
-   separate. A new ordinary candidate needs its own exact declaration even when
-   the file/workflow version lies inside a conditional window.
+   separate. A new exact ordinary candidate needs its own exact declaration even
+   when the file/workflow version lies inside a conditional window. The separate
+   activated-only Codex root-reference exception below creates no exact row.
 
 ## 2. Verify what actually changed on every update
 
@@ -96,6 +99,33 @@ gate. Missing authority, unavailable binary or insufficient observations leaves
 the affected route unsupported/blocked or candidate-only as applicable; report
 the remaining gate. Never widen an upper bound just to make a version fit.
 
+### Limited Codex root-reference exception
+
+The separate Codex window bundle and closed setup are implemented for offline
+acceptance, ordinary-window collection disabled pending separate product activation
+and native acceptance. Only after that separate activation and native acceptance,
+`codex-binding-root-window-v1` permits descriptive `source_only` root references
+for stable `0.163.0 < v < 0.170.0` before per-target deeper conformance, including
+an in-window Codex minor transition. A window-only target needs no exact row.
+The actual declaration, inherited parser/rule, identity uncertainty and
+`compatibility_unverified` trust remain visible; a creation header is not proof of
+the current writer. A required-contract failure, observed contradiction, revoked
+scope or incompatibility block stops the affected reference, without exact fallback.
+
+This is not support extension or execution authorization. Children, verified exact
+support, upper-bound equality/expansion and promotion retain pinned upstream
+comparison and actual target-binary verification. Reject versions at/below the base,
+at/above the cap, prereleases and build suffixes; cap renewal requires a separate
+decision. A registered project, explicitly active frozen window task and fresh
+startup root are still required. Each upgrade needs a new declared-version task
+and root/baseline, not automatic migration or a generic helper rewrite. See
+[closed Codex setup](../../../docs/runbooks/harness-connect.md#codex-ordinary-window-setup-collection-disabled)
+and [ADR 013](../../../docs/decisions/013-forward-version-compatibility.md#codex-root-reference-exception).
+
+Retain the historical PR #70 unqualified exact Codex 0.166.0 candidate exception;
+it does not authorize future window-only exact rows, qualification, defaults or
+activation. Keep its dated evidence unchanged.
+
 ## 3. Implement only the evidenced change
 
 1. Finish the independent offline work first. If a new window, collection scope,
@@ -103,8 +133,9 @@ the remaining gate. Never widen an upper bound just to make a version fit.
    the concrete diff/proposal and evidence before taking that action.
 2. If existing file/workflow windows already cover the target, keep the existing
    parser and `compatibility_unverified` provenance unless evidence requires a
-   repair. Add only the independently reviewed exact ordinary candidate needed
-   for the requested route. Preserve default provider refusal and pilot authority.
+   repair. For an exact route, add only the independently reviewed exact ordinary
+   candidate needed; the separate activated Codex window uses its policy instead
+   of a new exact row. Preserve default provider refusal and pilot authority.
 3. Unchanged semantics use candidate data, synthetic fixtures and evidence.
    Changed semantics require a named parser/profile variant and regressions.
    Do not alter a historical variant to fit the new release or relax required

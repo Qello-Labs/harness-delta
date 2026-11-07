@@ -51,6 +51,16 @@ import도 따라가지 않습니다. 이 파일의 변경은 `source_scope_chang
 기존 레코드는 계속 읽을 수 있으며 다시 쓰지 않습니다. 과거 다이제스트로는 현재 계약 검토
 게이트를 닫을 수 없습니다.
 
+현재 중복 제거된 정적 closure는 정확히 47개 경로이며 여유 항목은 없습니다. Codex window의
+해시 전용 입력에는 `src/connect/codex-connect-installation.ts`,
+`skills/harness-connect-window-codex/SKILL.md`,
+`skills/harness-connect-window-codex/scripts/connect.mjs`가 포함됩니다. 범용 raw window
+hook은 이미 입력이었습니다. 평가는 이 파일을 로드하거나 import를 따라가지 않고 해시만
+계산하며, 설정·transport wrapper는 이 유한 투영에서 소비하지 않습니다. execution pin은
+별도로 전체 source와 build 트리를 고정합니다. schema 1-4 reader의 기존 32개 경로 상한과
+256 KiB 레코드 제한은 그대로입니다. 입력 추가는 전역 source digest를 바꾸며 정확 지원이나
+활성화를 바꾸지 않습니다. 과거 기준선·검토는 불변이며 오래된 digest로 새 gate를 닫을 수 없습니다.
+
 ## 후보 탐색
 
 ```sh
@@ -213,6 +223,23 @@ family 레인은 없습니다. 이 유한 정책 레인은 정확 admission 레�
 않습니다. 정책 레인의 `selected_window`는 선택만 설명합니다. 기존 레인 값은 새 schema에서도 그대로입니다.
 두 정책은 오프라인 검증용으로 구현되었으며, 일반 창(window) 수집은 별도 제품 활성화와 native
 검증 전까지 비활성 상태입니다.
+
+별도로 제공하는 Codex 패키지·설정은 검증된 root 자체 사용량이 아닌 `source_only` root
+참조를 사용합니다. 별도 활성화가 있고 명시적으로 활성화된 고정 window 작업만 안정 버전
+`0.163.0 < v < 0.170.0`에서 대상별 심층 적합성 검증보다 먼저 이 참조를 사용할 수 있습니다.
+window 전용 대상의 정확 row는 추가하지 않습니다. 이 제한적 예외는 자식, 정확 지원, 상한 변경,
+승격을 포함하지 않으며 이들은 심층 검증 gate를 유지합니다. 필수 계약 실패·모순·권한 철회·
+비호환 버전은 계속 관측을 중단합니다. 구현 제공, 설치나 정적 선택은 활성화나 native 검증을
+충족하지 않습니다. [ADR 013](../decisions/013-forward-version-compatibility.md#codex-root-reference-exception)과
+[canonical 검증 경계](../../.claude/skills/tool-version-update/references/verification.md#closed-codex-root-reference-boundary)를 참고하세요.
+
+window pin 검증은 별도 `ordinary_window_execution_pins` kind와 자체 namespace의 schema 1,
+`pin_scheme_revision: ordinary-window-execution-v1`을 사용합니다.
+`snapshotWindowPins` / `assertWindowPins`는 코드 소유 Codex raw producer·선택 skill·
+instrument 입력, source/build 트리, 일치하는 built 사본, runtime·package·lock을 source와
+built 선택별로 독립 고정합니다. packet은 runner나 실행·활성화 승인이 아니며 기존 정확 pin
+함수와 approval schema 1의 의미는 그대로입니다. 검증으로 native·target·backend 실행,
+새 예산, publisher·variant 변경, 상한 갱신이나 후속 레코드를 만들지 않습니다.
 
 ## 계약 검토 레코드
 

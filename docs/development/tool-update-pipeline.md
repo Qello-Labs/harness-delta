@@ -55,6 +55,18 @@ Adding them makes the digest in every existing baseline row and review record
 stale. Those records remain readable and are not rewritten; their historical
 digests cannot close current contract review gates.
 
+The current deduplicated static closure is exactly 47 paths, with no spare entries.
+Its Codex window hash-only inputs include `src/connect/codex-connect-installation.ts`,
+`skills/harness-connect-window-codex/SKILL.md` and
+`skills/harness-connect-window-codex/scripts/connect.mjs`. The generic raw window
+hook was already an input. Assessment hashes these files without loading them or
+following their imports; setup/transport wrappers are not consumed by this finite
+projection. Execution pins separately freeze the complete source and build trees.
+Schema 1-4 readers retain their original 32-path ceiling, and the record limit
+remains 256 KiB. Input additions change the global source digest, not exact support
+or activation; historical baselines/reviews stay immutable and cannot close fresh
+gates with an old digest.
+
 ## Discover a candidate
 
 ```sh
@@ -231,6 +243,26 @@ doesn't make a release usable; `selected_window` on a policy lane describes
 selection only. Legacy lanes keep their values in the new schemas. Both policies are
 implemented for offline acceptance, ordinary-window collection disabled pending
 separate product activation and native acceptance.
+
+The separately delivered Codex bundle/setup uses `source_only` root references,
+not verified root-own usage. Only a separately activated, explicitly active frozen
+window task may use stable `0.163.0 < v < 0.170.0` before per-target deeper
+conformance; no exact row is added for a window-only target. This limited exception
+does not cover children, exact support, cap changes or promotion, which retain the
+deeper verification gate. Failed required contracts, contradictions, revocation
+and incompatible versions still stop observation. Delivery, installation or static
+selection does not satisfy activation or native acceptance. See
+[ADR 013](../decisions/013-forward-version-compatibility.md#codex-root-reference-exception)
+and the [canonical verification boundary](../../.claude/skills/tool-version-update/references/verification.md#closed-codex-root-reference-boundary).
+
+Window pin validation is a separate `ordinary_window_execution_pins` kind, schema 1
+in its own namespace, with `pin_scheme_revision: ordinary-window-execution-v1`.
+`snapshotWindowPins` / `assertWindowPins` freeze the code-owned Codex raw producer,
+selected skill and instrument inputs, source/build trees, matching built copies,
+runtime, package and lock independently for source and built selection. The packet
+is not a runner or execution/activation approval; old exact pin functions and
+approval schema 1 retain their meaning. No native/target/backend run, new budget,
+publisher/variant change, cap renewal or successor record is created by validating it.
 
 ## Contract review records
 

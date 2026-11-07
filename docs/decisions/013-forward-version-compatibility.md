@@ -67,6 +67,41 @@ Each evidence mode needs its own risk acceptance. Both policies are implemented
 for offline acceptance, ordinary-window collection disabled pending separate
 product activation and native acceptance.
 
+### Codex root-reference exception
+
+The separate Codex window bundle, explicit owned-copy installer and closed setup
+are implemented for offline acceptance, ordinary-window collection disabled pending
+separate product activation and native acceptance. An activated
+`codex-binding-root-window-v1` may collect only descriptive `source_only` root
+references for stable `0.163.0 < v < 0.170.0` before per-target deeper conformance.
+A window-only release needs no exact admission row. Equality at either bound,
+prereleases, build suffixes, blocked versions and failed required contracts remain
+refused; changing the upper bound needs a separate renewal decision. This exception
+does not cover children, launch/resume, verified exact support or promotion, which
+retain pinned upstream comparison and actual target-binary verification.
+
+A separately activated, explicitly active unassigned task freezes its declaration,
+policy, roots and price table. Connection needs a fresh eligible startup root and
+live scope checks before source access and after awaits. The creation header must
+match the declaration but cannot prove a newer writer after a missed resume or
+hook. Native asset proof is not required by `source_only`; accepting that identity
+and ownership uncertainty is a separate Codex activation decision, not support.
+A lifecycle fence, version/source contradiction, revoked scope or incompatibility
+block stops the affected reference; the helper never falls back to an exact path.
+
+Install the generic window bundle only through explicit preview/apply, retaining
+the historical exact helpers and commands. An in-window N -> N+1 upgrade needs a
+new declared-version task and fresh root/baseline, not a per-patch helper rewrite.
+Old tasks, price pins and observations are unchanged, and no interval is backfilled.
+See the [closed setup procedure](../runbooks/harness-connect.md#codex-ordinary-window-setup-collection-disabled)
+and [descriptive-mode addendum](016-ordinary-observation.md#codex-ordinary-window-addendum-collection-disabled).
+
+The historical PR #70 exception that introduced the unqualified exact Codex
+0.166.0 candidate is retained, not generalized. It is neither a precedent to add
+future window-only exact rows nor evidence of qualification, a new default or
+activation. Its [dated candidate record](../validation/codex-ordinary-binding-qualification.md#01660-unqualified-ordinary-candidate)
+is unchanged; this decision authorizes no historical revert or evidence rewrite.
+
 ## Data trust and reporting
 
 Persist three distinct compatibility states:

@@ -35,6 +35,12 @@ Codex 0.163.0 is now the default for new project setup. Its evidence and file/wo
 support are unchanged. The Codex 0.162.1 profile, saved settings and all historical pins
 remain; omitting a version keeps saved settings, and nothing upgrades them automatically.
 
+The separate [Codex ordinary-window setup](docs/runbooks/harness-connect.md#codex-ordinary-window-setup-collection-disabled)
+is implemented for offline acceptance, ordinary-window collection disabled pending
+separate product activation and native acceptance. See the
+[descriptive-mode boundary](docs/decisions/016-ordinary-observation.md#codex-ordinary-window-addendum-collection-disabled);
+installation and static selection do not activate collection or extend exact support.
+
 ## Development environment
 
 Use Node.js 24 or 26 and npm. With nvm, the `.nvmrc` default remains Node 24:

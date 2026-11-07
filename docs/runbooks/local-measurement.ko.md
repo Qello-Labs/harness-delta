@@ -189,9 +189,16 @@ Claude Code 2.1.283이 해당됩니다. Codex 0.158.0은 M2 경계 안의 순차
 [admission 절차](codex-version-admission.md)를 사용하세요. 별도 승인이 필요한
 수동 검증이며 설치나 수집 중 자동으로 실행되지 않습니다.
 
-Codex(`>0.163.0`, `<0.170.0`)와 Claude Code(`>2.1.306`, `<2.2.0`)의 일반 root 참조 창은
+Codex(`>0.163.0`, `<0.170.0`)의 일반 root 참조 창은
 오프라인 검증용으로 구현되었으며, 일반 창(window) 수집은 별도 제품 활성화와 native 검증
-전까지 비활성 상태입니다. 위의 정확 버전 조건은 바뀌지 않습니다. 저장된 window 근거는
+전까지 비활성 상태입니다. 공유 Claude Code 정책(`>2.1.306`, `<2.2.0`)과 보고서 schema는
+제공된 Claude window 구현이 아닙니다. 위의 정확 버전 조건은 바뀌지 않습니다.
+Codex는 `source_only`를 사용하며 고정된 작업의 지정 버전이 root 생성 header와 같아야 합니다.
+이 header는 현재 writer, 실행 파일, publisher, process의 증거가 아닙니다. root-source 관측은 root 소유 사용량이
+아니며 `rootOwnership:unverified`와 `possibleChildContribution:unknown`을 명시적으로
+유지합니다. `automatic_children:false`는 자식을 자동 연결하지 않는다는 뜻이지 자식 기여가
+0이라는 증거가 아닙니다. 범위 안의 참조는 부분적인 `compatibility_unverified` 상태이며,
+정확 버전 admission이나 native 검증이 아닙니다. 저장된 window 근거는
 `node dist/cli.js --db ./local.db report ordinary-window <task-id> --cutoff <UTC>`
 (`--format json|markdown`)로 읽고, `compatibility ordinary-window status <task-id>`는 상태를
 보여 줍니다. `--decision`은 로컬 결정을 설명할 뿐 수집을 허용하지 않습니다. 보고서

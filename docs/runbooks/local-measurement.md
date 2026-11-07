@@ -182,10 +182,19 @@ For developer conformance, exact-version registration and native update controls
 use the [admission procedure](codex-version-admission.md). These are manual,
 separately authorized validation steps, never part of installation or collection.
 
-Ordinary root-reference windows for Codex (`>0.163.0`, `<0.170.0`) and Claude Code
-(`>2.1.306`, `<2.2.0`) are implemented for offline acceptance, ordinary-window
+The Codex ordinary root-reference window (`>0.163.0`, `<0.170.0`) is implemented
+for offline acceptance, ordinary-window
 collection disabled pending separate product activation and native acceptance.
-They don't change the exact gates above. Saved window evidence is read with
+The shared Claude Code policy (`>2.1.306`, `<2.2.0`) and report schema are not a
+delivered Claude window implementation. These policies don't change the exact
+gates above. Codex uses `source_only`: the frozen task declaration must match the
+root creation header, which is not proof of the current writer, executable,
+publisher or process.
+Root-source observations are not root-own usage; `rootOwnership:unverified` and
+`possibleChildContribution:unknown` remain explicit. `automatic_children:false`
+means no automatic child enrollment, not proof of zero child contribution.
+In-window references remain partial and `compatibility_unverified`, not exact
+admission or native acceptance. Saved window evidence is read with
 `node dist/cli.js --db ./local.db report ordinary-window <task-id> --cutoff <UTC>`
 (`--format json|markdown`), and `compatibility ordinary-window status <task-id>`
 reports state; `--decision` describes the local decision and never authorizes
