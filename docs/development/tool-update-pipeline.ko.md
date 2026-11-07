@@ -115,7 +115,7 @@ GitHub와 npm에 걸친 원자적 스냅샷이 아니므로 그렇게 설명하�
 새 방식은 전체 목록 조회를 피하며, 처음 1000개를 완전한 이력으로 재해석하지 않습니다.
 
 새 관측은 `schema_version: 2`와 `inventory_scope: "latest_and_npm_review_range"`를 씁니다.
-검토 레코드가 없는 평가는 schema 2로 관측의 범위를 전달하며, schema-1 입력에는 `legacy_full_inventory`를
+검토 레코드가 없는 평가는 schema 5로 관측의 범위를 전달하며, schema-1 입력에는 `legacy_full_inventory`를
 표시합니다. 기존 schema-1 관측과 평가는 다시 쓰지 않고 계속 읽을 수 있습니다. legacy 범위 표시는
 과거 레코드 형식을 나타낼 뿐 검증 범위에 대한 인증된 증거는 아닙니다. 후보의
 schema와 식별자는 바뀌지 않습니다. `metadata_reconciled`는 표시된 범위만 증명하며 전체
@@ -181,7 +181,7 @@ node scripts/tool-update.mjs assess \
 
 ### 선택 정책
 
-검토 레코드가 있으면 schema 4는 모든 레인에 엄격한 `selection_policy` 객체를 추가합니다.
+검토 레코드가 있으면 schema 6은 모든 레인에 엄격한 `selection_policy` 객체를 포함합니다.
 
 ```json
 {
@@ -248,6 +248,27 @@ built 선택별로 독립 고정합니다. packet은 runner나 실행·활성화
 함수와 approval schema 1의 의미는 그대로입니다. 검증으로 native·target·backend 실행,
 새 예산, publisher·variant 변경, 상한 갱신이나 후속 레코드를 만들지 않습니다.
 
+## 기계 차이 판단 레코드
+
+별도 schema-1 kind 세 가지로 기계의 주장을 표현합니다. `difference_job`은 후보, 관측,
+레인, null을 허용하는 기준선, 파서 기준, 목록, 고정 정책을 연결합니다.
+`difference_evidence`는 유한한 방법, 양 끝의 해시, 구조화된 발견을 연결하며,
+`difference_judgment`는 필수 facet과 비교를 소비 계약 여덟 그룹으로 축약합니다.
+엄격한 재귀 schema, 256 KiB 제한, canonical JSON, SHA-256 ID, 덮어쓰기 없는 게시를
+유지합니다. 폴더는 `difference-jobs/`, `difference-evidence/`, `difference-judgments/`입니다.
+본문, 자유 텍스트, URL, 로컬 경로, 승인 필드는 거부합니다. 엔진 identity는 평가
+source digest와 별도로 명시적인 버전 파일 목록을 사용합니다.
+
+기준선과 대상이 같아도 기준선 및 파서 기준의 인접 간선과 누적 파서 비교가 필요합니다.
+누락되거나 오래되거나 불완전한 증명은 unknown이며, 적용 가능한 확정 모순은 통과한
+fixture보다 우선합니다. 소스 해시 변경만으로 영향을 확정하지 않습니다.
+창이 닫힌 상태에서 native/backend/실제 세션 검증은 대기로 남습니다. 정적 작업은
+build/native/artifact 다이제스트에 `not_applicable`과 null을 사용합니다. 이 보수적 map에서는
+필수 native/backend facet이 없는 Codex 그룹만 완전한 불변 client-source 증명으로
+`ready_for_scoped_review`가 될 수 있습니다. Claude 문서나 합성 replay만으로는 업스트림
+동작의 불변성을 확정할 수 없습니다. 전체 레인의 운영 준비가 완료되지는 않습니다.
+이 레코드는 권한을 부여하거나 수동 검토가 되지 않으며, 아직 어떤 명령이나 평가도 소비하지 않습니다.
+
 ## 계약 검토 레코드
 
 계약 검토 레코드는 유지보수자의 수동 주장입니다. "이 레인과 이 릴리스 간선에서 소비하는 계약은
@@ -305,11 +326,11 @@ built 선택별로 독립 고정합니다. packet은 runner나 실행·활성화
 
 ### assess가 레코드를 적용하는 방식
 
-`--review`가 하나 이상이면 평가는 `schema_version: 4`로 쓰이며 정렬된 `review_ids`,
+`--review`가 하나 이상이면 평가는 `schema_version: 6`으로 쓰이며 정렬된 `review_ids`,
 `unused_review_ids`와 각 레인의 `selection_policy`를 포함합니다.
-`--review`가 없으면 출력은 `schema_version: 2` 그대로이며 `selection_policy`가 없습니다.
+`--review`가 없으면 출력은 `schema_version: 5`이며 `selection_policy`가 없습니다.
 소스 다이제스트를 포함해 입력이 바뀌면 바이트와 ID도 함께 바뀝니다.
-schema 1, 2, 3 평가도 계속 읽을 수 있고 기존 레코드를 다시 쓰지 않습니다.
+schema 1–6 평가를 계속 읽을 수 있고 기존 레코드를 다시 쓰지 않습니다.
 
 - 레코드는 레인 키, `contract_revision`, `from`·`to`의 버전과 커밋이 모두 관측과 일치하고
   `source_digest`가 현재 스냅샷 다이제스트와 같을 때만 레인 간선에 적용됩니다. 아니면 그 간선은

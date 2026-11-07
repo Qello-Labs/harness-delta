@@ -129,7 +129,7 @@ On 2026-10-29, the former all-history mode hit HTTP 422 beyond Codex's first
 the first 1000 as a complete history.
 
 New observations use `schema_version: 2` and
-`inventory_scope: "latest_and_npm_review_range"`. Assessments without review records use schema 2 and
+`inventory_scope: "latest_and_npm_review_range"`. Assessments without review records use schema 5 and
 carry the observation's scope (`legacy_full_inventory` for schema-1 inputs).
 Legacy schema-1 observations and assessments remain readable without rewriting
 them. The legacy scope label reflects the old record format, not authenticated
@@ -197,7 +197,7 @@ each path at the pinned commit before treating it as available review evidence.
 
 ### Selection policy
 
-With review records, schema 4 adds a strict `selection_policy` object to every lane:
+With review records, schema 6 includes a strict `selection_policy` object in every lane:
 
 ```json
 {
@@ -272,6 +272,30 @@ is not a runner or execution/activation approval; old exact pin functions and
 approval schema 1 retain their meaning. No native/target/backend run, new budget,
 publisher/variant change, cap renewal or successor record is created by validating it.
 
+## Machine difference records
+
+Three separate schema-1 kinds describe machine claims: `difference_job` binds the
+candidate, observation, lane, nullable baseline, parser base, inventory and frozen
+policy; `difference_evidence` binds finite methods, endpoint hashes and structured
+findings; `difference_judgment` reduces required facets and comparisons into all
+eight consumed groups. They retain strict recursive schemas, the 256 KiB limit,
+canonical JSON, SHA-256 IDs and no-replace publication in `difference-jobs/`,
+`difference-evidence/` and `difference-judgments/`. Content, free text, URLs, local
+paths and approval fields are rejected. Engine identity uses its own explicit,
+versioned file list, separate from the assessment source digest.
+
+Adjacent baseline and parser-base edges plus a cumulative parser comparison are
+required, even for equal baseline/target versions. Missing, stale or incomplete
+proof stays unknown; applicable confirmed contradictions outrank passing fixtures.
+A changed source hash alone establishes no impact. Native/backend/real-session
+validation remains pending with windows closed. Static jobs use `not_applicable`
+and null build/native/artifact digests. Under the conservative map, only Codex
+groups without required native/backend facets can become `ready_for_scoped_review`
+with complete unchanged client-source proof; Claude documentation or synthetic
+replay alone cannot establish unchanged upstream behavior. No entire lane is
+operationally ready. These records grant no authority, never become manual reviews,
+and are not yet consumed by any command or assessment.
+
 ## Contract review records
 
 A contract review record is a manual claim by a maintainer: "for this lane and this
@@ -333,11 +357,11 @@ whatever is supplied.
 
 ### How assess applies records
 
-With at least one `--review`, the assessment is written as `schema_version: 4`, with
+With at least one `--review`, the assessment is written as `schema_version: 6`, with
 the sorted `review_ids` and `unused_review_ids` and each lane's `selection_policy`.
-Without `--review`, output stays `schema_version: 2` with no `selection_policy`. Its
+Without `--review`, output uses `schema_version: 5` with no `selection_policy`. Its
 bytes and ID still change whenever an input does, including the source digest.
-Schema 1, 2, and 3 assessments remain readable and are never rewritten.
+Schema 1–6 assessments remain readable and are never rewritten.
 
 - A record applies to a lane edge only if the lane key, `contract_revision`, and the
   `from` and `to` versions and commits all match the observation, and `source_digest`

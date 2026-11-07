@@ -17,6 +17,9 @@ import {
   ToolUpdateError
 } from '../scripts/tool-update/manifest.mjs';
 import { candidateSchema } from '../scripts/tool-update/discovery.mjs';
+import { differenceEvidenceSchema, differenceJobSchema, differenceJudgmentSchema } from '../scripts/tool-update/difference-records.mjs';
+import { judgeDifferences } from '../scripts/tool-update/difference-judgment.mjs';
+import { currentIdentities, differenceJob, sourceEvidence } from './helpers/tool-update-difference-fixture.js';
 
 const roots: string[] = [];
 async function temporaryRoot() {
@@ -172,4 +175,33 @@ test('record loads reject invalid JSON without echoing input', async () => {
     code: 'record_read_failed',
     message: 'record_read_failed'
   });
+});
+
+function differencePublications() {
+  const job = differenceJob();
+  const records = sourceEvidence(job);
+  const evidence = records[0];
+  if (!evidence) throw new Error('missing_synthetic_evidence');
+  const judgment = judgeDifferences(job, records, currentIdentities);
+  return [
+    { folder: 'difference-jobs', record: job, publish: (root: string) => publishRecord(root, job, differenceJobSchema) },
+    { folder: 'difference-evidence', record: evidence, publish: (root: string) => publishRecord(root, evidence, differenceEvidenceSchema) },
+    { folder: 'difference-judgments', record: judgment, publish: (root: string) => publishRecord(root, judgment, differenceJudgmentSchema) }
+  ];
+}
+test.each(differencePublications())('$folder concurrent identical replay creates exactly one canonical record', async ({ folder, record, publish }) => {
+  const root = await temporaryRoot();
+  const ids = await Promise.all(Array.from({ length: 8 }, () => publish(root)));
+  expect(ids).toEqual(Array.from({ length: 8 }, () => digest(record)));
+  expect(await readdir(join(root, folder))).toEqual([`${digest(record)}.json`]);
+  expect(await readFile(join(root, folder, `${digest(record)}.json`), 'utf8')).toBe(canonical(record));
+});
+test.each(differencePublications())('$folder refuses conflicting same-ID bytes without replacing them', async ({ folder, record, publish }) => {
+  const root = await temporaryRoot();
+  await mkdir(join(root, folder));
+  const path = join(root, folder, `${digest(record)}.json`);
+  const conflict = canonical({ ...record, source_digest: '9'.repeat(64) });
+  await writeFile(path, conflict);
+  await expect(publish(root)).rejects.toMatchObject({ code: 'record_conflict', message: 'record_conflict' });
+  expect(await readFile(path, 'utf8')).toBe(conflict);
 });
