@@ -2,14 +2,10 @@ import { z } from "zod";
 import { assertWindowPins, requireCondition } from "./fixtures.mjs";
 
 const digest = z.string().regex(/^[a-f0-9]{64}$/);
-export const windowExecutionPinsSchema = z.strictObject({
+const windowExecutionPinsFields = {
 	kind: z.literal("ordinary_window_execution_pins"),
 	schema_version: z.literal(1),
 	pin_scheme_revision: z.literal("ordinary-window-execution-v1"),
-	product: z.literal("codex"),
-	policy_id: z.literal("codex-binding-root-window-v1"),
-	policy_revision: z.literal("codex-ordinary-root-window-v1"),
-	evidence_mode: z.literal("source_only"),
 	execution_mode: z.enum(["source", "built"]),
 	pins: z.strictObject({
 		runtime: digest,
@@ -23,7 +19,23 @@ export const windowExecutionPinsSchema = z.strictObject({
 		lockfile: digest,
 		package: digest,
 	}),
-});
+};
+export const windowExecutionPinsSchema = z.discriminatedUnion("product", [
+	z.strictObject({
+		...windowExecutionPinsFields,
+		product: z.literal("codex"),
+		policy_id: z.literal("codex-binding-root-window-v1"),
+		policy_revision: z.literal("codex-ordinary-root-window-v1"),
+		evidence_mode: z.literal("source_only"),
+	}),
+	z.strictObject({
+		...windowExecutionPinsFields,
+		product: z.literal("claude_code"),
+		policy_id: z.literal("claude-binding-root-window-v1"),
+		policy_revision: z.literal("claude-ordinary-root-window-v1"),
+		evidence_mode: z.literal("publisher_verified_local_pin"),
+	}),
+]);
 
 // A pin packet authenticates local input equality, not permission to execute or collect.
 export function validateWindowExecutionPins(input) {

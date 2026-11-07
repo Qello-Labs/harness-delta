@@ -64,6 +64,12 @@ const windowInputs = Object.freeze({
     producer: 'scripts/session-binding-codex-window-hook.mjs',
     builtSkill: 'dist/skills/harness-connect-window-codex',
     builtProducer: 'dist/assets/session-binding-codex-window-hook.mjs'
+  }),
+  claude_code: Object.freeze({
+    skill: 'skills/harness-connect-window-claude',
+    producer: 'skills/harness-connect-window-claude/scripts/claude-session-hook.mjs',
+    builtSkill: 'dist/skills/harness-connect-window-claude',
+    builtProducer: 'dist/skills/harness-connect-window-claude/scripts/claude-session-hook.mjs'
   })
 });
 function windowPath(path) {
@@ -75,10 +81,16 @@ function windowPath(path) {
   return current;
 }
 export function snapshotWindowPins(selection) {
-  requireCondition(selection?.product === 'codex' && ['source', 'built'].includes(selection.executionMode), 'approval_invalid');
-  const inputs = windowInputs.codex;
+  requireCondition(['codex', 'claude_code'].includes(selection?.product) && ['source', 'built'].includes(selection.executionMode), 'approval_invalid');
+  const inputs = windowInputs[selection.product];
   const digest = (domain, rows) => sha256(JSON.stringify(['ordinary-window-execution-v1', selection.product, selection.executionMode, domain, rows]));
   try {
+    for (const name of ['SKILL.md', 'scripts/connect.mjs']) {
+      requireCondition(
+        hashFile(windowPath(`${inputs.skill}/${name}`)) === hashFile(windowPath(`${inputs.builtSkill}/${name}`)),
+        'pin_drift'
+      );
+    }
     const skill = treeDigest(windowPath(inputs.skill));
     const builtSkill = treeDigest(windowPath(inputs.builtSkill));
     const producer = hashFile(windowPath(inputs.producer));

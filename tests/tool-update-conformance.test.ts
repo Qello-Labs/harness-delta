@@ -207,9 +207,23 @@ describe('strict sanitized failure evidence', () => {
   });
 });
 
+const packet = {
+  kind: 'ordinary_window_execution_pins',
+  schema_version: 1,
+  pin_scheme_revision: 'ordinary-window-execution-v1',
+  product: 'codex',
+  policy_id: 'codex-binding-root-window-v1',
+  policy_revision: 'codex-ordinary-root-window-v1',
+  evidence_mode: 'source_only',
+  execution_mode: 'source',
+  pins: Object.fromEntries(
+    ['runtime', 'source', 'build', 'instrument', 'skill', 'producer', 'built_skill', 'built_producer', 'lockfile', 'package'].map(key => [key, 'a'.repeat(64)])
+  )
+};
+
 describe('ordinary-window execution-pin domain', () => {
   it.each(['source', 'built'] as const)('validates the Codex %s map with no Claude bundle and no launch', mode => {
-    expect(windowPinControl(mode, 'accept')).toEqual({
+    expect(windowPinControl({ product: 'codex', executionMode: mode }, 'accept')).toEqual({
       preflight: 'accepted',
       revalidation: 'accepted',
       rawUnchanged: true,
@@ -240,7 +254,7 @@ describe('ordinary-window execution-pin domain', () => {
   it.each((['source', 'built'] as const).flatMap(mode => changes.map(change => [mode, ...change] as const)))(
     'rejects frozen %s packet after %s drift without rebuilding',
     (mode, path, rawUnchanged, buildUnchanged, sourceUnchanged) => {
-      expect(windowPinControl(mode, 'bytes', path)).toEqual({
+      expect(windowPinControl({ product: 'codex', executionMode: mode }, 'bytes', path)).toEqual({
         preflight: 'pin_drift',
         revalidation: 'pin_drift',
         rawUnchanged,
@@ -271,7 +285,7 @@ describe('ordinary-window execution-pin domain', () => {
       ].map(path => [action, path] as const)
     )
   )('rejects %s selected input %s before preparation or revalidation', (action, path) => {
-    expect(windowPinControl('source', action, path)).toMatchObject({
+    expect(windowPinControl({ product: 'codex', executionMode: 'source' }, action, path)).toMatchObject({
       preflight: 'pin_drift',
       revalidation: 'pin_drift',
       exactUnchanged: true,
@@ -282,22 +296,7 @@ describe('ordinary-window execution-pin domain', () => {
       nativeReads: 0
     });
   });
-  const packet = {
-    kind: 'ordinary_window_execution_pins',
-    schema_version: 1,
-    pin_scheme_revision: 'ordinary-window-execution-v1',
-    product: 'codex',
-    policy_id: 'codex-binding-root-window-v1',
-    policy_revision: 'codex-ordinary-root-window-v1',
-    evidence_mode: 'source_only',
-    execution_mode: 'source',
-    pins: Object.fromEntries(
-      ['runtime', 'source', 'build', 'instrument', 'skill', 'producer', 'built_skill', 'built_producer', 'lockfile', 'package'].map(key => [
-        key,
-        'a'.repeat(64)
-      ])
-    )
-  };
+
   it.each([
     approval(),
     undefined,
@@ -318,5 +317,110 @@ describe('ordinary-window execution-pin domain', () => {
   });
   it('does not accept a window packet as an exact execution approval', () => {
     expect(() => validateApproval(packet, context)).toThrow('approval_invalid');
+  });
+});
+
+describe('Claude ordinary-window execution-pin domain', () => {
+  it.each(['source', 'built'] as const)('validates the Claude %s map without the Codex window bundle or producer', mode => {
+    expect(windowPinControl({ product: 'claude_code', executionMode: mode }, 'accept')).toEqual({
+      preflight: 'accepted',
+      revalidation: 'accepted',
+      rawUnchanged: true,
+      buildUnchanged: true,
+      sourceUnchanged: true,
+      exactUnchanged: true,
+      installedUnchanged: true,
+      restored: true,
+      otherBundleAbsent: true,
+      launches: 0,
+      nativeReads: 0
+    });
+  });
+  const claudeChanges = [
+    ['skills/harness-connect-window-claude/SKILL.md', false, true],
+    ['skills/harness-connect-window-claude/scripts/connect.mjs', false, true],
+    ['skills/harness-connect-window-claude/scripts/claude-session-hook.mjs', false, true],
+    ['skills/harness-connect-window-claude/config.json', false, true],
+    ['dist/skills/harness-connect-window-claude/SKILL.md', true, false],
+    ['dist/skills/harness-connect-window-claude/scripts/connect.mjs', true, false],
+    ['dist/skills/harness-connect-window-claude/scripts/claude-session-hook.mjs', true, false]
+  ] as const;
+  it.each((['source', 'built'] as const).flatMap(mode => claudeChanges.map(change => [mode, ...change] as const)))(
+    'rejects frozen Claude %s packet after %s drift with the opposite tree fixed',
+    (mode, path, rawUnchanged, buildUnchanged) => {
+      expect(windowPinControl({ product: 'claude_code', executionMode: mode }, 'bytes', path)).toEqual({
+        preflight: 'pin_drift',
+        revalidation: 'pin_drift',
+        rawUnchanged,
+        buildUnchanged,
+        sourceUnchanged: true,
+        exactUnchanged: true,
+        installedUnchanged: true,
+        restored: true,
+        otherBundleAbsent: true,
+        launches: 0,
+        nativeReads: 0
+      });
+    }
+  );
+  it.each(
+    ['missing', 'symlink'].flatMap(action =>
+      [
+        'skills/harness-connect-window-claude',
+        'skills/harness-connect-window-claude/scripts/claude-session-hook.mjs',
+        'skills/harness-connect-window-claude/scripts/connect.mjs',
+        'dist/skills/harness-connect-window-claude',
+        'dist/skills/harness-connect-window-claude/scripts/claude-session-hook.mjs',
+        'dist/skills/harness-connect-window-claude/scripts/connect.mjs'
+      ].map(path => [action, path] as const)
+    )
+  )('rejects %s Claude selected input %s before execution', (action, path) => {
+    expect(windowPinControl({ product: 'claude_code', executionMode: 'source' }, action, path)).toMatchObject({
+      preflight: 'pin_drift',
+      revalidation: 'pin_drift',
+      exactUnchanged: true,
+      installedUnchanged: true,
+      restored: true,
+      otherBundleAbsent: true,
+      launches: 0,
+      nativeReads: 0
+    });
+  });
+  it.each(['SKILL.md', 'scripts/connect.mjs', 'scripts/claude-session-hook.mjs'])(
+    'refuses fresh Claude preparation when raw and built trees both omit required %s',
+    name => {
+      expect(
+        windowPinControl({ product: 'claude_code', executionMode: 'source' }, 'missing-both', `skills/harness-connect-window-claude/${name}`)
+      ).toMatchObject({
+        preflight: 'pin_drift',
+        revalidation: 'pin_drift',
+        exactUnchanged: true,
+        installedUnchanged: true,
+        restored: true,
+        otherBundleAbsent: true,
+        launches: 0,
+        nativeReads: 0
+      });
+    }
+  );
+  const claudePacket = {
+    ...packet,
+    product: 'claude_code',
+    policy_id: 'claude-binding-root-window-v1',
+    policy_revision: 'claude-ordinary-root-window-v1',
+    evidence_mode: 'publisher_verified_local_pin'
+  };
+  it.each([
+    { ...claudePacket, product: 'codex' },
+    { ...claudePacket, policy_id: packet.policy_id },
+    { ...claudePacket, policy_revision: packet.policy_revision },
+    { ...claudePacket, evidence_mode: 'source_only' },
+    { ...claudePacket, approved: true },
+    { ...claudePacket, input_paths: ['scripts/session-binding-codex-window-hook.mjs'] }
+  ])('rejects cross-product or caller-selected Claude execution inputs before filesystem inspection %#', value => {
+    expect(() => validateWindowExecutionPins(value)).toThrow('approval_invalid');
+  });
+  it('does not promote a Claude window pin packet into exact execution authority', () => {
+    expect(() => validateApproval(claudePacket, context)).toThrow('approval_invalid');
   });
 });

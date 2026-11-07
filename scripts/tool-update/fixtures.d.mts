@@ -12,7 +12,7 @@ export function treeDigest(path: string): string;
 export function snapshotPins(binary: string): Record<string, string>;
 export function assertPins(before: Readonly<Record<string, string>>, binary: string): void;
 export interface WindowPinSelection {
-  readonly product: 'codex';
+  readonly product: 'codex' | 'claude_code';
   readonly executionMode: 'source' | 'built';
 }
 export interface WindowPins {

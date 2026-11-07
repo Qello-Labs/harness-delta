@@ -5,7 +5,7 @@ import { syncBuiltinESMExports } from 'node:module';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-const [root, executionMode, action, inputPath] = process.argv.slice(2);
+const [root, executionMode, action, inputPath, product] = process.argv.slice(2);
 let launches = 0,
   nativeReads = 0;
 for (const key of ['spawn', 'spawnSync', 'exec', 'execSync', 'execFile', 'execFileSync', 'fork']) {
@@ -31,16 +31,28 @@ childProcess.ChildProcess.prototype.spawn = () => {
 syncBuiltinESMExports();
 const { snapshotWindowPins, assertWindowPins, treeDigest, hashFile, safeCode } = await import(pathToFileURL(join(root, 'scripts/tool-update/fixtures.mjs')));
 const { validateWindowExecutionPins } = await import(pathToFileURL(join(root, 'scripts/tool-update/window-execution-pins.mjs')));
-const selection = { product: 'codex', executionMode };
+const selection = { product, executionMode };
+const selected =
+  product === 'codex'
+    ? {
+        skill: 'skills/harness-connect-window-codex',
+        producer: 'scripts/session-binding-codex-window-hook.mjs',
+        otherSkill: 'skills/harness-connect-window-claude'
+      }
+    : {
+        skill: 'skills/harness-connect-window-claude',
+        producer: 'skills/harness-connect-window-claude/scripts/claude-session-hook.mjs',
+        otherSkill: 'skills/harness-connect-window-codex'
+      };
 const pins = snapshotWindowPins(selection);
 const packet = {
   kind: 'ordinary_window_execution_pins',
   schema_version: 1,
   pin_scheme_revision: 'ordinary-window-execution-v1',
-  product: 'codex',
-  policy_id: 'codex-binding-root-window-v1',
-  policy_revision: 'codex-ordinary-root-window-v1',
-  evidence_mode: 'source_only',
+  product,
+  policy_id: product === 'codex' ? 'codex-binding-root-window-v1' : 'claude-binding-root-window-v1',
+  policy_revision: product === 'codex' ? 'codex-ordinary-root-window-v1' : 'claude-ordinary-root-window-v1',
+  evidence_mode: product === 'codex' ? 'source_only' : 'publisher_verified_local_pin',
   execution_mode: executionMode,
   pins
 };
@@ -56,8 +68,8 @@ const measurements = () => ({
   raw: JSON.stringify([
     treeDigest(join(root, 'scripts/tool-update')),
     treeDigest(join(root, 'scripts/generated')),
-    treeDigest(join(root, 'skills/harness-connect-window-codex')),
-    hashFile(join(root, 'scripts/session-binding-codex-window-hook.mjs'))
+    treeDigest(join(root, selected.skill)),
+    hashFile(join(root, selected.producer))
   ]),
   exact: exactBytes(),
   installed: treeDigest(join(root, 'installed-exact'))
@@ -71,6 +83,9 @@ if (action === 'bytes') {
 } else if (action === 'missing' || action === 'symlink') {
   fs.renameSync(path, join(root, 'held-input'));
   if (action === 'symlink') fs.symlinkSync(join(root, 'held-input'), path);
+} else if (action === 'missing-both') {
+  fs.renameSync(path, join(root, 'held-input'));
+  fs.renameSync(join(root, 'dist', inputPath), join(root, 'held-built-input'));
 } else assert.equal(action, 'accept');
 const code = operation => {
   try {
@@ -82,6 +97,13 @@ const code = operation => {
 };
 let result;
 try {
+  if (action === 'missing-both') {
+    assert.equal(
+      code(() => snapshotWindowPins(selection)),
+      'pin_drift',
+      'matching_incomplete_trees_must_not_prepare'
+    );
+  }
   const after = action === 'bytes' || action === 'accept' ? measurements() : null;
   result = {
     preflight: code(() => validateWindowExecutionPins(packet)),
@@ -91,7 +113,8 @@ try {
     sourceUnchanged: after?.source === before.source,
     exactUnchanged: exactBytes(action === 'missing' && inputPath === 'skills' ? 'held-input' : 'skills') === before.exact,
     installedUnchanged: treeDigest(join(root, 'installed-exact')) === before.installed,
-    otherBundleAbsent: !fs.existsSync(join(root, 'skills/harness-connect-window-claude')),
+    otherBundleAbsent:
+      !fs.existsSync(join(root, selected.otherSkill)) && (product === 'codex' || !fs.existsSync(join(root, 'scripts/session-binding-codex-window-hook.mjs'))),
     launches,
     nativeReads
   };
@@ -100,6 +123,9 @@ try {
   else if (action === 'missing' || action === 'symlink') {
     if (action === 'symlink') fs.unlinkSync(path);
     fs.renameSync(join(root, 'held-input'), path);
+  } else if (action === 'missing-both') {
+    fs.renameSync(join(root, 'held-input'), path);
+    fs.renameSync(join(root, 'held-built-input'), join(root, 'dist', inputPath));
   }
 }
 assert.deepEqual(measurements(), before, 'mutation_must_restore_all_input_bytes');
