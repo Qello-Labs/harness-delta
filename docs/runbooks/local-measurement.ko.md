@@ -179,8 +179,8 @@ node dist/cli.js --db ./local.db compatibility invalidate --product codex --vers
 검토된 명명 파서 변형, 집중 테스트, 전체 검증이 필요합니다.
 자동 또는 사용자용 차단 해제 단축 경로는 없습니다.
 
-등록된 정확한 파일 어댑터도 부분 관측입니다. Codex 0.156.1과 0.158.0,
-Claude Code 2.1.283이 해당됩니다. Codex 0.158.0은 M2 경계 안의 순차적 부분 사용량을
+등록된 정확한 파일 어댑터도 부분 관측입니다. 현재 목록은
+[지원 매트릭스](../support-matrix.ko.md#정확한-경로)에 있습니다. Codex 0.158.0은 M2 경계 안의 순차적 부분 사용량을
 다룹니다. [ADR 007](../decisions/007-adapter-version-profiles.md)을 확인하세요.
 파일 호환성은 native 실행을 허용하지 않습니다.
 [native 작업 안내](task-native-workflow.md)의 별도 작업 흐름 범위를 사용하세요.

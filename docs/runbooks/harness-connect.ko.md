@@ -4,11 +4,11 @@
 
 ## 현재 구현
 
-2026-10-16 UTC 릴리스 확인 대상은 Codex 0.163.0과 Claude Code 2.1.301입니다.
-Codex 0.163.0은 같은 날 별도의 제한된 ordinary 경로 native 검증을 통과했습니다.
-Claude Code 2.1.301은 제한된 print-mode transcript 적합성 검증을 통과했으며 일반 경로 qualification은 대기 중입니다. 기존 파일 및 root-workflow는 두 버전 모두
-`compatibility_unverified`로 선택하며 일반 연결 근거로 다른 소스를 승격하지 않습니다.
-일반 연결에는 아래의 정확한 admission 버전을 사용하세요.
+[생성된 지원 매트릭스](../support-matrix.ko.md#정확한-경로)에서 현재 버전, 정확 경로,
+profile ID와 qualification 표시를 확인하세요. [범례](../support-matrix.ko.md#범례와-제한)는
+admission, transcript conformance와 일반 native qualification을 구분합니다.
+조건부 file/workflow 재사용과 ordinary binding 근거는 서로의 신뢰 상태를 승격하지 않습니다.
+정확 profile에 맞는 아래 절차를 사용하세요. 저장 설정과 고정 작업은 자동 갱신하지 않습니다.
 
 Codex 0.163.0은 [제한된 qualification 절차](../validation/codex-ordinary-binding-qualification.ko.md)에서
 `--product-version 0.163.0 --route qualification`으로 별도 준비할 수 있습니다.
@@ -624,9 +624,10 @@ native 시험이 계속 필요합니다.
 
 ## Claude 사용자 조작 UI pilot
 
-로컬 운영자는 ordinary provider에 나열된 정확한 버전(현재 Claude Code 2.1.291,
-2.1.293, 2.1.294, 2.1.296, 2.1.301 또는 2.1.306)과 `claude-ordinary-human-pilot` source profile을 사용한 준비된
-`functional_pilot` 작업 하나를 선택할 수 있습니다. 기존 file·실행 workflow의
+로컬 운영자는 `claude-ordinary-human-pilot` source profile을 사용한 준비된
+`functional_pilot` 작업 하나를 선택할 수 있습니다. [매트릭스](../support-matrix.ko.md#정확한-경로)에
+`transcriptProfile`이 선언된 정확한 버전을 사용하세요. transcript qualification은
+ordinary admission이 아닙니다. 기존 file·실행 workflow의
 버전 호환성은 일반 가족 원본의 지원 검증이 아닙니다. 설치·실제 관측 전에
 profile, binary 버전, 프로젝트 원본 디렉터리와 receipt 디렉터리를 검토하세요.
 브라우저나 manifest는 수집 권한을 부여할 수 없습니다. 기존 로컬

@@ -4,9 +4,8 @@
 
 부분 비용을 기술하는 작은 **기능 파일럿**에 이 절차를 사용하세요.
 <!-- tool-version-assets:workflow-profiles:start -->
-대상은 Codex 0.160.0(`codex-workflow-own-response-v1`)과
-Claude Code 2.1.296(`claude-workflow-own-trace-v1`, 부모 전용; `claude-workflow-direct-child-v1`)과
-아래의 조건부 후속 버전입니다.
+[생성된 지원 매트릭스](../support-matrix.ko.md#정확한-경로)에서 정확 경로와 상태를 확인하세요.
+조건부 후속 버전 선택은 정확 admission과 별개입니다.
 <!-- tool-version-assets:workflow-profiles:end -->
 논리적 작업마다 하나의 A/B 배정을 유지합니다.
 모델과 effort는 실행마다 선택합니다. 새 세션을 열어도 배정은 바뀌지 않습니다.
@@ -16,16 +15,18 @@ Claude Code 2.1.296(`claude-workflow-own-trace-v1`, 부모 전용; `claude-workf
 아래 번호 단계는 도구가 소유하는 native launch를 사용합니다. 직접 여는
 세션이라면 입력을 준비하기 전에 해당 절차를 선택하세요.
 
+경로를 고르기 전에 [정확 버전과 qualification 상태](../support-matrix.ko.md#정확한-경로)를
+확인하세요. 아래 표는 절차 설명이며 admission을 추가하지 않습니다.
+
 | 원하는 workflow | 절차와 지원 경계 |
 | --- | --- |
 | 브라우저에서 작업 준비와 결과 검토 | [로컬 브라우저 workflow](local-browser-ui.ko.md); guided setup은 저장 전에 입력을 검토하며 수집을 시작하지 않음 |
-| A/B 배정 없는 일반 Claude 관측 | [일반 UI 흐름](harness-connect.ko.md#일반-claude-관측-지원-검증-대기); 새 설정은 Claude Code 2.1.306, 저장된 설정은 Claude Code 2.1.296 또는 2.1.301; 그 profile의 정확한 원본·binary 조건에서 일반 사용 허용; native 지원 검증 대기; pilot 플래그 불필요 |
-| Codex 0.163.0 일반 가족 | [제한된 일반 profile](harness-connect.ko.md#codex-01630-제한-일반-profile); 새 설정 기본값인 별도 정확 profile; 동결된 `functional_pilot` protocol과 배정, 새 root 하나와 새 직계 자식 최대 두 개; 배정 없는 일반 작업 모드가 아님 |
-| Codex 0.166.0 일반 후보 | [UNQUALIFIED CANDIDATE](../validation/codex-ordinary-binding-qualification.ko.md#01660-unqualified-ordinary-candidate), `qualified:false`, `codex-binding-01660-direct-family-v1`; 선택 가능하며 검증된 지원은 대기 중; 기록 자체에는 `evidenceId`나 `evidenceIntentSha256`가 없고 `productionSourceEvidence`에 기여하지 않음; 별도의 native intent와 결과를 기록한 [2026-11-03 후보 시험](../validation/codex-ordinary-binding-qualification.ko.md#2026-11-03-candidate-trials)은 후보의 지원 검증을 완료하지 않음; `ordinary_admission` 전용, `--scenario root_normal_observer_restart`(자식 없음) 또는 `--scenario family_normal_observer_restart`(직계 자식 두 개) 필수; 정확한 intent별 별도 native 동의 필요; H4 host-spawn/Detached와 H5 env-null-transcript 제외; file/workflow fallback과 native resume 없음; 기본값 0.163.0 유지 |
-| Codex 0.162.1 일반 가족 | [제한된 일반 profile](harness-connect.ko.md#codex-01621-제한-일반-profile); 동결된 `functional_pilot` protocol과 배정, 새 root 하나와 새 직계 자식 최대 두 개; 배정 없는 일반 작업 모드가 아님 |
-| Codex 0.162.0과 0.162.1 일반 root | [root 전용 파일럿](harness-connect.ko.md#codex-01620-일반-root-로컬-pilot); 운영자가 승인한 관측, 새 root 하나만 허용, 자식 미지원 |
-| Claude 비교/pilot 가족 | [사용자 조작 파일럿](harness-connect.ko.md#claude-사용자-조작-ui-pilot); 별도 로컬 pilot 권한과 candidate-provider 플래그, 정확한 profile 버전, 새 부모와 새 구성원 최대 두 개; 일반 작업 흐름과 별개 |
-| Codex 0.160.0 시작 티켓 | [외부 세션 workflow](external-session-workflow.ko.md); 정확한 새 root와 티켓, 자동 가족 상속 없음 |
+| A/B 배정 없는 일반 Claude 관측 | [일반 UI 흐름](harness-connect.ko.md#일반-claude-관측-지원-검증-대기); 설정된 profile의 정확한 source와 binary; native qualification 대기; pilot 플래그 불필요 |
+| Codex 일반 가족 | [제한된 일반 profile](harness-connect.ko.md#codex-01630-제한-일반-profile) 또는 [과거 profile](harness-connect.ko.md#codex-01621-제한-일반-profile); 고정 `functional_pilot` protocol과 배정, 새 root 하나와 새 직접 자식 최대 두 개; 배정 없는 일반 작업 모드가 아님 |
+| Codex unqualified 일반 후보 | [후보 절차](../validation/codex-ordinary-binding-qualification.ko.md#01660-unqualified-ordinary-candidate); 선택 가능하며 검증된 지원은 대기 중; record에 `evidenceId`나 `evidenceIntentSha256`가 없고 `productionSourceEvidence`에 기여하지 않음; 날짜별 native 시험은 후보의 qualification을 완료하지 않음; `ordinary_admission` 전용, `--scenario root_normal_observer_restart`(자식 없음) 또는 `--scenario family_normal_observer_restart`(직접 자식 두 개) 필수; 정확 intent별 별도 native 동의; H4 host-spawn/Detached와 H5 environment-hook null-transcript 경로 제외; file/workflow fallback과 native resume 없음 |
+| Codex 일반 root pilot | [root 전용 pilot](harness-connect.ko.md#codex-01620-일반-root-로컬-pilot); 운영자가 승인한 관측, 새 root 하나만 허용, 자식 미지원 |
+| Claude 비교/pilot 가족 | [사용자 조작 pilot](harness-connect.ko.md#claude-사용자-조작-ui-pilot); 별도 로컬 pilot 권한과 candidate-provider 플래그, 정확한 profile 버전, 새 부모와 새 구성원 최대 두 개; 일반 작업 흐름과 별개 |
+| Codex 시작 티켓 | [외부 세션 workflow](external-session-workflow.ko.md); 정확한 새 root와 티켓, 자동 가족 상속 없음 |
 
 이 경로들의 원본 및 권한 조건은 서로 다릅니다. launch workflow의 호환성
 범위가 일반 세션 연결을 허용하지는 않습니다.
@@ -73,16 +74,19 @@ identity가 여전히 필요합니다. patch마다 helper를 다시 쓰거나 �
 
 ## 지원 범위와 실행 비용
 
+정확 profile별 버전과 상태는 [매트릭스](../support-matrix.ko.md#정확한-경로)에서
+확인하세요. 작업별 제한은 별개로 유지합니다.
+
 | 경로 | 지원 범위 |
 | --- | --- |
-| Codex 0.160.0 루트 workflow | launch, 같은 세션 resume, 명시적 독립 루트 link, 전경 collect, stop, recover; 부분 사용량 |
-| Codex 0.160.0 직계 자식 workflow | 별도 프로필: 새 루트와 새 자식 1개, 고정 macOS arm64/Node 24, read-only; family resume·외부 자식 link 미지원 |
-| 기존 파일 수집기 | 정확한 프로필: Codex 0.156.1과 0.158.0, Claude Code 2.1.283; 조건부 파일 버전도 허용; [로컬 측정](local-measurement.ko.md) 참고 |
-| Claude Code 2.1.296 부모 전용 workflow | 실행마다 새 launch(read-only 또는 `workspace-edit`), 같은 작업의 추가 launch, `resumable`로 유지한 세션의 resume, stop, recover; 부분 사용량. Claude Code 2.1.288과 2.1.291은 지원 종료 |
-| Claude Code 2.1.296 직계 자식 workflow | 별도 프로필: 새 read-only 루트와 read-only `workflow-child` 최대 1개; 정확한 버전 전용; resume·더 깊은 자식·추가 자식 미지원 |
+| Codex root workflow | launch, 같은 세션 resume, 명시적 독립 root link, 전경 collect, stop, recover; 부분 사용량 |
+| Codex 직접 자식 workflow | 별도 profile: 새 root와 새 자식 하나, 고정 macOS arm64/Node 24, read-only; family resume과 외부 자식 link 미지원 |
+| 파일 수집기 | 매트릭스에 등록된 정확 file 경로 또는 별도로 선택한 조건부 재사용만 허용; 부분 사용량; [로컬 측정](local-measurement.ko.md) 참고 |
+| Claude 부모 전용 workflow | 실행마다 새 launch(read-only 또는 `workspace-edit`), 같은 작업의 추가 launch, `resumable`로 유지한 세션의 resume, stop, recover; 부분 사용량; retired 버전은 admission 미허용 |
+| Claude 직접 자식 workflow | 별도 profile: 새 read-only root와 read-only `workflow-child` 최대 하나; 정확한 버전 전용; resume, 더 깊거나 추가된 자식 미지원 |
 | App/IDE/MCP, fork, compaction, 더 깊은 자식 | 이 절차에서 미지원 |
 | 작업 전체 비용, 실제 청구액, 절감·도입 추론 | 제공하지 않음 |
-| 팀 파일 교환 | 합성 검증 전용; 기능 파일럿 결과는 이 경로로 교환할 수 없음 |
+| 팀 파일 교환 | synthetic 검증 전용; 기능 pilot 결과는 이 경로로 교환할 수 없음 |
 
 안정 Codex 버전 중 0.160.0 초과 0.164.0 미만(Codex 0.162.1과 0.163.0 포함)과 Claude Code 버전 중 2.1.296 초과
 2.2.0 미만은 `functional_pilot`에서 workflow 프로필을

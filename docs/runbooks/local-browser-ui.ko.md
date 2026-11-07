@@ -384,13 +384,13 @@ JS
 
 아래 번호 단계는 정확한 Codex 0.160.0 티켓 경로입니다. 일반 터미널 세션과 가족 수집은
 [Harness Connect](harness-connect.ko.md)를 사용하세요.
-배정 없는 일반 Claude 관측은 설정된 profile의 정확한 원본 버전과 binary hash에서
-일반 사용이 허용됩니다. 새 프로젝트 설정은 Claude Code 2.1.306을 사용하고, 저장된
-Claude Code 2.1.296 또는 2.1.301 설정은 그대로 둡니다. native 지원 검증은 대기 상태(`qualified: false`)입니다.
-pilot 플래그나 `allowCandidateProfiles: true`는 필요하지 않습니다.
-Codex 0.162.1과 Codex 0.163.0의 제한된 일반 수집은 여전히
-동결된 `functional_pilot` protocol과 배정을 사용하며, 둘 다 배정 없는 일반 작업
-모드가 아닙니다.
+배정 없는 일반 Claude 관측은 설정된 profile의 정확한 source 버전과 binary hash에서만
+일반 사용이 허용됩니다. [생성된 매트릭스](../support-matrix.ko.md#정확한-경로)에서
+admission 버전과 qualification 표시를 확인하고 [연결 설정](harness-connect.ko.md#일반-claude-관측-지원-검증-대기)에서
+기본값을 확인하세요. 저장 버전은 유지하며 native qualification은 대기 상태
+(`qualified: false`)입니다. pilot 플래그나 `allowCandidateProfiles: true`는 필요하지 않습니다.
+Codex 제한 일반 수집은 여전히 고정 `functional_pilot` protocol과 배정이 필요하며
+배정 없는 일반 작업 모드가 아닙니다.
 별도 승인된 Codex root 전용·Claude 사용자 조작 pilot 경로는 자체 gate를 유지합니다.
 Claude 비교/pilot provider에는 여전히 `allowCandidateProfiles: true`가 필요하며,
 제한된 print-mode 검증은 대화형 검증이나 일반 사용 허용을 뜻하지 않습니다.
