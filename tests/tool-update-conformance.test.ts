@@ -9,6 +9,8 @@ import { bounded, ConformanceError, observedProcess, privateRead, repository, sa
 import { projectTranscript } from '../scripts/tool-update/claude-oracle.mjs';
 import { runLocalhost } from '../scripts/tool-update/claude-localhost.mjs';
 import { fixture, pins, approval, context, row, lines } from './tool-update-conformance-fixture.js';
+import { windowPinControl } from './tool-update-window-pin-fixture.js';
+import { validateWindowExecutionPins } from '../scripts/tool-update/window-execution-pins.mjs';
 
 describe('strict execution authority', () => {
   it('accepts a separately supplied exact manual input when every pin matches', () => {
@@ -202,5 +204,119 @@ describe('strict sanitized failure evidence', () => {
     expect(JSON.stringify(evidence)).not.toContain(raw);
     expect(failureEvidenceSchema.safeParse({ ...evidence, raw_stderr: raw }).success).toBe(false);
     expect(readdirSync(out)).toHaveLength(1);
+  });
+});
+
+describe('ordinary-window execution-pin domain', () => {
+  it.each(['source', 'built'] as const)('validates the Codex %s map with no Claude bundle and no launch', mode => {
+    expect(windowPinControl(mode, 'accept')).toEqual({
+      preflight: 'accepted',
+      revalidation: 'accepted',
+      rawUnchanged: true,
+      buildUnchanged: true,
+      sourceUnchanged: true,
+      exactUnchanged: true,
+      installedUnchanged: true,
+      restored: true,
+      otherBundleAbsent: true,
+      launches: 0,
+      nativeReads: 0
+    });
+  });
+  const changes = [
+    ['scripts/session-binding-codex-window-hook.mjs', false, true, true],
+    ['skills/harness-connect-window-codex/SKILL.md', false, true, true],
+    ['skills/harness-connect-window-codex/scripts/connect.mjs', false, true, true],
+    ['skills/harness-connect-window-codex/config.json', false, true, true],
+    ['dist/assets/session-binding-codex-window-hook.mjs', true, false, true],
+    ['dist/skills/harness-connect-window-codex/scripts/connect.mjs', true, false, true],
+    ['src/synthetic.ts', true, true, false],
+    ['dist/synthetic.js', true, false, true],
+    ['scripts/tool-update/fixtures.mjs', false, true, true],
+    ['scripts/generated/tool-version-data.mjs', false, true, true],
+    ['package.json', true, true, true],
+    ['package-lock.json', true, true, true]
+  ] as const;
+  it.each((['source', 'built'] as const).flatMap(mode => changes.map(change => [mode, ...change] as const)))(
+    'rejects frozen %s packet after %s drift without rebuilding',
+    (mode, path, rawUnchanged, buildUnchanged, sourceUnchanged) => {
+      expect(windowPinControl(mode, 'bytes', path)).toEqual({
+        preflight: 'pin_drift',
+        revalidation: 'pin_drift',
+        rawUnchanged,
+        buildUnchanged,
+        sourceUnchanged,
+        exactUnchanged: true,
+        installedUnchanged: true,
+        restored: true,
+        otherBundleAbsent: true,
+        launches: 0,
+        nativeReads: 0
+      });
+    }
+  );
+  it.each(
+    ['missing', 'symlink'].flatMap(action =>
+      [
+        'skills/harness-connect-window-codex',
+        'scripts/session-binding-codex-window-hook.mjs',
+        'dist/skills/harness-connect-window-codex',
+        'dist/assets/session-binding-codex-window-hook.mjs',
+        'scripts/generated',
+        'scripts/tool-update',
+        'src',
+        'dist',
+        'skills',
+        'package-lock.json'
+      ].map(path => [action, path] as const)
+    )
+  )('rejects %s selected input %s before preparation or revalidation', (action, path) => {
+    expect(windowPinControl('source', action, path)).toMatchObject({
+      preflight: 'pin_drift',
+      revalidation: 'pin_drift',
+      exactUnchanged: true,
+      installedUnchanged: true,
+      restored: true,
+      otherBundleAbsent: true,
+      launches: 0,
+      nativeReads: 0
+    });
+  });
+  const packet = {
+    kind: 'ordinary_window_execution_pins',
+    schema_version: 1,
+    pin_scheme_revision: 'ordinary-window-execution-v1',
+    product: 'codex',
+    policy_id: 'codex-binding-root-window-v1',
+    policy_revision: 'codex-ordinary-root-window-v1',
+    evidence_mode: 'source_only',
+    execution_mode: 'source',
+    pins: Object.fromEntries(
+      ['runtime', 'source', 'build', 'instrument', 'skill', 'producer', 'built_skill', 'built_producer', 'lockfile', 'package'].map(key => [
+        key,
+        'a'.repeat(64)
+      ])
+    )
+  };
+  it.each([
+    approval(),
+    undefined,
+    {},
+    { ...packet, approved: true },
+    { ...packet, schema_version: 2 },
+    { ...packet, pin_scheme_revision: 'forward-version-v1' },
+    { ...packet, product: 'claude_code' },
+    { ...packet, policy_id: 'claude-binding-root-window-v1' },
+    { ...packet, policy_revision: 'unreviewed' },
+    { ...packet, evidence_mode: 'publisher_verified_local_pin' },
+    { ...packet, execution_mode: 'native' },
+    { ...packet, input_paths: ['/synthetic/unapproved'] },
+    { ...packet, pins: { ...packet.pins, binary: 'a'.repeat(64) } },
+    { ...packet, pins: { ...packet.pins, source: 'invalid' } }
+  ])('rejects unknown packet authority or input maps before filesystem inspection %#', value => {
+    expect(() => validateWindowExecutionPins(value)).toThrow('approval_invalid');
+  });
+  it('does not accept a window packet as an exact execution approval', () => {
+    expect(() => validateApproval(packet, context)).toThrow('approval_invalid');
   });
 });
