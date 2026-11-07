@@ -1,14 +1,23 @@
-import { isValidElement, useEffect, useRef, useState, type DependencyList, type EffectCallback, type ReactNode } from 'react';
+import { type DependencyList, type EffectCallback, isValidElement, type ReactNode, useEffect, useRef, useState } from 'react';
 import { afterEach, expect, test, vi } from 'vitest';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { AgentConnectionSetup } from './AgentConnectionSetup';
-import { OrdinaryObservationSetup } from './OrdinaryObservationSetup';
+import { CodexExactVersionSetup, CodexModeSetup, OrdinaryObservationSetup } from './OrdinaryObservationSetup';
 import type { CodexSetup, Locale } from './types';
 import * as api from './api';
 
-vi.mock('./api', async importOriginal => ({ ...(await importOriginal<typeof import('./api')>()), mutate: vi.fn() }));
+vi.mock('./api', async importOriginal => ({
+  ...(await importOriginal<typeof import('./api')>()),
+  mutate: vi.fn()
+}));
 vi.mock('react', async importOriginal => {
   const react = await importOriginal<typeof import('react')>();
-  return { ...react, useState: vi.fn(react.useState), useRef: vi.fn(react.useRef), useEffect: vi.fn(react.useEffect) };
+  return {
+    ...react,
+    useState: vi.fn(react.useState),
+    useRef: vi.fn(react.useRef),
+    useEffect: vi.fn(react.useEffect)
+  };
 });
 afterEach(() => {
   vi.mocked(useState).mockReset();
@@ -55,7 +64,11 @@ function codexSetup(overrides: Partial<CodexSetup> = {}): CodexSetup {
       requires_new_session: true
     },
     connection: { roots: 0, observing: 0 },
-    admission: { profile_id: 'profile', qualified: false, max_family_members: 5 },
+    admission: {
+      profile_id: 'profile',
+      qualified: false,
+      max_family_members: 5
+    },
     ...overrides
   };
 }
@@ -69,6 +82,9 @@ type Control = {
   'data-product'?: string;
   'data-codex-action'?: string;
   'data-codex-choice'?: string;
+  'data-codex-mode'?: string;
+  'data-codex-version'?: string;
+  'data-codex-window-collection'?: string;
   'data-codex-configured'?: string;
   'data-codex-preview'?: string;
   'data-installation-state'?: string;
@@ -81,8 +97,29 @@ type Control = {
 };
 function controls(node: ReactNode): { type: unknown; props: Control }[] {
   if (Array.isArray(node)) return node.flatMap(controls);
+  if (isValidElement<Parameters<typeof CodexModeSetup>[0]>(node) && node.type === CodexModeSetup) return controls(CodexModeSetup(node.props));
+  if (isValidElement<Parameters<typeof CodexExactVersionSetup>[0]>(node) && node.type === CodexExactVersionSetup)
+    return controls(CodexExactVersionSetup(node.props));
   if (!isValidElement<Control>(node)) return [];
   return [node, ...controls(node.props.children)];
+}
+
+function waitFor(subscribers: Set<() => void>, predicate: () => boolean) {
+  return new Promise<void>((resolve, reject) => {
+    const check = () => {
+      if (predicate()) {
+        clearTimeout(timer);
+        subscribers.delete(check);
+        resolve();
+      }
+    };
+    const timer = setTimeout(() => {
+      subscribers.delete(check);
+      reject(new Error('waitFor timed out'));
+    }, 1000);
+    subscribers.add(check);
+    check();
+  });
 }
 
 function harness(projectId = 'project', locale: Locale = 'en') {
@@ -92,15 +129,28 @@ function harness(projectId = 'project', locale: Locale = 'en') {
   let refIndex = 0;
   const refs: { current: unknown }[] = [];
   const states: unknown[] = [];
-  const effects: { callback: EffectCallback; deps: DependencyList | undefined; cleanup: ReturnType<EffectCallback>; pending: boolean }[] = [];
+  const effects: {
+    callback: EffectCallback;
+    deps: DependencyList | undefined;
+    cleanup: ReturnType<EffectCallback>;
+    pending: boolean;
+  }[] = [];
   const subscribers = new Set<() => void>();
   const perform = vi.mocked(api.mutate).mockReset().mockResolvedValue(null);
-  const requests: { url: string; signal: AbortSignal | null | undefined; response: ReturnType<typeof deferred<Response>> }[] = [];
+  const requests: {
+    url: string;
+    signal: AbortSignal | null | undefined;
+    response: ReturnType<typeof deferred<Response>>;
+  }[] = [];
   vi.stubGlobal(
     'fetch',
     vi.fn((input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
       const response = deferred<Response>();
-      requests.push({ url: String(input), signal: init?.signal, response });
+      requests.push({
+        url: String(input),
+        signal: init?.signal,
+        response
+      });
       for (const notify of subscribers) notify();
       return response.promise;
     })
@@ -119,64 +169,74 @@ function harness(projectId = 'project', locale: Locale = 'en') {
   vi.mocked(useEffect).mockImplementation((callback, deps) => {
     const index = effectIndex++;
     const previous = effects[index];
-    if (!previous || !deps || !previous.deps || deps.some((value, key) => !Object.is(value, previous.deps?.[key])))
-      effects[index] = { callback, deps, cleanup: previous?.cleanup, pending: true };
+    if (!previous || !deps || !previous.deps || deps.some((value, key) => !Object.is(value, previous.deps?.[key]))) {
+      effects[index] = {
+        callback,
+        deps,
+        cleanup: previous?.cleanup,
+        pending: true
+      };
+    }
   });
   vi.mocked(useRef).mockImplementation((initial: unknown) => (refs[refIndex++] ??= { current: initial }));
   function render() {
     stateIndex = 0;
     effectIndex = 0;
     refIndex = 0;
-    return AgentConnectionSetup({ projectId, locale, busy, perform: api.mutate });
+    return AgentConnectionSetup({
+      projectId,
+      locale,
+      busy,
+      perform: api.mutate
+    });
   }
   function nodes() {
     return controls(render());
   }
   function flush() {
     render();
-    for (const effect of effects)
+    for (const effect of effects) {
       if (effect.pending) {
         effect.pending = false;
         if (typeof effect.cleanup === 'function') effect.cleanup();
         effect.cleanup = effect.callback();
       }
+    }
     return nodes();
   }
-  function click(attribute: 'data-product' | 'data-codex-action' | 'data-codex-choice', value: string) {
+  function click(attribute: 'data-product' | 'data-codex-action' | 'data-codex-choice' | 'data-codex-mode', value: string) {
     const control = nodes().find(node => node.props[attribute] === value);
-    if (!control?.props.onClick || control.props.disabled) throw new Error(`Unavailable control: ${attribute}=${value}`);
+    if (!control?.props.onClick || control.props.disabled) {
+      throw new Error(`Unavailable control: ${attribute}=${value}`);
+    }
     control.props.onClick();
   }
-  function waitFor(predicate: () => boolean) {
-    return new Promise<void>((resolve, reject) => {
-      const check = () => {
-        if (predicate()) {
-          clearTimeout(timer);
-          subscribers.delete(check);
-          resolve();
-        }
-      };
-      const timer = setTimeout(() => {
-        subscribers.delete(check);
-        reject(new Error('waitFor timed out'));
-      }, 1000);
-      subscribers.add(check);
-      check();
-    });
-  }
+
   function respondFetch(index: number, body: unknown) {
     const request = requests[index];
     if (!request) throw new Error('Missing fetch request');
-    request.response.resolve(new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } }));
+    request.response.resolve(
+      new Response(JSON.stringify(body), {
+        status: 200,
+        headers: { 'content-type': 'application/json' }
+      })
+    );
   }
   function failFetch(index: number) {
     const request = requests[index];
     if (!request) throw new Error('Missing fetch request');
-    request.response.resolve(new Response('{"error":"unknown_project"}', { status: 500, headers: { 'content-type': 'application/json' } }));
+    request.response.resolve(
+      new Response('{"error":"unknown_project"}', {
+        status: 500,
+        headers: { 'content-type': 'application/json' }
+      })
+    );
   }
   function selectVersion(value: string) {
-    const control = nodes().find(node => node.type === 'select');
-    if (!control?.props.onChange || control.props.disabled) throw new Error('Unavailable version selector');
+    const control = nodes().find(node => node.type === 'select' || node.props['data-codex-version'] === 'ordinary_window');
+    if (!control?.props.onChange || control.props.disabled) {
+      throw new Error('Unavailable version selector');
+    }
     control.props.onChange({ target: { value } });
   }
   return {
@@ -185,7 +245,7 @@ function harness(projectId = 'project', locale: Locale = 'en') {
     flush,
     click,
     selectVersion,
-    waitFor,
+    waitFor: (predicate: () => boolean) => waitFor(subscribers, predicate),
     respondFetch,
     failFetch,
     perform,
@@ -243,15 +303,19 @@ test('configure sends correct payload using GET defaults', async () => {
   expect(configureBtn!.props.disabled).toBe(false);
   h.perform.mockResolvedValueOnce(codexSetup({ configured: true }));
   h.click('data-codex-action', 'configure');
-  expect(h.perform).toHaveBeenCalledWith(
-    expect.stringContaining('/codex-setup'),
-    expect.objectContaining({ operation: 'configure', product_version: '1.0.0', source_roots: ['/synthetic/root'] })
-  );
+  expect(h.perform).toHaveBeenCalledWith(expect.stringContaining('/codex-setup'), {
+    operation: 'configure',
+    product_version: '1.0.0',
+    source_roots: ['/synthetic/root']
+  });
 });
 
 test.each([false, true])('version selector retains the returned version when configured=%s', async configured => {
   const h = harness();
-  const data = codexSetup({ configured, available_versions: ['1.1.0', '1.0.0'] });
+  const data = codexSetup({
+    configured,
+    available_versions: ['1.1.0', '1.0.0']
+  });
   h.flush();
   h.respondFetch(0, data);
   await h.waitFor(() => h.nodes().some(n => n.type === 'select'));
@@ -270,8 +334,13 @@ test.each([false, true])('version selector retains the returned version when con
 });
 
 function text(node: ReactNode): string {
-  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  if (typeof node === 'string' || typeof node === 'number') {
+    return String(node);
+  }
   if (Array.isArray(node)) return node.map(text).join('');
+  if (isValidElement<Parameters<typeof CodexModeSetup>[0]>(node) && node.type === CodexModeSetup) return text(CodexModeSetup(node.props));
+  if (isValidElement<Parameters<typeof CodexExactVersionSetup>[0]>(node) && node.type === CodexExactVersionSetup)
+    return text(CodexExactVersionSetup(node.props));
   return isValidElement<Control>(node) ? text(node.props.children) : '';
 }
 
@@ -281,7 +350,11 @@ test.each([
     suffix: 'unqualified candidate',
     notice: 'Unqualified candidate: qualified support is pending. Usage is labeled compatibility-unverified.'
   },
-  { locale: 'ko' as const, suffix: '미검증 후보', notice: '미검증 후보: 지원 검증이 아직 끝나지 않았습니다. 사용량은 호환성 미검증으로 표시됩니다.' }
+  {
+    locale: 'ko' as const,
+    suffix: '미검증 후보',
+    notice: '미검증 후보: 지원 검증이 아직 끝나지 않았습니다. 사용량은 호환성 미검증으로 표시됩니다.'
+  }
 ])('labels draft and saved unqualified versions in $locale while saving the bare version', async ({ locale, suffix, notice }) => {
   const h = harness('project', locale);
   const data = codexSetup({
@@ -294,14 +367,18 @@ test.each([
   h.respondFetch(0, data);
   await h.waitFor(() => h.nodes().some(n => n.type === 'select'));
   expect(text(h.nodes().find(n => n.type === 'option' && n.props.value === '0.166.0')?.props.children)).toBe(`0.166.0 (${suffix})`);
-  for (const version of ['0.162.1', '0.163.0'])
+  for (const version of ['0.162.1', '0.163.0']) {
     expect(text(h.nodes().find(n => n.type === 'option' && n.props.value === version)?.props.children)).toBe(version);
+  }
   expect(text(h.render())).not.toContain(notice);
 
   h.selectVersion('0.166.0');
   expect(h.nodes().find(n => n.type === 'select')?.props.value).toBe('0.166.0');
   expect(h.nodes().filter(n => n.type === 'p' && text(n.props.children) === notice)).toHaveLength(1);
-  h.perform.mockResolvedValueOnce({ ...data, product_version: '0.166.0' });
+  h.perform.mockResolvedValueOnce({
+    ...data,
+    product_version: '0.166.0'
+  });
   h.click('data-codex-action', 'configure');
   expect(h.perform).toHaveBeenLastCalledWith('/api/projects/project/codex-setup', {
     operation: 'configure',
@@ -387,7 +464,17 @@ test.each(['install', 'remove'] as const)('changing version clears %s preview wi
   h.flush();
   h.respondFetch(0, data);
   await h.waitFor(() => h.nodes().some(n => n.type === 'select'));
-  const preview = { ...data, changes: [{ path: 'hook.sh', action: 'update' as const, beforeHash: 'installed', afterHash: 'updated' }] };
+  const preview = {
+    ...data,
+    changes: [
+      {
+        path: 'hook.sh',
+        action: 'update' as const,
+        beforeHash: 'installed',
+        afterHash: 'updated'
+      }
+    ]
+  };
   h.perform.mockResolvedValueOnce(preview);
   h.click('data-codex-action', `preview-${operation}`);
   await h.waitFor(() => h.nodes().some(n => n.props['data-codex-preview'] === operation));
@@ -432,15 +519,38 @@ test('preview-install then explicit apply pins hashes', async () => {
   h.flush();
   h.respondFetch(0, initial);
   await h.waitFor(() => !h.nodes().find(n => n.props['data-codex-action'] === 'preview-install')?.props.disabled);
-  const withChanges = { ...initial, changes: [{ path: 'hook.sh', action: 'create' as const, beforeHash: null, afterHash: 'new-hash' }] };
+  const withChanges = {
+    ...initial,
+    changes: [
+      {
+        path: 'hook.sh',
+        action: 'create' as const,
+        beforeHash: null,
+        afterHash: 'new-hash'
+      }
+    ]
+  };
   h.perform.mockResolvedValueOnce(withChanges);
   h.click('data-codex-action', 'preview-install');
   await h.waitFor(() => h.nodes().some(n => n.props['data-codex-preview'] === 'install'));
-  h.perform.mockResolvedValueOnce(codexSetup({ configured: true, installation: { ...initial.installation, state: 'installed', installedHash: 'new-hash' } }));
+  h.perform.mockResolvedValueOnce(
+    codexSetup({
+      configured: true,
+      installation: {
+        ...initial.installation,
+        state: 'installed',
+        installedHash: 'new-hash'
+      }
+    })
+  );
   h.click('data-codex-choice', 'install');
   expect(h.perform).toHaveBeenLastCalledWith(
     expect.stringContaining('/codex-setup'),
-    expect.objectContaining({ operation: 'install', expected_package_hash: 'pkg-hash', expected_installed_hash: null })
+    expect.objectContaining({
+      operation: 'install',
+      expected_package_hash: 'pkg-hash',
+      expected_installed_hash: null
+    })
   );
 });
 
@@ -462,15 +572,38 @@ test('preview-remove then explicit remove pins installed hash', async () => {
   h.flush();
   h.respondFetch(0, initial);
   await h.waitFor(() => !h.nodes().find(n => n.props['data-codex-action'] === 'preview-remove')?.props.disabled);
-  const withChanges = { ...initial, changes: [{ path: 'hook.sh', action: 'delete' as const, beforeHash: 'inst', afterHash: null }] };
+  const withChanges = {
+    ...initial,
+    changes: [
+      {
+        path: 'hook.sh',
+        action: 'delete' as const,
+        beforeHash: 'inst',
+        afterHash: null
+      }
+    ]
+  };
   h.perform.mockResolvedValueOnce(withChanges);
   h.click('data-codex-action', 'preview-remove');
   await h.waitFor(() => h.nodes().some(n => n.props['data-codex-preview'] === 'remove'));
-  h.perform.mockResolvedValueOnce(codexSetup({ configured: true, installation: { ...initial.installation, state: 'absent', installedHash: null } }));
+  h.perform.mockResolvedValueOnce(
+    codexSetup({
+      configured: true,
+      installation: {
+        ...initial.installation,
+        state: 'absent',
+        installedHash: null
+      }
+    })
+  );
   h.click('data-codex-choice', 'remove');
   expect(h.perform).toHaveBeenLastCalledWith(
     expect.stringContaining('/codex-setup'),
-    expect.objectContaining({ operation: 'remove', expected_package_hash: 'pkg', expected_installed_hash: 'inst' })
+    expect.objectContaining({
+      operation: 'remove',
+      expected_package_hash: 'pkg',
+      expected_installed_hash: 'inst'
+    })
   );
 });
 
@@ -488,7 +621,14 @@ test('blockers disable the apply button in preview', async () => {
       hookRegistration: 'unverified',
       blockers: ['external_preimage_unapproved']
     },
-    changes: [{ path: 'hook.sh', action: 'create', beforeHash: null, afterHash: 'h' }]
+    changes: [
+      {
+        path: 'hook.sh',
+        action: 'create',
+        beforeHash: null,
+        afterHash: 'h'
+      }
+    ]
   });
   h.flush();
   h.respondFetch(0, blocked);
@@ -516,10 +656,10 @@ test('stale project resets Codex state', async () => {
   expect(h.nodes().find(n => n.type === 'select')?.props.value).toBe('1.0.0');
 });
 
-test('a previous project operation cannot replace the newly selected project status', async () => {
+test.each([false, true])('a previous project operation cannot replace the newly selected project status, window=%s', async window => {
   const h = harness('project-a');
   h.flush();
-  const first = codexSetup({ project_id: 'project-a', configured: true });
+  const first = window ? windowSetup({ project_id: 'project-a' }) : codexSetup({ project_id: 'project-a', configured: true });
   h.respondFetch(0, first);
   await h.waitFor(() => h.nodes().some(n => n.props['data-codex-configured'] === 'true'));
   const pending = deferred<CodexSetup | null>();
@@ -528,7 +668,17 @@ test('a previous project operation cannot replace the newly selected project sta
   h.selectProject('project-b');
   h.respondFetch(1, codexSetup({ project_id: 'project-b', configured: false }));
   await h.waitFor(() => h.nodes().some(n => n.props['data-codex-configured'] === 'false'));
-  pending.resolve({ ...first, changes: [{ path: '.codex/hooks.json', action: 'create', beforeHash: null, afterHash: 'review' }] });
+  pending.resolve({
+    ...first,
+    changes: [
+      {
+        path: '.codex/hooks.json',
+        action: 'create',
+        beforeHash: null,
+        afterHash: 'review'
+      }
+    ]
+  });
   await pending.promise;
   expect(h.nodes().some(n => n.props['data-codex-configured'] === 'true')).toBe(false);
   expect(h.nodes().some(n => n.props['data-codex-preview'])).toBe(false);
@@ -589,7 +739,17 @@ test('cancel discards preview without calling operate', async () => {
   h.flush();
   h.respondFetch(0, initial);
   await h.waitFor(() => !h.nodes().find(n => n.props['data-codex-action'] === 'preview-install')?.props.disabled);
-  const withChanges = { ...initial, changes: [{ path: 'hook.sh', action: 'create' as const, beforeHash: null, afterHash: 'h' }] };
+  const withChanges = {
+    ...initial,
+    changes: [
+      {
+        path: 'hook.sh',
+        action: 'create' as const,
+        beforeHash: null,
+        afterHash: 'h'
+      }
+    ]
+  };
   h.perform.mockResolvedValueOnce(withChanges);
   h.click('data-codex-action', 'preview-install');
   await h.waitFor(() => h.nodes().some(n => n.props['data-codex-preview'] === 'install'));
@@ -608,6 +768,227 @@ test('independent product panels maintain separate state', async () => {
   expect(controls(h.render()).some(n => n.type === OrdinaryObservationSetup)).toBe(true);
   h.click('data-product', 'codex');
   expect(h.nodes().some(n => n.props['data-codex-configured'] === 'true')).toBe(true);
+});
+
+function windowSetup(overrides: Partial<CodexSetup> = {}): CodexSetup {
+  return codexSetup({
+    configured: true,
+    mode: 'ordinary_window',
+    schema_version: 2,
+    product_version: '1.9.0',
+    window: {
+      policy_id: 'synthetic-window-policy',
+      policy_revision: 'synthetic-window-revision',
+      evidence_mode: 'source_only',
+      collection_enabled: false,
+      reason: 'ordinary_window_collection_disabled'
+    },
+    ...overrides
+  });
+}
+
+test.each(['en', 'ko'] as const)('explicit window transition in %s requires a declared stable version', async locale => {
+  const h = harness('project', locale);
+  const data = codexSetup({ configured: true });
+  h.flush();
+  const ready = h.waitFor(() => h.nodes().some(n => n.props['data-codex-configured'] === 'true'));
+  h.respondFetch(0, data);
+  await ready;
+
+  h.click('data-codex-mode', 'ordinary_window');
+  expect(h.nodes().find(n => n.props['data-codex-version'])?.props.value).toBe('');
+  expect(h.nodes().find(n => n.props['data-codex-action'] === 'configure')?.props.disabled).toBe(true);
+  expect(h.nodes().find(n => n.props['data-codex-action'] === 'preview-install')?.props.disabled).toBe(true);
+  h.selectVersion('1.9.0-beta');
+  expect(h.nodes().find(n => n.props['data-codex-action'] === 'configure')?.props.disabled).toBe(true);
+  h.selectVersion('1.9.0');
+  expect(h.perform).not.toHaveBeenCalled();
+  h.setBusy(true);
+  expect(h.nodes().find(n => n.props['data-codex-mode'] === 'exact')?.props.disabled).toBe(true);
+  expect(h.nodes().find(n => n.props['data-codex-version'])?.props.disabled).toBe(true);
+  h.setBusy(false);
+  const pending = deferred<CodexSetup | null>();
+  h.perform.mockReturnValueOnce(pending.promise);
+  const saved = h.waitFor(
+    () =>
+      h.nodes().find(n => n.props['data-codex-action'] === 'configure')?.props.disabled === true &&
+      h.nodes().find(n => n.props['data-codex-version'])?.props.disabled === false
+  );
+  h.click('data-codex-action', 'configure');
+  expect(h.perform).toHaveBeenLastCalledWith('/api/projects/project/codex-setup', {
+    operation: 'configure',
+    mode: 'ordinary_window',
+    product_version: '1.9.0',
+    source_roots: data.source_roots
+  });
+  expect(h.nodes().find(n => n.props['data-codex-mode'] === 'exact')?.props.disabled).toBe(true);
+  pending.resolve(windowSetup());
+  await saved;
+  expect(h.nodes().find(n => n.props['data-codex-mode'] === 'ordinary_window')?.props['aria-pressed']).toBe(true);
+  expect(h.nodes().find(n => n.props['data-codex-version'])?.props.value).toBe('1.9.0');
+  expect(h.nodes().some(n => n.type === 'select')).toBe(false);
+});
+
+test('saving a window version omits mode and retains the saved mode', async () => {
+  const h = harness();
+  const data = windowSetup();
+  h.flush();
+  const ready = h.waitFor(() => h.nodes().some(n => n.props['data-codex-version']));
+  h.respondFetch(0, data);
+  await ready;
+  h.selectVersion('1.10.0');
+  const pending = deferred<CodexSetup | null>();
+  h.perform.mockReturnValueOnce(pending.promise);
+  const saved = h.waitFor(
+    () =>
+      h.nodes().find(n => n.props['data-codex-action'] === 'configure')?.props.disabled === true &&
+      h.nodes().find(n => n.props['data-codex-version'])?.props.disabled === false
+  );
+  h.click('data-codex-action', 'configure');
+  expect(h.perform).toHaveBeenLastCalledWith('/api/projects/project/codex-setup', {
+    operation: 'configure',
+    product_version: '1.10.0',
+    source_roots: data.source_roots
+  });
+  pending.resolve(windowSetup({ product_version: '1.10.0' }));
+  await saved;
+  expect(h.nodes().find(n => n.props['data-codex-mode'] === 'ordinary_window')?.props['aria-pressed']).toBe(true);
+});
+
+test('returning from window to exact requires explicit exact version selection', async () => {
+  const h = harness();
+  h.flush();
+  const ready = h.waitFor(() => h.nodes().some(n => n.props['data-codex-version']));
+  h.respondFetch(0, windowSetup());
+  await ready;
+  h.click('data-codex-mode', 'exact');
+  expect(h.nodes().find(n => n.type === 'select')?.props.value).toBe('');
+  expect(h.nodes().find(n => n.props['data-codex-action'] === 'configure')?.props.disabled).toBe(true);
+  h.selectVersion('1.0.0');
+  h.perform.mockResolvedValueOnce(codexSetup({ configured: true }));
+  const saved = h.waitFor(
+    () =>
+      h.nodes().find(n => n.props['data-codex-action'] === 'configure')?.props.disabled === true &&
+      h.nodes().find(n => n.type === 'select')?.props.disabled === false
+  );
+  h.click('data-codex-action', 'configure');
+  expect(h.perform).toHaveBeenLastCalledWith('/api/projects/project/codex-setup', {
+    operation: 'configure',
+    mode: 'exact',
+    product_version: '1.0.0',
+    source_roots: ['/synthetic/root']
+  });
+  await saved;
+  expect(h.nodes().find(n => n.props['data-codex-mode'] === 'exact')?.props['aria-pressed']).toBe(true);
+});
+
+test.each(['mode', 'version', 'project'] as const)('changing window %s discards the reviewed preview', async change => {
+  const h = harness();
+  const data = windowSetup();
+  h.flush();
+  const ready = h.waitFor(() => h.nodes().some(n => n.props['data-codex-version']));
+  h.respondFetch(0, data);
+  await ready;
+  h.perform.mockResolvedValueOnce({
+    ...data,
+    changes: [
+      {
+        path: 'window-hook.mjs',
+        action: 'create',
+        beforeHash: null,
+        afterHash: 'window-hash'
+      }
+    ]
+  });
+  const previewed = h.waitFor(() => h.nodes().some(n => n.props['data-codex-preview'] === 'install'));
+  h.click('data-codex-action', 'preview-install');
+  await previewed;
+  expect(h.perform).toHaveBeenLastCalledWith('/api/projects/project/codex-setup', { operation: 'preview-install' });
+  expect(h.nodes().find(n => n.props['data-codex-choice'] === 'install')?.props.disabled).toBe(false);
+
+  if (change === 'mode') h.click('data-codex-mode', 'exact');
+  if (change === 'version') h.selectVersion('1.10.0');
+  if (change === 'project') {
+    h.selectProject('other-project');
+    const loaded = h.waitFor(() => h.nodes().some(n => n.type === 'select'));
+    h.respondFetch(1, codexSetup({ project_id: 'other-project' }));
+    await loaded;
+    expect(h.nodes().find(n => n.props['data-codex-mode'] === 'exact')?.props['aria-pressed']).toBe(true);
+    expect(h.nodes().find(n => n.type === 'select')?.props.value).toBe('1.0.0');
+  }
+  expect(h.nodes().some(n => n.props['data-codex-preview'] || n.props['data-codex-choice'])).toBe(false);
+  expect(h.perform).toHaveBeenCalledTimes(1);
+});
+
+test('window installation requires preview and applies only the reviewed hashes', async () => {
+  const h = harness();
+  const data = windowSetup();
+  data.installation.packageHash = 'window-package';
+  h.flush();
+  const ready = h.waitFor(() => h.nodes().some(n => n.props['data-codex-version']));
+  h.respondFetch(0, data);
+  await ready;
+  expect(h.nodes().some(n => n.props['data-codex-choice'])).toBe(false);
+  h.perform.mockResolvedValueOnce({
+    ...data,
+    changes: [
+      {
+        path: 'window-hook.mjs',
+        action: 'create',
+        beforeHash: null,
+        afterHash: 'window-hash'
+      }
+    ]
+  });
+  const previewed = h.waitFor(() => h.nodes().some(n => n.props['data-codex-preview'] === 'install'));
+  h.click('data-codex-action', 'preview-install');
+  await previewed;
+  const pending = deferred<CodexSetup | null>();
+  h.perform.mockReturnValueOnce(pending.promise);
+  const applied = h.waitFor(
+    () =>
+      h.nodes().some(n => n.props['data-installation-state'] === 'installed') &&
+      h.nodes().find(n => n.props['data-codex-action'] === 'refresh')?.props.disabled === false
+  );
+  h.click('data-codex-choice', 'install');
+  expect(h.perform).toHaveBeenLastCalledWith('/api/projects/project/codex-setup', {
+    operation: 'install',
+    expected_package_hash: 'window-package',
+    expected_installed_hash: null
+  });
+  pending.resolve({
+    ...data,
+    installation: {
+      ...data.installation,
+      state: 'installed',
+      installedHash: 'window-hash'
+    }
+  });
+  await applied;
+  expect(h.nodes().some(n => n.props['data-installation-state'] === 'installed')).toBe(true);
+  expect(h.nodes().some(n => n.props['data-codex-window-collection'] === 'disabled')).toBe(true);
+});
+
+test.each(['en', 'ko'] as const)('window %s UI suppresses unknown categorical reasons and refresh errors', async locale => {
+  const h = harness('project', locale);
+  const raw = 'synthetic-private-unknown-reason';
+  const data = windowSetup();
+  data.readiness.reason = raw;
+  data.installation.blockers = [raw];
+  if (data.window) data.window.reason = raw;
+  h.flush();
+  const ready = h.waitFor(() => h.nodes().some(n => n.props['data-codex-version']));
+  h.respondFetch(0, data);
+  await ready;
+  expect(text(h.render())).not.toContain(raw);
+  expect(renderToStaticMarkup(h.render())).not.toContain(raw);
+  expect(h.nodes().map(n => n.props['data-readiness-reason'])).not.toContain(raw);
+  const failed = h.waitFor(() => h.nodes().some(n => n.props.role === 'alert' && n.type === 'p'));
+  h.click('data-codex-action', 'refresh');
+  h.failFetch(1);
+  await failed;
+  expect(text(h.render())).not.toContain('unknown_project');
+  expect(renderToStaticMarkup(h.render())).not.toContain('unknown_project');
 });
 
 test('card has correct data attribute for project', () => {

@@ -16,6 +16,7 @@ await cp(new URL('../skills/',import.meta.url),new URL('../dist/skills/',import.
 
 await mkdir(new URL('../dist/assets/', import.meta.url), { recursive: true });
 await cp(new URL('./session-binding-codex-hook.mjs', import.meta.url), new URL('../dist/assets/session-binding-codex-hook.mjs', import.meta.url));
+await cp(new URL('./session-binding-codex-window-hook.mjs', import.meta.url), new URL('../dist/assets/session-binding-codex-window-hook.mjs', import.meta.url));
 await cp(new URL('./generated/current-support.json', import.meta.url), new URL('../dist/assets/current-support.json', import.meta.url));
 
 // Remove exclusively retired generated assets when rebuilding an existing checkout.

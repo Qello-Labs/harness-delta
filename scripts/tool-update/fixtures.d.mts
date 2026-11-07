@@ -34,7 +34,7 @@ export function privateRead(path: string, root: string, active?: () => boolean, 
 export function writePrivateJson(path: string, value: unknown): void;
 export function observedProcess(command: string, args: readonly string[], options?: {
   readonly cwd?: string; readonly env?: Readonly<Record<string, string | undefined>>;
-  readonly stdio?: 'ignore' | readonly string[];
+  readonly stdio?: 'ignore' | readonly (string | number)[];
 }, attach?: (child: ChildProcess) => void): {
   readonly child: ChildProcess; readonly closed: Promise<readonly [number | null, NodeJS.Signals | null]>;
 };

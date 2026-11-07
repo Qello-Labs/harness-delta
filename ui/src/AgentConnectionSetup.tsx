@@ -3,20 +3,31 @@ import { Button } from './components/ui/button.js';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card.js';
 import { Badge } from './components/ui/badge.js';
 import { RefreshCw } from 'lucide-react';
-import { OrdinaryObservationSetup } from './OrdinaryObservationSetup.js';
+import { CodexExactVersionSetup, CodexModeSetup, OrdinaryObservationSetup } from './OrdinaryObservationSetup.js';
 import { OrdinaryWindowNotice } from './OrdinaryWindowNotice.js';
 import * as api from './api.js';
 import type { CodexSetup, Locale } from './types.js';
 
 type Product = 'codex' | 'claude_code';
+type CodexMode = 'exact' | 'ordinary_window';
 type SetupOperation = 'configure' | 'preview-install' | 'install' | 'preview-remove' | 'remove' | 'recover-lock';
 
-function codexSetupInput(operation: SetupOperation, status: CodexSetup | null, selectedVersion: string | null) {
+function codexSetupInput(operation: SetupOperation, status: CodexSetup | null, draft: { version: string | null; mode: CodexMode | null }) {
+  const { version: selectedVersion, mode: selectedMode } = draft;
   return {
     operation,
-    ...(operation === 'configure' ? { product_version: selectedVersion ?? status?.product_version, source_roots: status?.source_roots } : {}),
+    ...(operation === 'configure'
+      ? {
+          product_version: selectedVersion ?? status?.product_version,
+          source_roots: status?.source_roots
+        }
+      : {}),
+    ...(operation === 'configure' && selectedMode !== null ? { mode: selectedMode } : {}),
     ...(operation === 'install' || operation === 'remove'
-      ? { expected_package_hash: status?.installation.packageHash ?? null, expected_installed_hash: status?.installation.installedHash ?? null }
+      ? {
+          expected_package_hash: status?.installation.packageHash ?? null,
+          expected_installed_hash: status?.installation.installedHash ?? null
+        }
       : {})
   };
 }
@@ -48,8 +59,21 @@ function readinessReason(code: string | null, t: (en: string, ko: string) => str
   return code;
 }
 
+function installationBlocker(code: string, t: (en: string, ko: string) => string, windowContext: boolean) {
+  return windowContext ? (
+    t('Installation requires review.', '설치를 검토해야 합니다.')
+  ) : (
+    <>
+      {readinessReason(code, t)} <code>{code}</code>
+    </>
+  );
+}
+
 async function readSetup(route: string, signal?: AbortSignal): Promise<CodexSetup> {
-  const reply = await fetch(route, { cache: 'no-store', ...(signal ? { signal } : {}) });
+  const reply = await fetch(route, {
+    cache: 'no-store',
+    ...(signal ? { signal } : {})
+  });
   const value: unknown = await reply.json();
   if (!reply.ok) {
     throw new api.LocalApiError(
@@ -57,6 +81,27 @@ async function readSetup(route: string, signal?: AbortSignal): Promise<CodexSetu
     );
   }
   return value as CodexSetup;
+}
+
+function codexSetupDraft(status: CodexSetup | null, selectedMode: CodexMode | null, selectedVersion: string | null) {
+  const mode = selectedMode ?? status?.mode ?? 'exact';
+  const windowMode = mode === 'ordinary_window';
+  const windowContext = windowMode || status?.mode === 'ordinary_window';
+  const modeChanged = mode !== (status?.mode ?? 'exact');
+  const version = selectedVersion ?? (modeChanged ? '' : (status?.product_version ?? ''));
+  const invalidVersion = (windowMode || modeChanged) && !/^(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})$/.test(version);
+  const unsavedWindow = modeChanged || (windowMode && selectedVersion !== null && selectedVersion !== status?.product_version);
+  const configureDisabled =
+    invalidVersion || (modeChanged && selectedVersion === null) || (!modeChanged && status?.configured && version === status.product_version);
+  return {
+    mode,
+    windowMode,
+    windowContext,
+    modeChanged,
+    version,
+    unsavedWindow,
+    configureDisabled
+  };
 }
 
 export function AgentConnectionSetup({
@@ -77,6 +122,7 @@ export function AgentConnectionSetup({
   const [reading, setReading] = useState(false);
   const [preview, setPreview] = useState<'install' | 'remove' | null>(null);
   const [selectedVersion, setSelectedVersion] = useState<string | null>(null);
+  const [selectedMode, setSelectedMode] = useState<CodexMode | null>(null);
   const [prevProjectId, setPrevProjectId] = useState(projectId);
   const generation = useRef(0);
 
@@ -87,6 +133,7 @@ export function AgentConnectionSetup({
     setError(null);
     setPreview(null);
     setSelectedVersion(null);
+    setSelectedMode(null);
     setReading(false);
   }
 
@@ -117,11 +164,14 @@ export function AgentConnectionSetup({
     setPreview(null);
     setError(null);
     try {
-      const value = await perform<CodexSetup>(route, codexSetupInput(operation, status, selectedVersion));
+      const value = await perform<CodexSetup>(route, codexSetupInput(operation, status, { version: selectedVersion, mode: selectedMode }));
       if (started !== generation.current) return;
       if (value) {
         setStatus(value);
-        if (operation === 'configure') setSelectedVersion(null);
+        if (operation === 'configure') {
+          setSelectedVersion(null);
+          setSelectedMode(null);
+        }
         if (operation === 'preview-install') setPreview('install');
         if (operation === 'preview-remove') setPreview('remove');
       } else setError('local_operation_failed');
@@ -152,6 +202,7 @@ export function AgentConnectionSetup({
 
   const disabled = busy || reading || !status;
   const blocked = !!status && (status.installation.state === 'blocked' || status.installation.blockers.length > 0);
+  const { mode, windowMode, windowContext, modeChanged, version, unsavedWindow, configureDisabled } = codexSetupDraft(status, selectedMode, selectedVersion);
 
   return (
     <Card className="break-keep" data-agent-setup={projectId}>
@@ -185,14 +236,30 @@ export function AgentConnectionSetup({
         {product === 'claude_code' && <OrdinaryObservationSetup projectId={projectId} locale={locale} busy={busy} perform={perform} />}
         {product === 'codex' && (
           <>
-            <OrdinaryWindowNotice product="codex" locale={locale} />
+            {!windowContext && <OrdinaryWindowNotice product="codex" locale={locale} />}
+            <CodexModeSetup
+              mode={mode}
+              version={version}
+              disabled={disabled}
+              locale={locale}
+              onModeChange={choice => {
+                if (choice === mode) return;
+                setSelectedMode(choice);
+                setSelectedVersion(null);
+                setPreview(null);
+              }}
+              onVersionChange={value => {
+                setSelectedVersion(value);
+                setPreview(null);
+              }}
+            />
             {error && (
               <p role="alert" className="text-sm text-destructive">
                 {t(
                   'Could not read or update Codex setup. Refresh and review the saved state.',
                   'Codex 설정을 읽거나 처리하지 못했습니다. 새로고침 후 저장 상태를 확인하세요.'
                 )}{' '}
-                <code>{error}</code>
+                {!windowContext && <code>{error}</code>}
               </p>
             )}
             {!status && !error && <p role="status">{t('Reading Codex setup…', 'Codex 설정 확인 중…')}</p>}
@@ -219,42 +286,24 @@ export function AgentConnectionSetup({
                     'Codex 시작 hook은 첫 연결 요청 전에 사용자의 검토·신뢰 확인과 새 세션 또는 재개된 세션이 필요합니다. 설정 파일만으로는 네이티브 연결이나 지원을 증명하지 않습니다.'
                   )}
                 </p>
-                <label className="block space-y-2 text-sm">
-                  <span>{t('Codex version', 'Codex 버전')}</span>
-                  <select
-                    className="native-select min-h-11"
+                {!windowMode && (
+                  <CodexExactVersionSetup
+                    status={status}
+                    locale={locale}
                     disabled={disabled}
-                    value={selectedVersion ?? status.product_version}
-                    onChange={event => {
-                      setSelectedVersion(event.target.value);
+                    version={version}
+                    requireVersion={modeChanged}
+                    showCandidateNotice={!windowContext}
+                    onChange={value => {
+                      setSelectedVersion(value);
                       setPreview(null);
                     }}
-                  >
-                    {!status.available_versions.includes(status.product_version) && (
-                      <option value={status.product_version} disabled>
-                        {status.product_version}
-                      </option>
-                    )}
-                    {status.available_versions.map(version => (
-                      <option key={version} value={version}>
-                        {version}
-                        {status.unqualified_versions.includes(version) ? t(' (unqualified candidate)', ' (미검증 후보)') : ''}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                {status.unqualified_versions.includes(selectedVersion ?? status.product_version) && (
-                  <p className="text-sm text-muted-foreground">
-                    {t(
-                      'Unqualified candidate: qualified support is pending. Usage is labeled compatibility-unverified.',
-                      '미검증 후보: 지원 검증이 아직 끝나지 않았습니다. 사용량은 호환성 미검증으로 표시됩니다.'
-                    )}
-                  </p>
+                  />
                 )}
 
                 {status.readiness.reason && (
-                  <p className="text-sm" role="status" data-readiness-reason={status.readiness.reason}>
-                    {readinessReason(status.readiness.reason, t)}
+                  <p className="text-sm" role="status" data-readiness-reason={windowContext ? 'collection_disabled' : status.readiness.reason}>
+                    {windowContext ? t('Collection remains disabled.', '수집은 비활성 상태입니다.') : readinessReason(status.readiness.reason, t)}
                   </p>
                 )}
 
@@ -285,9 +334,7 @@ export function AgentConnectionSetup({
                 {status.installation.blockers.length > 0 && (
                   <ul role="alert" className="list-disc pl-5 text-sm">
                     {status.installation.blockers.map(blocker => (
-                      <li key={blocker}>
-                        {readinessReason(blocker, t)} <code>{blocker}</code>
-                      </li>
+                      <li key={blocker}>{installationBlocker(blocker, t, windowContext)}</li>
                     ))}
                   </ul>
                 )}
@@ -298,7 +345,7 @@ export function AgentConnectionSetup({
               <Button
                 variant="outline"
                 data-codex-action="configure"
-                disabled={disabled || (status?.configured && (selectedVersion ?? status.product_version) === status.product_version)}
+                disabled={disabled || configureDisabled}
                 onClick={() => {
                   void operate('configure');
                 }}
@@ -308,7 +355,7 @@ export function AgentConnectionSetup({
               <Button
                 variant="outline"
                 data-codex-action="preview-install"
-                disabled={disabled || !status?.configured || status.installation.source !== 'available'}
+                disabled={disabled || unsavedWindow || !status?.configured || status.installation.source !== 'available'}
                 onClick={() => {
                   void operate('preview-install');
                 }}
@@ -318,7 +365,7 @@ export function AgentConnectionSetup({
               <Button
                 variant="outline"
                 data-codex-action="preview-remove"
-                disabled={disabled || !status?.installation.installedHash}
+                disabled={disabled || unsavedWindow || !status?.installation.installedHash}
                 onClick={() => {
                   void operate('preview-remove');
                 }}

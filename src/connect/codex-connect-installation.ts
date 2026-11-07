@@ -4,6 +4,7 @@ import type { Stats } from 'node:fs';
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { z } from 'zod';
 import { getCodexBindingAdmission } from '../codex-binding-admission.js';
+import { resolveOrdinaryWindow } from '../core/ordinary-window-policy.js';
 
 import { durablePrivateBytes, hashBytes, readRepositoryFile, readStrictJson, safeRelativePath } from '../core/repository-files.js';
 import { implementationExtension, implementationPath, packagePath, packagedSkillPath } from '../package-paths.js';
@@ -12,6 +13,8 @@ const destination = '.agents/skills/harness-connect';
 const metadata = '.harness-delta/codex-connect';
 const receiptDirectory = `${metadata}/receipts`;
 const recorder = `${metadata}/session-binding-codex-hook.mjs`;
+const windowReceiptDirectory = '.harness-delta/window-receipts';
+const windowRecorder = `${metadata}/session-binding-codex-window-hook.mjs`;
 const manifestPath = `${metadata}/installation.json`;
 const hooksPath = '.codex/hooks.json';
 const lockPath = `${metadata}/installation-lock`;
@@ -36,14 +39,35 @@ const manifestSchema = z.strictObject({
     .max(257),
   hooks: z.strictObject({ SessionStart: hookEntrySchema, SubagentStart: hookEntrySchema })
 });
+const windowManifestSchema = manifestSchema.extend({
+  schema_version: z.literal(2),
+  bundle_mode: z.literal('ordinary_window'),
+  bundle_revision: z.literal('codex-window-bundle-v1'),
+  files: z
+    .array(
+      z.strictObject({
+        path: z.string().refine(path => safeRelativePath(path) && (path.startsWith(destination + '/') || path === recorder || path === windowRecorder)),
+        sha256: digest
+      })
+    )
+    .min(2)
+    .max(257),
+  hooks: manifestSchema.shape.hooks.nullable(),
+  window_hooks: manifestSchema.shape.hooks
+});
+const installationManifestSchema = z.union([manifestSchema, windowManifestSchema]);
 const lockOwnerSchema = z.strictObject({ pid: z.number().int().positive(), root_identity: z.string() });
-type Manifest = z.infer<typeof manifestSchema>;
-type HookEntries = Manifest['hooks'];
+type Manifest = z.infer<typeof installationManifestSchema>;
+type HookEntries = z.infer<typeof manifestSchema>['hooks'];
+type PackageSource = { readonly files: Map<string, Buffer>; hooks: HookEntries | null; readonly windowHooks: HookEntries | null };
 type JsonObject = Record<string, unknown>;
 
 export interface CodexConnectInstallationOptions {
   readonly sourceRoots: readonly string[];
   readonly productVersion: string;
+  readonly bundleMode?: 'exact' | 'ordinary_window';
+  readonly windowPackageRoot?: string;
+  readonly windowHookSource?: string;
   /** Trusted development seams, never user-selected destinations. */
   readonly packageRoot?: string;
   readonly hookSource?: string;
@@ -66,7 +90,9 @@ export interface CodexConnectInstallationStatus {
   readonly packageHash: string | null;
   readonly installedHash: string | null;
   readonly destination: typeof destination;
-  readonly receiptDirectory: typeof receiptDirectory;
+  readonly receiptDirectory: typeof receiptDirectory | typeof windowReceiptDirectory;
+  readonly bundleMode?: 'ordinary_window';
+  readonly bundleRevision?: 'codex-window-bundle-v1';
   readonly hookRegistration: 'unverified';
   readonly blockers: readonly string[];
 }
@@ -162,11 +188,12 @@ function tree(root: string): Map<string, Buffer> {
   visit('', 0);
   return files;
 }
-const bundleHash = (files: Map<string, Buffer>, hooks: HookEntries | null) =>
+const bundleHash = (files: Map<string, Buffer>, hooks: HookEntries | null, windowHooks: HookEntries | null = null) =>
   hashBytes(
     JSON.stringify({
       files: [...files].sort(([a], [b]) => a.localeCompare(b)).map(([path, bytes]) => [path, hashBytes(bytes)]),
-      hooks
+      hooks,
+      ...(windowHooks ? { bundle_mode: 'ordinary_window', bundle_revision: 'codex-window-bundle-v1', window_hooks: windowHooks } : {})
     })
   );
 const object = (value: unknown): JsonObject => {
@@ -281,7 +308,94 @@ function mergeHooks(bytes: Buffer | null, before: HookEntries | null, after: Hoo
   return Buffer.from(JSON.stringify({ ...document, hooks }, null, 2) + '\n');
 }
 const quote = (value: string) => `'${value.replaceAll("'", "'\"'\"'")}'`;
-function packageSource(root: string, options: CodexConnectInstallationOptions) {
+function manifestWindowHooks(manifest: Manifest | null): HookEntries | null {
+  return manifest?.schema_version === 2 ? manifest.window_hooks : null;
+}
+function mergeWindowHooks(
+  bytes: Buffer | null,
+  before: { exact: HookEntries | null; window: HookEntries | null },
+  after: { exact: HookEntries | null; window: HookEntries | null }
+): Buffer {
+  const { document, hooks } = hookDocument(bytes);
+  for (const event of events) {
+    const entries = z.array(z.unknown()).parse(hooks[event] ?? []);
+    const previous = [before.exact?.[event], before.window?.[event]].filter(value => value !== undefined);
+    for (const value of previous) if (entries.filter(entry => equal(entry, value)).length !== 1) fail('hooks_drift');
+    const remaining = entries.filter(entry => !previous.some(value => equal(entry, value)));
+    const wanted = [after.exact?.[event], after.window?.[event]].filter(value => value !== undefined);
+    if (
+      wanted.length &&
+      remaining.some(
+        entry => wanted.some(value => equal(entry, value)) || JSON.stringify(entry).includes(recorder) || JSON.stringify(entry).includes(windowRecorder)
+      )
+    )
+      fail('hooks_unowned');
+    remaining.push(...wanted);
+    if (hooks[event] !== undefined || wanted.length) hooks[event] = remaining;
+  }
+  return Buffer.from(JSON.stringify({ ...document, hooks }, null, 2) + '\n');
+}
+function windowPackageSource(root: string, options: CodexConnectInstallationOptions): PackageSource {
+  if (!resolveOrdinaryWindow('codex', options.productVersion, 'codex-binding-root-window-v1')) fail('product_version_unsupported');
+  if (!Array.isArray(options.sourceRoots) || !options.sourceRoots.length || options.sourceRoots.length > 32) fail('source_roots_invalid');
+  for (const path of options.sourceRoots) {
+    if (!isAbsolute(path) || path.length > 4096 || /[\0\r\n]/.test(path) || resolve(path) !== path || resolve(path) === '/') fail('source_roots_invalid');
+  }
+  const files = new Map([...tree(options.packageRoot ?? packagedSkillPath('harness-connect'))].map(([path, bytes]) => [destination + '/' + path, bytes]));
+  const selected = tree(options.windowPackageRoot ?? packagedSkillPath('harness-connect-window-codex'));
+  if (!selected.has('SKILL.md') || !selected.has('scripts/connect.mjs')) fail('package_invalid');
+  for (const [path, bytes] of selected) {
+    const target = destination + '/' + (path === 'scripts/connect.mjs' ? 'scripts/connect-window.mjs' : path);
+    if (files.has(target) && path !== 'SKILL.md') fail('package_invalid');
+    files.set(target, bytes);
+  }
+  for (const [name, override, target] of [
+    ['session-binding-codex-hook.mjs', options.hookSource, recorder],
+    ['session-binding-codex-window-hook.mjs', options.windowHookSource, windowRecorder]
+  ] as const) {
+    const path = override ?? (implementationExtension === '.ts' ? packagePath('scripts', name) : implementationPath('assets', name));
+    rootIdentity(dirname(path), true);
+    const bytes = bytesAt(dirname(path), basename(path));
+    if (!bytes) return fail('package_source_unavailable');
+    files.set(target, bytes);
+  }
+  if (files.size > 257 || [...files.values()].reduce((size, bytes) => size + bytes.length, 0) > 8 * 1048576) fail('package_limit');
+  const runtime = realpathSync(process.execPath),
+    stat = lstatSync(runtime);
+  if (!isAbsolute(runtime) || !stat.isFile() || (stat.mode & 0o022) !== 0 || !/^node(?:\.exe)?$/.test(basename(runtime))) fail('node_runtime_unavailable');
+  const command = [
+    runtime,
+    join(resolve(root), windowRecorder),
+    '--receipt-directory',
+    join(resolve(root), windowReceiptDirectory),
+    '--project-root',
+    resolve(root)
+  ]
+    .map(quote)
+    .join(' ');
+  const hook = { hooks: [{ type: 'command' as const, command }] };
+  return { files, hooks: null, windowHooks: { SessionStart: hook, SubagentStart: hook } };
+}
+function installedManifest(rootId: string, source: ReturnType<typeof packageSource>): Manifest {
+  const common = {
+    package: 'harness-connect' as const,
+    root_identity: rootId,
+    files: [...source.files].map(([path, bytes]) => ({ path, sha256: hashBytes(bytes) }))
+  };
+  if (source.windowHooks)
+    return {
+      schema_version: 2,
+      ...common,
+      bundle_mode: 'ordinary_window',
+      bundle_revision: 'codex-window-bundle-v1',
+      hooks: source.hooks,
+      window_hooks: source.windowHooks
+    };
+  if (!source.hooks) return fail('package_invalid');
+  return { schema_version: 1, ...common, hooks: source.hooks };
+}
+function packageSource(root: string, options: CodexConnectInstallationOptions): PackageSource {
+  if (options.bundleMode === 'ordinary_window') return windowPackageSource(root, options);
   if (!getCodexBindingAdmission(options.productVersion)) fail('product_version_unsupported');
   if (!Array.isArray(options.sourceRoots) || options.sourceRoots.length === 0 || options.sourceRoots.length > 32) fail('source_roots_invalid');
   for (const sourceRoot of options.sourceRoots) {
@@ -324,7 +438,7 @@ function packageSource(root: string, options: CodexConnectInstallationOptions) {
     .join(' ');
   const hook = { hooks: [{ type: 'command' as const, command }] };
   const hooks: HookEntries = { SessionStart: { matcher: 'startup|resume|clear|compact', ...hook }, SubagentStart: hook };
-  return { files, hooks };
+  return { files, hooks, windowHooks: null };
 }
 function inspectOwned(root: string) {
   const rootId = rootIdentity(root);
@@ -347,7 +461,7 @@ function inspectOwned(root: string) {
   }
   const stat = entry(root, manifestPath);
   if (!stat || (stat.mode & 0o077) !== 0) fail('manifest_unsafe');
-  const parsed = manifestSchema.safeParse(readStrictJson(bytes));
+  const parsed = installationManifestSchema.safeParse(readStrictJson(bytes));
   if (!parsed.success) return fail('manifest_invalid');
   const manifest = parsed.data;
   if (manifest.root_identity !== rootId) fail('changed_project_root');
@@ -356,6 +470,14 @@ function inspectOwned(root: string) {
   const hook = bytesAt(root, recorder);
   if (!hook) return fail('package_drift');
   files.set(recorder, hook);
+  if (manifest.schema_version === 2) {
+    pin(windowRecorder);
+    pin(windowReceiptDirectory);
+    privateDirectory(root, windowReceiptDirectory);
+    const windowHook = bytesAt(root, windowRecorder);
+    if (!windowHook) return fail('package_drift');
+    files.set(windowRecorder, windowHook);
+  }
   const names = new Set(manifest.files.map(file => file.path));
   if (names.size !== files.size || names.size !== manifest.files.length) fail('package_drift');
   for (const file of manifest.files) {
@@ -368,8 +490,46 @@ function inspectOwned(root: string) {
       parent = dirname(parent);
     }
   }
-  mergeHooks(hookBytes, manifest.hooks, null);
+  if (manifest.schema_version === 2) mergeWindowHooks(hookBytes, { exact: manifest.hooks, window: manifest.window_hooks }, { exact: null, window: null });
+  else mergeHooks(hookBytes, manifest.hooks, null);
   return { rootId, pins, bytes, hookBytes, files, manifest };
+}
+function prepareWindowPackage(root: string, owned: ReturnType<typeof inspectOwned>, source: PackageSource | undefined): void {
+  privateDirectory(root, windowReceiptDirectory);
+  for (const path of [windowReceiptDirectory, windowRecorder]) {
+    if (!owned.pins.has(path)) {
+      const stat = entry(root, path);
+      owned.pins.set(path, stat ? identity(stat) : null);
+    }
+  }
+  if (!owned.manifest && entry(root, windowRecorder)) fail('package_unowned');
+  if (source?.windowHooks) {
+    source.hooks = owned.manifest?.hooks ?? null;
+    for (const [path, bytes] of owned.files) {
+      if (path !== destination + '/SKILL.md' && path !== destination + '/scripts/connect-window.mjs' && path !== windowRecorder) source.files.set(path, bytes);
+    }
+    if (source.files.size > 257 || [...source.files.values()].reduce((size, bytes) => size + bytes.length, 0) > 8 * 1048576) fail('package_limit');
+  }
+}
+function plannedHooks(owned: ReturnType<typeof inspectOwned>, source: PackageSource | undefined, operation: 'install' | 'remove'): Buffer | null {
+  const after =
+    source?.windowHooks || manifestWindowHooks(owned.manifest)
+      ? mergeWindowHooks(
+          owned.hookBytes,
+          { exact: owned.manifest?.hooks ?? null, window: manifestWindowHooks(owned.manifest) },
+          { exact: operation === 'install' ? (source?.hooks ?? null) : null, window: operation === 'install' ? (source?.windowHooks ?? null) : null }
+        )
+      : mergeHooks(owned.hookBytes, owned.manifest?.hooks ?? null, operation === 'install' ? (source?.hooks ?? null) : null);
+  // An idempotent install must not rewrite formatting or reorder existing hooks.
+  if (
+    operation === 'install' &&
+    owned.manifest &&
+    source &&
+    equal(owned.manifest.hooks, source.hooks) &&
+    equal(manifestWindowHooks(owned.manifest), source.windowHooks)
+  )
+    return owned.hookBytes;
+  return after;
 }
 function plan(root: string, options: CodexConnectInstallationPreviewOptions) {
   const operation = options.operation ?? 'install';
@@ -387,16 +547,20 @@ function plan(root: string, options: CodexConnectInstallationPreviewOptions) {
   } catch (error) {
     if (operation === 'install') blockers.push(blocker(error));
   }
+  const selectedReceiptDirectory = options.bundleMode === 'ordinary_window' ? windowReceiptDirectory : receiptDirectory;
+  if (owned && options.bundleMode === 'ordinary_window') {
+    try {
+      prepareWindowPackage(root, owned, source);
+    } catch (error) {
+      blockers.push(blocker(error));
+    }
+  }
   const wanted = operation === 'install' ? source?.files : new Map<string, Buffer>();
   const changes: CodexConnectInstallationChange[] = [];
   let afterHooks: Buffer | null = null;
   if (owned && wanted && blockers.length === 0) {
     try {
-      if (operation === 'install' || owned.manifest) {
-        afterHooks = mergeHooks(owned.hookBytes, owned.manifest?.hooks ?? null, operation === 'install' ? (source?.hooks ?? null) : null);
-        // An idempotent install must not rewrite formatting or reorder existing hooks.
-        if (operation === 'install' && owned.manifest && source && equal(owned.manifest.hooks, source.hooks)) afterHooks = owned.hookBytes;
-      }
+      if (operation === 'install' || owned.manifest) afterHooks = plannedHooks(owned, source, operation);
       for (const path of [...new Set([...owned.files.keys(), ...wanted.keys()])].sort()) {
         const before = owned.files.get(path),
           after = wanted.get(path);
@@ -412,8 +576,8 @@ function plan(root: string, options: CodexConnectInstallationPreviewOptions) {
           beforeHash: owned.hookBytes ? hashBytes(owned.hookBytes) : null,
           afterHash: hashBytes(afterHooks)
         });
-      if (operation === 'install' && owned.pins.get(receiptDirectory) === null)
-        changes.push({ path: receiptDirectory, action: 'create', beforeHash: null, afterHash: hashBytes('directory:0700') });
+      if (operation === 'install' && owned.pins.get(selectedReceiptDirectory) === null)
+        changes.push({ path: selectedReceiptDirectory, action: 'create', beforeHash: null, afterHash: hashBytes('directory:0700') });
     } catch (error) {
       blockers.push(blocker(error));
     }
@@ -424,19 +588,36 @@ function plan(root: string, options: CodexConnectInstallationPreviewOptions) {
       ? 'blocked'
       : !owned?.manifest
         ? 'absent'
-        : source && (owned.pins.get(receiptDirectory) === null || bundleHash(source.files, source.hooks) !== bundleHash(owned.files, owned.manifest.hooks))
+        : source &&
+            (owned.pins.get(selectedReceiptDirectory) === null ||
+              bundleHash(source.files, source.hooks, source.windowHooks) !== bundleHash(owned.files, owned.manifest.hooks, manifestWindowHooks(owned.manifest)))
           ? 'update_available'
           : 'installed',
     source: source ? 'available' : 'unavailable',
     packageHash:
       source && owned
-        ? hashBytes(JSON.stringify([bundleHash(source.files, source.hooks), owned.rootId, beforeHooksHash, owned.pins.get(receiptDirectory) !== null]))
+        ? hashBytes(
+            JSON.stringify([
+              bundleHash(source.files, source.hooks, source.windowHooks),
+              owned.rootId,
+              beforeHooksHash,
+              owned.pins.get(selectedReceiptDirectory) !== null
+            ])
+          )
         : null,
     installedHash: owned?.manifest
-      ? hashBytes(JSON.stringify([bundleHash(owned.files, owned.manifest.hooks), owned.rootId, beforeHooksHash, owned.pins.get(receiptDirectory) !== null]))
+      ? hashBytes(
+          JSON.stringify([
+            bundleHash(owned.files, owned.manifest.hooks, manifestWindowHooks(owned.manifest)),
+            owned.rootId,
+            beforeHooksHash,
+            owned.pins.get(selectedReceiptDirectory) !== null
+          ])
+        )
       : null,
     destination,
-    receiptDirectory,
+    receiptDirectory: selectedReceiptDirectory,
+    ...(options.bundleMode === 'ordinary_window' ? { bundleMode: 'ordinary_window' as const, bundleRevision: 'codex-window-bundle-v1' as const } : {}),
     hookRegistration: 'unverified',
     blockers,
     operation,
@@ -456,7 +637,8 @@ export function statusCodexConnectInstallation(root: string, options: CodexConne
     packageHash: result.packageHash,
     installedHash: result.installedHash,
     destination,
-    receiptDirectory,
+    receiptDirectory: result.receiptDirectory,
+    ...(result.bundleMode ? { bundleMode: result.bundleMode, bundleRevision: result.bundleRevision } : {}),
     hookRegistration: 'unverified',
     blockers: result.blockers
   };
@@ -499,12 +681,13 @@ function apply(root: string, options: CodexConnectInstallationPreviewOptions): C
     locked = true;
     durablePrivateBytes(root, `${lockPath}/owner.json`, Buffer.from(JSON.stringify({ pid: process.pid, root_identity: owned.rootId })));
     ensure(transaction);
-    if (preview.operation === 'install') ensure(receiptDirectory);
+    if (preview.operation === 'install') ensure(preview.receiptDirectory);
     const recheck = () => {
       const current = inspectOwned(root);
       if (
         current.rootId !== owned.rootId ||
-        bundleHash(current.files, current.manifest?.hooks ?? null) !== bundleHash(owned.files, owned.manifest?.hooks ?? null) ||
+        bundleHash(current.files, current.manifest?.hooks ?? null, manifestWindowHooks(current.manifest)) !==
+          bundleHash(owned.files, owned.manifest?.hooks ?? null, manifestWindowHooks(owned.manifest)) ||
         !equal(current.bytes ? hashBytes(current.bytes) : null, owned.bytes ? hashBytes(owned.bytes) : null) ||
         !equal(current.hookBytes ? hashBytes(current.hookBytes) : null, owned.hookBytes ? hashBytes(owned.hookBytes) : null) ||
         [...owned.pins].some(([path, pin]) => pin !== null && current.pins.get(path) !== pin)
@@ -512,7 +695,7 @@ function apply(root: string, options: CodexConnectInstallationPreviewOptions): C
         fail('installation_preview_changed');
     };
     recheck();
-    for (const change of preview.changes.filter(change => change.path !== receiptDirectory))
+    for (const change of preview.changes.filter(change => change.path !== preview.receiptDirectory))
       actions.push({
         path: change.path,
         before: change.path === hooksPath ? owned.hookBytes : (owned.files.get(change.path) ?? null),
@@ -520,16 +703,7 @@ function apply(root: string, options: CodexConnectInstallationPreviewOptions): C
         moved: false,
         installed: false
       });
-    const manifest: Manifest | null =
-      preview.operation === 'install' && source
-        ? {
-            schema_version: 1,
-            package: 'harness-connect',
-            root_identity: owned.rootId,
-            files: [...source.files].map(([path, bytes]) => ({ path, sha256: hashBytes(bytes) })),
-            hooks: source.hooks
-          }
-        : null;
+    const manifest: Manifest | null = preview.operation === 'install' && source ? installedManifest(owned.rootId, source) : null;
     actions.push({
       path: manifestPath,
       before: owned.bytes,

@@ -3,10 +3,11 @@ import { Button } from './components/ui/button.js';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card.js';
 import { Badge } from './components/ui/badge.js';
 import { Label } from './components/ui/label.js';
+import { Input } from './components/ui/input.js';
 import { ClaudeConnection } from './ClaudeConnection.js';
 import { OrdinaryWindowNotice } from './OrdinaryWindowNotice.js';
 import * as api from './api.js';
-import type { Locale, OrdinarySetup, Task } from './types.js';
+import type { CodexSetup, Locale, OrdinarySetup, Task } from './types.js';
 
 type SetupOperation = 'configure' | 'preview-install' | 'install' | 'preview-remove' | 'remove' | 'recover-lock';
 function ordinarySetupInput(operation: SetupOperation, status: OrdinarySetup | null) {
@@ -305,5 +306,126 @@ export function OrdinaryConnectionGuide({
       onAction={onAction}
       reason={reason}
     />
+  );
+}
+
+export function CodexExactVersionSetup({
+  status,
+  locale,
+  disabled,
+  version,
+  requireVersion,
+  showCandidateNotice,
+  onChange
+}: {
+  status: CodexSetup;
+  locale: Locale;
+  disabled: boolean;
+  version: string;
+  requireVersion: boolean;
+  showCandidateNotice: boolean;
+  onChange: (version: string) => void;
+}) {
+  const t = (en: string, ko: string) => (locale === 'ko' ? ko : en);
+  return (
+    <>
+      <label className="block space-y-2 text-sm">
+        <span>{t('Codex version', 'Codex 버전')}</span>
+        <select className="native-select min-h-11" disabled={disabled} value={version} onChange={event => onChange(event.target.value)}>
+          {requireVersion && version === '' && (
+            <option value="" disabled>
+              {t('Select an explicit version', '버전을 직접 선택하세요')}
+            </option>
+          )}
+          {!status.available_versions.includes(status.product_version) && (
+            <option value={status.product_version} disabled>
+              {status.product_version}
+            </option>
+          )}
+          {status.available_versions.map(candidate => (
+            <option key={candidate} value={candidate}>
+              {candidate}
+              {status.unqualified_versions.includes(candidate) ? t(' (unqualified candidate)', ' (미검증 후보)') : ''}
+            </option>
+          ))}
+        </select>
+      </label>
+      {showCandidateNotice && status.unqualified_versions.includes(version) && (
+        <p className="text-sm text-muted-foreground">
+          {t(
+            'Unqualified candidate: qualified support is pending. Usage is labeled compatibility-unverified.',
+            '미검증 후보: 지원 검증이 아직 끝나지 않았습니다. 사용량은 호환성 미검증으로 표시됩니다.'
+          )}
+        </p>
+      )}
+    </>
+  );
+}
+
+export function CodexModeSetup({
+  mode,
+  version,
+  disabled,
+  locale,
+  onModeChange,
+  onVersionChange
+}: {
+  mode: 'exact' | 'ordinary_window';
+  version: string;
+  disabled: boolean;
+  locale: Locale;
+  onModeChange: (mode: 'exact' | 'ordinary_window') => void;
+  onVersionChange: (version: string) => void;
+}) {
+  const t = (en: string, ko: string) => (locale === 'ko' ? ko : en);
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-2" role="group" aria-label={t('Codex mode', 'Codex 모드')}>
+        {(['exact', 'ordinary_window'] as const).map(choice => (
+          <Button
+            key={choice}
+            className="min-h-11"
+            variant={mode === choice ? 'default' : 'outline'}
+            aria-pressed={mode === choice}
+            data-codex-mode={choice}
+            disabled={disabled}
+            onClick={() => onModeChange(choice)}
+          >
+            {choice === 'exact' ? t('Exact version', '정확 버전') : t('Ordinary window', '일반 window')}
+          </Button>
+        ))}
+      </div>
+      {mode === 'ordinary_window' && (
+        <>
+          <label className="block space-y-2 text-sm">
+            <span>{t('Declared stable Codex version', '직접 지정한 Codex 안정 버전')}</span>
+            <Input
+              className="min-h-11"
+              type="text"
+              data-codex-version="ordinary_window"
+              value={version}
+              disabled={disabled}
+              autoComplete="off"
+              spellCheck={false}
+              onChange={event => onVersionChange(event.target.value)}
+            />
+          </label>
+          <div className="space-y-2 text-sm text-muted-foreground" role="status" data-codex-window-collection="disabled">
+            <p>
+              {t(
+                'source_only: the root source is not root-owned usage. Possible child contribution is unknown; children are never connected automatically.',
+                'source_only: 루트 소스는 루트 소유 사용량이 아닙니다. 자식 기여 가능성은 알 수 없으며 자식을 자동 연결하지 않습니다.'
+              )}
+            </p>
+            <p>
+              {t(
+                'Implemented for offline acceptance. Ordinary-window collection is disabled pending separate product activation and native acceptance. Saving this preference or installing the package does not activate collection.',
+                '오프라인 acceptance용 구현입니다. 별도 제품 활성화와 네이티브 acceptance 전까지 일반 window 수집은 비활성 상태입니다. 설정 저장이나 패키지 설치는 수집을 활성화하지 않습니다.'
+              )}
+            </p>
+          </div>
+        </>
+      )}
+    </div>
   );
 }

@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, expect, test, vi } from 'vitest';
-import { OrdinaryObservationSetup } from './OrdinaryObservationSetup';
+import { CodexModeSetup, OrdinaryObservationSetup } from './OrdinaryObservationSetup';
 import type { OrdinarySetup } from './types';
 
 vi.mock('react', async importOriginal => {
   const react = await importOriginal<typeof import('react')>();
-  return { ...react, useState: vi.fn(react.useState), useEffect: vi.fn(react.useEffect) };
+  return {
+    ...react,
+    useState: vi.fn(react.useState),
+    useEffect: vi.fn(react.useEffect)
+  };
 });
 afterEach(() => {
   vi.mocked(useState).mockReset();
@@ -29,12 +33,25 @@ test.each(['en', 'ko'] as const)('installation provenance and blocker codes rema
       hookRegistration: 'unverified',
       blockers: ['installation_recovery_required']
     },
-    admission: { profile_id: 'synthetic-profile', admitted: true, qualified: false, max_family_members: 8, model_family: 'claude' }
+    admission: {
+      profile_id: 'synthetic-profile',
+      admitted: true,
+      qualified: false,
+      max_family_members: 8,
+      model_family: 'claude'
+    }
   };
   let stateIndex = 0;
   vi.mocked(useState).mockImplementation((initial?: unknown) => [stateIndex++ === 0 ? status : initial, () => undefined]);
   vi.mocked(useEffect).mockImplementation(() => undefined);
-  const markup = renderToStaticMarkup(OrdinaryObservationSetup({ projectId: status.project_id, locale, busy: false, perform: () => Promise.resolve(null) }));
+  const markup = renderToStaticMarkup(
+    OrdinaryObservationSetup({
+      projectId: status.project_id,
+      locale,
+      busy: false,
+      perform: () => Promise.resolve(null)
+    })
+  );
   const disclosures = [...markup.matchAll(/<details\b([^>]*)>([\s\S]*?)<\/details>/g)];
   expect(disclosures).toHaveLength(1);
   expect(disclosures[0]?.[1]).not.toMatch(/\bopen\b/);
@@ -48,4 +65,23 @@ test.each(['en', 'ko'] as const)('installation provenance and blocker codes rema
   expect(primary).toContain('role="alert"');
   expect(primary).toContain('data-admission="true"');
   expect(primary).not.toContain(status.product_version);
+});
+
+test.each(['en', 'ko'] as const)('Codex window %s renders a disabled collection notice without activation controls', locale => {
+  const markup = renderToStaticMarkup(
+    CodexModeSetup({
+      mode: 'ordinary_window',
+      version: '1.9.0',
+      disabled: true,
+      locale,
+      onModeChange: () => undefined,
+      onVersionChange: () => undefined
+    })
+  );
+  expect(markup).toContain('data-codex-window-collection="disabled"');
+  expect(markup).toContain('data-codex-version="ordinary_window"');
+  expect(markup).toContain('value="1.9.0"');
+  expect([...markup.matchAll(/<button\b([^>]*)>/g)].map(match => match[1])).toEqual([expect.stringContaining('disabled'), expect.stringContaining('disabled')]);
+  expect([...markup.matchAll(/<input\b([^>]*)>/g)].map(match => match[1])).toEqual([expect.stringContaining('disabled')]);
+  expect(markup).not.toMatch(/data-(?:admission|qualified|activate|active-support)/);
 });

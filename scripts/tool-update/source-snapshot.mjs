@@ -10,7 +10,7 @@ import { scopeSourceDigests } from './lanes.mjs';
 export const legacyAssessmentRuleRevision = 'static-assessment-v1';
 export const expandedAssessmentRuleRevision = 'static-assessment-v2';
 export const assessmentRuleRevision = 'static-assessment-v3';
-export const assessmentSourcePathLimit = 44;
+export const assessmentSourcePathLimit = 47;
 export const legacySourcePathAllowlist = Object.freeze([
   "package-lock.json",
   "package.json",
@@ -67,7 +67,10 @@ const hashOnlyPaths = [
   "src/ordinary-window-emission.ts",
   "src/core/ordinary-window-evidence.ts",
   "src/pricing/metrics-ordinary-window.ts",
-  "scripts/session-binding-codex-window-hook.mjs"
+  "scripts/session-binding-codex-window-hook.mjs",
+  "src/connect/codex-connect-installation.ts",
+  "skills/harness-connect-window-codex/SKILL.md",
+  "skills/harness-connect-window-codex/scripts/connect.mjs"
 ];
 export const sourcePathAllowlist = Object.freeze([
   ...new Set([...modules.map(name => `src/${name}.ts`), 'src/codex-admissions.json',
