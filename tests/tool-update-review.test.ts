@@ -507,7 +507,13 @@ test('without reviews the assessment writes schema 5 and old schemas stay readab
   const { inventory_scope: scope, ...fields } = plain;
   expect(scope).toBe('legacy_full_inventory');
   expect(
-    assessmentSchema.safeParse({ ...fields, schema_version: 1, rule_revision: 'static-assessment-v1', source_paths: legacySourcePathAllowlist }).success
+    assessmentSchema.safeParse({
+      ...fields,
+      schema_version: 1,
+      rule_revision: 'static-assessment-v1',
+      source_paths: legacySourcePathAllowlist,
+      lanes: plain.lanes.filter(row => row.rule_revision === 'forward-version-v1')
+    }).success
   ).toBe(true);
   const selected = lane(plain);
   const forged = {
@@ -536,11 +542,13 @@ test('without reviews the assessment writes schema 5 and old schemas stay readab
     schema_version: 3,
     rule_revision: 'static-assessment-v1',
     source_paths: legacySourcePathAllowlist,
-    lanes: closed.lanes.map(row => {
-      const { selection_policy, ...previous } = row;
-      expect(selection_policy).toBeDefined();
-      return previous;
-    })
+    lanes: closed.lanes
+      .filter(row => row.rule_revision === 'forward-version-v1')
+      .map(row => {
+        const { selection_policy, ...previous } = row;
+        expect(selection_policy).toBeDefined();
+        return previous;
+      })
   };
   expect(assessmentSchema.safeParse(schema3).success).toBe(true);
   expect(assessmentSchema.safeParse({ ...closed, review_ids: [...closed.review_ids].reverse() }).success).toBe(false);

@@ -73,10 +73,18 @@ test.each(versions)('schema %i reads its finite closure and preserves portable f
   expect(parsed.source_paths).toHaveLength(schemaVersion <= 4 ? 31 : 44);
 });
 
+test.each([5, 6] as const)('schema %i reads both named expanded revisions without rewriting v2 records', schemaVersion => {
+  const input = record(schemaVersion);
+
+  for (const rule_revision of ['static-assessment-v2', 'static-assessment-v3']) {
+    expect(assessmentSchema.parse({ ...input, rule_revision })).toEqual({ ...input, rule_revision });
+  }
+});
+
 test.each(versions)('schema %i rejects wrong top-level and lane revisions', schemaVersion => {
   const input = record(schemaVersion);
   const revisions =
-    schemaVersion <= 4 ? ['static-assessment-v2', 'static-assessment-v3', 'unknown'] : ['static-assessment-v1', 'static-assessment-v3', 'unknown'];
+    schemaVersion <= 4 ? ['static-assessment-v2', 'static-assessment-v3', 'unknown'] : ['static-assessment-v1', 'static-assessment-v4', 'unknown'];
 
   for (const rule_revision of revisions) expect(assessmentSchema.safeParse({ ...input, rule_revision }).success).toBe(false);
   expect(assessmentSchema.safeParse({ ...input, lanes: input.lanes.map(row => ({ ...row, rule_revision: 'forward-version-v2' })) }).success).toBe(false);
@@ -172,6 +180,45 @@ test.each([5, 6] as const)('schema %i keeps the 256 KiB portable record ceiling'
   expect(() => boundedParse(oversized, assessmentSchema)).toThrow('record_too_large');
 });
 
+test.each([1, 2, 3, 4] as const)('legacy schema %i refuses new root-policy profiles under its original revision', schemaVersion => {
+  const input = record(schemaVersion);
+
+  for (const profile_id of ['codex-binding-root-window-v1', 'claude-binding-root-window-v1']) {
+    expect(
+      assessmentSchema.safeParse({
+        ...input,
+        lanes: input.lanes.map(row => ({
+          ...row,
+          product: profile_id.startsWith('codex') ? 'codex' : 'claude_code',
+          route: profile_id.startsWith('codex') ? 'codex_binding' : 'claude_binding',
+          profile_id
+        }))
+      }).success
+    ).toBe(false);
+  }
+});
+
 test.each([0, 7])('rejects unknown assessment schema %i', schema_version => {
   expect(assessmentSchema.safeParse({ ...record(5), schema_version }).success).toBe(false);
+});
+
+test.each(versions)('schema %i keeps root policy IDs out of legacy compatibility fields', schemaVersion => {
+  const input = record(schemaVersion);
+  const compatibility = {
+    state: 'verified',
+    product: 'codex',
+    product_version: '0.158.0',
+    source: 'file',
+    parser_version: '0.158.0',
+    parser_revision: 'codex-file-checkpoint-v1',
+    profile_id: 'codex-file-checkpoint-v1',
+    rule_revision: 'forward-version-v1'
+  };
+  const legacy = { ...input, lanes: input.lanes.map(row => ({ ...row, compatibility })) };
+  expect(assessmentSchema.parse(legacy)).toEqual(legacy);
+  for (const id of ['codex-binding-root-window-v1', 'claude-binding-root-window-v1'])
+    for (const key of ['profile_id', 'parser_revision'])
+      expect(
+        assessmentSchema.safeParse({ ...legacy, lanes: legacy.lanes.map(row => ({ ...row, compatibility: { ...compatibility, [key]: id } })) }).success
+      ).toBe(false);
 });

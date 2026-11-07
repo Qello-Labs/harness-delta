@@ -28,7 +28,7 @@ export interface AssessmentLane extends Lane {
   readonly compatibility: Compatibility | null;
   readonly parser_base: string | null;
   readonly window: { readonly base: string; readonly upper_exclusive: string } | null;
-  readonly rule_revision: 'forward-version-v1';
+  readonly rule_revision: 'forward-version-v1' | 'codex-ordinary-root-window-v1' | 'claude-ordinary-root-window-v1';
   readonly declared_scope: {
     readonly max_depth: number | null; readonly max_members: number | null;
     readonly read_only: boolean; readonly exact_only: boolean;
@@ -90,7 +90,7 @@ type LegacyAssessment = AssessmentFields & { readonly rule_revision: 'static-ass
     readonly lanes: readonly (AssessmentLane & { readonly selection_policy: SelectionPolicy })[];
   }
 );
-export type Assessment = LegacyAssessment | AssessmentFields & { readonly rule_revision: 'static-assessment-v2' } & (
+export type Assessment = LegacyAssessment | AssessmentFields & { readonly rule_revision: 'static-assessment-v2' | 'static-assessment-v3' } & (
   { readonly schema_version: 5; readonly inventory_scope: 'legacy_full_inventory' | 'latest_and_npm_review_range';
     readonly lanes: readonly AssessmentLane[] } |
   { readonly schema_version: 6; readonly inventory_scope: 'legacy_full_inventory' | 'latest_and_npm_review_range';

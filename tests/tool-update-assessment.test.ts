@@ -335,11 +335,13 @@ test.each(parserPaths)('a one-byte change in %s invalidates baseline and review 
       ...before,
       schema_version: 3,
       rule_revision: 'static-assessment-v1',
-      lanes: before.lanes.map(current => {
-        const { selection_policy, ...previous } = current;
-        expect(selection_policy).toBeDefined();
-        return previous;
-      }),
+      lanes: before.lanes
+        .filter(current => current.rule_revision === 'forward-version-v1')
+        .map(current => {
+          const { selection_policy, ...previous } = current;
+          expect(selection_policy).toBeDefined();
+          return previous;
+        }),
       source_paths: legacySourcePathAllowlist
     }).success
   ).toBe(true);
@@ -453,6 +455,7 @@ test('legacy schema 1 and 2 assessments parse without the hash-only parser paths
     ...current,
     schema_version: 2,
     rule_revision: 'static-assessment-v1',
+    lanes: current.lanes.filter(row => row.rule_revision === 'forward-version-v1'),
     source_paths: legacySourcePathAllowlist.filter(
       path =>
         !['src/nested-candidate.ts', 'src/codex-candidate-rollout.ts', 'src/core/ordinary-window-store.ts', 'src/ordinary-window-binding.ts'].includes(path)

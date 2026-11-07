@@ -48,11 +48,17 @@ test.each([1, 2])('preserves observation scope from schema %i in static assessme
 
   expect(assessment).toMatchObject({
     schema_version: 5,
-    rule_revision: 'static-assessment-v2',
+    rule_revision: 'static-assessment-v3',
     inventory_scope: schema === 1 ? 'legacy_full_inventory' : 'latest_and_npm_review_range'
   });
   const oldFields = Object.fromEntries(Object.entries(assessment).filter(([key]) => key !== 'inventory_scope'));
   expect(
-    assessmentSchema.safeParse({ ...oldFields, schema_version: 1, rule_revision: 'static-assessment-v1', source_paths: legacySourcePathAllowlist }).success
+    assessmentSchema.safeParse({
+      ...oldFields,
+      schema_version: 1,
+      rule_revision: 'static-assessment-v1',
+      source_paths: legacySourcePathAllowlist,
+      lanes: assessment.lanes.filter(row => row.rule_revision === 'forward-version-v1')
+    }).success
   ).toBe(true);
 });
