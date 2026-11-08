@@ -115,7 +115,8 @@ async function checkAncestors(path, create = false) {
 export async function publishRecord(root, input, schema) {
   const record = boundedParse(input, schema);
   const folders = { candidate: 'candidates', observation: 'observations', assessment: 'assessments', contract_review: 'reviews',
-    difference_job: 'difference-jobs', difference_evidence: 'difference-evidence', difference_judgment: 'difference-judgments' };
+    difference_job: 'difference-jobs', difference_evidence: 'difference-evidence', difference_judgment: 'difference-judgments',
+    promotion_proposal: 'promotion-proposals', promotion_validation: 'promotion-validations', promotion_decision: 'promotion-decisions' };
   const folder = folders[record.kind];
   if (!folder) fail('invalid_record');
   const id = digest(record);
