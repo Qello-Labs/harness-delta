@@ -103,6 +103,16 @@ const applicability = Object.freeze({
   finality_replay_conflict_stop_flush_sigint: Object.freeze(['serialized_shape', 'client_transformation', 'identity_lifecycle', 'native_execution'])
 });
 export const contractFacetMap = applicability;
+export const deferredValidation = Object.freeze({
+  native_execution: Object.freeze({
+    reason: 'native_validation_pending',
+    requiredValidation: Object.freeze(['native_execution', 'real_session'])
+  }),
+  backend_counter_meaning: Object.freeze({
+    reason: 'backend_validation_pending',
+    requiredValidation: Object.freeze(['backend_counter_meaning'])
+  })
+});
 export function requiredFacets(contractId, lane) {
   const required = new Set(applicability[contractId]);
   if (lane.route !== 'file' && ['identity_source_mapping', 'invocation_permissions_config_model_effort'].includes(contractId)) {

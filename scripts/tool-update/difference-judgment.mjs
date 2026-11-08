@@ -1,10 +1,19 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { boundedParse, canonical, compareVersions, digest, fail, shaSchema } from './manifest.mjs';
+import { boundedParse, canonical, digest, fail, shaSchema } from './manifest.mjs';
 import { z } from 'zod';
-import { consumedContracts, engineDigestScheme, engineFiles, engineRevision, mapRevision, methods, requiredFacets } from './difference-contracts.mjs';
-import { parseDifferenceEvidence, parseDifferenceJob, parseDifferenceJudgment } from './difference-records.mjs';
+import {
+  consumedContracts,
+  deferredValidation,
+  engineDigestScheme,
+  engineFiles,
+  engineRevision,
+  mapRevision,
+  methods,
+  requiredFacets
+} from './difference-contracts.mjs';
+import { parseDifferenceEvidence, parseDifferenceJob, parseDifferenceJudgment, requiredDifferenceCoverage } from './difference-records.mjs';
 
 export async function judgmentEngineDigest(root) {
   const files = await Promise.all(
@@ -26,52 +35,10 @@ const sameRef = (a, b) => a.version === b.version && a.commit === b.commit;
 const comparisonKey = comparison => canonical(comparison);
 const reduce = values => (values.includes('affected') ? 'affected' : values.includes('unknown') ? 'unknown' : 'unaffected');
 
-function chain(job, from, reasons) {
-  if (!from) return [];
-  const releases = job.inventory.releases.filter(
-    ref => compareVersions(ref.version, from.version) >= 0 && compareVersions(ref.version, job.target.version) <= 0
-  );
-  const versions = new Map();
-  for (const ref of releases) {
-    const previous = versions.get(ref.version);
-    if (previous) {
-      reasons.push(previous.commit === ref.commit ? 'edge_duplicate' : 'edge_commit_conflict');
-    }
-    versions.set(ref.version, ref);
-  }
-  const start = versions.get(from.version);
-  const end = versions.get(job.target.version);
-  if (!start || !end) reasons.push('release_coverage_incomplete');
-  if ((start && !sameRef(start, from)) || (end && !sameRef(end, job.target))) {
-    reasons.push('edge_commit_conflict');
-  }
-  const ordered = [...versions.values()].sort((a, b) => compareVersions(a.version, b.version));
-  return ordered.slice(1).map((to, index) => ({
-    comparison_kind: 'adjacent_release',
-    from: ordered[index],
-    to
-  }));
-}
 function coverage(job, evidence) {
-  const reasons = [];
-  if (!job.baseline_row) reasons.push('baseline_missing');
-  if (!job.parser_base) reasons.push('parser_base_missing');
-  if (job.inventory.coverage !== 'complete') {
-    reasons.push('release_coverage_incomplete');
-  }
-  const comparisons = [...chain(job, job.baseline_row?.ref, reasons), ...chain(job, job.parser_base, reasons)];
-  if (job.parser_base) {
-    comparisons.push({
-      comparison_kind: 'parser_base',
-      from: {
-        version: job.parser_base.version,
-        commit: job.parser_base.commit
-      },
-      to: job.target
-    });
-  }
-  const required = [...new Map(comparisons.map(row => [comparisonKey(row), row])).values()];
-  for (const comparison of required) {
+  const required = requiredDifferenceCoverage(job);
+  const reasons = [...required.reasons];
+  for (const comparison of required.comparisons) {
     const matches = evidence.filter(row => comparisonKey(row.record.comparison) === comparisonKey(comparison));
     if (matches.length === 0) {
       reasons.push(comparison.comparison_kind === 'parser_base' ? 'comparison_missing' : 'edge_missing');
@@ -92,7 +59,7 @@ function coverage(job, evidence) {
       reasons.push('edge_commit_conflict');
     }
   }
-  return { comparisons: required, reasons: unique(reasons) };
+  return { comparisons: required.comparisons, reasons: unique(reasons) };
 }
 function freshness(job, evidence, current) {
   const reasons = [];
@@ -162,14 +129,14 @@ function evaluate(job, record, finding, current) {
   };
 }
 function facetResult(job, contractId, facet, evidence, comparisons, coverageReasons, current) {
-  const pending = facet === 'native_execution' ? 'native_validation_pending' : facet === 'backend_counter_meaning' ? 'backend_validation_pending' : null;
+  const pending = deferredValidation[facet];
   if (pending) {
     return {
       facet,
       result: 'unknown',
       methods: [],
       evidence_ids: [],
-      reasons: [pending],
+      reasons: [pending.reason],
       impacts: ['undetermined']
     };
   }
@@ -224,9 +191,7 @@ function groupResult(job, contractId, evidence, covered, current) {
     facetResult(job, contractId, facet, evidence, covered.comparisons, covered.reasons, current)
   );
   const result = reduce(facets.map(facet => facet.result));
-  const validation = [];
-  if (facets.some(row => row.reasons.includes('native_validation_pending'))) validation.push('native_execution', 'real_session');
-  if (facets.some(row => row.reasons.includes('backend_validation_pending'))) validation.push('backend_counter_meaning');
+  const validation = facets.flatMap(row => deferredValidation[row.facet]?.requiredValidation ?? []);
   if (covered.reasons.length) validation.push('coverage_review');
   if (facets.some(row => row.reasons.some(reason => reason.startsWith('stale_')))) validation.push('fresh_evidence');
   if (result !== 'unaffected') {

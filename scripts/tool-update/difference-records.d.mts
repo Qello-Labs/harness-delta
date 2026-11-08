@@ -172,3 +172,7 @@ export function parseDifferenceJob(input: unknown): DifferenceJob;
 export function parseDifferenceEvidence(input: unknown): DifferenceEvidence;
 export function parseDifferenceJudgment(input: unknown): DifferenceJudgment;
 export function differenceJobId(input: unknown): string;
+export function requiredDifferenceCoverage(job: JobFields): {
+  readonly comparisons: readonly Comparison[];
+  readonly reasons: readonly ReasonCode[];
+};

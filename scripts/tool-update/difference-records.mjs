@@ -4,6 +4,7 @@ import { laneKey, laneSchema } from './lanes.mjs';
 import {
   consumedContracts,
   contractRevision,
+  deferredValidation,
   eligibilityRecommendations,
   facets,
   impacts,
@@ -98,6 +99,41 @@ const jobFields = {
   reasons: reasonsSchema
 };
 const sameRef = (a, b) => a.version === b.version && a.commit === b.commit;
+function comparisonChain(job, from, reasons) {
+  if (!from) return [];
+  const releases = job.inventory.releases.filter(
+    ref => compareVersions(ref.version, from.version) >= 0 && compareVersions(ref.version, job.target.version) <= 0
+  );
+  const versions = new Map();
+  for (const ref of releases) {
+    const previous = versions.get(ref.version);
+    if (previous) reasons.push(previous.commit === ref.commit ? 'edge_duplicate' : 'edge_commit_conflict');
+    versions.set(ref.version, ref);
+  }
+  const start = versions.get(from.version);
+  const end = versions.get(job.target.version);
+  if (!start || !end) reasons.push('release_coverage_incomplete');
+  if ((start && !sameRef(start, from)) || (end && !sameRef(end, job.target))) reasons.push('edge_commit_conflict');
+  const ordered = [...versions.values()].sort((a, b) => compareVersions(a.version, b.version));
+  return ordered.slice(1).map((to, index) => ({ comparison_kind: 'adjacent_release', from: ordered[index], to }));
+}
+export function requiredDifferenceCoverage(job) {
+  const reasons = [];
+  if (!job.baseline_row) reasons.push('baseline_missing');
+  if (!job.parser_base) reasons.push('parser_base_missing');
+  if (job.inventory.coverage !== 'complete') reasons.push('release_coverage_incomplete');
+  const comparisons = [...comparisonChain(job, job.baseline_row?.ref, reasons), ...comparisonChain(job, job.parser_base, reasons)];
+  if (job.parser_base)
+    comparisons.push({
+      comparison_kind: 'parser_base',
+      from: { version: job.parser_base.version, commit: job.parser_base.commit },
+      to: job.target
+    });
+  return {
+    comparisons: [...new Map(comparisons.map(row => [canonical(row), row])).values()],
+    reasons: [...new Set(reasons)].sort()
+  };
+}
 function validLane(lane) {
   const prefix = lane.product === 'codex' ? 'codex' : 'claude';
   if (!lane.profile_id.startsWith(`${prefix}-`)) return false;
@@ -318,6 +354,17 @@ const groupSchema = z.strictObject({
   eligibility_recommendation: z.enum(eligibilityRecommendations)
 });
 const reduce = values => (values.includes('affected') ? 'affected' : values.includes('unknown') ? 'unknown' : 'unaffected');
+function validJudgmentCoverage(value) {
+  if (!validJob(value) || !value.inventory.releases.every(ref => versionSchema.safeParse(ref.version).success)) return false;
+  const required = requiredDifferenceCoverage(value);
+  const comparisons = new Set(value.comparisons.map(row => canonical(row)));
+  return (
+    comparisons.size === value.comparisons.length &&
+    comparisons.size === required.comparisons.length &&
+    required.comparisons.every(row => comparisons.has(canonical(row))) &&
+    required.reasons.every(reason => value.coverage_reasons.includes(reason))
+  );
+}
 export const differenceJudgmentSchema = z
   .strictObject({
     schema_version: z.literal(1),
@@ -330,6 +377,7 @@ export const differenceJudgmentSchema = z
     groups: z.array(groupSchema).length(consumedContracts.length)
   })
   .refine(validJob, { message: 'invalid_difference_job' })
+  .refine(validJudgmentCoverage, { message: 'invalid_difference_coverage' })
   .refine(
     value =>
       value.groups.every((group, index) => {
@@ -353,6 +401,18 @@ export const differenceJudgmentSchema = z
         )
           return false;
         if (group.facets.some(facet => facet.result === 'unaffected' && !facet.methods.some(method => methods[method].establishesUnchanged))) return false;
+        if (
+          group.facets.some(facet => {
+            const pending = deferredValidation[facet.facet];
+            return (
+              pending &&
+              (facet.result !== 'unknown' ||
+                !facet.reasons.includes(pending.reason) ||
+                pending.requiredValidation.some(validation => !group.required_validation.includes(validation)))
+            );
+          })
+        )
+          return false;
         const recommendation =
           group.result === 'affected' ? 'blocked_by_affected_contract' : group.result === 'unknown' ? 'validation_pending' : 'ready_for_scoped_review';
         if (group.eligibility_recommendation !== recommendation) {

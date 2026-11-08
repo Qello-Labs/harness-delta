@@ -83,6 +83,17 @@ export const methods: Readonly<
   >
 >;
 export const contractFacetMap: Readonly<Record<ContractId, readonly Facet[]>>;
+export const deferredValidation: Readonly<
+  Partial<
+    Record<
+      Facet,
+      {
+        readonly reason: ReasonCode;
+        readonly requiredValidation: readonly RequiredValidation[];
+      }
+    >
+  >
+>;
 export function requiredFacets(contractId: ContractId, lane: z.infer<typeof laneSchema>): Facet[];
 export const engineDigestScheme: 'difference-engine-files-sha256-v1';
 export const engineFiles: readonly string[];

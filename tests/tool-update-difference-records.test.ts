@@ -14,9 +14,10 @@ import {
   parseDifferenceJudgment
 } from '../scripts/tool-update/difference-records.mjs';
 import { judgeDifferences, judgmentEngineDigest } from '../scripts/tool-update/difference-judgment.mjs';
-import { engineFiles } from '../scripts/tool-update/difference-contracts.mjs';
-import { canonical, maxRecordBytes, publishRecord } from '../scripts/tool-update/manifest.mjs';
-import { currentIdentities, differenceJob, sourceEvidence } from './helpers/tool-update-difference-fixture.js';
+import { consumedContracts, engineFiles, requiredFacets } from '../scripts/tool-update/difference-contracts.mjs';
+import type { DifferenceJob, DifferenceJudgment } from '../scripts/tool-update/difference-records.mjs';
+import { canonical, loadRecord, maxRecordBytes, publishRecord } from '../scripts/tool-update/manifest.mjs';
+import { baseRef, currentIdentities, differenceJob, sourceEvidence } from './helpers/tool-update-difference-fixture.js';
 
 const roots: string[] = [];
 async function temporaryRoot() {
@@ -261,3 +262,103 @@ test('engine digest changes for each listed input but not an unlisted neighbour'
   await writeFile(join(root, 'scripts/tool-update/unlisted.mjs'), 'synthetic neighbour');
   expect(await judgmentEngineDigest(root)).toBe(before);
 });
+
+const comparisonProblems = ['empty', 'missing_cumulative', 'duplicate_adjacent', 'conflicting_commit'] as const;
+function changeComparisons(record: DifferenceJudgment, problem: (typeof comparisonProblems)[number]): DifferenceJudgment {
+  const first = record.comparisons[0];
+  if (!first) throw new Error('missing_synthetic_comparison');
+  switch (problem) {
+    case 'empty':
+      return { ...record, comparisons: [] };
+    case 'missing_cumulative':
+      return { ...record, comparisons: record.comparisons.filter(row => row.comparison_kind !== 'parser_base') };
+    case 'duplicate_adjacent':
+      return { ...record, comparisons: [...record.comparisons, first] };
+    case 'conflicting_commit':
+      return {
+        ...record,
+        comparisons: record.comparisons.map((row, index) => (index === 0 ? { ...row, from: { ...row.from, commit: '9'.repeat(40) } } : row))
+      };
+  }
+}
+const incompletePackets = ['missing_baseline', 'missing_parser', 'incomplete_inventory'] as const;
+function incompleteJob(problem: (typeof incompletePackets)[number]): DifferenceJob {
+  const job = differenceJob();
+  switch (problem) {
+    case 'missing_baseline':
+      return {
+        ...job,
+        baseline_digest: null,
+        baseline_row: null,
+        reasons: ['baseline_missing'],
+        comparison: { comparison_kind: 'parser_base', from: baseRef, to: job.target }
+      };
+    case 'missing_parser':
+      return { ...job, parser_base: null };
+    case 'incomplete_inventory':
+      return { ...job, inventory: { ...job.inventory, coverage: 'incomplete' } };
+  }
+}
+async function rejectPortableJudgment(record: DifferenceJudgment) {
+  const root = await temporaryRoot();
+  expect(() => parseDifferenceJudgment(record)).toThrowError('invalid_record');
+  await expect(publishRecord(root, record, differenceJudgmentSchema)).rejects.toMatchObject({ code: 'invalid_record' });
+  expect(await readdir(root)).toEqual([]);
+  const path = join(root, 'untrusted.json');
+  await writeFile(path, canonical(record));
+  await expect(loadRecord(path, differenceJudgmentSchema)).rejects.toMatchObject({ code: 'invalid_record' });
+}
+test.each(comparisonProblems)('judgment parse, publication and load reject %s comparison coverage', async problem => {
+  const original = judgeDifferences(differenceJob(), sourceEvidence(), currentIdentities);
+  await rejectPortableJudgment(changeComparisons(original, problem));
+});
+test.each(comparisonProblems)('unknown judgments still reject %s comparison coverage', async problem => {
+  const original = judgeDifferences(differenceJob(), [], currentIdentities);
+  await rejectPortableJudgment(changeComparisons(original, problem));
+});
+test.each(incompletePackets)('judgment boundaries reject forged readiness with %s', async problem => {
+  const original = judgeDifferences(differenceJob(), sourceEvidence(), currentIdentities);
+  await rejectPortableJudgment({ ...original, ...incompleteJob(problem), kind: 'difference_judgment' });
+});
+test.each(incompletePackets)('non-ready judgments still require the fixed %s coverage reason', async problem => {
+  const job = incompleteJob(problem);
+  const original = judgeDifferences(job, sourceEvidence(job), currentIdentities);
+  await rejectPortableJudgment({ ...original, coverage_reasons: [] });
+});
+const deferredObligationCases = consumedContracts.flatMap(contractId =>
+  requiredFacets(contractId, differenceJob().lane).flatMap(facet => {
+    if (facet !== 'native_execution' && facet !== 'backend_counter_meaning') return [];
+    const erasures = facet === 'native_execution' ? (['reason', 'validation', 'both', 'real_session'] as const) : (['reason', 'validation', 'both'] as const);
+    return erasures.map(erase => ({ contractId, facet, erase }));
+  })
+);
+test.each(deferredObligationCases)('judgment boundaries reject erased $erase obligation for $contractId/$facet', async ({ contractId, facet, erase }) => {
+  const original = judgeDifferences(differenceJob(), sourceEvidence(), currentIdentities);
+  const groups = original.groups.map(group =>
+    group.contract_id !== contractId
+      ? group
+      : {
+          ...group,
+          required_validation:
+            erase === 'validation' || erase === 'both'
+              ? []
+              : erase === 'real_session'
+                ? group.required_validation.filter(value => value !== 'real_session')
+                : group.required_validation,
+          facets: group.facets.map(row => (row.facet === facet && (erase === 'reason' || erase === 'both') ? { ...row, reasons: [] } : row))
+        }
+  );
+  await rejectPortableJudgment({ ...original, groups });
+});
+test.each(['complete', ...incompletePackets, 'missing_evidence'] as const)(
+  'the reducer still produces publishable and loadable %s judgments',
+  async problem => {
+    const job = problem === 'complete' || problem === 'missing_evidence' ? differenceJob() : incompleteJob(problem);
+    const record = judgeDifferences(job, problem === 'missing_evidence' ? [] : sourceEvidence(job), currentIdentities);
+    const root = await temporaryRoot();
+    expect(parseDifferenceJudgment(record)).toEqual(record);
+    const id = await publishRecord(root, record, differenceJudgmentSchema);
+    expect(await loadRecord(join(root, 'difference-judgments', `${id}.json`), differenceJudgmentSchema)).toEqual(record);
+    if (problem !== 'complete') expect(record.groups.every(group => group.eligibility_recommendation === 'validation_pending')).toBe(true);
+  }
+);
