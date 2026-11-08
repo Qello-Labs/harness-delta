@@ -58,7 +58,10 @@ Adding them makes the digest in every existing baseline row and review record
 stale. Those records remain readable and are not rewritten; their historical
 digests cannot close current contract review gates.
 
-The current deduplicated static-assessment-v3 closure is exactly 52 paths, with no spare entries.
+The current `static-assessment-v4` writer captures exactly 55 deduplicated paths, with no spare entries:
+the v3 closure plus `src/core/tool-version-promotion.ts`, `src/core/tool-version-promotions.json`
+and `src/core/tool-version-promotion-result.json`. The static-assessment-v3 closure of exactly
+52 paths is frozen history.
 Its Codex window hash-only inputs include `src/connect/codex-connect-installation.ts`,
 `skills/harness-connect-window-codex/SKILL.md` and
 `skills/harness-connect-window-codex/scripts/connect.mjs`. The generic raw window
@@ -132,7 +135,7 @@ On 2026-10-29, the former all-history mode hit HTTP 422 beyond Codex's first
 the first 1000 as a complete history.
 
 New observations use `schema_version: 2` and
-`inventory_scope: "latest_and_npm_review_range"`. Assessments without review records use schema 5 and
+`inventory_scope: "latest_and_npm_review_range"`. Assessments use schema 8 and
 carry the observation's scope (`legacy_full_inventory` for schema-1 inputs).
 Legacy schema-1 observations and assessments remain readable without rewriting
 them. The legacy scope label reflects the old record format, not authenticated
@@ -200,7 +203,8 @@ each path at the pinned commit before treating it as available review evidence.
 
 ### Selection policy
 
-With review records, schema 6 includes a strict `selection_policy` object in every lane:
+With review records, the current schema-8 manual channel includes a strict `selection_policy`
+object in every lane. Frozen schema 6 retains the same requirement:
 
 ```json
 {
@@ -239,10 +243,11 @@ reasons, compatibility, windows, review coverage, gates, or live checks.
 An unmatched state fails with `invalid_record` rather than guessing a path.
 The assessment record limit remains 256 KiB.
 
-The `static-assessment-v3` writer emits schema 5 (without reviews) or 6 (with
-reviews). Readers retain schemas 1–4 with `static-assessment-v1` and schemas 5/6
-with their named `static-assessment-v2` or `static-assessment-v3` revision.
-The two root-policy IDs are accepted only with v3; v2 records are not rewritten.
+The current writer emits schema 8 with `static-assessment-v4` for the plain, manual
+and machine channels. Readers for schemas 1-7 are frozen history: schemas 1–4 with
+`static-assessment-v1` and schemas 5-7 with their named `static-assessment-v2` or
+`static-assessment-v3` revision. The two root-policy IDs are accepted with v3 on
+schemas 5-7 and with v4 on schema 8; v2 records are not rewritten.
 The v3 schemas add two ordinary root-reference
 policy lanes, `codex-binding-root-window-v1` and `claude-binding-root-window-v1`,
 with rule revisions `codex-ordinary-root-window-v1` and
@@ -397,8 +402,8 @@ different judgments for the same job are rejected.
 
 ### Assessment schema 7
 
-With at least one `--judgment`, `assess` writes `schema_version: 7`. Without one,
-it writes schema 5 or 6 exactly as before, and readers for schemas 1-6 don't change.
+Schema 7 is frozen history; the current writer emits these fields in schema 8 when
+`assess` gets at least one `--judgment`, and readers for schemas 1-6 don't change.
 Schema 7 keeps the whole static and manual projection and adds:
 
 - sorted top-level `judgment_ids` and `unused_judgment_ids`;
@@ -415,7 +420,7 @@ from the current one, the automated result is `unknown` with a fixed freshness
 reason (`stale_source`, `stale_engine` or `stale_map`). A missing baseline, a
 baseline equal to the target, or an incomplete parser chain leaves the result pending.
 
-Schema 7 can't establish support. Machine results never close `contracts_unknown`,
+Neither frozen schema 7 nor the current schema-8 machine channel establishes support. Machine results never close `contracts_unknown`,
 `exact_only`, `upper_bound`, `minor_transition`, `no_window`, live `not_assessed`
 fields, conformance, admission or default gates. They never write a support, live,
 admission, default or block decision, and they never make a version outside its
