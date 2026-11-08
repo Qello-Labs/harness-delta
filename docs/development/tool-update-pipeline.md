@@ -275,6 +275,23 @@ is not a runner or execution/activation approval; old exact pin functions and
 approval schema 1 retain their meaning. No native/target/backend run, new budget,
 publisher/variant change, cap renewal or successor record is created by validating it.
 
+## Promotion records
+
+Three additional revision-1 kinds describe portable promotion metadata:
+`promotion_proposal`, `promotion_validation` and `promotion_decision`. They use
+strict recursive schemas, canonical JSON, SHA-256 IDs, the 256 KiB limit and
+immutable publication in `promotion-proposals/`, `promotion-validations/` and
+`promotion-decisions/`. No command produces them yet.
+
+All three are non-authorizing. A decision record describes an external decision;
+schema validity does not establish consent or change runtime support. The pure
+gate reducer keeps admission, qualification and children separate, preserves
+unknown and deferred actual evidence, and stops at `ready_for_decision`.
+`review_needed` successors retain predecessor, grant, mapping, descriptor and
+unresolved-finding references; they cannot revoke or restore authority. The
+separate versioned promotion-engine identity covers the record and reducer
+dependencies. It does not replace the difference-engine or assessment identities.
+
 ## Machine difference records
 
 Three separate schema-1 kinds describe machine claims: `difference_job` binds the
