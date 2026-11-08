@@ -18,12 +18,15 @@ these records changes a default.
   the current repository source and writes an immutable assessment record.
 - `record-review` validates a hand-authored contract review record and publishes it.
   It never generates a judgment.
+- `difference-job`, `collect-difference-evidence` and `judge` build machine
+  difference records, and `assess --judgment` reads them through a separate channel
+  (see [Machine difference commands](#machine-difference-commands)).
 
 It won't install anything or run a vendor binary. It also doesn't read sessions,
 the user database, or tool configuration, and it never changes admission, defaults,
-CI, or tracked files. Only `discover` makes network requests. It sends fixed read
-requests to official GitHub and npm endpoints, with no secrets and no caller-supplied
-URL parameters.
+CI, or tracked files. Only `discover` and `collect-difference-evidence` make network
+requests. Both send fixed read requests to official endpoints, with no secrets and no
+caller-supplied URL parameters.
 
 The tool never performs a contract review. It only records and reads a maintainer's
 manual judgments. Conformance, regression, admission, and default promotion are
@@ -293,8 +296,8 @@ and null build/native/artifact digests. Under the conservative map, only Codex
 groups without required native/backend facets can become `ready_for_scoped_review`
 with complete unchanged client-source proof; Claude documentation or synthetic
 replay alone cannot establish unchanged upstream behavior. No entire lane is
-operationally ready. These records grant no authority, never become manual reviews,
-and are not yet consumed by any command or assessment.
+operationally ready. These records grant no authority and never become manual reviews.
+Only the commands below create them, and only `assess --judgment` consumes judgments.
 
 The Codex source library uses injected transport only, exact `rust-v<version>`
 tags and pinned commits from the job, and code-owned paths. Map v2 compares the
@@ -326,7 +329,80 @@ partial finality and missing-versus-zero readings. Test/harness and fixture/inpu
 hashes are bound separately from the engine digest. These fixtures, including the
 historical Claude stub/oracle, never test an unexecuted release or establish
 backend counter meaning. Native, backend and real-session validation stays pending.
-Both libraries remain library-only, without a command or `assess` input.
+Only `collect-difference-evidence` calls the two network libraries.
+
+## Machine difference commands
+
+These commands are explicit and local. Nothing schedules them, and no remote
+workflow runs them. Each prints one fixed JSON status line.
+
+```sh
+node scripts/tool-update.mjs difference-job \
+  --manifest "$out/candidates/$candidate_id.json" \
+  --observation "$out/observations/$observation_id.json" \
+  --route "<route>" --profile "<profile_id>" \
+  --operation "<operation>" --topology "<topology>" \
+  --out "$out"
+node scripts/tool-update.mjs collect-difference-evidence \
+  --job "$out/difference-jobs/$job_id.json" --out "$out"
+node scripts/tool-update.mjs judge \
+  --job "$out/difference-jobs/$job_id.json" \
+  --evidence "$out/difference-evidence/$evidence_id.json" \
+  --out "$out"
+node scripts/tool-update.mjs assess \
+  --manifest "$out/candidates/$candidate_id.json" \
+  --observation "$out/observations/$observation_id.json" \
+  --judgment "$out/difference-judgments/$judgment_id.json" \
+  --out "$out"
+```
+
+- `difference-job` is offline. It reads the candidate and observation records, one
+  lane and an optional `--baseline`, and takes the parser base from code, not from
+  an argument. If the observation lacks that base's pinned commit, the job keeps
+  a null parser base and incomplete coverage; it never guesses a commit or fetches
+  extra releases. It prints `difference_job_created` with `job_id`.
+- `collect-difference-evidence` is the only new command with network access; the
+  existing `discover` is the other. It reads one published job and runs the bounded
+  collectors described above. It prints `difference_evidence_created` with
+  `evidence_ids` and a nullable `failure`, which is a fixed bounded collector code.
+  A complete collection exits 0; a failure exits 2.
+- `judge` is offline. It reads one job and any number of `--evidence` records,
+  recomputes the current identities and prints `difference_judgment_created` with
+  `judgment_id`.
+- `assess` accepts `--judgment` once per published judgment, alongside its existing
+  options. It loads each referenced job from `difference-jobs/<job_id>.json` in the
+  same record root. It reads records only: no network, Store, vendor binary or session.
+
+Malformed records, unsupported revisions, and a judgment whose candidate,
+observation, commit or lane doesn't match the assessment inputs fail with a fixed
+status and exit 2. Nothing is published. Identical replays are deduplicated, and two
+different judgments for the same job are rejected.
+
+### Assessment schema 7
+
+With at least one `--judgment`, `assess` writes `schema_version: 7`. Without one,
+it writes schema 5 or 6 exactly as before, and readers for schemas 1-6 don't change.
+Schema 7 keeps the whole static and manual projection and adds:
+
+- sorted top-level `judgment_ids` and `unused_judgment_ids`;
+- automated results per lane, kept apart from the manual review fields;
+- results per comparison, which describe the job's scope only. They aren't
+  independent impact claims for each release edge;
+- explicit pending validation for native, backend and real-session facets;
+- conflicts where a manual review and a machine judgment disagree. Both values stay,
+  and neither overrides the other.
+
+A judgment that is structurally valid but stale still produces
+`assessment_created`. If its source digest, engine digest or map revision differs
+from the current one, the automated result is `unknown` with a fixed freshness
+reason (`stale_source`, `stale_engine` or `stale_map`). A missing baseline, a
+baseline equal to the target, or an incomplete parser chain leaves the result pending.
+
+Schema 7 can't establish support. Machine results never close `contracts_unknown`,
+`exact_only`, `upper_bound`, `minor_transition`, `no_window`, live `not_assessed`
+fields, conformance, admission or default gates. They never write a support, live,
+admission, default or block decision, and they never make a version outside its
+window selectable. An `affected` result writes no block either.
 
 ## Contract review records
 
@@ -461,6 +537,10 @@ local paths are never printed.
 | 0 | `metadata_reconciled` | Discovery finished and wrote a candidate |
 | 0 | `assessment_created` | Static assessment written |
 | 0 | `review_recorded` | Contract review record published |
+| 0 | `difference_job_created` | Difference job published |
+| 0 | `difference_evidence_created` | Evidence collection completed and published (`failure` is `null`) |
+| 0 | `difference_judgment_created` | Difference judgment published |
+| 2 | `difference_evidence_created` | Collection failed; `failure` carries a fixed collector code |
 | 2 | `release_mismatch` | GitHub and npm stable heads, or npm `latest` and the stable maximum, disagree |
 | 2 | `discovery_incomplete` | Missing selected release, budget exhaustion, or drift on revalidation |
 | 2 | `metadata_conflict` | Conflicting release identity, tag resolution, or integrity |
@@ -470,6 +550,8 @@ local paths are never printed.
 | 2 | `invalid_review` | A review record is malformed or breaks a fixed rule |
 | 2 | `review_conflict` | Two different records cover the same lane and release edge |
 | 2 | `review_commit_conflict` | A record's commit differs from the observed commit for that version |
+| 2 | `difference_identity_mismatch`, `difference_job_mismatch` | A judgment or evidence record does not belong to its job or assessment |
+| 2 | `difference_judgment_conflict` | Different judgments reference the same job |
 | 2 | `source_snapshot_unavailable`, `source_scope_changed`, `source_drift`, `observation_mismatch` | Source projection failed, reviewed scope changed, or inputs don't belong together |
 | 2 | `internal_error` | Unexpected local failure; no raw exception is printed |
 

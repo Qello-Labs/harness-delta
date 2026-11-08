@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import {
-  boundedParse, compareVersions, digest, fail, parseBaseline, shaSchema, ToolUpdateError, versionSchema,
+  boundedParse, canonical, compareVersions, digest, fail, parseBaseline, shaSchema, ToolUpdateError, versionSchema,
 } from './manifest.mjs';
 import { candidateSchema, observationSchema } from './discovery.mjs';
 import { laneKey, laneSchema, sourceLanes } from './lanes.mjs';
@@ -118,6 +118,32 @@ const reviewFields = {
   review_ids: z.array(shaSchema).min(1).max(256), unused_review_ids: z.array(shaSchema).max(256),
 };
 const sortedUnique = list => list.every((id, index) => index === 0 || id > list[index - 1]);
+const automatedContractsSchema = contractsSchema(true).refine(rows =>
+  rows.every((row, index) => row.contract_id === consumedContracts[index]));
+const freshnessSchema = z.enum(['stale_source', 'stale_engine', 'stale_map', 'stale_policy']);
+const automatedComparisonSchema = z.strictObject({
+  comparison_kind: z.enum(['adjacent_release', 'parser_base']), from: reviewRefSchema, to: reviewRefSchema,
+  judgment_id: shaSchema, result_scope: z.literal('job_aggregate'), contracts: automatedContractsSchema,
+});
+const automatedSchema = z.strictObject({
+  judgment_ids: z.array(shaSchema).max(256).refine(sortedUnique),
+  contracts: automatedContractsSchema,
+  comparisons: z.array(automatedComparisonSchema).max(512),
+  freshness_reasons: z.array(freshnessSchema).max(4).refine(sortedUnique),
+  pending_reasons: z.array(z.enum(['baseline_missing', 'equal_target', 'parser_chain_incomplete', 'judgment_missing'])).max(4).refine(sortedUnique),
+  required_validation: z.array(z.enum([
+    'source_review', 'schema_review', 'synthetic_replay', 'native_execution',
+    'backend_counter_meaning', 'real_session', 'coverage_review', 'fresh_evidence',
+  ])).max(8).refine(sortedUnique),
+  validation: z.literal('pending'),
+  conflicts: z.array(z.strictObject({
+    review_id: shaSchema, judgment_id: shaSchema, contract_id: z.enum(consumedContracts),
+    manual_judgment: z.enum(['unaffected', 'affected']), automated_judgment: z.enum(['unaffected', 'affected']),
+    comparison_kind: z.literal('adjacent_release'), from: reviewRefSchema, to: reviewRefSchema,
+  }).refine(row => row.manual_judgment !== row.automated_judgment)).max(2048),
+}).refine(value => value.comparisons.every(row => value.judgment_ids.includes(row.judgment_id)) &&
+  value.conflicts.every(row => value.judgment_ids.includes(row.judgment_id)) &&
+  ['native_execution', 'backend_counter_meaning', 'real_session'].every(code => value.required_validation.includes(code)));
 export const assessmentSchema = z.discriminatedUnion('schema_version', [
   z.strictObject({ schema_version: z.literal(1), ...assessmentFields }),
   z.strictObject({ schema_version: z.literal(2), inventory_scope: inventoryScope, ...assessmentFields }),
@@ -134,13 +160,26 @@ export const assessmentSchema = z.discriminatedUnion('schema_version', [
     schema_version: z.literal(6), ...reviewFields, ...expandedAssessmentFields,
     lanes: z.array(laneAssessment(true, true).extend({ selection_policy: selectionPolicySchema })).min(1).max(128),
   }),
+  z.strictObject({
+    schema_version: z.literal(7), ...expandedAssessmentFields, inventory_scope: inventoryScope,
+    review_ids: z.array(shaSchema).max(256), unused_review_ids: z.array(shaSchema).max(256),
+    judgment_ids: z.array(shaSchema).min(1).max(256), unused_judgment_ids: z.array(shaSchema).max(256),
+    lanes: z.array(laneAssessment(true, true).extend({
+      selection_policy: selectionPolicySchema.optional(), automated: automatedSchema,
+    })).min(1).max(128),
+  }),
 ]).superRefine((value, context) => {
   if (new Set(value.lanes.map(laneKey)).size !== value.lanes.length ||
       new Set(value.source_paths).size !== value.source_paths.length ||
-      [3, 4, 6].includes(value.schema_version) && (!sortedUnique(value.review_ids) || !sortedUnique(value.unused_review_ids) ||
+      [3, 4, 6, 7].includes(value.schema_version) && (!sortedUnique(value.review_ids) || !sortedUnique(value.unused_review_ids) ||
         value.unused_review_ids.some(id => !value.review_ids.includes(id)) ||
         value.lanes.some(row => row.gates.contracts_reviewed !== gateOf(row.review.contracts))))
     context.addIssue({ code: 'custom', message: 'invalid_assessment' });
+  if (value.schema_version === 7 && (!sortedUnique(value.judgment_ids) || !sortedUnique(value.unused_judgment_ids) ||
+    value.unused_judgment_ids.some(id => !value.judgment_ids.includes(id)) ||
+    value.lanes.some(lane => lane.automated.judgment_ids.some(id => !value.judgment_ids.includes(id)) ||
+      lane.automated.conflicts.some(row => !value.review_ids.includes(row.review_id)))))
+    context.addIssue({ code: 'custom', message: 'invalid_automated_assessment' });
   if (value.rule_revision === expandedAssessmentRuleRevision) {
     const legacyScope = expandedSourcePathsSchema.safeParse(value.source_paths);
     if (!legacyScope.success) for (const issue of legacyScope.error.issues)
@@ -335,8 +374,108 @@ function applyReviews(lane, baselineRow, rows, sourceDigest, releases, used) {
   if (gate === 'affected') lane.reasons.push('contracts_affected');
   if (changed) lane.reasons.push('review_source_changed');
 }
+const unique = values => [...new Set(values)].sort();
+function validateJudgmentIdentity(job, judgment, assessment, baseline, releases) {
+  const lane = assessment.lanes.find(row => laneKey(row) === laneKey(job.lane));
+  const baselineRow = baseline?.rows.find(row => laneKey(row) === laneKey(job.lane));
+  const parser = lane && releases.find(row => row.version === lane.parser_base);
+  const baselineRef = baselineRow && releases.find(row => row.version === baselineRow.last_reviewed_version);
+  const ref = row => ({ version: row.version, commit: row.commit });
+  const expectedRow = baselineRow && baselineRef ? {
+    ...job.lane, ref: ref(baselineRef), source_digest: baselineRow.source_digest, evidence_ids: baselineRow.evidence_ids,
+  } : null;
+  const expectedParser = parser ? { ...ref(parser), profile_id: lane.profile_id } : null;
+  const mutable = ['schema_version', 'kind', 'source_digest', 'engine_digest', 'map_revision', 'engine_revision'];
+  if (!lane || job.candidate_id !== assessment.candidate_id || job.observation_id !== assessment.observation_id ||
+    judgment.job_id !== digest(job) ||
+    Object.keys(job).some(key => !mutable.includes(key) && canonical(job[key]) !== canonical(judgment[key])) ||
+    canonical(job.target) !== canonical(ref(releases.at(-1))) ||
+    job.baseline_digest !== (baselineRow ? assessment.baseline_digest : null) ||
+    canonical(job.baseline_row) !== canonical(expectedRow) || canonical(job.parser_base) !== canonical(expectedParser) ||
+    canonical(job.inventory.releases) !== canonical(releases.map(ref)) || job.inventory.inventory_id !== digest(releases.map(ref)))
+    fail('difference_identity_mismatch');
+}
+async function prepareJudgments(inputs, assessment, baseline, releases, root) {
+  // The contract map imports this module's group owner; defer the reverse edge until evaluation.
+  const { parseDifferenceJob, parseDifferenceJudgment } = await import('./difference-records.mjs');
+  const { judgmentEngineDigest } = await import('./difference-judgment.mjs');
+  const { engineRevision, mapRevision } = await import('./difference-contracts.mjs');
+  const engineDigest = await judgmentEngineDigest(root);
+  const byJob = new Map();
+  for (const input of inputs) {
+    const job = parseDifferenceJob(input.job);
+    const judgment = parseDifferenceJudgment(input.judgment);
+    validateJudgmentIdentity(job, judgment, assessment, baseline, releases);
+    const id = digest(judgment);
+    if (byJob.has(judgment.job_id) && byJob.get(judgment.job_id).id !== id) fail('difference_judgment_conflict');
+    const freshness = unique([
+      ...[job, judgment].flatMap(row => [
+        ...row.source_digest !== assessment.source_digest ? ['stale_source'] : [],
+        ...row.engine_digest !== engineDigest || row.engine_revision !== engineRevision ? ['stale_engine'] : [],
+        ...row.map_revision !== mapRevision ? ['stale_map'] : [],
+        ...row.evidence_snapshot.policy_revision !== 'closed-windows-v1' ? ['stale_policy'] : [],
+      ]),
+      ...judgment.coverage_reasons.filter(reason => ['stale_source', 'stale_engine', 'stale_map', 'stale_policy'].includes(reason)),
+    ]);
+    byJob.set(judgment.job_id, { id, job, judgment, freshness });
+  }
+  return [...byJob.values()].sort((a, b) => a.id.localeCompare(b.id, 'en'));
+}
+function applyJudgments(lane, rows, reviews, sourceDigest, used) {
+  const mine = rows.filter(row => laneKey(row.job.lane) === laneKey(lane));
+  const contracts = row => row.judgment.groups.map(group => ({
+    contract_id: group.contract_id, judgment: row.freshness.length ? 'unknown' : group.result,
+  }));
+  const pending = row => [
+    ...row.job.baseline_row ? [] : ['baseline_missing'],
+    ...row.job.baseline_row?.ref.version === row.job.target.version ? ['equal_target'] : [],
+    ...!row.job.parser_base || row.job.inventory.coverage !== 'complete' ||
+      row.judgment.coverage_reasons.some(reason => !['baseline_missing', 'stale_source', 'stale_engine', 'stale_map', 'stale_policy'].includes(reason))
+      ? ['parser_chain_incomplete'] : [],
+  ];
+  for (const row of mine) if (!pending(row).length && !row.freshness.length) used.add(row.id);
+  const conflicts = [];
+  for (const row of mine.filter(row => !row.freshness.length)) {
+    const adjacent = row.judgment.comparisons.filter(row => row.comparison_kind === 'adjacent_release');
+    const matching = comparison => reviews.filter(item => laneKey(item.review) === laneKey(lane) &&
+      item.review.source_digest === sourceDigest && sameRef(item.review.from, comparison.from) && sameRef(item.review.to, comparison.to));
+    for (const comparison of adjacent) {
+      for (const review of matching(comparison)) {
+        for (const contract of contracts(row)) {
+          const manual = review.review.contracts.find(item => item.contract_id === contract.contract_id).judgment;
+          // A job-level change cannot contradict an unchanged edge without complete unchanged manual coverage.
+          const completeUnchanged = adjacent.every(edge => matching(edge).some(item =>
+            item.review.contracts.find(check => check.contract_id === contract.contract_id).judgment === 'unaffected'));
+          if (manual !== 'unknown' && contract.judgment !== 'unknown' && manual !== contract.judgment &&
+            (contract.judgment === 'unaffected' || completeUnchanged))
+            conflicts.push({
+              review_id: review.id, judgment_id: row.id, contract_id: contract.contract_id,
+              manual_judgment: manual, automated_judgment: contract.judgment, ...comparison,
+            });
+        }
+      }
+    }
+  }
+  lane.automated = {
+    judgment_ids: mine.map(row => row.id),
+    contracts: mine.length ? worst(mine.map(contracts)) : checks(),
+    comparisons: mine.flatMap(row => row.judgment.comparisons.map(comparison => ({
+      ...comparison, judgment_id: row.id, result_scope: 'job_aggregate', contracts: contracts(row),
+    }))),
+    freshness_reasons: unique(mine.flatMap(row => row.freshness)),
+    pending_reasons: mine.length ? unique(mine.flatMap(pending)) : ['judgment_missing'],
+    required_validation: unique([
+      'native_execution', 'backend_counter_meaning', 'real_session',
+      ...mine.flatMap(row => row.judgment.groups.flatMap(group => group.required_validation)),
+      ...mine.some(row => row.freshness.length) ? ['fresh_evidence'] : [],
+      ...!mine.length || mine.some(row => pending(row).length) ? ['coverage_review'] : [],
+    ]),
+    validation: 'pending', conflicts,
+  };
+}
 export async function assessCandidate({
-  candidate: input, observation: observed, baseline: baselineInput = null, reviews: reviewInputs = null, root,
+  candidate: input, observation: observed, baseline: baselineInput = null, reviews: reviewInputs = null,
+  judgments: judgmentInputs = null, root,
 }) {
   const candidate = boundedParse(input, candidateSchema);
   const observation = boundedParse(observed, observationSchema);
@@ -370,7 +509,7 @@ export async function assessCandidate({
     if (rows) applyReviews(lane, row, rows, snapshot.source_digest, releases, used);
     lane.reasons.sort();
   }
-  return boundedParse({
+  const assessment = {
     schema_version: rows ? 6 : 5, kind: 'assessment',
     inventory_scope: observation.schema_version === 2 ? observation.inventory_scope : 'legacy_full_inventory',
     candidate_id: digest(candidate), observation_id: digest(observation),
@@ -380,5 +519,16 @@ export async function assessCandidate({
       .map(path => ({ version: release.version, commit: release.commit, path, availability: 'not_assessed' }))),
     source_paths: snapshot.source_paths, rule_revision: assessmentRuleRevision, lanes: snapshot.value,
     ...rows ? { review_ids: rows.map(item => item.id), unused_review_ids: rows.map(item => item.id).filter(id => !used.has(id)) } : {},
-  }, assessmentSchema);
+  };
+  if (judgmentInputs?.length) {
+    const judgments = await prepareJudgments(judgmentInputs, assessment, baseline, releases, root);
+    const usedJudgments = new Set();
+    for (const lane of assessment.lanes) applyJudgments(lane, judgments, rows ?? [], snapshot.source_digest, usedJudgments);
+    assessment.schema_version = 7;
+    assessment.review_ids = rows?.map(row => row.id) ?? [];
+    assessment.unused_review_ids = assessment.review_ids.filter(id => !used.has(id));
+    assessment.judgment_ids = judgments.map(row => row.id);
+    assessment.unused_judgment_ids = assessment.judgment_ids.filter(id => !usedJudgments.has(id));
+  }
+  return boundedParse(assessment, assessmentSchema);
 }

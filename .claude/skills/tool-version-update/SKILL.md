@@ -66,6 +66,12 @@ public: compare available versioned official docs/schema and executable behavior
 If a pinned source is unavailable, label it `unknown`, not `unchanged`, and use
 the bounded runtime comparison described in the checklist when authorized.
 
+The explicit local `difference-job`, `collect-difference-evidence`, `judge` and
+`assess --judgment` commands can add machine difference judgments to this review.
+Follow the checklist's machine-judgment steps. Stale machine results stay
+`unknown`, pending validation and conflicts with manual reviews stay visible,
+and no machine result closes a gate or replaces the comparison below.
+
 Record each consumed contract as `unchanged`, `changed` or `unknown`, with its
 evidence and effect on the existing parser. Separate upstream changes from their
 impact: an unrelated TUI fix does not establish stable token semantics.

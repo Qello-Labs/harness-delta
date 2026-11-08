@@ -1,11 +1,19 @@
 import { Command } from 'commander';
-import { dirname, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { baselineSchema, loadRecord, parseBaseline, publishRecord, ToolUpdateError } from './tool-update/manifest.mjs';
+import { baselineSchema, digest, fail, loadRecord, parseBaseline, publishRecord, ToolUpdateError } from './tool-update/manifest.mjs';
 import { discover, candidateSchema, observationSchema } from './tool-update/discovery.mjs';
 import {
   assessCandidate, assessmentSchema, contractReviewSchema, validateBaselineForSource,
 } from './tool-update/assessment.mjs';
+import { laneKey } from './tool-update/lanes.mjs';
+import { withSourceSnapshot } from './tool-update/source-snapshot.mjs';
+import {
+  differenceEvidenceSchema, differenceJobSchema, differenceJudgmentSchema, parseDifferenceJob,
+} from './tool-update/difference-records.mjs';
+import { judgeDifferences, judgmentEngineDigest } from './tool-update/difference-judgment.mjs';
+import { contractRevision, engineRevision, mapRevision } from './tool-update/difference-contracts.mjs';
+import { collectClaudeDocumentationEvidence, collectCodexSourceEvidence } from './tool-update/difference-source.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const errorCodes = new Set([
@@ -14,7 +22,75 @@ const errorCodes = new Set([
   'unsafe_output', 'source_snapshot_unavailable', 'source_scope_changed', 'source_drift', 'observation_mismatch',
   'discovery_incomplete', 'metadata_conflict', 'release_mismatch',
   'invalid_review', 'review_conflict', 'review_commit_conflict',
+  'difference_job_mismatch', 'difference_identity_mismatch', 'difference_judgment_conflict',
 ]);
+const repeated = (value, previous) => [...previous, value];
+async function createDifferenceJob(flags, baseline, sourceRoot) {
+  const candidate = await loadRecord(flags.manifest, candidateSchema);
+  const observation = await loadRecord(flags.observation, observationSchema);
+  const assessment = await assessCandidate({ candidate, observation, baseline, root: sourceRoot });
+  const lane = {
+    product: candidate.product, route: flags.route, profile_id: flags.profile, operation: flags.operation, topology: flags.topology,
+  };
+  const projection = assessment.lanes.find(row => laneKey(row) === laneKey(lane));
+  if (!projection) fail('difference_identity_mismatch');
+  const ref = row => ({ version: row.version, commit: row.commit });
+  const releases = observation.releases.map(ref);
+  const baselineRow = baseline?.rows.find(row => laneKey(row) === laneKey(lane));
+  const baselineRef = baselineRow && releases.find(row => row.version === baselineRow.last_reviewed_version);
+  const parserRef = releases.find(row => row.version === projection.parser_base);
+  const parserBase = parserRef && { ...parserRef, profile_id: lane.profile_id };
+  const selectedBaseline = baselineRow && { ...lane, ref: baselineRef, source_digest: baselineRow.source_digest, evidence_ids: baselineRow.evidence_ids };
+  const target = { version: candidate.target, commit: candidate.commit };
+  const absentPin = { applicability: 'not_applicable', digest: null };
+  const from = selectedBaseline?.ref ?? parserRef;
+  const job = parseDifferenceJob({
+    schema_version: 1, kind: 'difference_job', source_digest: assessment.source_digest,
+    engine_digest: await judgmentEngineDigest(sourceRoot), engine_revision: engineRevision,
+    contract_revision: contractRevision, map_revision: mapRevision,
+    candidate_id: digest(candidate), observation_candidate_id: observation.candidate_id, observation_id: digest(observation),
+    repository_id: candidate.product === 'codex' ? 'openai_codex' : 'anthropics_claude_code',
+    lane, baseline_digest: selectedBaseline ? digest(baseline) : null, baseline_row: selectedBaseline ?? null,
+    parser_base: parserBase ?? null, target,
+    comparison: from ? { comparison_kind: selectedBaseline ? 'adjacent_release' : 'parser_base', from, to: target } : null,
+    inventory: {
+      inventory_id: digest(releases), scope: 'latest_and_npm_review_range',
+      coverage: parserBase ? 'complete' : 'incomplete', releases,
+    },
+    evidence_snapshot: {
+      policy_revision: 'closed-windows-v1', windows: 'closed', actual_evidence: 'deferred_pre_release',
+      evidence_mode: 'static', version_basis: 'pinned_release', lifecycle_policy: 'static',
+      writer_ownership: 'unverified', root_ownership: 'unverified', native_image: 'not_required',
+      publisher_proof: 'not_required', process_proof: 'not_required', mapped_image_proof: 'not_required',
+    },
+    pins: { build: absentPin, native_pin: absentPin, artifact: absentPin },
+    reasons: [...!selectedBaseline ? ['baseline_missing'] : [], ...!parserBase ? ['parser_base_missing', 'release_coverage_incomplete'] : []].sort(),
+  });
+  return { exitCode: 0, output: {
+    status: 'difference_job_created', job_id: await publishRecord(flags.out, job, differenceJobSchema),
+  } };
+}
+async function runDifferenceCommand(name, flags, sourceRoot, options) {
+  const job = await loadRecord(flags.job, differenceJobSchema);
+  if (name === 'collect-difference-evidence') {
+    const collect = job.lane.product === 'codex' ? collectCodexSourceEvidence : collectClaudeDocumentationEvidence;
+    const result = await collect(job, { fetch: options.fetchImpl ?? globalThis.fetch });
+    const ids = [];
+    for (const evidence of result.evidence) ids.push(await publishRecord(flags.out, evidence, differenceEvidenceSchema));
+    return { exitCode: result.failure ? 2 : 0, output: {
+      status: 'difference_evidence_created', evidence_ids: [...new Set(ids)].sort(), failure: result.failure,
+    } };
+  }
+  const evidence = [];
+  for (const path of [...flags.evidence].sort()) evidence.push(await loadRecord(path, differenceEvidenceSchema));
+  const snapshot = await withSourceSnapshot(sourceRoot, () => null);
+  const judgment = judgeDifferences(job, evidence, {
+    source_digest: snapshot.source_digest, engine_digest: await judgmentEngineDigest(sourceRoot), map_revision: mapRevision,
+  });
+  return { exitCode: 0, output: {
+    status: 'difference_judgment_created', judgment_id: await publishRecord(flags.out, judgment, differenceJudgmentSchema),
+  } };
+}
 async function loadReview(path) {
   try { return await loadRecord(path, contractReviewSchema); }
   catch (error) {
@@ -29,8 +105,15 @@ export async function runToolUpdate(argv, options = {}) {
     .requiredOption('--out <directory>').option('--baseline <file>');
   command.command('assess').requiredOption('--manifest <file>')
     .requiredOption('--observation <file>').option('--baseline <file>').option('--out <directory>')
-    .option('--review <file>', 'contract review record', (value, previous) => [...previous, value], []);
+    .option('--review <file>', 'contract review record', repeated, [])
+    .option('--judgment <file>', 'machine judgment record', repeated, []);
   command.command('record-review').requiredOption('--input <file>').requiredOption('--out <directory>');
+  command.command('difference-job').requiredOption('--manifest <file>').requiredOption('--observation <file>')
+    .requiredOption('--route <route>').requiredOption('--profile <profile>').requiredOption('--operation <operation>')
+    .requiredOption('--topology <topology>').requiredOption('--out <directory>').option('--baseline <file>');
+  command.command('collect-difference-evidence').requiredOption('--job <file>').requiredOption('--out <directory>');
+  command.command('judge').requiredOption('--job <file>').requiredOption('--out <directory>')
+    .option('--evidence <file>', 'difference evidence record', repeated, []);
   try {
     command.parse(argv, { from: 'user' });
     const selected = command.commands.find(row => row.name() === command.args[0]);
@@ -66,11 +149,20 @@ export async function runToolUpdate(argv, options = {}) {
       const reviewId = await publishRecord(flags.out, await loadReview(flags.input), contractReviewSchema);
       return { exitCode: 0, output: { status: 'review_recorded', review_id: reviewId } };
     }
+    if (selected.name() === 'difference-job') return await createDifferenceJob(flags, baseline, sourceRoot);
+    if (['collect-difference-evidence', 'judge'].includes(selected.name()))
+      return await runDifferenceCommand(selected.name(), flags, sourceRoot, options);
     const candidate = await loadRecord(flags.manifest, candidateSchema);
     const observation = await loadRecord(flags.observation, observationSchema);
     const reviews = [];
     for (const path of [...flags.review].sort()) reviews.push(await loadReview(path));
-    const assessment = await assessCandidate({ candidate, observation, baseline, reviews, root: sourceRoot });
+    const judgments = [];
+    for (const path of [...flags.judgment].sort()) {
+      const judgment = await loadRecord(path, differenceJudgmentSchema);
+      const job = await loadRecord(join(dirname(dirname(resolve(path))), 'difference-jobs', `${judgment.job_id}.json`), differenceJobSchema);
+      judgments.push({ job, judgment });
+    }
+    const assessment = await assessCandidate({ candidate, observation, baseline, reviews, judgments, root: sourceRoot });
     const assessmentId = await publishRecord(
       flags.out ?? dirname(dirname(resolve(flags.manifest))), assessment, assessmentSchema);
     return { exitCode: 0, output: { status: 'assessment_created', assessment_id: assessmentId } };
