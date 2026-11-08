@@ -1,7 +1,18 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
-import { canonical, digest, fail, ToolUpdateError } from './manifest.mjs';
-import { codexContractDescriptors, codexSchemaFields, codexSourcePaths, mapRevision, requiredFacets } from './difference-contracts.mjs';
+import { canonical, compareVersions, digest, fail, ToolUpdateError, versionSchema } from './manifest.mjs';
+import {
+  claudeDocumentationPaths,
+  claudeDocumentationRules,
+  claudeDocumentedContradictions,
+  codexContractDescriptors,
+  codexSchemaFields,
+  codexSourcePaths,
+  consumedContracts,
+  mapRevision,
+  methods,
+  requiredFacets
+} from './difference-contracts.mjs';
 import { differenceJobId, parseDifferenceEvidence, parseDifferenceJob, requiredDifferenceCoverage } from './difference-records.mjs';
 
 export const codexSourceLimits = Object.freeze({
@@ -14,6 +25,20 @@ export const codexSourceLimits = Object.freeze({
 const origin = 'https://api.github.com';
 const repositoryPath = '/repos/openai/codex';
 const repositoryNumber = 965415649;
+const claudeRepository = Object.freeze({
+  path: '/repos/anthropics/claude-code',
+  number: 937253475
+});
+const claudeRepositorySchema = z.object({
+  id: z.literal(claudeRepository.number),
+  name: z.literal('claude-code'),
+  full_name: z.literal('anthropics/claude-code'),
+  owner: z.object({
+    login: z.literal('anthropics'),
+    id: z.literal(76263028)
+  }),
+  fork: z.literal(false)
+});
 const oid = z.string().regex(/^[a-f0-9]{40}$/);
 const objectSchema = z.object({ sha: oid, type: z.enum(['commit', 'tag']) });
 const repositorySchema = z.object({
@@ -106,15 +131,15 @@ async function bounded(promise, signal) {
     signal.removeEventListener('abort', abort);
   }
 }
-function sameResource(destination, original) {
-  const suffix = original.pathname.slice(repositoryPath.length);
+function sameResource(destination, original, repository) {
+  const suffix = original.pathname.slice(repository.path.length);
   const query = url => canonical([...url.searchParams.entries()].sort());
   return (
     destination.origin === origin &&
     !destination.username &&
     !destination.password &&
     !destination.hash &&
-    (destination.pathname === original.pathname || destination.pathname === `/repositories/${repositoryNumber}${suffix}`) &&
+    (destination.pathname === original.pathname || destination.pathname === `/repositories/${repository.number}${suffix}`) &&
     query(destination) === query(original)
   );
 }
@@ -149,10 +174,10 @@ async function readBytes(response, signal, ledger) {
   if (size === 0) fail('source_document_invalid');
   return Buffer.concat(chunks);
 }
-function sourceTransport(fetchImpl, signal, ledger) {
+function sourceTransport(fetchImpl, signal, ledger, repository = { path: repositoryPath, number: repositoryNumber }) {
   const snapshots = new Map();
   async function request(path, validator = null) {
-    const original = new URL(`${origin}${repositoryPath}${path}`);
+    const original = new URL(`${origin}${repository.path}${path}`);
     let current = original;
     const visited = new Set();
     for (let hop = 0; hop <= codexSourceLimits.redirects; hop++) {
@@ -163,7 +188,7 @@ function sourceTransport(fetchImpl, signal, ledger) {
       }
       signal.throwIfAborted();
       const headers = {
-        accept: path.startsWith('/git/blobs/') ? 'application/vnd.github.raw+json' : 'application/vnd.github+json',
+        accept: path.startsWith('/git/blobs/') || path.startsWith('/contents/') ? 'application/vnd.github.raw+json' : 'application/vnd.github+json',
         'user-agent': 'harness-delta-tool-update'
       };
       if (validator !== null) headers['if-none-match'] = validator;
@@ -188,7 +213,7 @@ function sourceTransport(fetchImpl, signal, ledger) {
         } catch {
           fail('source_redirect_invalid');
         }
-        if (!sameResource(destination, original)) {
+        if (!sameResource(destination, original, repository)) {
           fail('source_redirect_invalid');
         }
         current = destination;
@@ -236,8 +261,8 @@ function sourceTransport(fetchImpl, signal, ledger) {
     }
   };
 }
-async function resolveRef(transport, ref) {
-  const tag = `rust-v${ref.version}`;
+async function resolveRef(transport, ref, prefix = 'rust-v') {
+  const tag = `${prefix}${ref.version}`;
   const pointer = parseMetadata(z.object({ ref: z.literal(`refs/tags/${tag}`), object: objectSchema }), parseJson(await transport.get(`/git/ref/tags/${tag}`)));
   let object = pointer.object;
   const visited = new Set();
@@ -522,6 +547,199 @@ export async function collectCodexSourceEvidence(jobInput, options) {
         evidenceRecord(job, comparison, method, snapshots.get(comparison.from.commit), snapshots.get(comparison.to.commit), failure)
       )
     ),
+    failure,
+    usage: { ...ledger }
+  };
+}
+
+function documentationSections(bytes) {
+  let text;
+  try {
+    text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    fail('source_document_invalid');
+  }
+  const sections = new Map();
+  let current = null;
+  let fence = null;
+  let html = null;
+  for (const line of text.split(/\r?\n/)) {
+    const marker = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line);
+    if (fence !== null) {
+      if (marker?.[1][0] === fence[0] && marker[1].length >= fence.length && /^[ \t]*$/.test(marker[2])) fence = null;
+      continue;
+    }
+    if (html !== null) {
+      if (html.test(line)) html = null;
+      else if (line.includes('<')) return null;
+      continue;
+    }
+    if (marker) {
+      if (marker[1][0] === '`' && marker[2].includes('`')) return null;
+      fence = marker[1];
+      continue;
+    }
+    const htmlStart = /^ {0,3}<(pre|code)>[ \t]*$/i.exec(line);
+    if (htmlStart) {
+      html = new RegExp(`^ {0,3}</${htmlStart[1]}>[ \\t]*$`, 'i');
+      continue;
+    }
+    // Unclassified markup can change whether later lines are examples.
+    if (line.includes('<') || line.includes('-->')) return null;
+    if (/^(?:`{3,}|~{3,})/.test(line.trimStart())) return null;
+    if (/^ {0,3}#{3,6}(?:[ \t]|$)/.test(line) || /^ {0,3}(?:=+|-+)[ \t]*$/.test(line)) return null;
+    if (line.startsWith('## ')) {
+      const version = line.slice(3);
+      if (!versionSchema.safeParse(version).success || sections.has(version)) return null;
+      current = [];
+      sections.set(version, current);
+    } else if (current) {
+      if (/^ {0,3}#{1,6}(?:[ \t]|$)/.test(line)) return null;
+      current.push(line);
+    }
+  }
+  return sections.size && fence === null && html === null ? sections : null;
+}
+async function claudeDocumentationSnapshot(transport, readTree, blobs, ref) {
+  const entry = (await readTree(ref.commit)).get(claudeDocumentationPaths.changelog.path);
+  if (!entry || entry.type !== 'blob' || !['100644', '100755'].includes(entry.mode)) fail('source_material_absent');
+  if (!blobs.has(entry.sha)) {
+    const bytes = await transport.get(`/git/blobs/${entry.sha}`);
+    if (createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex') !== entry.sha) fail('source_identity_invalid');
+    blobs.set(entry.sha, {
+      contentHash: hash(bytes),
+      sections: documentationSections(bytes)
+    });
+  }
+  return blobs.get(entry.sha);
+}
+function documentationFindings(job, comparison, from, to) {
+  const versions = job.inventory.releases
+    .filter(ref => compareVersions(ref.version, comparison.from.version) > 0 && compareVersions(ref.version, comparison.to.version) <= 0)
+    .map(ref => ref.version);
+  const complete =
+    from.sections?.has(comparison.from.version) && to.sections?.has(comparison.to.version) && versions.every(version => to.sections.has(version));
+  const lines = complete ? versions.flatMap(version => to.sections.get(version)) : [];
+  const disclosures = claudeDocumentationRules.filter(rule => lines.some(line => rule.keyword.test(line)));
+  const contradictions = claudeDocumentedContradictions.filter(rule => lines.some(line => rule.statement.test(line)));
+  const findings = consumedContracts.flatMap(contractId =>
+    requiredFacets(contractId, job.lane)
+      .filter(facet => methods.claude_pinned_documentation.facets.includes(facet))
+      .map(facet => {
+        const contradiction = contradictions.find(rule => rule.contractId === contractId && rule.facet === facet);
+        if (contradiction) {
+          return {
+            ...finding(contractId, facet, 'affected', 'confirmed_contract_change'),
+            impact: contradiction.impact,
+            field_id: contradiction.fieldId,
+            expected: {
+              kind: 'field_shape',
+              value: contradiction.expected
+            },
+            actual: {
+              kind: 'field_shape',
+              value: contradiction.actual
+            }
+          };
+        }
+        const disclosed = disclosures.some(rule => rule.contractId === contractId && rule.facet === facet);
+        return finding(
+          contractId,
+          facet,
+          'unknown',
+          !complete ? 'unsupported_extractor' : disclosed ? 'documentation_check_required' : 'undocumented_contract'
+        );
+      })
+  );
+  return { findings, complete: Boolean(complete) };
+}
+function claudeDocumentationEvidence(job, comparison, snapshots, failure, unversioned) {
+  const from = snapshots.get(comparison.from.commit);
+  const to = snapshots.get(comparison.to.commit);
+  const projection = !failure && !unversioned ? documentationFindings(job, comparison, from, to) : null;
+  return parseDifferenceEvidence({
+    schema_version: 1,
+    kind: 'difference_evidence',
+    job_id: differenceJobId(job),
+    source_digest: job.source_digest,
+    engine_digest: job.engine_digest,
+    map_revision: job.map_revision,
+    engine_revision: job.engine_revision,
+    contract_revision: job.contract_revision,
+    policy_revision: job.evidence_snapshot.policy_revision,
+    capability_revision: 'difference-capability-v1',
+    method: 'claude_pinned_documentation',
+    comparison,
+    material: {
+      kind: 'official',
+      repository_id: job.repository_id,
+      path_id: 'release_documentation',
+      from_commit: comparison.from.commit,
+      to_commit: comparison.to.commit
+    },
+    from_content_hash: projection ? from.contentHash : null,
+    to_content_hash: projection ? to.contentHash : null,
+    availability: failure ? 'failed' : unversioned ? 'absent' : 'available',
+    extraction_completeness: projection?.complete ? 'complete' : 'incomplete',
+    findings: projection?.findings ?? [],
+    reasons: failure ? ['pinned_material_absent'] : unversioned ? ['pinned_material_absent', 'unversioned_doc'] : []
+  });
+}
+export async function collectClaudeDocumentationEvidence(jobInput, options) {
+  const job = parseDifferenceJob(jobInput);
+  if (job.repository_id !== 'anthropics_claude_code' || job.lane.product !== 'claude_code') fail('source_job_inapplicable');
+  if (job.map_revision !== mapRevision) fail('source_map_stale');
+  if (
+    !options ||
+    Object.keys(options).some(key => !['fetch', 'signal', 'documentation'].includes(key)) ||
+    typeof options.fetch !== 'function' ||
+    (options.signal !== undefined && !(options.signal instanceof AbortSignal)) ||
+    (options.documentation !== undefined && !['pinned', 'unversioned_doc'].includes(options.documentation))
+  ) {
+    fail('source_options_invalid');
+  }
+  const unversioned = options.documentation === 'unversioned_doc';
+  const comparisons = requiredDifferenceCoverage(job).comparisons;
+  const refs = [...new Map([...comparisons.flatMap(row => [row.from, row.to]), job.target].map(ref => [`${ref.version}:${ref.commit}`, ref])).values()];
+  const ledger = { responses: 0, decodedBytes: 0 };
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(new ToolUpdateError('source_deadline')), codexSourceLimits.deadlineMs);
+  timer.unref();
+  const signal = options.signal ? AbortSignal.any([controller.signal, options.signal]) : controller.signal;
+  const transport = sourceTransport(options.fetch, signal, ledger, claudeRepository);
+  const snapshots = new Map();
+  const documents = [];
+  let failure = null;
+  try {
+    parseMetadata(claudeRepositorySchema, parseJson(await transport.get('')));
+    if (unversioned) {
+      // Moving documentation is context only: no release endpoint or content hash is assigned to its evidence.
+      const bytes = await transport.get(`/contents/${claudeDocumentationPaths.changelog.path}`);
+      documents.push({
+        path_id: 'release_documentation',
+        content_hash: hash(bytes),
+        fetched_at: new Date().toISOString(),
+        release: null,
+        limitation: 'unversioned_doc'
+      });
+    } else {
+      for (const ref of refs) await resolveRef(transport, ref, 'v');
+      const readTree = treeReader(transport);
+      const blobs = new Map();
+      for (const ref of refs) {
+        snapshots.set(ref.commit, await claudeDocumentationSnapshot(transport, readTree, blobs, ref));
+      }
+    }
+    await transport.revalidate();
+  } catch (error) {
+    failure = signal.aborted ? 'source_deadline' : error instanceof ToolUpdateError && failureCodes.has(error.code) ? error.code : 'source_fetch_failed';
+  } finally {
+    clearTimeout(timer);
+    controller.abort();
+  }
+  return {
+    evidence: comparisons.map(comparison => claudeDocumentationEvidence(job, comparison, snapshots, failure, unversioned)),
+    documents: failure ? [] : documents,
     failure,
     usage: { ...ledger }
   };

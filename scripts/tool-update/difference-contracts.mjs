@@ -52,6 +52,8 @@ export const reasonCodes = Object.freeze([
   'source_changed_impact_unknown',
   'method_inapplicable',
   'synthetic_only',
+  'unversioned_doc',
+  'documentation_check_required',
   'undocumented_contract',
   'evidence_missing',
   'conflicting_evidence',
@@ -173,6 +175,75 @@ export const codexSchemaFields = Object.freeze([
   Object.freeze({ property: 'model_reasoning_effort', fieldId: 'effort' }),
   Object.freeze({ property: 'sandbox_mode', fieldId: 'permission_mode' })
 ]);
+export const claudeDocumentationPaths = Object.freeze({
+  changelog: Object.freeze({
+    path: 'CHANGELOG.md',
+    section: 'exact_version_heading'
+  })
+});
+// Keywords request inspection; only a complete, explicit removal statement contradicts a consumed field guarantee.
+export const claudeDocumentationRules = Object.freeze([
+  Object.freeze({
+    code: 'identity_disclosure',
+    keyword: /\b(?:session|request)[_ -]id\b/i,
+    contractId: 'identity_source_mapping',
+    facet: 'serialized_shape'
+  }),
+  Object.freeze({
+    code: 'shape_disclosure',
+    keyword: /\b(?:transcript|schema|field|enum)\b/i,
+    contractId: 'fields_types_enums',
+    facet: 'serialized_shape'
+  }),
+  Object.freeze({
+    code: 'checkpoint_disclosure',
+    keyword: /\b(?:rotation|checkpoint|partial)\b/i,
+    contractId: 'partial_rotation_checkpoint',
+    facet: 'client_transformation'
+  }),
+  Object.freeze({
+    code: 'counter_disclosure',
+    keyword: /\b(?:token|tokens|cache|reasoning|counter)\b/i,
+    contractId: 'counters_cache_reasoning_reset_overflow',
+    facet: 'client_transformation'
+  }),
+  Object.freeze({
+    code: 'hook_disclosure',
+    keyword: /\b(?:hook|hooks|receipt)\b/i,
+    contractId: 'hooks_order_receipts_loading',
+    facet: 'identity_lifecycle'
+  }),
+  Object.freeze({
+    code: 'invocation_disclosure',
+    keyword: /\b(?:permission|permissions|sandbox|model|effort|flag)\b/i,
+    contractId: 'invocation_permissions_config_model_effort',
+    facet: 'operation_topology'
+  }),
+  Object.freeze({
+    code: 'history_disclosure',
+    keyword: /\b(?:resume|compaction|child|subagent|history)\b/i,
+    contractId: 'history_topology_resume_compaction',
+    facet: 'operation_topology'
+  }),
+  Object.freeze({
+    code: 'finality_disclosure',
+    keyword: /\b(?:replay|terminal|flush|sigint|stop_reason)\b/i,
+    contractId: 'finality_replay_conflict_stop_flush_sigint',
+    facet: 'identity_lifecycle'
+  })
+]);
+export const claudeDocumentedContradictions = Object.freeze([
+  Object.freeze({
+    code: 'request_identity_removed',
+    statement: /^- Removed `requestId` from assistant transcript records\.$/,
+    contractId: 'identity_source_mapping',
+    facet: 'serialized_shape',
+    fieldId: 'request_id',
+    expected: 'string',
+    actual: 'absent',
+    impact: 'shape_changed'
+  })
+]);
 export const deferredValidation = Object.freeze({
   native_execution: Object.freeze({
     reason: 'native_validation_pending',
@@ -201,6 +272,7 @@ export const engineFiles = Object.freeze([
   'scripts/tool-update/difference-records.mjs',
   'scripts/tool-update/difference-judgment.mjs',
   'scripts/tool-update/difference-source.mjs',
+  'scripts/tool-update/difference-fixtures.mjs',
   'scripts/tool-update/manifest.mjs',
   'scripts/tool-update/lanes.mjs',
   'scripts/tool-update/assessment.mjs',

@@ -310,6 +310,24 @@ drifted or exhausted reads produce unavailable evidence, never partial success.
 Bodies are transient; records retain hashes and finite findings only. Client-source
 identity does not establish packaging, native execution, delivery or backend meaning.
 
+The Claude documentation library uses the same bounds and host, authenticates
+`anthropics/claude-code`, resolves exact `v<version>` tags to the job commits and
+revalidates `CHANGELOG.md` blobs. Only exact version sections in the comparison
+interval are inspected. A finite keyword table requests scoped checks; only a
+complete mapped statement contradicting a consumed guarantee can mark it affected.
+Quiet, absent or unsupported documentation never establishes `unaffected`.
+Unversioned documentation is context only: its receipt keeps a content hash,
+fetch time, `release: null` and `unversioned_doc`; release evidence has null content
+hashes and stays unavailable. No additional documentation host is admitted.
+
+The synthetic replay library compares independent numeric and ownership ledgers
+with parser/provider or synthetic-client results. It preserves terminal replay,
+partial finality and missing-versus-zero readings. Test/harness and fixture/input
+hashes are bound separately from the engine digest. These fixtures, including the
+historical Claude stub/oracle, never test an unexecuted release or establish
+backend counter meaning. Native, backend and real-session validation stays pending.
+Both libraries remain library-only, without a command or `assess` input.
+
 ## Contract review records
 
 A contract review record is a manual claim by a maintainer: "for this lane and this

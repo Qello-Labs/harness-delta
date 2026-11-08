@@ -51,6 +51,8 @@ export type ReasonCode =
   | 'source_changed_impact_unknown'
   | 'method_inapplicable'
   | 'synthetic_only'
+  | 'unversioned_doc'
+  | 'documentation_check_required'
   | 'undocumented_contract'
   | 'evidence_missing'
   | 'conflicting_evidence'
@@ -99,6 +101,23 @@ export const codexContractDescriptors: Readonly<
 export const codexSchemaFields: readonly {
   readonly property: string;
   readonly fieldId: 'model' | 'effort' | 'permission_mode';
+}[];
+export const claudeDocumentationPaths: Readonly<Record<'changelog', { readonly path: 'CHANGELOG.md'; readonly section: 'exact_version_heading' }>>;
+export const claudeDocumentationRules: readonly {
+  readonly code: string;
+  readonly keyword: RegExp;
+  readonly contractId: ContractId;
+  readonly facet: Facet;
+}[];
+export const claudeDocumentedContradictions: readonly {
+  readonly code: 'request_identity_removed';
+  readonly statement: RegExp;
+  readonly contractId: 'identity_source_mapping';
+  readonly facet: 'serialized_shape';
+  readonly fieldId: 'request_id';
+  readonly expected: 'string';
+  readonly actual: 'absent';
+  readonly impact: 'shape_changed';
 }[];
 export const deferredValidation: Readonly<
   Partial<

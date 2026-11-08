@@ -282,6 +282,22 @@ tree identity를 비교합니다. 변경되거나 불완전한 closure는 unknow
 해시와 유한한 발견만 남깁니다. client-source identity는 패키징, native 실행, 전달,
 backend 의미를 확정하지 않습니다.
 
+Claude 문서 라이브러리는 같은 제한과 호스트를 사용하며 `anthropics/claude-code`를 인증하고,
+정확한 `v<version>` 태그를 작업의 commit으로 확인한 뒤 `CHANGELOG.md` blob을 재검증합니다.
+비교 구간에 속한 정확한 버전 섹션만 검사합니다. 유한한 키워드 표는 해당 범위의 검사를
+요구하며, 소비하는 보장을 위반하는 완전한 매핑 문장만 affected로 판단할 수 있습니다.
+변경 언급이 없거나 문서가 없거나 지원하지 않는 형식이면 `unaffected`를 확정하지 않습니다.
+버전 없는 문서는 참고 자료뿐입니다. receipt에 본문 해시, 가져온 시간, `release: null`,
+`unversioned_doc`을 남기며 릴리스 증거의 본문 해시는 null이고 사용할 수 없는 상태입니다.
+문서 호스트를 추가하지 않습니다.
+
+합성 replay 라이브러리는 독립적인 수치·소유권 원장을 parser/provider 또는 합성 client 결과와
+비교합니다. terminal replay, 부분 finality, 누락과 관측된 0의 차이를 보존합니다.
+test/harness 및 fixture/input 해시는 engine digest와 별도로 연결합니다.
+기존 Claude stub/oracle을 포함한 이 fixture는 실행하지 않은 릴리스를 시험하거나 backend
+counter의 의미를 확정하지 않습니다. native, backend, 실제 세션 검증은 대기로 남습니다.
+두 라이브러리는 명령이나 `assess` 입력 없이 라이브러리로만 제공됩니다.
+
 ## 계약 검토 레코드
 
 계약 검토 레코드는 유지보수자의 수동 주장입니다. "이 레인과 이 릴리스 간선에서 소비하는 계약은
