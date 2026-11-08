@@ -251,6 +251,22 @@ built 선택별로 독립 고정합니다. packet은 runner나 실행·활성화
 함수와 approval schema 1의 의미는 그대로입니다. 검증으로 native·target·backend 실행,
 새 예산, publisher·variant 변경, 상한 갱신이나 후속 레코드를 만들지 않습니다.
 
+## 승격 레코드
+
+추가 revision-1 kind 세 가지가 이식 가능한 승격 메타데이터를 표현합니다.
+`promotion_proposal`, `promotion_validation`, `promotion_decision`은 엄격한 재귀
+schema, canonical JSON, SHA-256 ID, 256 KiB 제한과 불변 게시를 사용합니다.
+폴더는 `promotion-proposals/`, `promotion-validations/`, `promotion-decisions/`입니다.
+아직 이 레코드를 생성하는 명령은 없습니다.
+
+세 종류 모두 권한을 부여하지 않습니다. decision 레코드는 외부 결정을 기술하며,
+schema 유효성이 동의나 runtime 지원 변경을 확정하지 않습니다. 순수 gate reducer는
+admission, qualification, 자식을 구분하고 unknown과 유예된 실제 증거를 유지하며
+`ready_for_decision`에서 멈춥니다. `review_needed` 후속 레코드는 predecessor, grant,
+mapping, descriptor, 미해결 발견 참조를 보존하며 권한을 철회하거나 복원할 수 없습니다.
+별도로 버전을 관리하는 promotion-engine identity는 레코드와 reducer 의존성을 포함합니다.
+difference-engine이나 평가 identity를 대체하지 않습니다.
+
 ## 기계 차이 판단 레코드
 
 별도 schema-1 kind 세 가지로 기계의 주장을 표현합니다. `difference_job`은 후보, 관측,
