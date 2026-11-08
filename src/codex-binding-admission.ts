@@ -1,4 +1,5 @@
-import { legacyCodexBindingAdmissions } from './core/tool-version-profiles.js';
+import { legacyCodexBindingAdmissions, lookupEffectiveToolVersionFacet, lookupToolVersionProfile } from './core/tool-version-profiles.js';
+import { promotionEvidenceId, type ToolVersionPromotionDescriptor } from './core/tool-version-promotion.js';
 import type { FlexibleProtocol } from './flexible-contracts.js';
 
 export const defaultCodexBindingVersion = '0.163.0';
@@ -59,6 +60,63 @@ export function getCodexBindingAdmission(version: string) {
   return codexBindingAdmissions.find(admission => admission.productVersion === version);
 }
 
+export interface EffectiveCodexBindingAdmission {
+  readonly kind: 'legacy' | 'promoted';
+  readonly profileId: string;
+  readonly productVersion: string;
+  readonly model: string;
+  readonly effort: string;
+  readonly maxDepth: number;
+  readonly maxFamilyMembers: number;
+  readonly sourceRef: string;
+  readonly qualified: boolean;
+  readonly rootOnlyOverride: boolean;
+  readonly historyVariant: ToolVersionPromotionDescriptor['variants']['history'];
+  readonly evidenceId?: string;
+  readonly evidenceIntentSha256?: string;
+  readonly descriptor?: ToolVersionPromotionDescriptor;
+}
+export function getEffectiveCodexBindingAdmission(version: string, operation = 'collect', topology = 'root'): EffectiveCodexBindingAdmission | undefined {
+  const legacy = getCodexBindingAdmission(version);
+  const profile = lookupToolVersionProfile('codex', version)?.ordinaryBinding;
+  if (legacy && profile && ['link', 'collect', 'restart', 'resume'].includes(operation) && ['root', 'bounded_family'].includes(topology)) {
+    return {
+      ...legacy,
+      kind: 'legacy',
+      qualified: !('qualified' in legacy) || legacy.qualified,
+      rootOnlyOverride: profile.rootOnlyOverride,
+      historyVariant: profile.historyVariant
+    };
+  }
+  const facet = lookupEffectiveToolVersionFacet(
+    'codex',
+    version,
+    operation,
+    topology,
+    `${process.platform}_${process.arch}`,
+    `node${process.versions.node.split('.')[0]}`
+  );
+  if (!facet || facet.descriptor.effort === undefined) return undefined;
+  const scope = facet.descriptor.scopes.find(scope => scope.operation === operation && scope.topology === topology);
+  if (!scope) throw new Error('tool_version_promotion_invalid');
+  return {
+    kind: 'promoted',
+    profileId: facet.descriptor.profileId,
+    productVersion: facet.descriptor.version,
+    model: facet.descriptor.model,
+    effort: facet.descriptor.effort,
+    maxDepth: scope.maxDepth,
+    maxFamilyMembers: scope.maxFamilyMembers,
+    sourceRef: facet.descriptor.sourceRef,
+    qualified: facet.decision.grants.includes('qualification'),
+    rootOnlyOverride: false,
+    historyVariant: facet.descriptor.variants.history,
+    evidenceId: promotionEvidenceId(facet),
+    evidenceIntentSha256: facet.decision.implementation_digest,
+    descriptor: facet.descriptor
+  };
+}
+
 export function isQualifiedCodexBindingAdmission(version: string): boolean {
   const admission = getCodexBindingAdmission(version);
   return admission !== undefined && (!('qualified' in admission) || admission.qualified);
@@ -73,7 +131,7 @@ export function isAdmittedCodexBindingProtocol(protocol: FlexibleProtocol): bool
     protocol.purpose === 'functional_pilot' &&
     protocol.source_profiles.length === 1 &&
     protocol.source_profiles.every(
-      profile => profile.product === 'codex' && profile.profile_id === getCodexBindingAdmission(profile.product_version)?.profileId
+      profile => profile.product === 'codex' && profile.profile_id === getEffectiveCodexBindingAdmission(profile.product_version)?.profileId
     )
   );
 }

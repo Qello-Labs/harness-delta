@@ -1,10 +1,13 @@
 export const legacyAssessmentRuleRevision: 'static-assessment-v1';
 export const expandedAssessmentRuleRevision: 'static-assessment-v2';
-export const assessmentRuleRevision: 'static-assessment-v3';
-export const assessmentSourcePathLimit: 52;
+export const policyAssessmentRuleRevision: 'static-assessment-v3';
+export const assessmentRuleRevision: 'static-assessment-v4';
+export const policyAssessmentSourcePathLimit: 52;
+export const assessmentSourcePathLimit: 55;
 export const expandedAssessmentSourcePathLimit: 48;
 export const legacySourcePathAllowlist: readonly string[];
 export const expandedSourcePathAllowlist: readonly string[];
+export const policySourcePathAllowlist: readonly string[];
 export const sourcePathAllowlist: readonly string[];
 export interface Compatibility {
   readonly state: 'verified' | 'compatibility_unverified';
@@ -20,7 +23,9 @@ export interface SourceRegistry {
   readonly ordinaryWindows: readonly import('../../src/core/ordinary-window-policy.js').OrdinaryWindowPolicy[];
   readonly resolveOrdinaryWindow: typeof import('../../src/core/ordinary-window-policy.js').resolveOrdinaryWindow;
   readonly retiredClaudeWorkflowVersions: readonly string[];
-  readonly resolve: (product: string, version: string, source: import('./lanes.mjs').Lane['route'], profileId: string) => Compatibility | null;
+  readonly resolve: (product: string, version: string, source: import('./lanes.mjs').Lane['route'], profileId: string,
+    operation?: import('./lanes.mjs').Lane['operation'], topology?: import('./lanes.mjs').Lane['topology']) => Compatibility | null;
+  readonly promotionFacets: readonly import('../../src/core/tool-version-promotion.js').ToolVersionPromotionFacet[];
   readonly ruleRevision: string;
   readonly windows: readonly {
     readonly product: string; readonly source: string; readonly base: string;

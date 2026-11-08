@@ -1,16 +1,16 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import {
-  constants,
   closeSync,
+  constants,
   fstatSync,
   fsyncSync,
   lstatSync,
   mkdirSync,
   openSync,
+  readdirSync,
   readFileSync,
   readSync,
   realpathSync,
-  readdirSync,
   writeFileSync
 } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -143,24 +143,49 @@ function implementationDigest() {
     'core/configuration-evidence',
     'comparison/config-confirmation-write',
     'package-paths',
-    'core/tool-version-profiles'
+    'core/tool-version-profiles',
+    'core/tool-version-promotion'
   ];
   return hash(
     JSON.stringify(
       names
-        .map(name => ({ name, sha256: hash(readFileSync(implementationPath(name + implementationExtension))) }))
+        .map(name => ({
+          name,
+          sha256: hash(readFileSync(implementationPath(name + implementationExtension)))
+        }))
         .concat(
-          ['core/tool-version-profiles.json', 'core/tool-version-recipes.json', 'core/tool-version-identities.json'].map(name => ({
+          [
+            'core/tool-version-profiles.json',
+            'core/tool-version-recipes.json',
+            'core/tool-version-identities.json',
+            'core/tool-version-promotions.json',
+            'core/tool-version-promotion-result.json'
+          ].map(name => ({
             name,
             sha256: hash(readFileSync(implementationPath(name)))
           }))
         )
         .concat([
-          { name: 'migration014', sha256: hash(readFileSync(implementationPath('migrations', '014_codex_workflow.sql'))) },
-          { name: 'migration015', sha256: hash(readFileSync(implementationPath('migrations', '015_codex_workflow_child.sql'))) },
-          { name: 'migration016', sha256: hash(readFileSync(implementationPath('migrations', '016_claude_workflow.sql'))) },
-          { name: 'migration036', sha256: hash(readFileSync(implementationPath('migrations', '036_ordinary_window_observation.sql'))) },
-          { name: 'migration037', sha256: hash(readFileSync(implementationPath('migrations', '037_ordinary_window_decisions.sql'))) }
+          {
+            name: 'migration014',
+            sha256: hash(readFileSync(implementationPath('migrations', '014_codex_workflow.sql')))
+          },
+          {
+            name: 'migration015',
+            sha256: hash(readFileSync(implementationPath('migrations', '015_codex_workflow_child.sql')))
+          },
+          {
+            name: 'migration016',
+            sha256: hash(readFileSync(implementationPath('migrations', '016_claude_workflow.sql')))
+          },
+          {
+            name: 'migration036',
+            sha256: hash(readFileSync(implementationPath('migrations', '036_ordinary_window_observation.sql')))
+          },
+          {
+            name: 'migration037',
+            sha256: hash(readFileSync(implementationPath('migrations', '037_ordinary_window_decisions.sql')))
+          }
         ])
     )
   );

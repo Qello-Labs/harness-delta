@@ -1,13 +1,15 @@
 import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { afterEach, expect, test, vi } from 'vitest';
-import { assessCandidate, assessmentSchema, consumedContracts } from '../scripts/tool-update/assessment.mjs';
+import { assessCandidate, assessmentSchema, consumedContracts, validateBaselineForSource } from '../scripts/tool-update/assessment.mjs';
 import type { ContractReview, SelectionPolicy } from '../scripts/tool-update/assessment.mjs';
 import type { Candidate, Observation, Product } from '../scripts/tool-update/discovery.mjs';
 import { boundedParse, canonical, digest, maxRecordBytes } from '../scripts/tool-update/manifest.mjs';
 import type { Baseline } from '../scripts/tool-update/manifest.mjs';
 import * as snapshots from '../scripts/tool-update/source-snapshot.mjs';
 import type { SourceRegistry } from '../scripts/tool-update/source-snapshot.mjs';
+import { parseToolVersionPromotionDescriptor, projectToolVersionPromotions } from '../src/core/tool-version-promotion.js';
+import { appendPromotionDecision, promotionFixture } from './helpers/tool-version-promotion.js';
 
 const root = realpathSync(fileURLToPath(new URL('..', import.meta.url)));
 const key = {
@@ -58,8 +60,12 @@ const unusedReview = () => ({
   to: { version: '0.151.0', commit: '3'.repeat(40) }
 });
 async function reviewed(input = fixture(), baseline?: Baseline) {
-  const result = await assessCandidate({ ...input, reviews: [unusedReview()], ...(baseline ? { baseline } : {}) });
-  if (result.schema_version !== 6) throw new Error('schema_6_required');
+  const result = await assessCandidate({
+    ...input,
+    reviews: [unusedReview()],
+    ...(baseline ? { baseline } : {})
+  });
+  if (result.schema_version !== 8 || result.review_ids === undefined || result.judgment_ids !== undefined) throw new Error('reviewed_schema_8_required');
   return result;
 }
 function syntheticRegistry(base?: string): SourceRegistry {
@@ -80,8 +86,15 @@ function syntheticRegistry(base?: string): SourceRegistry {
           }
         ]
       : [],
-    files: [{ product: 'codex', version: '0.158.0', boundaryMode: 'checkpoint' }],
+    files: [
+      {
+        product: 'codex',
+        version: '0.158.0',
+        boundaryMode: 'checkpoint'
+      }
+    ],
     evidence: [],
+    promotionFacets: [],
     codexAdmissions: [],
     claudeAdmissions: []
   };
@@ -107,7 +120,7 @@ function review(sourceDigest = 'b'.repeat(64)): ContractReview {
   };
 }
 
-test('reviewed schema 6 preserves every schema 3 lane field when selection policy is removed', async () => {
+test('reviewed schema 8 preserves every schema 3 lane field when selection policy is removed', async () => {
   // Given
   const input = fixture();
   const plain = await assessCandidate(input);
@@ -127,11 +140,15 @@ test('reviewed schema 6 preserves every schema 3 lane field when selection polic
   };
 
   // When
-  const result = await assessCandidate({ ...input, baseline, reviews: [record] });
+  const result = await assessCandidate({
+    ...input,
+    baseline,
+    reviews: [record]
+  });
 
   // Then
-  expect(result.schema_version).toBe(6);
-  if (result.schema_version !== 6) throw new Error('schema_6_required');
+  expect(result.schema_version).toBe(8);
+  if (result.schema_version !== 8 || result.review_ids === undefined || result.judgment_ids !== undefined) throw new Error('reviewed_schema_8_required');
   expect(result.lanes).toHaveLength(39);
   const previousLanes = result.lanes
     .filter(row => !['codex-binding-01660-direct-family-v1', 'codex-binding-root-window-v1'].includes(row.profile_id))
@@ -146,7 +163,7 @@ test('reviewed schema 6 preserves every schema 3 lane field when selection polic
   expect(digest(plain.lanes.filter(row => !['codex-binding-01660-direct-family-v1', 'codex-binding-root-window-v1'].includes(row.profile_id)))).toBe(
     '356ee379727d6dcdfd211428b62ea7ef21151134075979bf40a7a71c8271d228'
   );
-  expect(plain.schema_version).toBe(5);
+  expect(plain.schema_version).toBe(8);
   expect(plain.lanes.every(row => !('selection_policy' in row))).toBe(true);
 });
 
@@ -246,7 +263,7 @@ test('an unmatched selection state fails through the existing invalid-record pat
   await expect(reviewed()).rejects.toMatchObject({ code: 'invalid_record' });
 });
 
-test('schema 6 strictly rejects missing fields and unknown policy fields or values', async () => {
+test('schema 8 strictly rejects missing fields and unknown policy fields or values', async () => {
   // Given
   const result = await reviewed();
   const first = result.lanes[0];
@@ -273,7 +290,10 @@ test('schema 6 strictly rejects missing fields and unknown policy fields or valu
   // When
   const parsed = [
     assessmentSchema.safeParse({ ...result, lanes: [withoutPolicy] }),
-    assessmentSchema.safeParse({ ...result, lanes: [{ ...first, extra: 'text' }] }),
+    assessmentSchema.safeParse({
+      ...result,
+      lanes: [{ ...first, extra: 'text' }]
+    }),
     ...invalidPolicies.map(selection_policy =>
       assessmentSchema.safeParse({
         ...result,
@@ -281,8 +301,14 @@ test('schema 6 strictly rejects missing fields and unknown policy fields or valu
       })
     ),
     assessmentSchema.safeParse({ ...result, schema_version: 3 }),
-    assessmentSchema.safeParse({ ...result, unused_review_ids: ['f'.repeat(64)] }),
-    assessmentSchema.safeParse({ ...result, review_ids: [...result.review_ids, ...result.review_ids] })
+    assessmentSchema.safeParse({
+      ...result,
+      unused_review_ids: ['f'.repeat(64)]
+    }),
+    assessmentSchema.safeParse({
+      ...result,
+      review_ids: [...result.review_ids, ...result.review_ids]
+    })
   ];
 
   // Then
@@ -341,4 +367,146 @@ test('39-lane assessments fit the unchanged byte limit and oversized records are
   expect(Buffer.byteLength(canonical(oversized))).toBeGreaterThan(maxRecordBytes);
   expect(parsed.success).toBe(false);
   expect(() => boundedParse(oversized, assessmentSchema)).toThrow('record_too_large');
+});
+
+test.each(['codex', 'claude_code'] as const)('assessment preserves the exact admitted root facet for %s', async product => {
+  const input = promotionFixture(product);
+  appendPromotionDecision(input);
+  const projection = projectToolVersionPromotions(input);
+  const descriptor = input.descriptors[0];
+  if (!descriptor) throw new Error('fixture_descriptor_required');
+  const source: SourceRegistry = {
+    ...syntheticRegistry(),
+    promotionFacets: projection.facets,
+    resolve: (requestedProduct, target, route, profileId, operation, topology) => {
+      const matched = projection.facets.some(
+        ({ decision }) =>
+          decision.scope.lane.operation === operation &&
+          decision.scope.lane.topology === topology &&
+          decision.scope.target.version === target &&
+          decision.scope.lane.product === requestedProduct &&
+          decision.scope.lane.route === route &&
+          decision.scope.lane.profile_id === profileId
+      );
+      return matched
+        ? {
+            state: 'compatibility_unverified',
+            product,
+            product_version: target,
+            source: descriptor.route,
+            parser_version: descriptor.version,
+            parser_revision: descriptor.profileId,
+            profile_id: descriptor.profileId,
+            rule_revision: 'forward-version-v1'
+          }
+        : null;
+    }
+  };
+  useRegistry(source);
+  const result = await assessCandidate(fixture(descriptor.version, product));
+  const selected = result.lanes.filter(row => row.profile_id === descriptor.profileId);
+  expect(selected.map(row => [row.operation, row.topology, row.static_selection])).toEqual([['collect', 'root', 'exact']]);
+  expect(selected[0]?.declared_scope).toEqual({ max_depth: 0, max_members: 1, read_only: false, exact_only: true });
+  expect(result.lanes.filter(row => row.profile_id !== descriptor.profileId).map(row => row.profile_id)).toEqual(
+    ['codex-file-checkpoint-v1', 'codex-file-checkpoint-v1'].filter(() => product === 'codex')
+  );
+});
+test.each([
+  { grants: ['qualification'] as const, topology: 'root' as const, expected: [] },
+  { grants: ['admission'] as const, topology: 'bounded_family' as const, expected: [] },
+  { grants: ['admission', 'children'] as const, topology: 'bounded_family' as const, expected: [['collect', 'bounded_family', 1, 3]] }
+])('assessment requires admission and independent child authority: $grants $topology', async ({ grants, topology, expected }) => {
+  const input = promotionFixture();
+  const descriptor = input.descriptors[0];
+  if (!descriptor) throw new Error('fixture_descriptor_required');
+  const record = appendPromotionDecision(input, {
+    scope: {
+      target: { version: descriptor.version, commit: descriptor.sourceRef },
+      lane: { product: 'codex', route: 'codex_binding', profile_id: descriptor.profileId, operation: 'collect', topology },
+      platform: 'darwin_arm64',
+      runtime: 'node26'
+    },
+    requested_grants: topology === 'root' ? ['admission', 'qualification'] : ['admission', 'children', 'qualification'],
+    grants
+  });
+  const source: SourceRegistry = {
+    ...syntheticRegistry(),
+    promotionFacets: [{ descriptor, decision: record.decision }],
+    resolve: (_product, target, route, profileId, operation, requestedTopology) =>
+      route === descriptor.route && profileId === descriptor.profileId && operation === 'collect' && requestedTopology === topology
+        ? {
+            state: 'compatibility_unverified',
+            product: 'codex',
+            product_version: target,
+            source: 'codex_binding',
+            parser_version: descriptor.version,
+            parser_revision: descriptor.profileId,
+            profile_id: descriptor.profileId,
+            rule_revision: 'forward-version-v1'
+          }
+        : null
+  };
+  useRegistry(source);
+  const result = await assessCandidate(fixture(descriptor.version));
+  expect(
+    result.lanes
+      .filter(row => row.profile_id === descriptor.profileId)
+      .map(row => [row.operation, row.topology, row.declared_scope.max_depth, row.declared_scope.max_members])
+  ).toEqual(expected);
+});
+
+test('an explicitly admitted resume facet is selectable and valid in a new baseline without changing historical resume lanes', async () => {
+  const input = promotionFixture();
+  const current = input.descriptors[0];
+  if (!current) throw new Error('fixture_descriptor_required');
+  const descriptor = parseToolVersionPromotionDescriptor({
+    ...current,
+    scopes: [...current.scopes, { operation: 'resume', topology: 'root', maxDepth: 0, maxFamilyMembers: 1, grants: ['admission'] }]
+  });
+  input.descriptors = [descriptor];
+  const record = appendPromotionDecision(input, {
+    requested_grants: ['admission'],
+    grants: ['admission'],
+    scope: {
+      target: { version: descriptor.version, commit: descriptor.sourceRef },
+      lane: { product: 'codex', route: 'codex_binding', profile_id: descriptor.profileId, operation: 'resume', topology: 'root' },
+      platform: 'darwin_arm64',
+      runtime: 'node26'
+    }
+  });
+  const source: SourceRegistry = {
+    ...syntheticRegistry(),
+    promotionFacets: projectToolVersionPromotions(input).facets,
+    resolve: (_product, target, route, profileId, operation, topology) =>
+      route === descriptor.route && profileId === descriptor.profileId && operation === 'resume' && topology === 'root'
+        ? {
+            state: 'compatibility_unverified',
+            product: 'codex',
+            product_version: target,
+            source: descriptor.route,
+            parser_version: descriptor.version,
+            parser_revision: descriptor.profileId,
+            profile_id: descriptor.profileId,
+            rule_revision: 'forward-version-v1'
+          }
+        : null
+  };
+  useRegistry(source);
+  const result = await assessCandidate(fixture(descriptor.version));
+  expect(result.lanes.filter(row => row.profile_id === descriptor.profileId).map(row => [row.operation, row.static_selection])).toEqual([['resume', 'exact']]);
+  const baseline: Baseline = {
+    schema_version: 1,
+    kind: 'baseline',
+    rows: [
+      {
+        ...record.decision.scope.lane,
+        last_reviewed_version: descriptor.version,
+        contract_revision: 'consumed-v1',
+        evidence_ids: [record.id],
+        source_digest: 'b'.repeat(64)
+      }
+    ]
+  };
+  useRegistry(source);
+  await expect(validateBaselineForSource(baseline, root)).resolves.toBeUndefined();
 });

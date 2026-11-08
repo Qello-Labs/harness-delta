@@ -11,7 +11,7 @@ vi.mock('node:child_process', () => ({
 }));
 vi.mock('../src/claude-binding-admission.js', () => ({
   claudeBindingRuntimeSupported: () => true,
-  claudeBindingAdmissions: [
+  getEffectiveClaudeExactImages: () => [
     {
       admitted: true,
       get productVersion() {

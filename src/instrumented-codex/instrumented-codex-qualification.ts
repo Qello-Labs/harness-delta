@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { createHash, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { cp, lstat, mkdir, mkdtemp, readFile, readdir, readlink, realpath, rm } from 'node:fs/promises';
+import { cp, lstat, mkdir, mkdtemp, readdir, readFile, readlink, realpath, rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { z } from 'zod';
 import type { Store } from '../store.js';
@@ -79,7 +79,8 @@ const ownModules = [
   'store',
   'source-compatibility',
   'core/ordinary-window-policy',
-  'core/tool-version-profiles'
+  'core/tool-version-profiles',
+  'core/tool-version-promotion'
 ];
 // Cached modules must never be fingerprinted as a package update that occurs during Cargo.
 const loadedReceiverDigests = ownModules.map(name => ({
@@ -90,10 +91,16 @@ for (const name of [
   'core/tool-version-profiles.json',
   'core/tool-version-recipes.json',
   'core/tool-version-identities.json',
+  'core/tool-version-promotions.json',
+  'core/tool-version-promotion-result.json',
   'migrations/036_ordinary_window_observation.sql',
   'migrations/037_ordinary_window_decisions.sql'
-])
-  loadedReceiverDigests.push({ name, digest: sha(readFileSync(implementationPath(name))) });
+]) {
+  loadedReceiverDigests.push({
+    name,
+    digest: sha(readFileSync(implementationPath(name)))
+  });
+}
 
 export async function assertInstrumentedReceiverUnchanged(): Promise<void> {
   for (const { name, digest } of loadedReceiverDigests) {

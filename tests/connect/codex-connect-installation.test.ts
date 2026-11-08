@@ -531,6 +531,7 @@ test('compiled installer uses its bundled recorder without checkout scripts', ()
     'core/ordinary-window-policy',
     'contracts',
     'core/tool-version-profiles',
+    'core/tool-version-promotion',
     'package-paths'
   ]) {
     const compiled = transpileModule(readFileSync(new URL(`../../src/${name}.ts`, import.meta.url), 'utf8'), {
@@ -538,7 +539,7 @@ test('compiled installer uses its bundled recorder without checkout scripts', ()
     }).outputText;
     put(dist, `${name}.js`, compiled);
   }
-  for (const name of ['tool-version-profiles', 'tool-version-recipes', 'tool-version-identities']) {
+  for (const name of ['tool-version-profiles', 'tool-version-recipes', 'tool-version-identities', 'tool-version-promotions', 'tool-version-promotion-result']) {
     put(dist, `core/${name}.json`, readFileSync(new URL(`../../src/core/${name}.json`, import.meta.url), 'utf8'));
   }
   const bytes = readFileSync(f.hookSource, 'utf8');

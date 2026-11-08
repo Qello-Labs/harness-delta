@@ -1,6 +1,15 @@
 import profileData from './tool-version-profiles.json' with { type: 'json' };
 import recipeData from './tool-version-recipes.json' with { type: 'json' };
 import identityData from './tool-version-identities.json' with { type: 'json' };
+import promotionData from './tool-version-promotions.json' with { type: 'json' };
+import promotionResultData from './tool-version-promotion-result.json' with { type: 'json' };
+import {
+  parseToolVersionPromotionDescriptor,
+  projectToolVersionPromotions,
+  promotionProjectionDigest,
+  promotionRegistryDigest,
+  type ToolVersionPromotionDescriptor
+} from './tool-version-promotion.js';
 import { z } from 'zod';
 
 const id = z.string().min(1);
@@ -330,9 +339,10 @@ const identityDocument = z
     entries: z.array(identitySchema).readonly()
   })
   .parse(identityData);
+const legacyProfileSchema = z.discriminatedUnion('product', [codexProfile, claudeProfile]);
 const registrySchema = z
   .strictObject({
-    profiles: z.array(z.discriminatedUnion('product', [codexProfile, claudeProfile])).readonly(),
+    profiles: z.array(legacyProfileSchema).readonly(),
     recipes: z.array(recipeSchema).readonly(),
     identities: z.array(identitySchema).readonly()
   })
@@ -461,10 +471,26 @@ function validateRecipe(recipe: ToolVersionRecipe, registry: Registry) {
     if (identity.kind !== kind) reject('recipe_identity_kind');
   }
 }
-export function parseToolVersionRegistry(input: unknown): Registry {
-  const registry = registrySchema.parse(input);
+export function parseToolVersionRegistry(input: unknown): Registry & {
+  readonly promotedDescriptors: readonly ToolVersionPromotionDescriptor[];
+} {
+  const document = z
+    .strictObject({
+      profiles: z.array(z.unknown()),
+      recipes: z.unknown(),
+      identities: z.unknown()
+    })
+    .parse(input);
+  const rows = document.profiles.map(row =>
+    row !== null && typeof row === 'object' && 'kind' in row ? parseToolVersionPromotionDescriptor(row) : legacyProfileSchema.parse(row)
+  );
+  const promotedDescriptors = rows.filter((row): row is ToolVersionPromotionDescriptor => 'kind' in row);
+  const registry = registrySchema.parse({
+    ...document,
+    profiles: rows.filter((row): row is ToolVersionProfile => !('kind' in row))
+  });
   unique(
-    registry.profiles.map(profile => profile.product + ':' + profile.version),
+    rows.map(profile => profile.product + ':' + profile.version),
     'duplicate_profile'
   );
   unique(
@@ -494,6 +520,22 @@ export function parseToolVersionRegistry(input: unknown): Registry {
   );
   for (const profile of registry.profiles) validateProfile(profile, registry);
   for (const recipe of registry.recipes) validateRecipe(recipe, registry);
+  for (const descriptor of promotedDescriptors) {
+    const image = registry.identities.find(identity => identity.id === descriptor.nativeIdentity);
+    if (!image || !sameOwner(descriptor, image) || image.kind !== 'native_image') reject('promotion_image_reference');
+    for (const reference of descriptor.recipeReferences) {
+      const recipe = registry.recipes.find(recipe => recipe.id === reference);
+      if (
+        !recipe ||
+        !sameOwner(descriptor, recipe) ||
+        (descriptor.product === 'codex' ? recipe.kind !== 'codex_binding' : recipe.kind !== 'claude_localhost') ||
+        !('imageIdentity' in recipe) ||
+        recipe.imageIdentity !== image.id
+      ) {
+        reject('promotion_recipe_reference');
+      }
+    }
+  }
   for (const identity of registry.identities) {
     if ((identity.exactBytes === undefined) !== (identity.exactSizeMode === undefined)) reject('image_exact_mode');
     if (identity.exactBytes !== undefined && identity.maxBytes !== undefined && identity.exactBytes > identity.maxBytes) reject('image_size');
@@ -507,7 +549,7 @@ export function parseToolVersionRegistry(input: unknown): Registry {
       }
     }
   }
-  return registry;
+  return { ...registry, promotedDescriptors };
 }
 const registry = parseToolVersionRegistry({
   profiles: profileData,
@@ -518,6 +560,39 @@ export const toolVersionProfiles = registry.profiles;
 export const toolVersionRecipes = registry.recipes;
 export const toolVersionIdentities = registry.identities;
 export const toolVersionReadCeilings = identityDocument.readCeilings;
+export const promotedToolVersionDescriptors = registry.promotedDescriptors;
+const promotionResult = z
+  .strictObject({
+    schema_version: z.literal(1),
+    implementation_scheme: z.literal('promotion-implementation-v1'),
+    implementation_digest: hash,
+    effective_projection_digest: hash
+  })
+  .parse(promotionResultData);
+export const toolVersionPromotionProjection = projectToolVersionPromotions({
+  descriptors: promotedToolVersionDescriptors,
+  ledger: promotionData,
+  registryDigest: promotionRegistryDigest({
+    profiles: profileData,
+    recipes: recipeData,
+    identities: identityDocument.entries
+  }),
+  implementationDigest: promotionResult.implementation_digest
+});
+if (promotionProjectionDigest(toolVersionPromotionProjection) !== promotionResult.effective_projection_digest) reject('promotion_result_changed');
+export function lookupEffectiveToolVersionFacet(product: string, version: string, operation: string, topology: string, platform: string, runtime: string) {
+  return toolVersionPromotionProjection.facets.find(
+    facet =>
+      facet.descriptor.product === product &&
+      facet.descriptor.version === version &&
+      facet.decision.scope.lane.operation === operation &&
+      facet.decision.scope.lane.topology === topology &&
+      facet.decision.scope.platform === platform &&
+      facet.decision.scope.runtime === runtime &&
+      facet.decision.grants.includes('admission') &&
+      (topology === 'root' || facet.decision.grants.includes('children'))
+  );
+}
 export function lookupToolVersionProfile(product: 'codex', productVersion: string): Extract<ToolVersionProfile, { product: 'codex' }> | undefined;
 export function lookupToolVersionProfile(product: 'claude_code', productVersion: string): Extract<ToolVersionProfile, { product: 'claude_code' }> | undefined;
 export function lookupToolVersionProfile(product: string, productVersion: string): ToolVersionProfile | undefined;
@@ -680,4 +755,89 @@ export function legacyClaudeTranscriptProfiles() {
       }
     ];
   });
+}
+
+type QualificationOperation = 'collect' | 'link' | 'restart' | 'resume';
+type QualificationTopology = 'root' | 'bounded_family';
+export interface EffectiveCodexBindingQualification {
+  readonly kind: 'legacy' | 'promoted';
+  readonly productVersion: string;
+  readonly profileId: string | null;
+  readonly binarySha256: string;
+  readonly maxDepth: number;
+  readonly maxFamilyMembers: number;
+  readonly host: {
+    readonly sha256: string;
+    readonly maxBytes: number;
+    readonly exactBytes?: number;
+  } | null;
+  readonly policy: {
+    readonly rootRequestStop: number;
+    readonly totalRequestStop: number;
+    readonly tokenStop: number;
+    readonly durationMs: number;
+    readonly helperNetworkPermission: 'none' | 'single_command_network_only';
+  };
+}
+export function getEffectiveCodexBindingQualification(
+  productVersion: string,
+  operation: QualificationOperation = 'collect',
+  topology: QualificationTopology = 'root',
+  platform = `${process.platform}_${process.arch}`,
+  runtime = `node${process.versions.node.split('.')[0]}`
+): EffectiveCodexBindingQualification | undefined {
+  const legacyVersion = codexBindingQualificationVersions.find(version => version === productVersion);
+  if (legacyVersion) {
+    return {
+      kind: 'legacy',
+      productVersion,
+      profileId: null,
+      binarySha256: codexBindingQualificationBinarySha[legacyVersion],
+      maxDepth: 1,
+      maxFamilyMembers: 3,
+      host: legacyVersion === '0.163.0' || legacyVersion === '0.166.0' ? codexBindingQualificationHosts[legacyVersion] : null,
+      policy: codexBindingQualificationPolicies[legacyVersion]
+    };
+  }
+  const facet = lookupEffectiveToolVersionFacet('codex', productVersion, operation, topology, platform, runtime);
+  if (!facet?.decision.grants.includes('qualification') || (topology === 'bounded_family' && !facet.decision.grants.includes('children'))) return undefined;
+  const descriptor = facet.descriptor;
+  const scope = descriptor.scopes.find(scope => scope.operation === operation && scope.topology === topology);
+  const recipe = descriptor.recipeReferences.map(toolVersionRecipe).find(recipe => recipe.kind === 'codex_binding' && recipe.version === productVersion);
+  if (!scope || !recipe || recipe.kind !== 'codex_binding') return undefined;
+  const image = toolVersionIdentity(recipe.imageIdentity);
+  if (image.kind !== 'native_image' || image.product !== 'codex' || image.version !== productVersion || recipe.imageIdentity !== descriptor.nativeIdentity) {
+    return undefined;
+  }
+  const host = recipe.hostIdentity ? toolVersionIdentity(recipe.hostIdentity) : null;
+  const hostMaxBytes = host?.maxBytes;
+  if (
+    host &&
+    (host.kind !== 'component' || host.product !== 'codex' || host.version !== productVersion || hostMaxBytes === undefined || hostMaxBytes > 134217728)
+  ) {
+    return undefined;
+  }
+  return {
+    kind: 'promoted',
+    productVersion,
+    profileId: descriptor.profileId,
+    binarySha256: image.sha256,
+    maxDepth: scope.maxDepth,
+    maxFamilyMembers: scope.maxFamilyMembers,
+    host:
+      host && hostMaxBytes !== undefined
+        ? {
+            sha256: host.sha256,
+            maxBytes: hostMaxBytes,
+            ...(host.exactBytes === undefined ? {} : { exactBytes: host.exactBytes })
+          }
+        : null,
+    policy: {
+      rootRequestStop: recipe.rootRequestStop,
+      totalRequestStop: recipe.totalRequestStop,
+      tokenStop: recipe.tokenStop,
+      durationMs: recipe.durationMs,
+      helperNetworkPermission: recipe.helperNetworkPermission
+    }
+  };
 }

@@ -16,6 +16,7 @@ import { codexBindingAdmissions } from '../../src/codex-binding-admission.js';
 import { claudeBindingAdmissions } from '../../src/claude-binding-admission.js';
 import { codex01580Candidate } from '../../scripts/conformance/candidate.js';
 import { claudeBindingProfiles, ClaudeSessionBindingProvider } from '../../src/session-binding-claude.js';
+import { promotionRegistryFixture } from '../helpers/tool-version-promotion-registry.js';
 
 const unregistered = {
   product: 'codex',
@@ -138,6 +139,44 @@ test('legacy admission projections preserve serialized order and historical omis
     claudeBindingAdmissions.map(admission => JSON.stringify(admission))
   );
   expect(legacyClaudeTranscriptProfiles()).toEqual(claudeBindingProfiles);
+});
+
+test.each(['codex', 'claude_code'] as const)('a pending %s descriptor is parsed separately from every historical registration', product => {
+  const fixture = promotionRegistryFixture(product);
+  const parsed = parseToolVersionRegistry(fixture.registry);
+  expect(parsed.profiles).toEqual(profileData);
+  expect(parsed.promotedDescriptors).toEqual(fixture.descriptors);
+  expect(parsed.profiles.some(profile => profile.version === fixture.descriptors[0]?.version)).toBe(false);
+});
+
+test('pending descriptors cannot alias a historical exact key or reference another owner', () => {
+  const fixture = promotionRegistryFixture();
+  const descriptor = fixture.descriptors[0];
+  if (!descriptor) throw new Error('synthetic_descriptor_required');
+  expect(() =>
+    parseToolVersionRegistry({
+      ...fixture.registry,
+      profiles: [
+        ...fixture.registry.profiles,
+        {
+          ...descriptor,
+          version: '0.166.0'
+        }
+      ]
+    })
+  ).toThrow('tool_version_registry_invalid');
+  expect(() =>
+    parseToolVersionRegistry({
+      ...fixture.registry,
+      profiles: [
+        ...profileData,
+        {
+          ...descriptor,
+          nativeIdentity: 'claude-2.1.306-ordinary-image'
+        }
+      ]
+    })
+  ).toThrow('tool_version_registry_invalid');
 });
 
 test('receipt, qualification reader, ordinary admission and native tickets remain distinct', () => {

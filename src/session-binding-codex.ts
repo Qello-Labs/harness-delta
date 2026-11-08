@@ -1,46 +1,46 @@
 import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { open as openWindowSource } from 'node:fs/promises';
 import {
-  constants,
   closeSync,
+  constants,
   fstatSync,
   linkSync,
   lstatSync,
   mkdirSync,
   openSync,
-  readSync,
   readdirSync,
+  readSync,
   realpathSync,
   unlinkSync,
   writeFileSync
 } from 'node:fs';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { z } from 'zod';
-import { metadataName, type AgentMetadata } from './sources/agent-metadata.js';
+import { type AgentMetadata, metadataName } from './sources/agent-metadata.js';
 import { IdSchema, TimestampSchema } from './contracts.js';
-import { parseCodexCandidateRollout, type CodexCandidateSnapshot } from './codex-candidate-rollout.js';
-import { checkedCandidateScope, type CandidateScope } from './nested-candidate.js';
+import { type CodexCandidateSnapshot, parseCodexCandidateRollout } from './codex-candidate-rollout.js';
+import { type CandidateScope, checkedCandidateScope } from './nested-candidate.js';
 import { resolveSourceCompatibility } from './source-compatibility.js';
-import { getCodexBindingAdmission, isCodexGptModel } from './codex-binding-admission.js';
-import { lookupToolVersionProfile, orderedToolVersionProfiles } from './core/tool-version-profiles.js';
+import { getEffectiveCodexBindingAdmission, isCodexGptModel } from './codex-binding-admission.js';
+import { getEffectiveCodexBindingQualification, lookupToolVersionProfile, orderedToolVersionProfiles } from './core/tool-version-profiles.js';
 import {
   emptyOrdinaryWindowCoverage,
+  type OrdinaryWindowConnectionProof,
   OrdinaryWindowConnectionProofSchema,
-  resolveOrdinaryWindow,
-  type OrdinaryWindowConnectionProof
+  resolveOrdinaryWindow
 } from './core/ordinary-window-policy.js';
 import { assertCodexWindowSourceAuthorization, type CodexWindowSourceAuthorization } from './core/ordinary-window-store.js';
 import type { OrdinaryWindowReadBoundary, OrdinaryWindowUsageBatch } from './session-binding-contract.js';
 import {
-  bindingIdentityKey,
-  CurrentIdentityRequestSchema,
-  VerifiedSessionIdentitySchema,
   type BindingCapabilities,
+  bindingIdentityKey,
   type BindingReadBoundary,
   type ChildDiscovery,
+  CurrentIdentityRequestSchema,
   type SessionBindingProvider,
   type UsageBatch,
-  type VerifiedSessionIdentity
+  type VerifiedSessionIdentity,
+  VerifiedSessionIdentitySchema
 } from './session-binding-contract.js';
 
 const hash = (bytes: string | Buffer) => createHash('sha256').update(bytes).digest('hex');
@@ -72,7 +72,10 @@ const receiptSchema = z.strictObject({
   cwd: z.string().min(1).max(4096),
   createdAt: TimestampSchema
 });
-type Receipt = z.infer<typeof receiptSchema>;
+const promotedReceiptSchema = receiptSchema.extend({
+  productVersion: z.string()
+});
+type Receipt = z.infer<typeof promotedReceiptSchema>;
 const headerSchema = z.object({
   type: z.literal('session_meta'),
   payload: z.object({
@@ -93,6 +96,10 @@ const headerSchema = z.object({
     ])
   })
 });
+const promotedHeaderSchema = headerSchema.extend({
+  payload: headerSchema.shape.payload.extend({ cli_version: z.string() })
+});
+type Header = z.infer<typeof promotedHeaderSchema>['payload'];
 const cursorSchema = z.strictObject({
   session: IdSchema,
   sourceIdentity: IdSchema,
@@ -184,10 +191,11 @@ export function proposeCodexSessionBindingHooks(
  */
 export class CodexSessionBindingProvider implements SessionBindingProvider {
   readonly product = 'codex' as const;
+  declare readonly revalidateBound?: NonNullable<SessionBindingProvider['revalidateBound']>;
   private readonly directory: string;
   private readonly roots: string[];
   private readonly projectRoot: string;
-  private readonly productVersion: z.infer<typeof receiptVersionSchema>;
+  private readonly productVersion: string;
   private readonly ordinaryRootPilot: boolean;
   private readonly ordinaryFamilyQualification: boolean;
   private readonly ordinaryFamilyAdmission: boolean;
@@ -199,16 +207,25 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
   private readonly maxFamilyMembers: number;
   private readonly cursorKey = randomBytes(32);
   constructor(options: CodexSessionBindingOptions) {
-    const version = receiptVersionSchema.safeParse(options.productVersion ?? legacyProductVersion);
-    if (!version.success) throw new Error('binding_configuration_invalid');
-    this.productVersion = version.data;
+    this.productVersion = options.productVersion ?? legacyProductVersion;
     this.ordinaryRootPilot = options.ordinaryRootPilot === true;
     this.ordinaryFamilyQualification = options.ordinaryFamilyQualification === true;
     this.ordinaryFamilyAdmission = options.ordinaryFamilyAdmission === true;
+    const topology = options.maxFamilyMembers === 1 ? 'root' : 'bounded_family';
+    const admission = getEffectiveCodexBindingAdmission(this.productVersion, 'collect', topology);
+    const qualification = this.ordinaryFamilyQualification ? getEffectiveCodexBindingQualification(this.productVersion, 'collect', topology) : undefined;
+    if (!receiptVersionSchema.safeParse(this.productVersion).success && !(this.ordinaryFamilyAdmission && admission?.kind === 'promoted') && !qualification) {
+      throw new Error('binding_configuration_invalid');
+    }
+    if (this.ordinaryFamilyAdmission && !admission) {
+      throw new Error('binding_configuration_invalid');
+    }
     this.directory = realpathSync(options.receiptDirectory);
     this.projectRoot = realpathSync(options.projectRoot);
     this.roots = options.sourceRoots.map(root => realpathSync(root));
-    if (!this.roots.length) throw new Error('binding_configuration_invalid');
+    if (!this.roots.length) {
+      throw new Error('binding_configuration_invalid');
+    }
     this.clock = options.clock ?? (() => new Date().toISOString());
     this.maxDepth = options.maxDepth ?? 8;
     this.maxReceipts = options.maxReceipts ?? 1024;
@@ -217,16 +234,20 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
     if (
       this.ordinaryRootPilot &&
       (!codexRootPilotVersions.some(version => version === this.productVersion) || this.maxDepth !== 1 || this.maxFamilyMembers !== 1)
-    )
+    ) {
       throw new Error('binding_configuration_invalid');
+    }
     const profile = lookupToolVersionProfile('codex', this.productVersion);
-    this.rejectInheritedHistory = profile?.ordinaryBinding?.historyVariant === 'codex_reject_inherited_history_v1';
+    this.rejectInheritedHistory = admission?.historyVariant === 'codex_reject_inherited_history_v1';
     if (
       this.ordinaryFamilyQualification &&
-      (profile?.qualificationReader.mode !== 'family_qualification_v1' || this.ordinaryRootPilot || this.maxDepth !== 1 || this.maxFamilyMembers !== 3)
-    )
+      ((profile?.qualificationReader.mode !== 'family_qualification_v1' && qualification?.kind !== 'promoted') ||
+        this.ordinaryRootPilot ||
+        this.maxDepth !== (qualification?.maxDepth ?? 1) ||
+        this.maxFamilyMembers !== (qualification?.maxFamilyMembers ?? 3))
+    ) {
       throw new Error('binding_configuration_invalid');
-    const admission = profile?.ordinaryBinding;
+    }
     if (
       this.ordinaryFamilyAdmission &&
       (!admission ||
@@ -234,24 +255,30 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
         this.ordinaryFamilyQualification ||
         this.maxDepth !== admission.maxDepth ||
         (this.maxFamilyMembers !== admission.maxFamilyMembers && !(admission.rootOnlyOverride && this.maxFamilyMembers === 1)))
-    )
+    ) {
       throw new Error('binding_configuration_invalid');
-    for (const [value, limit] of [
-      [this.maxFamilyMembers, 32],
-      [this.maxDepth, 31],
-      [this.maxReceipts, 65536],
-      [this.maxSourceBytes, 8 * 1024 * 1024]
+    }
+    for (const [value, minimum, limit] of [
+      [this.maxFamilyMembers, 1, 32],
+      [this.maxDepth, (admission?.kind === 'promoted' || qualification?.kind === 'promoted') && topology === 'root' ? 0 : 1, 31],
+      [this.maxReceipts, 1, 65536],
+      [this.maxSourceBytes, 1, 8 * 1024 * 1024]
     ] as const) {
-      if (!Number.isSafeInteger(value) || value < 1 || value > limit) throw new Error('binding_configuration_invalid');
+      if (!Number.isSafeInteger(value) || value < minimum || value > limit) {
+        throw new Error('binding_configuration_invalid');
+      }
     }
     this.checkDirectory();
+    if (admission?.kind === 'promoted' || qualification?.kind === 'promoted') {
+      this.revalidateBound = this.revalidatePromotedBound.bind(this);
+    }
   }
   capabilities(): BindingCapabilities {
-    const admission = lookupToolVersionProfile('codex', this.productVersion)?.ordinaryBinding;
-    const qualified = admission !== undefined && admission.qualification !== 'unqualified';
+    const admission = getEffectiveCodexBindingAdmission(this.productVersion, 'collect', this.maxFamilyMembers === 1 ? 'root' : 'bounded_family');
+    const qualified = admission?.qualified === true;
     return {
       currentIdentity: 'native_hook',
-      ancestry: 'verified_relations',
+      ancestry: admission?.kind === 'promoted' && this.maxFamilyMembers === 1 ? 'unavailable' : 'verified_relations',
       usage: 'own_requests',
       productionSupported: this.ordinaryFamilyAdmission && qualified,
       maxDepth: this.maxDepth,
@@ -267,7 +294,17 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
     };
   }
   admissionProfile(): string | null {
-    return this.ordinaryFamilyAdmission ? (lookupToolVersionProfile('codex', this.productVersion)?.ordinaryBinding?.profileId ?? null) : null;
+    return this.ordinaryFamilyAdmission
+      ? (getEffectiveCodexBindingAdmission(this.productVersion, 'collect', this.maxFamilyMembers === 1 ? 'root' : 'bounded_family')?.profileId ?? null)
+      : null;
+  }
+  private assertEffectiveAdmission(operation: 'link' | 'collect' | 'restart', child = false): void {
+    if (!this.ordinaryFamilyAdmission && !this.ordinaryFamilyQualification) return;
+    const topology = child || (operation === 'collect' && this.maxFamilyMembers > 1) ? 'bounded_family' : 'root';
+    const admission = this.ordinaryFamilyQualification
+      ? getEffectiveCodexBindingQualification(this.productVersion, operation, topology)
+      : getEffectiveCodexBindingAdmission(this.productVersion, operation, topology);
+    if (!admission) throw new Error('binding_source_unqualified');
   }
   /** Metadata-only pilot scope check before any receipt/source access. */
   assertProjectRoot(projectRoot: string): void {
@@ -332,11 +369,14 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
         const stat = fstatSync(fd);
         if (!stat.isFile() || stat.size > 16384 || (stat.mode & 0o077) !== 0 || stat.uid !== process.getuid?.()) throw new Error('invalid');
         bytes = Buffer.alloc(stat.size);
-        if (readSync(fd, bytes, 0, bytes.length, 0) !== bytes.length) throw new Error('invalid');
+        if (readSync(fd, bytes, 0, bytes.length, 0) !== bytes.length) {
+          throw new Error('invalid');
+        }
       } finally {
         closeSync(fd);
       }
-      const record = receiptSchema.parse(JSON.parse(bytes.toString('utf8')) as unknown);
+      const schema = receiptVersionSchema.safeParse(this.productVersion).success ? receiptSchema : promotedReceiptSchema;
+      const record = schema.parse(JSON.parse(bytes.toString('utf8')) as unknown);
       if (
         record.productVersion !== this.productVersion ||
         record.receipt !== receipt ||
@@ -346,8 +386,9 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
             (record.nativeRootSessionId === undefined
               ? record.parentSessionId === null || record.parentSessionId === record.sessionId
               : record.parentSessionId !== null || record.nativeRootSessionId === record.sessionId))
-      )
+      ) {
         throw new Error('invalid');
+      }
       return record;
     } catch {
       throw new Error('binding_identity_unavailable');
@@ -393,14 +434,16 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
   }
   private relation(record: Receipt, records: Receipt[]): Receipt {
     if (record.nativeRootSessionId === undefined) return record; // Legacy explicit direct-parent fixtures.
-    if (record.cwd !== this.projectRoot) throw new Error('binding_ancestry_unverified');
+    if (record.cwd !== this.projectRoot) {
+      throw new Error('binding_ancestry_unverified');
+    }
     const roots = records.filter(r => r.event === 'SessionStart' && r.sessionId === record.nativeRootSessionId && r.cwd === this.projectRoot);
     if (!roots.length || new Set(roots.map(r => JSON.stringify([r.sourceRef, r.sourceIdentity]))).size !== 1) throw new Error('binding_ancestry_unverified');
     // First prove native family/root receipts and exact hook-supplied source metadata.
     // Read only the child's first envelope, never history or a searched source path.
     for (const root of roots) this.sourceMetadata(root);
     this.sourceMetadata(record);
-    let header: z.infer<typeof headerSchema>['payload'];
+    let header: Header;
     try {
       header = this.readHeader(record);
     } catch {
@@ -422,15 +465,22 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
             ? r.sessionId === record.nativeRootSessionId
             : r.nativeRootSessionId === undefined || r.nativeRootSessionId === record.nativeRootSessionId)
       )
-    )
+    ) {
       throw new Error('binding_ancestry_unverified');
+    }
     return { ...record, parentSessionId: header.parent_thread_id };
   }
   private checkFamilyLimit(record: Receipt, records: Receipt[]): void {
+    if (this.ordinaryFamilyAdmission && this.maxFamilyMembers === 1 && getEffectiveCodexBindingAdmission(this.productVersion)?.kind === 'promoted') {
+      if (record.parentSessionId !== null || record.nativeRootSessionId !== undefined) throw new Error('binding_source_unqualified');
+      records = records.filter(row => row.sessionId === record.sessionId);
+    }
     let root = record;
     const seen = new Set<string>();
     while (root.nativeRootSessionId === undefined && root.parentSessionId !== null) {
-      if (seen.has(root.sessionId)) throw new Error('binding_ancestry_unverified');
+      if (seen.has(root.sessionId)) {
+        throw new Error('binding_ancestry_unverified');
+      }
       seen.add(root.sessionId);
       const parent = records.find(r => r.sessionId === root.parentSessionId);
       if (!parent) throw new Error('binding_ancestry_unverified');
@@ -452,11 +502,14 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
       }
     }
     const sources = records.filter(r => members.has(r.sessionId));
-    if (new Set(sources.map(r => JSON.stringify([r.sourceRef, r.sourceIdentity]))).size > this.maxFamilyMembers || members.size > this.maxFamilyMembers)
+    if (new Set(sources.map(r => JSON.stringify([r.sourceRef, r.sourceIdentity]))).size > this.maxFamilyMembers || members.size > this.maxFamilyMembers) {
       throw new Error('binding_family_limit');
-    for (const id of members)
-      if (new Set(sources.filter(r => r.sessionId === id).map(r => JSON.stringify([r.sourceRef, r.sourceIdentity]))).size > 1)
+    }
+    for (const id of members) {
+      if (new Set(sources.filter(r => r.sessionId === id).map(r => JSON.stringify([r.sourceRef, r.sourceIdentity]))).size > 1) {
         throw new Error('binding_identity_ambiguous');
+      }
+    }
   }
   private canonical(record: Receipt, records: Receipt[]): Receipt {
     this.checkFamilyLimit(record, records);
@@ -532,6 +585,7 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
     return retained;
   }
   private readSource(record: Receipt, headerOnly = false): Buffer {
+    this.assertEffectiveAdmission('collect', record.parentSessionId !== null || record.nativeRootSessionId !== undefined);
     this.sourcePath(record.sourceRef);
     let fd: number;
     try {
@@ -553,9 +607,13 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
         }
         throw new Error('binding_metadata_unavailable');
       }
-      if (before.size > this.maxSourceBytes) throw new Error('binding_source_limit');
+      if (before.size > this.maxSourceBytes) {
+        throw new Error('binding_source_limit');
+      }
       const bytes = Buffer.alloc(before.size);
-      if (readSync(fd, bytes, 0, bytes.length, 0) !== bytes.length) throw new Error('binding_source_changed');
+      if (readSync(fd, bytes, 0, bytes.length, 0) !== bytes.length) {
+        throw new Error('binding_source_changed');
+      }
       const after = fstatSync(fd);
       if (after.size !== before.size || after.mtimeMs !== before.mtimeMs || after.ctimeMs !== before.ctimeMs) throw new Error('binding_source_changed');
       return bytes;
@@ -567,18 +625,22 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
       closeSync(fd);
     }
   }
-  private readHeader(record: Receipt): z.infer<typeof headerSchema>['payload'] {
+  private readHeader(record: Receipt): Header {
     if (
       lookupToolVersionProfile('codex', record.productVersion)?.qualificationReader.mode !== 'legacy_header_v1' &&
       !this.ordinaryRootPilot &&
       !this.ordinaryFamilyQualification &&
       !this.ordinaryFamilyAdmission
-    )
+    ) {
       throw new Error('binding_source_unqualified');
+    }
     const bytes = this.readSource(record, true);
     try {
-      const header = headerSchema.parse(JSON.parse(bytes.toString('utf8')) as unknown).payload;
-      if (header.cli_version !== record.productVersion) throw new Error('invalid');
+      const schema = receiptVersionSchema.safeParse(this.productVersion).success ? headerSchema : promotedHeaderSchema;
+      const header = schema.parse(JSON.parse(bytes.toString('utf8')) as unknown).payload;
+      if (header.cli_version !== record.productVersion) {
+        throw new Error('invalid');
+      }
       return header;
     } catch {
       throw new Error('binding_metadata_unavailable');
@@ -586,22 +648,40 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
   }
   /** Qualification-only explicit connect: root hook metadata before any source read. */
   assertRootReceipt(input: { receipt: string }, sessionId: string | null): void {
+    this.assertEffectiveAdmission('link');
+    this.assertEffectiveAdmission('collect');
     const record = this.readReceipt(CurrentIdentityRequestSchema.parse(input).receipt);
     if (
       record.cwd !== this.projectRoot ||
       record.event !== 'SessionStart' ||
       record.parentSessionId !== null ||
       (sessionId !== null && record.sessionId !== sessionId)
-    )
+    ) {
       throw new Error('binding_qualification_live_root_required');
+    }
   }
   resolveApplicationIdentity(input: { receipt: string }): Promise<VerifiedSessionIdentity> {
     this.assertRootReceipt(input, null);
     return this.resolveCurrent(input);
   }
-  async resolveCurrent(input: { receipt: string }): Promise<VerifiedSessionIdentity> {
+  resolveCurrent(input: { receipt: string }): Promise<VerifiedSessionIdentity> {
+    return this.resolveReceipt(input, 'link');
+  }
+  private async revalidatePromotedBound(input: { receipt: string }, expected: VerifiedSessionIdentity): Promise<VerifiedSessionIdentity> {
+    const identity = await this.resolveReceipt(input, 'restart');
+    if (bindingIdentityKey(identity) !== bindingIdentityKey(expected)) {
+      throw new Error('binding_identity_unavailable');
+    }
+    return identity;
+  }
+  private async resolveReceipt(input: { receipt: string }, operation: 'link' | 'restart'): Promise<VerifiedSessionIdentity> {
+    this.assertEffectiveAdmission(operation);
+    this.assertEffectiveAdmission('collect');
     let record = this.readReceipt(CurrentIdentityRequestSchema.parse(input).receipt);
-    if (record.cwd !== this.projectRoot) throw new Error('binding_identity_unavailable');
+    this.assertEffectiveAdmission(operation, record.parentSessionId !== null || record.nativeRootSessionId !== undefined);
+    if (record.cwd !== this.projectRoot) {
+      throw new Error('binding_identity_unavailable');
+    }
     const records = this.receipts();
     record = this.canonical(record, records);
     // The trusted receipt bounds metadata verification without a history scan.
@@ -615,8 +695,9 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
         header.cli_version !== record.productVersion ||
         header.source !== 'cli' ||
         (header.parent_thread_id !== undefined && header.parent_thread_id !== null)
-      )
+      ) {
         throw new Error('binding_scope_mismatch');
+      }
     }
     const ancestry = record.parentSessionId === null ? null : this.verifyAncestry(record, records);
     return await Promise.resolve(this.identity(record, ancestry?.agentMetadata));
@@ -628,7 +709,9 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
     let current = record;
     let depth = 0;
     while (current.parentSessionId !== null) {
-      if (seen.has(current.sessionId) || ++depth > this.maxDepth) throw new Error('binding_ancestry_unverified');
+      if (seen.has(current.sessionId) || ++depth > this.maxDepth) {
+        throw new Error('binding_ancestry_unverified');
+      }
       seen.add(current.sessionId);
       const matches = records.filter(r => r.sessionId === current.parentSessionId);
       if (!matches.length) throw new Error('binding_ancestry_unverified');
@@ -639,12 +722,14 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
       }
       chain.push(current);
     }
-    if (seen.has(current.sessionId)) throw new Error('binding_ancestry_unverified');
+    if (seen.has(current.sessionId)) {
+      throw new Error('binding_ancestry_unverified');
+    }
     // First prove the complete chain and pinned source metadata, then inspect only
     // each child's session_meta envelope. No root hook alone authenticates a child.
     for (const item of chain) this.sourceMetadata(item);
     for (const [index, item] of chain.slice(0, -1).entries()) {
-      let header: z.infer<typeof headerSchema>['payload'];
+      let header: Header;
       try {
         header = this.readHeader(item);
       } catch {
@@ -659,18 +744,34 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
         typeof header.source === 'string' ||
         header.source.subagent.thread_spawn.parent_thread_id !== item.parentSessionId ||
         header.source.subagent.thread_spawn.depth !== depth - index
-      )
+      ) {
         throw new Error('binding_ancestry_unverified');
+      }
       if (index === 0) {
         // Project names from this verified envelope, without a second header read.
         const nickname = metadataName(header.agent_nickname);
         const role = metadataName(header.agent_role);
-        if (nickname !== null || role !== null) agentMetadata = { source: 'codex_session_meta', nickname, role };
+        if (nickname !== null || role !== null) {
+          agentMetadata = {
+            source: 'codex_session_meta',
+            nickname,
+            role
+          };
+        }
       }
     }
     return { rootSessionId: current.sessionId, agentMetadata };
   }
   async discoverChildren(parent: VerifiedSessionIdentity): Promise<ChildDiscovery> {
+    this.assertEffectiveAdmission('collect');
+    if (
+      this.ordinaryFamilyAdmission &&
+      getEffectiveCodexBindingAdmission(this.productVersion)?.kind === 'promoted' &&
+      (this.maxFamilyMembers === 1 || !getEffectiveCodexBindingAdmission(this.productVersion, 'collect', 'bounded_family'))
+    ) {
+      return { children: [], gaps: [] };
+    }
+    this.assertEffectiveAdmission('collect', true);
     const records = this.receipts();
     try {
       this.checkFamilyLimit(this.readReceipt(parent.identityEvidenceId), records);
@@ -696,7 +797,11 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
         gaps.add('binding_ancestry_unverified');
         continue;
       }
-      children.push({ parentSessionId: parent.sessionId, identity: this.identity(child, agentMetadata), relationEvidenceId: child.receipt });
+      children.push({
+        parentSessionId: parent.sessionId,
+        identity: this.identity(child, agentMetadata),
+        relationEvidenceId: child.receipt
+      });
     }
     return await Promise.resolve({ children, gaps: [...gaps] });
   }
@@ -718,23 +823,28 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
     return `${body}.${createHmac('sha256', this.cursorKey).update(body).digest('hex')}`;
   }
   async readUsage(session: VerifiedSessionIdentity, cursor: string | null, inputScope: CandidateScope, boundary?: BindingReadBoundary): Promise<UsageBatch> {
+    this.assertEffectiveAdmission('collect', session.parentSessionId !== null);
     let scope: CandidateScope;
     try {
       scope = checkedCandidateScope(inputScope);
     } catch {
       throw new Error('binding_scope_mismatch');
     }
+    const topology = scope.sessions.some(member => member.parentSessionId !== null) ? 'bounded_family' : 'root';
+    const admission = getEffectiveCodexBindingAdmission(this.productVersion, 'collect', topology);
     const compatibility = this.ordinaryFamilyAdmission
-      ? resolveSourceCompatibility('codex', this.productVersion, 'codex_binding', getCodexBindingAdmission(this.productVersion)?.profileId)
+      ? resolveSourceCompatibility('codex', this.productVersion, 'codex_binding', admission?.profileId, 'collect', topology)
       : this.ordinaryRootPilot || this.ordinaryFamilyQualification
         ? resolveSourceCompatibility('codex', this.productVersion, 'codex_workflow', 'codex-workflow-own-response-v1')
         : null;
-    if (this.ordinaryRootPilot && (scope.sessions.length !== 1 || session.parentSessionId !== null || !compatibility))
+    if (this.ordinaryRootPilot && (scope.sessions.length !== 1 || session.parentSessionId !== null || !compatibility)) {
       throw new Error('binding_pilot_family_scope');
+    }
     const record = this.verified(session);
     const mapping = scope.sessions.find(s => s.nativeSessionId === session.sessionId);
-    if (!mapping || mapping.product !== 'codex' || mapping.parentSessionId !== session.parentSessionId || mapping.sessionId !== session.sessionId)
+    if (!mapping || mapping.product !== 'codex' || mapping.parentSessionId !== session.parentSessionId || mapping.sessionId !== session.sessionId) {
       throw new Error('binding_scope_mismatch');
+    }
     // Siblings can be discovered without resetting an existing session's cursor.
     // Only the authorized task and this source's exact ancestry bind the cursor.
     const lineage = [mapping];
@@ -745,10 +855,12 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
     }
     const scopeHash = hash(JSON.stringify([scope.projectId, scope.taskId, lineage]));
     const previous = cursor === null ? null : this.decodeCursor(cursor);
-    if (previous && (previous.session !== session.sessionId || previous.sourceIdentity !== session.sourceIdentity || previous.scope !== scopeHash))
+    if (previous && (previous.session !== session.sessionId || previous.sourceIdentity !== session.sourceIdentity || previous.scope !== scopeHash)) {
       throw new Error('binding_cursor_invalid');
-    if (record.parentSessionId !== null) this.verifyAncestry(record, this.receipts());
-    else {
+    }
+    if (record.parentSessionId !== null) {
+      this.verifyAncestry(record, this.receipts());
+    } else {
       // Validate the native root metadata envelope before any transcript body is
       // read. A receipt's path alone cannot admit a different native source.
       const header = this.readHeader(record);
@@ -759,13 +871,16 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
         typeof header.source !== 'string' ||
         (this.ordinaryFamilyAdmission && header.source !== 'cli') ||
         header.cwd !== this.projectRoot
-      )
+      ) {
         throw new Error('binding_scope_mismatch');
+      }
     }
     const bytes = this.readSource(record);
     const now = TimestampSchema.parse(this.clock());
     if (previous && (bytes.length < previous.size || hash(bytes.subarray(0, previous.size)) !== previous.prefix)) throw new Error('binding_source_changed');
-    if (previous && Date.parse(now) < Date.parse(previous.lastAt)) throw new Error('binding_clock_regressed');
+    if (previous && Date.parse(now) < Date.parse(previous.lastAt)) {
+      throw new Error('binding_clock_regressed');
+    }
     // Root-turn permission comes from the authorized native source, never a model
     // supplied turn. For children the hook's turn is only a narrowing hint; the
     // native request still must satisfy all independent parser ancestry checks.
@@ -814,8 +929,9 @@ export class CodexSessionBindingProvider implements SessionBindingProvider {
           header.forked_from_ordinal_exclusive != null ||
           header.history_base != null ||
           header.subagent_history_start_ordinal != null
-        )
+        ) {
           throw new Error('candidate_unsupported_history');
+        }
       }
       snapshot = parseCodexCandidateRollout(bytes.toString('utf8'), scope, mapping.sourceId, this.projectRoot, now, compatibility ?? undefined);
     } catch (error) {

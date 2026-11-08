@@ -16,7 +16,7 @@ import {
   writeSync
 } from 'node:fs';
 import { basename, isAbsolute, join } from 'node:path';
-import { claudeBindingAdmissions, claudeBindingRuntimeSupported } from './claude-binding-admission.js';
+import { claudeBindingRuntimeSupported, getEffectiveClaudeExactImages } from './claude-binding-admission.js';
 import { toolVersionReadCeilings } from './core/tool-version-profiles.js';
 
 export interface ClaudeProcessBinary {
@@ -29,7 +29,9 @@ const maxImageBytes = toolVersionReadCeilings.claudeProcessImage;
 
 /** Kernel image metadata only. No process arguments, environment or transcript reads. */
 export function readClaudeProcessBinary(pid: number): ClaudeProcessBinary {
-  if (!claudeBindingRuntimeSupported()) throw new Error('binding_runtime_unsupported');
+  if (!claudeBindingRuntimeSupported()) {
+    throw new Error('binding_runtime_unsupported');
+  }
   const fields = execFileSync('/usr/sbin/lsof', ['-a', '-p', String(pid), '-d', 'txt', '-Fn'], {
     encoding: 'utf8',
     timeout: 2000,
@@ -38,14 +40,21 @@ export function readClaudeProcessBinary(pid: number): ClaudeProcessBinary {
   }).split('\n');
   const image = fields.find(field => field.startsWith('n'));
   const path = image?.slice(1);
-  if (!path || !isAbsolute(path) || realpathSync(path) !== path) throw new Error('claude_binary_unqualified');
+  if (!path || !isAbsolute(path) || realpathSync(path) !== path) {
+    throw new Error('claude_binary_unqualified');
+  }
   const fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   try {
     const before = fstatSync(fd);
     if (!before.isFile() || before.size < 1 || before.size > maxImageBytes || (before.mode & 0o111) === 0) throw new Error('claude_binary_unqualified');
     const key = JSON.stringify([pid, path, before.dev, before.ino, before.size, before.mtimeMs, before.ctimeMs]);
     const cached = images.get(key);
-    if (cached) return cached;
+    if (cached) {
+      if (!getEffectiveClaudeExactImages().some(row => row.productVersion === cached.productVersion && row.binarySha256 === cached.sha256)) {
+        throw new Error('claude_binary_unqualified');
+      }
+      return cached;
+    }
     const hash = createHash('sha256');
     const buffer = Buffer.alloc(65536);
     for (let offset = 0; offset < before.size;) {
@@ -56,7 +65,7 @@ export function readClaudeProcessBinary(pid: number): ClaudeProcessBinary {
     }
     const after = fstatSync(fd);
     const digest = hash.digest('hex');
-    const admission = claudeBindingAdmissions.find(row => row.admitted && row.binarySha256 === digest);
+    const admission = getEffectiveClaudeExactImages().find(row => row.binarySha256 === digest);
     if (
       before.dev !== after.dev ||
       before.ino !== after.ino ||
@@ -64,9 +73,13 @@ export function readClaudeProcessBinary(pid: number): ClaudeProcessBinary {
       before.mtimeMs !== after.mtimeMs ||
       before.ctimeMs !== after.ctimeMs ||
       !admission
-    )
+    ) {
       throw new Error('claude_binary_unqualified');
-    const binary = { productVersion: admission.productVersion, sha256: digest };
+    }
+    const binary = {
+      productVersion: admission.productVersion,
+      sha256: digest
+    };
     images.set(key, binary);
     if (images.size > 64) {
       const oldest = images.keys().next().value;

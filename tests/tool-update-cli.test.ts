@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { cp, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -113,7 +113,11 @@ test('assessment CLI writes a source-fresh static result without granting suppor
   expect(result.output.status).toBe('assessment_created');
   const raw: unknown = JSON.parse(await readFile(join(root, 'assessments', `${result.output.assessment_id}.json`), 'utf8'));
   const record = assessmentSchema.parse(raw);
-  expect(record).toMatchObject({ schema_version: 5, rule_revision: 'static-assessment-v3', inventory_scope: 'latest_and_npm_review_range' });
+  expect(record).toMatchObject({
+    schema_version: 8,
+    rule_revision: 'static-assessment-v4',
+    inventory_scope: 'latest_and_npm_review_range'
+  });
   expect(record.baseline_digest).toBeNull();
   expect(
     record.lanes.every(

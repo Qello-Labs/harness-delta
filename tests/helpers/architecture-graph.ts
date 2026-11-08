@@ -29,15 +29,25 @@ export function buildImportGraph(modules: readonly SourceModule[], knownAssets: 
       if (!specifier || !ts.isStringLiteralLike(specifier) || !specifier.text.startsWith('.')) return;
       const target = normalize(join(dirname(module.path), specifier.text));
       if (assets.has(target)) return;
+      if (typeOnly && assets.has(target.replace(/\.mjs$/, '.d.mts'))) {
+        return;
+      }
       const path = target.replace(/\.js$/, '.ts');
-      if (!paths.has(path)) throw new Error(`Unresolved relative dependency in ${module.path}: ${specifier.text}`);
+      if (!paths.has(path)) {
+        throw new Error(`Unresolved relative dependency in ${module.path}: ${specifier.text}`);
+      }
       const key = `${module.path} -> ${path}`;
       const previous = edges.get(key);
-      edges.set(key, { from: module.path, to: path, typeOnly: typeOnly && (previous?.typeOnly ?? true) });
+      edges.set(key, {
+        from: module.path,
+        to: path,
+        typeOnly: typeOnly && (previous?.typeOnly ?? true)
+      });
     };
     const visit = (node: ts.Node): void => {
-      if (ts.isIdentifier(node) && (node.text === 'require' || node.text === 'createRequire'))
+      if (ts.isIdentifier(node) && (node.text === 'require' || node.text === 'createRequire')) {
         throw new Error(`Unsupported loader identifier in ${module.path}: ${node.text}`);
+      }
       if (ts.isImportDeclaration(node)) {
         // Inline type specifiers retain import/export {} under verbatimModuleSyntax.
         add(node.moduleSpecifier, node.importClause?.isTypeOnly ?? false);
@@ -45,7 +55,9 @@ export function buildImportGraph(modules: readonly SourceModule[], knownAssets: 
         add(node.moduleSpecifier, node.isTypeOnly);
       } else if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
         const specifier = node.arguments[0];
-        if (!specifier || !ts.isStringLiteralLike(specifier)) throw new Error(`Unresolved module dependency in ${module.path}`);
+        if (!specifier || !ts.isStringLiteralLike(specifier)) {
+          throw new Error(`Unresolved module dependency in ${module.path}`);
+        }
         add(specifier, false);
       } else if (ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument)) {
         add(node.argument.literal, true);

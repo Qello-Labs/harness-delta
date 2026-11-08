@@ -1,15 +1,16 @@
-import { toolVersionProfiles } from './core/tool-version-profiles.js';
+import { lookupEffectiveToolVersionFacet, toolVersionProfiles, toolVersionPromotionProjection } from './core/tool-version-profiles.js';
+import { promotionEvidenceId, type ToolVersionPromotionFacet } from './core/tool-version-promotion.js';
 import { z } from 'zod';
 import { createHash } from 'node:crypto';
 import { IdSchema } from './contracts.js';
 import { parseComparison } from './comparison-contracts.js';
 import {
-  FlexibleProtocolSchema,
-  CostCoverageEvidenceSchema,
+  type CostCoverageDecision,
   CostCoverageDecisionSchema,
-  type FlexibleProtocol,
   type CostCoverageEvidence,
-  type CostCoverageDecision
+  CostCoverageEvidenceSchema,
+  type FlexibleProtocol,
+  FlexibleProtocolSchema
 } from './flexible-contracts.js';
 import { evaluateCostCoverage } from './cost-coverage.js';
 import { codexBindingAdmissions, isAdmittedCodexBindingProtocol } from './codex-binding-admission.js';
@@ -29,6 +30,7 @@ export interface SourceReadinessEvidence {
   semantics_digest: string;
   validation_kind: 'synthetic' | 'real_operations';
   complete_cost: boolean;
+  readonly scope?: ToolVersionPromotionFacet['decision']['scope'];
 }
 // Registries are code-owned evidence, never writable protocol flags or imported claims.
 // Exact root workflow operational evidence; see validation/codex-workflow-01600-source-readiness.md.
@@ -66,7 +68,37 @@ export const productionSourceEvidence: readonly SourceReadinessEvidence[] = Obje
             complete_cost: false
           })
         ]
-  )
+  ),
+  ...toolVersionPromotionProjection.facets.flatMap(candidate => {
+    const scope = candidate.decision.scope;
+    const platform = `${process.platform}_${process.arch}`;
+    const runtime = `node${process.versions.node.split('.')[0]}`;
+    if (scope.lane.operation !== 'collect' || scope.platform !== platform || scope.runtime !== runtime) {
+      return [];
+    }
+    const facet = lookupEffectiveToolVersionFacet(
+      candidate.descriptor.product,
+      candidate.descriptor.version,
+      'collect',
+      scope.lane.topology,
+      platform,
+      runtime
+    );
+    if (!facet?.decision.grants.includes('qualification')) return [];
+    const { descriptor, decision } = facet;
+    return [
+      Object.freeze({
+        id: promotionEvidenceId(facet),
+        product: descriptor.product,
+        product_version: descriptor.version,
+        profile_id: descriptor.profileId,
+        semantics_digest: descriptor.qualificationClaims.semanticsDigest,
+        validation_kind: 'real_operations' as const,
+        complete_cost: false,
+        scope: decision.scope
+      })
+    ];
+  })
 ]);
 export const productionAnalysisEvidence: readonly string[] = Object.freeze([]);
 export const syntheticSourceEvidence: readonly SourceReadinessEvidence[] = Object.freeze([
@@ -97,9 +129,20 @@ export function evaluateReadiness(input: ReadinessInput) {
   const registry =
     i.protocol.purpose === 'synthetic_validation'
       ? syntheticSourceEvidence
-      : productionSourceEvidence.filter(
-          e => !codexBindingAdmissions.some(admission => e.profile_id === admission.profileId) || isAdmittedCodexBindingProtocol(i.protocol)
-        );
+      : productionSourceEvidence.filter(e => {
+          if (e.scope) {
+            const { scope } = e;
+            if (
+              scope.lane.operation !== 'collect' ||
+              scope.platform !== `${process.platform}_${process.arch}` ||
+              scope.runtime !== `node${process.versions.node.split('.')[0]}`
+            )
+              return false;
+            const facet = lookupEffectiveToolVersionFacet(e.product, e.product_version, 'collect', scope.lane.topology, scope.platform, scope.runtime);
+            if (!facet?.decision.grants.includes('qualification') || promotionEvidenceId(facet) !== e.id) return false;
+          }
+          return !e.profile_id.startsWith('codex-binding-') || isAdmittedCodexBindingProtocol(i.protocol);
+        });
   const sources = i.source_evidence_ids.map(id => registry.find(e => e.id === id));
   const sourceReady =
     sources.length > 0 &&
@@ -111,9 +154,13 @@ export function evaluateReadiness(input: ReadinessInput) {
       i.protocol.source_profiles.some(p => p.product === e?.product && p.product_version === e.product_version && p.profile_id === e.profile_id)
     );
   const real = i.protocol.purpose !== 'synthetic_validation' && sourceReady && sources.every(e => e?.validation_kind === 'real_operations') && !i.invalidated;
-  if (i.protocol.purpose === 'functional_pilot') reasons.push('functional_pilot_only');
+  if (i.protocol.purpose === 'functional_pilot') {
+    reasons.push('functional_pilot_only');
+  }
   if (!sourceReady) reasons.push('source_unverified');
-  if (i.protocol.purpose === 'synthetic_validation') reasons.push('synthetic_only');
+  if (i.protocol.purpose === 'synthetic_validation') {
+    reasons.push('synthetic_only');
+  }
   const windows =
     i.coverage.length > 0 &&
     new Set(i.coverage.map(c => c.evidence.task_id)).size === i.coverage.length &&

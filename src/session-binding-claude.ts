@@ -3,14 +3,14 @@ import { familyDiscovery, familyProviderError } from './binding/binding-family-d
 import { bindingIdentityKey } from './session-binding-contract.js';
 import { readCacheWriteTtl } from './sources/cache-write-ttl.js';
 import { claudeAgentMetadata } from './sources/agent-metadata.js';
-import { getClaudeBindingAdmission, isClaudeModel } from './claude-binding-admission.js';
+import { getEffectiveClaudeBindingAdmission, isClaudeModel } from './claude-binding-admission.js';
 import { legacyClaudeTranscriptProfiles, lookupToolVersionProfile, orderedToolVersionProfiles } from './core/tool-version-profiles.js';
 import {
-  readClaudeProcessBinary,
   type ClaudeProcessBinary,
+  type ClaudeWindowBinaryAdapters,
   ClaudeWindowBinaryReader,
   createClaudeWindowBinaryAdapters,
-  type ClaudeWindowBinaryAdapters
+  readClaudeProcessBinary
 } from './claude-process-binary.js';
 import { assertClaudeWindowSourceAuthorization, type ClaudeWindowSourceAuthorization } from './core/ordinary-window-store.js';
 import { emptyOrdinaryWindowCoverage, type OrdinaryWindowConnectionProof, type OrdinaryWindowCoverage } from './core/ordinary-window-policy.js';
@@ -27,12 +27,12 @@ import {
   readSync,
   realpathSync,
   rmSync,
-  writeFileSync,
-  type Stats
+  type Stats,
+  writeFileSync
 } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative } from 'node:path';
 import { z } from 'zod';
-import { IdSchema, ModelSchema, TimestampSchema, TokenSchema, addTokens, type Reading } from './contracts.js';
+import { addTokens, IdSchema, ModelSchema, type Reading, TimestampSchema, TokenSchema } from './contracts.js';
 import type { CandidateScope } from './nested-candidate.js';
 // Type-only: the shared module is owned by the integration work item.
 import type {
@@ -41,12 +41,12 @@ import type {
   BindingUsageRecord,
   ChildDiscovery,
   CurrentIdentityRequest,
-  SessionBindingProvider,
   NativeConnectionProof,
-  UsageBatch,
-  VerifiedSessionIdentity,
   OrdinaryWindowReadBoundary,
-  OrdinaryWindowUsageBatch
+  OrdinaryWindowUsageBatch,
+  SessionBindingProvider,
+  UsageBatch,
+  VerifiedSessionIdentity
 } from './session-binding-contract.js';
 
 /** Claude Code ordinary-session binding provider.
@@ -374,21 +374,32 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
       now: Date.now,
       ...options
     };
-    if (this.#options.ordinaryAdmission && !getClaudeBindingAdmission(this.#options.productVersion)?.admitted) fail('claude_source_version_unsupported');
-    if (!Number.isSafeInteger(this.#options.maxFamilyMembers) || this.#options.maxFamilyMembers < 1 || this.#options.maxFamilyMembers > 32)
+    if (
+      this.#options.ordinaryAdmission &&
+      !getEffectiveClaudeBindingAdmission(this.#options.productVersion, 'collect', this.#options.maxFamilyMembers === 1 ? 'root' : 'bounded_family')?.admitted
+    ) {
+      fail('claude_source_version_unsupported');
+    }
+    if (!Number.isSafeInteger(this.#options.maxFamilyMembers) || this.#options.maxFamilyMembers < 1 || this.#options.maxFamilyMembers > 32) {
       fail('claude_binding_config_invalid');
+    }
   }
 
   capabilities(): BindingCapabilities {
     const qualified = this.#options.profiles.some(profile => profile.status === 'qualified');
+    const admission = getEffectiveClaudeBindingAdmission(
+      this.#options.productVersion,
+      'collect',
+      this.#options.maxFamilyMembers === 1 ? 'root' : 'bounded_family'
+    );
     // A qualified transcript profile is not an ordinary production admission; the service decides that.
     return {
       currentIdentity: 'native_hook',
-      ancestry: 'verified_relations',
+      ancestry: admission?.kind === 'promoted' && this.#options.maxFamilyMembers === 1 ? 'unavailable' : 'verified_relations',
       usage: 'own_requests',
-      productionSupported: this.#options.ordinaryAdmission && getClaudeBindingAdmission(this.#options.productVersion)?.admitted === true,
+      productionSupported: this.#options.ordinaryAdmission && admission?.admitted === true && (admission.kind === 'legacy' || admission.qualified),
       // Members are verified relations of the root; nested direct parents are not claimed.
-      maxDepth: 1,
+      maxDepth: admission?.kind === 'promoted' ? admission.maxDepth : 1,
       reasons: [
         'claude_skill_hooks_required_per_session',
         'claude_family_flattened_direct_parent_unverified',
@@ -400,10 +411,34 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
 
   /** Version support is decided from native transcript rows against exact profiles. */
   supportedVersion(version: unknown): boolean {
-    if (this.#options.ordinaryAdmission) return version === this.#options.productVersion;
+    if (this.#options.ordinaryAdmission) {
+      return (
+        version === this.#options.productVersion &&
+        getEffectiveClaudeBindingAdmission(this.#options.productVersion, 'collect', this.#options.maxFamilyMembers === 1 ? 'root' : 'bounded_family') !==
+          undefined
+      );
+    }
     const profile = this.#options.profiles.find(p => p.version === version);
     // Transcript qualification cannot bypass the separately approved pilot authority.
     return profile !== undefined && this.#options.allowCandidateProfiles;
+  }
+
+  #usesTerminalFinality(version: string, agent: string | null): boolean {
+    return (
+      (getEffectiveClaudeBindingAdmission(version, 'collect', agent === null && this.#options.maxFamilyMembers === 1 ? 'root' : 'bounded_family')
+        ?.finalityVariant ?? lookupToolVersionProfile('claude_code', version)?.transcriptProfile?.finalityVariant) === 'claude_terminal_message_v1'
+    );
+  }
+  #assertEffectiveAdmission(operation: 'link' | 'collect' | 'restart', child = false): void {
+    if (!this.#options.ordinaryAdmission) return;
+    const admission = getEffectiveClaudeBindingAdmission(
+      this.#options.productVersion,
+      operation,
+      child || (operation === 'collect' && this.#options.maxFamilyMembers > 1) ? 'bounded_family' : 'root'
+    );
+    if (!admission || (operation === 'collect' && admission.kind === 'promoted' && this.#options.maxFamilyMembers > admission.maxFamilyMembers)) {
+      fail('claude_source_version_unsupported');
+    }
   }
 
   /** Metadata-only pilot scope check before receipt or transcript access. */
@@ -418,22 +453,32 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
   }
   inspectCurrent(input: CurrentIdentityRequest): Promise<NativeConnectionProof> {
     return settle(() => {
-      if (!uuidPattern.test(input.receipt)) return fail('claude_receipt_invalid');
+      this.#assertEffectiveAdmission('link');
+      this.#assertEffectiveAdmission('collect');
+      if (!uuidPattern.test(input.receipt)) {
+        return fail('claude_receipt_invalid');
+      }
       assertPrivateDir(this.#options.receiptDir);
       assertPrivateDir(join(this.#options.receiptDir, 'connect'));
       const receipt = this.#receipt(join(this.#options.receiptDir, 'connect', `${input.receipt}.json`));
       const age = this.#options.now() - Date.parse(receipt.recorded_at);
-      if (receipt.kind !== 'connect' || receipt.receipt_id !== input.receipt || age < -5000 || age > this.#options.receiptMaxAgeMs)
+      if (receipt.kind !== 'connect' || receipt.receipt_id !== input.receipt || age < -5000 || age > this.#options.receiptMaxAgeMs) {
         return fail('claude_receipt_expired');
-      if (receipt.agent_id !== null) return fail('binding_child_requires_root');
-      if (this.#forgotten(receipt.session_id)) return fail('deleted_identifier');
+      }
+      if (receipt.agent_id !== null) {
+        return fail('binding_child_requires_root');
+      }
+      if (this.#forgotten(receipt.session_id)) {
+        return fail('deleted_identifier');
+      }
       const processId = this.#currentProcessProof(receipt.claude_pid);
       this.#assertProjectScope(receipt.transcript_path, receipt.cwd);
       const stat = this.#rootStat(receipt.transcript_path, receipt.session_id);
       const binary = this.#options.readProcessBinary(receipt.claude_pid);
-      const admission = getClaudeBindingAdmission(this.#options.productVersion);
-      if (!admission || binary.productVersion !== admission.productVersion || binary.sha256 !== admission.binarySha256)
+      const admission = getEffectiveClaudeBindingAdmission(this.#options.productVersion, 'link');
+      if (!admission || binary.productVersion !== admission.productVersion || binary.sha256 !== admission.binarySha256) {
         return fail('claude_binary_unqualified');
+      }
       return {
         receipt: receipt.receipt_id,
         recordedAt: receipt.recorded_at,
@@ -554,6 +599,7 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
   }
 
   #currentProcessProof(pid: number): string {
+    this.#assertEffectiveAdmission('collect');
     try {
       process.kill(pid, 0);
     } catch (error) {
@@ -562,9 +608,14 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
     const identity = this.#options.readProcessIdentity(pid);
     if (this.#options.ordinaryAdmission) {
       const binary = this.#options.readProcessBinary(pid);
-      const admission = getClaudeBindingAdmission(this.#options.productVersion);
-      if (!admission || binary.productVersion !== admission.productVersion || binary.sha256 !== admission.binarySha256)
+      const admission = getEffectiveClaudeBindingAdmission(
+        this.#options.productVersion,
+        'collect',
+        this.#options.maxFamilyMembers === 1 ? 'root' : 'bounded_family'
+      );
+      if (!admission || binary.productVersion !== admission.productVersion || binary.sha256 !== admission.binarySha256) {
         return fail('claude_binary_unqualified');
+      }
     }
     return `claude-process:${pid}:${sha([pid, identity])}`;
   }
@@ -592,17 +643,28 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
     processProof: string | null | undefined,
     scanEnd = Number.POSITIVE_INFINITY
   ): ReadChunk {
+    this.#assertEffectiveAdmission('collect', agent !== null);
     const stat = checkedSourceFile(path);
     const sessionId = agent === null ? native : `${native}:${agent}`;
-    if (this.#sourceIdentity(stat, sessionId) !== expectedSourceIdentity) fail('claude_source_replaced');
+    if (this.#sourceIdentity(stat, sessionId) !== expectedSourceIdentity) {
+      fail('claude_source_replaced');
+    }
     this.#assertBoundProcess(processProof);
     this.#authorize(path, stat, native, agent);
     const fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
     try {
       const opened = fstatSync(fd);
-      if (this.#sourceIdentity(opened, sessionId) !== expectedSourceIdentity || opened.uid !== stat.uid || opened.mode !== stat.mode)
+      if (this.#sourceIdentity(opened, sessionId) !== expectedSourceIdentity || opened.uid !== stat.uid || opened.mode !== stat.mode) {
         fail('claude_source_untrusted');
-      const none: ReadChunk = { lines: [], end: offset, size: opened.size, stat: opened, oversized: false, scanLimited: false };
+      }
+      const none: ReadChunk = {
+        lines: [],
+        end: offset,
+        size: opened.size,
+        stat: opened,
+        oversized: false,
+        scanLimited: false
+      };
       if (opened.size <= offset) return none;
       const length = Math.min(limit, opened.size - offset, Math.max(0, scanEnd - offset));
       if (!length) return { ...none, scanLimited: scanEnd < opened.size };
@@ -615,7 +677,12 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
       }
       const last = buffer.subarray(0, read).lastIndexOf(0x0a);
       if (last < 0) {
-        if (read < limit) return { ...none, scanLimited: offset + read >= scanEnd && scanEnd < opened.size };
+        if (read < limit) {
+          return {
+            ...none,
+            scanLimited: offset + read >= scanEnd && scanEnd < opened.size
+          };
+        }
         // A single line larger than the read window is skipped without parsing.
         let probe = offset + read;
         const chunk = Buffer.alloc(65536);
@@ -624,14 +691,21 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
           const current = checkedSourceFile(path);
           if (this.#sourceIdentity(current, sessionId) !== expectedSourceIdentity) fail('claude_source_replaced');
           const descriptor = fstatSync(fd);
-          if (this.#sourceIdentity(descriptor, sessionId) !== expectedSourceIdentity || descriptor.uid !== current.uid || descriptor.mode !== current.mode)
+          if (this.#sourceIdentity(descriptor, sessionId) !== expectedSourceIdentity || descriptor.uid !== current.uid || descriptor.mode !== current.mode) {
             fail('claude_source_untrusted');
+          }
           this.#assertBoundProcess(processProof);
           this.#authorize(path, current, native, agent);
           const n = readSync(fd, chunk, 0, Math.min(chunk.length, probeEnd - probe), probe);
           if (!n) return none;
           const index = chunk.subarray(0, n).indexOf(0x0a);
-          if (index >= 0) return { ...none, end: probe + index + 1, oversized: true };
+          if (index >= 0) {
+            return {
+              ...none,
+              end: probe + index + 1,
+              oversized: true
+            };
+          }
           probe += n;
         }
         return { ...none, scanLimited: probeEnd < opened.size };
@@ -640,10 +714,23 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
       let start = 0;
       while (start <= last) {
         const newline = buffer.indexOf(0x0a, start);
-        if (newline > start) lines.push({ start: offset + start, end: offset + newline + 1, text: buffer.subarray(start, newline).toString('utf8') });
+        if (newline > start) {
+          lines.push({
+            start: offset + start,
+            end: offset + newline + 1,
+            text: buffer.subarray(start, newline).toString('utf8')
+          });
+        }
         start = newline + 1;
       }
-      return { lines, end: offset + last + 1, size: opened.size, stat: opened, oversized: false, scanLimited: false };
+      return {
+        lines,
+        end: offset + last + 1,
+        size: opened.size,
+        stat: opened,
+        oversized: false,
+        scanLimited: false
+      };
     } finally {
       closeSync(fd);
     }
@@ -708,14 +795,18 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
   }
 
   #resolve(input: CurrentIdentityRequest, expected?: VerifiedSessionIdentity): VerifiedSessionIdentity {
+    this.#assertEffectiveAdmission(expected ? 'restart' : 'link');
+    this.#assertEffectiveAdmission('collect');
     const receiptId = typeof input?.receipt === 'string' && uuidPattern.test(input.receipt) ? input.receipt : fail('claude_receipt_invalid');
     assertPrivateDir(this.#options.receiptDir);
     assertPrivateDir(join(this.#options.receiptDir, 'connect'));
     const receipt = this.#receipt(join(this.#options.receiptDir, 'connect', `${receiptId}.json`));
+    this.#assertEffectiveAdmission(expected ? 'restart' : 'link', receipt.agent_id !== null);
     const recordedAt = Date.parse(receipt.recorded_at);
     const age = this.#options.now() - recordedAt;
-    if (receipt.kind !== 'connect' || receipt.receipt_id !== receiptId || age < -5000 || (!expected && age > this.#options.receiptMaxAgeMs))
+    if (receipt.kind !== 'connect' || receipt.receipt_id !== receiptId || age < -5000 || (!expected && age > this.#options.receiptMaxAgeMs)) {
       fail('claude_receipt_expired');
+    }
     if (
       expected &&
       (expected.product !== 'claude_code' ||
@@ -726,33 +817,48 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
         expected.nativeMapping.agentId !== null ||
         expected.cwd !== this.#options.projectRoot ||
         expected.sourceRef !== receipt.transcript_path)
-    )
+    ) {
       fail('claude_bound_identity_changed');
+    }
     if (this.#forgotten(receipt.session_id)) fail('deleted_identifier');
     const processId = this.#currentProcessProof(receipt.claude_pid);
-    if (expected && expected.nativeMapping?.processId !== processId) fail('claude_bound_identity_changed');
+    if (expected && expected.nativeMapping?.processId !== processId) {
+      fail('claude_bound_identity_changed');
+    }
     // Inside a subagent the hook transcript may be the root or the member file; derive the root.
     const native = receipt.session_id;
     const rootPath =
       receipt.agent_id !== null && receipt.transcript_path.endsWith(join(native, 'subagents', `agent-${receipt.agent_id}.jsonl`))
         ? join(dirname(dirname(dirname(receipt.transcript_path))), `${native}.jsonl`)
         : receipt.transcript_path;
-    if (!this.#memberPathValid(rootPath, native, null)) fail('claude_source_untrusted');
+    if (!this.#memberPathValid(rootPath, native, null)) {
+      fail('claude_source_untrusted');
+    }
     this.#assertProjectScope(rootPath, receipt.cwd);
     const rootStat = this.#rootStat(rootPath, native);
     if (expected) {
       if (this.#sourceIdentity(rootStat, native) !== expected.sourceIdentity) fail('claude_bound_identity_changed');
       const identity = this.#identity(native, null, rootPath, rootPath, rootStat, expected.productVersion, expected.createdAt, receipt.agent_type, processId);
-      if (bindingIdentityKey(identity) !== bindingIdentityKey(expected)) fail('claude_bound_identity_changed');
-      if (!this.supportedVersion(identity.productVersion)) fail('claude_source_version_unsupported');
+      if (bindingIdentityKey(identity) !== bindingIdentityKey(expected)) {
+        fail('claude_bound_identity_changed');
+      }
+      if (!this.supportedVersion(identity.productVersion)) {
+        fail('claude_source_version_unsupported');
+      }
       this.#authorize(rootPath, rootStat, native, null);
       return identity;
     }
     // A connecting session has just written its transcript; a stale file is not current.
-    if (rootStat.mtimeMs < recordedAt - this.#options.receiptMaxAgeMs) fail('claude_source_stale');
+    if (rootStat.mtimeMs < recordedAt - this.#options.receiptMaxAgeMs) {
+      fail('claude_source_stale');
+    }
     const root = this.#firstOwnRow(rootPath, native, null, this.#sourceIdentity(rootStat, native), processId);
-    if (root.version === null || root.createdAt === null) fail('claude_source_version_unobserved');
-    if (!this.supportedVersion(root.version)) fail('claude_source_version_unsupported');
+    if (root.version === null || root.createdAt === null) {
+      fail('claude_source_version_unobserved');
+    }
+    if (!this.supportedVersion(root.version)) {
+      fail('claude_source_version_unsupported');
+    }
     if (receipt.agent_id === null) {
       const identity = this.#identity(native, null, rootPath, rootPath, rootStat, root.version!, root.createdAt!, receipt.agent_type, processId);
       return identity;
@@ -771,10 +877,29 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
     return this.#identity(native, receipt.agent_id, rootPath, childPath, childStat, root.version!, child.createdAt!, receipt.agent_type);
   }
 
-  #discover(parent: VerifiedSessionIdentity): ChildDiscovery {
+  #familyDiscoveryEnabled(parent: VerifiedSessionIdentity): boolean {
+    this.#assertEffectiveAdmission('collect');
+    const admission = getEffectiveClaudeBindingAdmission(
+      this.#options.productVersion,
+      'collect',
+      this.#options.maxFamilyMembers === 1 ? 'root' : 'bounded_family'
+    );
+    if (
+      this.#options.ordinaryAdmission &&
+      admission?.kind === 'promoted' &&
+      (this.#options.maxFamilyMembers === 1 || !getEffectiveClaudeBindingAdmission(this.#options.productVersion, 'collect', 'bounded_family'))
+    ) {
+      return false;
+    }
+    this.#assertEffectiveAdmission('collect', true);
     const { native, agent } = nativeOf(parent);
+    return agent === null && parent.parentSessionId === null && !this.#forgotten(native);
+  }
+
+  #discover(parent: VerifiedSessionIdentity): ChildDiscovery {
+    const { native } = nativeOf(parent);
     // Claude members are discovered from the root's own receipts and layout only.
-    if (agent !== null || parent.parentSessionId !== null || this.#forgotten(native)) return { children: [], gaps: [] };
+    if (!this.#familyDiscoveryEnabled(parent)) return { children: [], gaps: [] };
     this.#assertBoundProcess(parent.nativeMapping?.processId);
     this.#assertProjectScope(parent.sourceRef, parent.cwd);
     const rootStat = this.#rootStat(parent.sourceRef, native);
@@ -993,6 +1118,7 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
     baseline: boolean,
     baselineLedger?: BindingReadBoundary['baselineLedger']
   ): UsageBatch {
+    this.#assertEffectiveAdmission('collect', session.parentSessionId !== null);
     const { native, agent } = nativeOf(session);
     if (this.#forgotten(native)) fail('deleted_identifier');
     const mapping = scope.sessions.find(
@@ -1011,14 +1137,24 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
     if (roots.length !== 1 || (agent === null && roots[0]!.processId !== session.nativeMapping?.processId)) fail('claude_bound_identity_changed');
     const rootProcessProof = roots[0]!.processId;
     this.#assertBoundProcess(rootProcessProof);
-    if (!this.supportedVersion(session.productVersion)) fail('claude_source_version_unsupported');
-    if (!this.#memberPathValid(session.sourceRef, native, agent)) fail('claude_source_untrusted');
+    if (!this.supportedVersion(session.productVersion)) {
+      fail('claude_source_version_unsupported');
+    }
+    if (!this.#memberPathValid(session.sourceRef, native, agent)) {
+      fail('claude_source_untrusted');
+    }
     const rootPath = agent === null ? session.sourceRef : join(dirname(dirname(dirname(session.sourceRef))), `${native}.jsonl`);
     this.#assertProjectScope(rootPath, session.cwd);
     const encode = (cursor: Cursor) => Buffer.from(JSON.stringify(cursor)).toString('base64url');
     const start: Cursor =
       cursorText === null
-        ? { v: 3, source: session.sourceIdentity, offset: 0, recent: [], baselineExcluded: [] }
+        ? {
+            v: 3,
+            source: session.sourceIdentity,
+            offset: 0,
+            recent: [],
+            baselineExcluded: []
+          }
         : (() => {
             try {
               return CursorSchema.parse(JSON.parse(Buffer.from(cursorText, 'base64url').toString('utf8')));
@@ -1028,7 +1164,9 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
           })();
     const unchanged = (gap: string): UsageBatch =>
       baseline ? fail('claude_baseline_incomplete') : { records: [], cursor: encode(start), gaps: shared([gap]) };
-    if (start.source !== session.sourceIdentity) return unchanged('source_replaced');
+    if (start.source !== session.sourceIdentity) {
+      return unchanged('source_replaced');
+    }
     const gaps = new Set<string>();
     const recent = new Map(start.recent);
     const baselineExcluded = new Set(start.baselineExcluded);
@@ -1037,7 +1175,7 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
     let readOffset = offset,
       scannedBytes = 0;
     const byRequest = new Map<string, Pending>();
-    const nativeFinality = lookupToolVersionProfile('claude_code', session.productVersion)?.transcriptProfile?.finalityVariant === 'claude_terminal_message_v1';
+    const nativeFinality = this.#usesTerminalFinality(session.productVersion, agent);
     // A null cursor or a baseline reads to the current end; a later cursor reads one window per call.
     const toEnd = cursorText === null || baseline;
     for (;;) {
@@ -1054,32 +1192,49 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
       }
       if (this.#sourceIdentity(chunk.stat, session.sessionId) !== session.sourceIdentity) return unchanged('source_replaced');
       if (chunk.size < readOffset) return unchanged('source_truncated');
-      if (baseline && (chunk.oversized || chunk.scanLimited)) fail('claude_baseline_incomplete');
+      if (baseline && (chunk.oversized || chunk.scanLimited)) {
+        fail('claude_baseline_incomplete');
+      }
       // Migrate legacy exclusions only after the source's read authority is checked.
       if (baselineLedger) {
-        if (baselineLedger.addMany) baselineLedger.addMany([...baselineExcluded]);
-        else for (const requestId of baselineExcluded) baselineLedger.add(requestId);
+        if (baselineLedger.addMany) {
+          baselineLedger.addMany([...baselineExcluded]);
+        } else {
+          for (const requestId of baselineExcluded) {
+            baselineLedger.add(requestId);
+          }
+        }
         baselineExcluded.clear();
       }
       if (chunk.oversized) gaps.add('oversized_line_skipped');
       const baselineIds = new Set<string>();
-      if (baseline)
+      if (baseline) {
         for (const line of chunk.lines) {
           const row = rowMeta(line.text);
           if (!row) return fail('claude_baseline_incomplete');
           if (row.type !== 'assistant' || !ownRow(row, native, agent) || row.message?.model === '<synthetic>') continue;
           const request = IdSchema.safeParse(row.requestId);
-          if (!request.success) return fail('claude_baseline_incomplete');
+          if (!request.success) {
+            return fail('claude_baseline_incomplete');
+          }
           // Preserve ownership IDs even when an in-flight row has missing counters.
           if (baselineLedger) baselineIds.add(request.data);
           else {
             baselineExcluded.add(request.data);
-            if (baselineExcluded.size > recentLimit) fail('claude_baseline_limit');
+            if (baselineExcluded.size > recentLimit) {
+              fail('claude_baseline_limit');
+            }
           }
         }
+      }
       if (baselineLedger && baselineIds.size) {
-        if (baselineLedger.addMany) baselineLedger.addMany([...baselineIds]);
-        else for (const requestId of baselineIds) baselineLedger.add(requestId);
+        if (baselineLedger.addMany) {
+          baselineLedger.addMany([...baselineIds]);
+        } else {
+          for (const requestId of baselineIds) {
+            baselineLedger.add(requestId);
+          }
+        }
       }
       const pending = this.#collect(chunk, native, agent, session.productVersion, gaps, byRequest);
       // Native thinking fragments remain provisional across user/tool rows and quiet intervals.
@@ -1143,7 +1298,9 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
       readOffset = chunk.end;
       scannedBytes += readOffset - before;
       offset = held ? held.first.start : chunk.end;
-      if (baseline && readOffset <= before && readOffset < chunk.size) fail('claude_baseline_incomplete');
+      if (baseline && readOffset <= before && readOffset < chunk.size) {
+        fail('claude_baseline_incomplete');
+      }
       if (nativeFinality && held && !scanLimited && readOffset > before && readOffset < chunk.size) {
         if (scannedBytes < metadataScanLimit) continue;
         gaps.add('usage_incomplete');
@@ -1171,7 +1328,9 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
         gaps.add('invalid_line');
         continue;
       }
-      if (row.type === 'system' && row.subtype === 'compact_boundary') gaps.add('compaction_usage_unverified');
+      if (row.type === 'system' && row.subtype === 'compact_boundary') {
+        gaps.add('compaction_usage_unverified');
+      }
       if (row.type !== 'assistant') continue;
       if (row.sessionId !== native) {
         gaps.add('foreign_session_row');
@@ -1199,7 +1358,7 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
       }
       let messageId: string | null = null,
         finalized = true;
-      if (lookupToolVersionProfile('claude_code', version)?.transcriptProfile?.finalityVariant === 'claude_terminal_message_v1') {
+      if (this.#usesTerminalFinality(version, agent)) {
         const id = IdSchema.safeParse(row.message.id);
         const stop = NativeStopReasonSchema.safeParse(row.message.stopReason);
         if (!id.success || !stop.success) {
@@ -1269,9 +1428,16 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
             input_total: observed(addTokens([ordinary, write, read])),
             cached_input: observed(read),
             output_total: observed(output),
-            reasoning_output: { status: 'unmeasurable', value: null, reason: 'unsupported' },
+            reasoning_output: {
+              status: 'unmeasurable',
+              value: null,
+              reason: 'unsupported'
+            },
             billing_components: [
-              { kind: 'ordinary_input', reading: observed(ordinary) },
+              {
+                kind: 'ordinary_input',
+                reading: observed(ordinary)
+              },
               { kind: 'cache_read', reading: observed(read) },
               { kind: 'cache_write', reading: observed(write) },
               { kind: 'output', reading: observed(output) }

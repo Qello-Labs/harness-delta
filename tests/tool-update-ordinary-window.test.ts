@@ -2,7 +2,7 @@ import { expect, test } from 'vitest';
 import { assessCandidate, assessmentSchema } from '../scripts/tool-update/assessment.mjs';
 import { laneKey, sourceLanes } from '../scripts/tool-update/lanes.mjs';
 import { withSourceSnapshot } from '../scripts/tool-update/source-snapshot.mjs';
-import { assessmentRoot, ordinaryAssessmentFixture } from './helpers/tool-update-ordinary-window-fixture.js';
+import { assessmentRoot, frozenAssessmentFixture, ordinaryAssessmentFixture } from './helpers/tool-update-ordinary-window-fixture.js';
 
 const policies = [
   ['codex', 'codex_binding', 'codex-binding-root-window-v1', 'codex-ordinary-root-window-v1', '0.163.0', '0.170.0', '0.166.0'],
@@ -35,7 +35,7 @@ test('snapshot exposes only the two finite root-policy operation sets and refuse
       .sort((a, b) => laneKey(a).localeCompare(laneKey(b), 'en'))
   );
   expect(snapshot.value.refused).toEqual(Array(10).fill(null));
-  expect(snapshot.source_paths).toHaveLength(52);
+  expect(snapshot.source_paths).toHaveLength(55);
 });
 
 test.each([
@@ -62,8 +62,8 @@ test.each([
 
   const result = await assessCandidate(ordinaryAssessmentFixture(product, target, true));
 
-  expect(result.schema_version).toBe(6);
-  if (result.schema_version !== 6) throw new Error('schema_6_required');
+  expect(result.schema_version).toBe(8);
+  if (result.schema_version !== 8) throw new Error('current_assessment_required');
   const lanes = result.lanes.filter(row => row.profile_id === profile);
   expect(lanes.map(row => row.operation)).toEqual(['collect', 'link', 'restart']);
   for (const row of lanes) {
@@ -122,11 +122,12 @@ test.each([
   }
 });
 
-test.each(policies.flatMap(policy => [false, true].map(reviewed => ({ policy, reviewed }))))(
-  'v3 writer and strict root-policy reader preserve $policy.0 reviewed=$reviewed',
-  async ({ policy, reviewed }) => {
+test.each(policies.flatMap(policy => [false, true].flatMap(reviewed => ['v3', 'current'].map(revision => ({ policy, reviewed, revision })))))(
+  '$revision writer and strict root-policy reader preserve $policy.0 reviewed=$reviewed',
+  async ({ policy, reviewed, revision: writer }) => {
     const [product, , profile, revision, , , target] = policy;
-    const result = await assessCandidate(ordinaryAssessmentFixture(product, target, reviewed));
+    const result =
+      writer === 'v3' ? frozenAssessmentFixture(product, reviewed, true) : await assessCandidate(ordinaryAssessmentFixture(product, target, reviewed));
     const row = result.lanes.find(lane => lane.profile_id === profile && lane.operation === 'collect');
     if (!row?.compatibility) {
       throw new Error('fixture_inherited_lane_required');
@@ -139,11 +140,11 @@ test.each(policies.flatMap(policy => [false, true].map(reviewed => ({ policy, re
         lanes: [{ ...row, ...changes }]
       });
 
-    expect(result.schema_version).toBe(reviewed ? 6 : 5);
-    expect(result.rule_revision).toBe('static-assessment-v3');
+    expect(result.schema_version).toBe(writer === 'v3' ? (reviewed ? 6 : 5) : 8);
+    expect(result.rule_revision).toBe(writer === 'v3' ? 'static-assessment-v3' : 'static-assessment-v4');
     expect(assessmentSchema.parse(result)).toEqual(result);
     expect(row.rule_revision).toBe(revision);
-    for (const rule_revision of ['static-assessment-v1', 'static-assessment-v2', 'static-assessment-v4']) {
+    for (const rule_revision of ['static-assessment-v1', 'static-assessment-v2', writer === 'v3' ? 'static-assessment-v4' : 'static-assessment-v3']) {
       expect(assessmentSchema.safeParse({ ...result, rule_revision }).success).toBe(false);
     }
     for (const changes of [
@@ -198,7 +199,8 @@ test.each(policies.flatMap(policy => [false, true].map(reviewed => ({ policy, re
 
 test('0.166.0 keeps exact assigned-family selection distinct from inherited root policy', async () => {
   const result = await assessCandidate(ordinaryAssessmentFixture('codex', '0.166.0', true));
-  if (result.schema_version !== 6) throw new Error('schema_6_required');
+  if (result.schema_version !== 8 || result.review_ids === undefined || result.judgment_ids !== undefined)
+    throw new Error('current_manual_assessment_required');
 
   expect(
     result.lanes
