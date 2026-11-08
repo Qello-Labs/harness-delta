@@ -1,11 +1,11 @@
-import { consumedContracts, requiredFacets } from '../../scripts/tool-update/difference-contracts.mjs';
+import { consumedContracts, mapRevision, requiredFacets } from '../../scripts/tool-update/difference-contracts.mjs';
 import { differenceJobId } from '../../scripts/tool-update/difference-records.mjs';
 import type { Comparison, DifferenceEvidence, DifferenceJob, Finding } from '../../scripts/tool-update/difference-records.mjs';
 
 export const currentIdentities = {
   source_digest: 'a'.repeat(64),
   engine_digest: 'b'.repeat(64),
-  map_revision: 'difference-map-v1'
+  map_revision: mapRevision
 } as const;
 export const baseRef = { version: '0.163.0', commit: '1'.repeat(40) };
 export const middleRef = { version: '0.164.0', commit: '2'.repeat(40) };

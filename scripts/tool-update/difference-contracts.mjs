@@ -2,7 +2,7 @@ import { consumedContracts } from './assessment.mjs';
 
 export { consumedContracts };
 export const contractRevision = 'consumed-v1';
-export const mapRevision = 'difference-map-v1';
+export const mapRevision = 'difference-map-v2';
 export const engineRevision = 'difference-engine-v1';
 export const facets = Object.freeze([
   'serialized_shape',
@@ -103,6 +103,76 @@ const applicability = Object.freeze({
   finality_replay_conflict_stop_flush_sigint: Object.freeze(['serialized_shape', 'client_transformation', 'identity_lifecycle', 'native_execution'])
 });
 export const contractFacetMap = applicability;
+
+// Whole workspace identities include helpers, macros and build inputs, not just protocol declarations.
+export const codexSourcePaths = Object.freeze({
+  rust_workspace: Object.freeze({ path: 'codex-rs', type: 'tree' }),
+  cargo_configuration: Object.freeze({ path: '.cargo', type: 'tree' }),
+  local_patches: Object.freeze({ path: 'patches', type: 'tree' }),
+  vendored_inputs: Object.freeze({ path: 'third_party', type: 'tree' }),
+  workspace_manifest: Object.freeze({
+    path: 'codex-rs/Cargo.toml',
+    type: 'blob'
+  }),
+  dependency_lock: Object.freeze({
+    path: 'codex-rs/Cargo.lock',
+    type: 'blob'
+  }),
+  toolchain: Object.freeze({
+    path: 'codex-rs/rust-toolchain.toml',
+    type: 'blob'
+  }),
+  protocol: Object.freeze({ path: 'codex-rs/protocol', type: 'tree' }),
+  core: Object.freeze({ path: 'codex-rs/core', type: 'tree' }),
+  hooks: Object.freeze({ path: 'codex-rs/hooks', type: 'tree' }),
+  invocation: Object.freeze({ path: 'codex-rs/cli', type: 'tree' }),
+  execution: Object.freeze({ path: 'codex-rs/exec', type: 'tree' }),
+  configuration: Object.freeze({ path: 'codex-rs/config', type: 'tree' }),
+  serialization_definitions: Object.freeze({
+    path: 'codex-rs/protocol/src/protocol.rs',
+    type: 'blob'
+  }),
+  usage_and_lifecycle: Object.freeze({
+    path: 'codex-rs/core/src/lib.rs',
+    type: 'blob'
+  }),
+  hook_producers: Object.freeze({
+    path: 'codex-rs/hooks/src/lib.rs',
+    type: 'blob'
+  }),
+  invocation_definitions: Object.freeze({
+    path: 'codex-rs/cli/src/main.rs',
+    type: 'blob'
+  }),
+  execution_definitions: Object.freeze({
+    path: 'codex-rs/exec/src/lib.rs',
+    type: 'blob'
+  }),
+  configuration_schema: Object.freeze({
+    path: 'codex-rs/core/config.schema.json',
+    type: 'blob'
+  })
+});
+const codexClosure = Object.freeze(Object.keys(codexSourcePaths));
+export const codexContractDescriptors = Object.freeze(
+  Object.fromEntries(
+    consumedContracts.map(contractId => [
+      contractId,
+      Object.freeze({
+        pathIds: codexClosure,
+        facets: Object.freeze(applicability[contractId].filter(facet => methods.codex_source_identity.facets.includes(facet))),
+        schemaPathId: contractId === 'invocation_permissions_config_model_effort' ? 'configuration_schema' : null,
+        schemaCompleteness: 'partial',
+        unsupportedReason: 'unsupported_extractor'
+      })
+    ])
+  )
+);
+export const codexSchemaFields = Object.freeze([
+  Object.freeze({ property: 'model', fieldId: 'model' }),
+  Object.freeze({ property: 'model_reasoning_effort', fieldId: 'effort' }),
+  Object.freeze({ property: 'sandbox_mode', fieldId: 'permission_mode' })
+]);
 export const deferredValidation = Object.freeze({
   native_execution: Object.freeze({
     reason: 'native_validation_pending',
@@ -130,6 +200,7 @@ export const engineFiles = Object.freeze([
   'scripts/tool-update/difference-contracts.mjs',
   'scripts/tool-update/difference-records.mjs',
   'scripts/tool-update/difference-judgment.mjs',
+  'scripts/tool-update/difference-source.mjs',
   'scripts/tool-update/manifest.mjs',
   'scripts/tool-update/lanes.mjs',
   'scripts/tool-update/assessment.mjs',

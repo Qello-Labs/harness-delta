@@ -23,7 +23,7 @@ const refSchema = z.strictObject({
 const sortedUnique = values => values.every((value, index) => index === 0 || value > values[index - 1]);
 const idsSchema = z.array(shaSchema).max(256).refine(sortedUnique);
 const reasonsSchema = z.array(z.enum(reasonCodes)).max(reasonCodes.length).refine(sortedUnique);
-const mapSchema = z.enum(['difference-map-v0', 'difference-map-v1']);
+const mapSchema = z.enum(['difference-map-v0', 'difference-map-v1', 'difference-map-v2']);
 const engineRevisionSchema = z.enum(['difference-engine-v0', 'difference-engine-v1']);
 const comparisonFields = {
   comparison_kind: z.enum(['adjacent_release', 'parser_base']),
