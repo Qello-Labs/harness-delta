@@ -30,3 +30,20 @@ export function collectCodexSourceEvidence(
   job: DifferenceJob,
   options: { readonly fetch: (url: string, init: RequestInit) => Promise<Response>; readonly signal?: AbortSignal }
 ): Promise<CodexSourceResult>;
+export interface ClaudeDocumentationResult extends CodexSourceResult {
+  readonly documents: readonly {
+    readonly path_id: 'release_documentation';
+    readonly content_hash: string;
+    readonly fetched_at: string;
+    readonly release: null;
+    readonly limitation: 'unversioned_doc';
+  }[];
+}
+export function collectClaudeDocumentationEvidence(
+  job: DifferenceJob,
+  options: {
+    readonly fetch: (url: string, init: RequestInit) => Promise<Response>;
+    readonly signal?: AbortSignal;
+    readonly documentation?: 'pinned' | 'unversioned_doc';
+  }
+): Promise<ClaudeDocumentationResult>;
