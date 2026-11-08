@@ -16,10 +16,13 @@ Codex CLI 또는 Claude Code의 현재 안정 릴리스를 찾고, 그 후보를
   읽습니다. 현재 저장소 소스를 투영해 변경 불가능한 평가(assessment) 레코드를 씁니다.
 - `record-review`는 사람이 작성한 계약 검토 레코드를 검증하고 게시합니다. 판단을 직접 만들어
   내지는 않습니다.
+- `difference-job`, `collect-difference-evidence`, `judge`는 기계 차이 레코드를 만들고,
+  `assess --judgment`는 별도 채널로 이를 읽습니다
+  ([기계 차이 명령](#기계-차이-명령) 참고).
 
 아무것도 설치하지 않고 벤더 바이너리도 실행하지 않습니다. 세션, 사용자 데이터베이스, 도구
-설정을 읽지 않으며 허용, 기본값, CI, 추적 파일도 바꾸지 않습니다. 네트워크 요청은 `discover`만
-보냅니다. 공식 GitHub와 npm 엔드포인트에 고정된 읽기 요청만 보내고, 비밀값이나 호출자가 지정한
+설정을 읽지 않으며 허용, 기본값, CI, 추적 파일도 바꾸지 않습니다. 네트워크 요청은 `discover`와
+`collect-difference-evidence`만 보냅니다. 두 명령 모두 공식 엔드포인트에 고정된 읽기 요청만 보내고, 비밀값이나 호출자가 지정한
 URL 매개변수는 쓰지 않습니다.
 
 도구는 계약 검토를 직접 수행하지 않습니다. 유지보수자가 수동으로 내린 판단을 기록하고 읽을 뿐입니다.
@@ -267,7 +270,8 @@ build/native/artifact 다이제스트에 `not_applicable`과 null을 사용합�
 필수 native/backend facet이 없는 Codex 그룹만 완전한 불변 client-source 증명으로
 `ready_for_scoped_review`가 될 수 있습니다. Claude 문서나 합성 replay만으로는 업스트림
 동작의 불변성을 확정할 수 없습니다. 전체 레인의 운영 준비가 완료되지는 않습니다.
-이 레코드는 권한을 부여하거나 수동 검토가 되지 않으며, 아직 어떤 명령이나 평가도 소비하지 않습니다.
+이 레코드는 권한을 부여하거나 수동 검토가 되지 않습니다. 아래 명령만 이 레코드를 만들고,
+판단은 `assess --judgment`만 소비합니다.
 
 Codex 소스 라이브러리는 주입된 transport, 작업에 고정된 commit과 정확한
 `rust-v<version>` 태그, 코드가 소유한 경로만 사용합니다. Map v2는 직렬화, 생산자,
@@ -296,7 +300,74 @@ Claude 문서 라이브러리는 같은 제한과 호스트를 사용하며 `ant
 test/harness 및 fixture/input 해시는 engine digest와 별도로 연결합니다.
 기존 Claude stub/oracle을 포함한 이 fixture는 실행하지 않은 릴리스를 시험하거나 backend
 counter의 의미를 확정하지 않습니다. native, backend, 실제 세션 검증은 대기로 남습니다.
-두 라이브러리는 명령이나 `assess` 입력 없이 라이브러리로만 제공됩니다.
+두 네트워크 라이브러리는 `collect-difference-evidence`만 호출합니다.
+
+## 기계 차이 명령
+
+이 명령들은 명시적으로 로컬에서만 실행합니다. 예약 실행이나 원격 workflow는 없습니다.
+각 명령은 고정된 JSON 상태 줄을 한 줄 출력합니다.
+
+```sh
+node scripts/tool-update.mjs difference-job \
+  --manifest "$out/candidates/$candidate_id.json" \
+  --observation "$out/observations/$observation_id.json" \
+  --route "<route>" --profile "<profile_id>" \
+  --operation "<operation>" --topology "<topology>" \
+  --out "$out"
+node scripts/tool-update.mjs collect-difference-evidence \
+  --job "$out/difference-jobs/$job_id.json" --out "$out"
+node scripts/tool-update.mjs judge \
+  --job "$out/difference-jobs/$job_id.json" \
+  --evidence "$out/difference-evidence/$evidence_id.json" \
+  --out "$out"
+node scripts/tool-update.mjs assess \
+  --manifest "$out/candidates/$candidate_id.json" \
+  --observation "$out/observations/$observation_id.json" \
+  --judgment "$out/difference-judgments/$judgment_id.json" \
+  --out "$out"
+```
+
+- `difference-job`은 오프라인입니다. 후보와 관측 레코드, 레인 하나, 선택적 `--baseline`을 읽고,
+  파서 기준은 인자가 아니라 코드에서 가져옵니다. 관측에 기준 버전의 고정 commit이 없으면
+  parser base는 null, coverage는 불완전으로 남습니다. commit을 추측하거나 릴리스를 추가로
+  가져오지 않습니다. `job_id`와 함께 `difference_job_created`를
+  출력합니다.
+- `collect-difference-evidence`는 네트워크에 접근하는 유일한 새 명령이며, 다른 하나는 기존
+  `discover`입니다. 게시된 작업 하나를 읽고 위에서 설명한 제한된 수집기를 실행합니다.
+  `evidence_ids`와 null을 허용하는 `failure`(고정된 제한 수집기 코드)를 담아
+  `difference_evidence_created`를 출력합니다. 수집이 완료되면 0, 실패하면 2로 종료합니다.
+- `judge`는 오프라인입니다. 작업 하나와 `--evidence` 레코드 여러 개를 읽고, 현재 identity를
+  다시 계산해 `judgment_id`와 함께 `difference_judgment_created`를 출력합니다.
+- `assess`는 기존 옵션과 함께 게시된 판단마다 `--judgment`를 한 번씩 받습니다. 참조된 작업은
+  같은 레코드 루트의 `difference-jobs/<job_id>.json`에서 읽습니다. 레코드만 읽으며 네트워크,
+  Store, 벤더 바이너리, 세션에 접근하지 않습니다.
+
+형식이 잘못된 레코드, 지원하지 않는 revision, 그리고 후보, 관측, commit, 레인이 평가 입력과
+맞지 않는 판단은 고정 상태와 종료 코드 2로 실패하며 아무것도 게시하지 않습니다. 동일한 재실행은
+중복 제거되고, 같은 작업에 대한 서로 다른 판단 두 개는 거부됩니다.
+
+### 평가 schema 7
+
+`--judgment`가 하나 이상이면 `assess`는 `schema_version: 7`을 씁니다. 없으면 이전과 똑같이
+schema 5나 6을 쓰고, schema 1-6 reader도 바뀌지 않습니다. schema 7은 정적·수동 투영 전체를
+유지하고 다음을 추가합니다.
+
+- 정렬된 최상위 `judgment_ids`와 `unused_judgment_ids`
+- 수동 검토 필드와 분리된 레인별 자동 결과
+- 비교별 결과. 작업 범위만 설명하며 릴리스 간선마다의 독립적인 영향 주장이 아닙니다.
+- native, backend, 실제 세션 facet의 명시적인 검증 대기
+- 수동 검토와 기계 판단이 다를 때의 충돌. 두 값을 모두 유지하며 어느 쪽도 다른 쪽을
+  덮어쓰지 않습니다.
+
+구조는 올바르지만 오래된 판단도 `assessment_created`를 냅니다. source digest, engine digest,
+map revision 중 하나가 현재와 다르면 자동 결과는 고정된 최신성 이유(`stale_source`,
+`stale_engine`, `stale_map`)와 함께 `unknown`입니다. 기준선이 없거나, 기준선이 대상과 같거나,
+파서 체인이 불완전하면 결과는 대기로 남습니다.
+
+schema 7은 지원을 확정하지 않습니다. 기계 결과는 `contracts_unknown`, `exact_only`,
+`upper_bound`, `minor_transition`, `no_window`, live `not_assessed` 필드, 적합성, 허용,
+기본값 게이트를 닫지 않습니다. 지원, live, 허용, 기본값, 차단 결정을 쓰지 않으며 창 밖의
+버전을 선택 가능하게 만들지 않습니다. `affected` 결과도 차단을 쓰지 않습니다.
 
 ## 계약 검토 레코드
 
@@ -422,6 +493,10 @@ schema 1–6 평가를 계속 읽을 수 있고 기존 레코드를 다시 쓰�
 | 0 | `metadata_reconciled` | 탐색이 끝나고 후보를 씀 |
 | 0 | `assessment_created` | 정적 평가를 씀 |
 | 0 | `review_recorded` | 계약 검토 레코드를 게시함 |
+| 0 | `difference_job_created` | 차이 작업을 게시함 |
+| 0 | `difference_evidence_created` | 증거 수집을 마치고 게시함(`failure`는 `null`) |
+| 0 | `difference_judgment_created` | 차이 판단을 게시함 |
+| 2 | `difference_evidence_created` | 수집 실패. `failure`에 고정 수집기 코드가 담김 |
 | 2 | `release_mismatch` | GitHub와 npm 안정 헤드, 또는 npm `latest`와 안정 최댓값이 다름 |
 | 2 | `discovery_incomplete` | 선택한 릴리스 누락, 예산 소진, 재검증 중 변경 |
 | 2 | `metadata_conflict` | 릴리스 식별, 태그 해석, 무결성이 서로 충돌 |
@@ -431,6 +506,8 @@ schema 1–6 평가를 계속 읽을 수 있고 기존 레코드를 다시 쓰�
 | 2 | `invalid_review` | 검토 레코드가 잘못되었거나 고정 규칙을 어김 |
 | 2 | `review_conflict` | 서로 다른 두 레코드가 같은 레인과 릴리스 간선을 다룸 |
 | 2 | `review_commit_conflict` | 레코드의 커밋이 해당 버전의 관측 커밋과 다름 |
+| 2 | `difference_identity_mismatch`, `difference_job_mismatch` | 판단 또는 증거가 참조한 작업이나 평가 입력과 맞지 않음 |
+| 2 | `difference_judgment_conflict` | 같은 작업을 참조하는 서로 다른 판단 |
 | 2 | `source_snapshot_unavailable`, `source_scope_changed`, `source_drift`, `observation_mismatch` | 소스 투영 실패, 검토된 범위 변경, 또는 입력이 서로 맞지 않음 |
 | 2 | `internal_error` | 예기치 않은 로컬 실패이며 원문 예외는 출력하지 않음 |
 

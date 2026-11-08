@@ -2,6 +2,8 @@ import type { z } from 'zod';
 import type { Lane } from './lanes.mjs';
 import type { Release } from './discovery.mjs';
 import type { Compatibility } from './source-snapshot.mjs';
+import type { Comparison } from './difference-records.mjs';
+import type { RequiredValidation } from './difference-contracts.mjs';
 export const consumedContracts: readonly [
   'identity_source_mapping', 'fields_types_enums', 'partial_rotation_checkpoint',
   'counters_cache_reasoning_reset_overflow', 'hooks_order_receipts_loading',
@@ -62,6 +64,26 @@ export interface SelectionPolicy {
   readonly next_step: 'operation_unsupported' | 'retired' | 'selected_exact' | 'selected_window' |
     'exact_admission_required' | 'older_version_unsupported' | 'window_extension_required' | 'window_rule_required';
 }
+export interface AutomatedAssessment {
+  readonly judgment_ids: readonly string[];
+  readonly contracts: readonly ContractCheck[];
+  readonly comparisons: readonly (Comparison & {
+    readonly judgment_id: string;
+    readonly result_scope: 'job_aggregate';
+    readonly contracts: readonly ContractCheck[];
+  })[];
+  readonly freshness_reasons: readonly ('stale_source' | 'stale_engine' | 'stale_map' | 'stale_policy')[];
+  readonly pending_reasons: readonly ('baseline_missing' | 'equal_target' | 'parser_chain_incomplete' | 'judgment_missing')[];
+  readonly required_validation: readonly RequiredValidation[];
+  readonly validation: 'pending';
+  readonly conflicts: readonly (Comparison & {
+    readonly review_id: string;
+    readonly judgment_id: string;
+    readonly contract_id: typeof consumedContracts[number];
+    readonly manual_judgment: 'unaffected' | 'affected';
+    readonly automated_judgment: 'unaffected' | 'affected';
+  })[];
+}
 interface AssessmentFields {
   readonly kind: 'assessment';
   readonly candidate_id: string;
@@ -95,11 +117,18 @@ export type Assessment = LegacyAssessment | AssessmentFields & { readonly rule_r
     readonly lanes: readonly AssessmentLane[] } |
   { readonly schema_version: 6; readonly inventory_scope: 'legacy_full_inventory' | 'latest_and_npm_review_range';
     readonly review_ids: readonly string[]; readonly unused_review_ids: readonly string[];
-    readonly lanes: readonly (AssessmentLane & { readonly selection_policy: SelectionPolicy })[] }
+    readonly lanes: readonly (AssessmentLane & { readonly selection_policy: SelectionPolicy })[] } |
+  { readonly schema_version: 7; readonly inventory_scope: 'legacy_full_inventory' | 'latest_and_npm_review_range';
+    readonly review_ids: readonly string[]; readonly unused_review_ids: readonly string[];
+    readonly judgment_ids: readonly string[]; readonly unused_judgment_ids: readonly string[];
+    readonly lanes: readonly (AssessmentLane & {
+      readonly selection_policy?: SelectionPolicy; readonly automated: AutomatedAssessment;
+    })[] }
 );
 export const assessmentSchema: z.ZodType<Assessment>;
 export function assessCandidate(input: {
   readonly candidate: unknown; readonly observation: unknown; readonly baseline?: unknown;
   readonly reviews?: readonly unknown[] | null; readonly root: string;
+  readonly judgments?: readonly { readonly job: unknown; readonly judgment: unknown }[] | null;
 }): Promise<Assessment>;
 export function validateBaselineForSource(baseline: unknown, root: string): Promise<void>;

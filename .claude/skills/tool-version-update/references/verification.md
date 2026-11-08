@@ -68,7 +68,7 @@ Window inputs use the separate `ordinary_window_execution_pins` kind, schema 1 i
 its own namespace, with `pin_scheme_revision: ordinary-window-execution-v1`.
 `snapshotWindowPins` / `assertWindowPins` in `scripts/tool-update/fixtures.mjs`
 and `validateWindowExecutionPins` in `scripts/tool-update/window-execution-pins.mjs`
-validate a code-owned Codex map independently for source and built selection.
+validate code-owned Codex and Claude Code maps independently for source and built selection.
 Raw producer, selected window skill and instrument inputs, matching built copies,
 full source/build trees, runtime, package and lock are frozen; raw-only drift with
 fixed dist and built-only drift with fixed raw must both fail. The old exact
@@ -76,10 +76,33 @@ fixed dist and built-only drift with fixed raw must both fail. The old exact
 
 A pin packet proves input equality, not authority: it neither activates collection
 nor authorizes a native/target/backend run, budget, publisher/variant change or cap
-renewal. No Codex window execution runner or Claude window map is implied. Existing
+renewal. The Claude Code map freezes inputs only; no Codex or Claude window
+execution runner, execution approval or activation is implied. Existing
 exact runner recipes cannot be repurposed for a window target. The historical PR #70
 unqualified exact 0.166.0 candidate exception is not a precedent for future exact
 rows. See [ADR 013](../../../../docs/decisions/013-forward-version-compatibility.md#codex-root-reference-exception).
+
+## Machine difference judgment
+
+The [pipeline guide](../../../../docs/development/tool-update-pipeline.md#machine-difference-commands)
+defines the explicit local commands. Use them as review input, never as a verdict:
+
+1. Build one `difference-job` per requested lane from the discovered candidate and
+   observation, plus the reviewed baseline if one exists. It runs offline.
+2. Run `collect-difference-evidence` for that job. It's the only new network
+   command. A nonnull `failure` (exit 2) leaves that evidence unavailable. Fix the
+   cause before you rerun it, and never repeat it hoping for a better result.
+3. Run `judge` offline with the job and its evidence, then `assess` with every
+   `--judgment` alongside any manual `--review` records.
+4. Read schema 7 per lane and per comparison. Treat `stale_source`, `stale_engine`
+   and `stale_map` as `unknown`. A missing baseline, a baseline equal to the target
+   or an incomplete parser chain stays pending. Copy manual-versus-machine conflicts
+   into the comparison record. Don't resolve one channel with the other.
+
+A machine judgment isn't a `contract_review` and doesn't fill the required
+comparison table by itself. It closes no manual, live, conformance, admission or
+default gate and writes no support or block decision. Native, backend and
+real-session facets stay pending until the actual target-binary gate below passes.
 
 ## Actual target-binary verification
 

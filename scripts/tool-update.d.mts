@@ -10,6 +10,10 @@ export interface ToolUpdateResult {
     readonly candidate_id?: string | null;
     readonly observation_id?: string;
     readonly assessment_id?: string;
+    readonly job_id?: string;
+    readonly evidence_ids?: readonly string[];
+    readonly judgment_id?: string;
+    readonly failure?: string | null;
     readonly heads?: {
       readonly github: string | null;
       readonly npm_latest: string | null;

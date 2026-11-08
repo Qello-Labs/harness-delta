@@ -268,6 +268,7 @@ export function requiredFacets(contractId, lane) {
 // Importing the existing group owner also loads its shared validation dependencies.
 export const engineDigestScheme = 'difference-engine-files-sha256-v1';
 export const engineFiles = Object.freeze([
+  'scripts/tool-update.mjs',
   'scripts/tool-update/difference-contracts.mjs',
   'scripts/tool-update/difference-records.mjs',
   'scripts/tool-update/difference-judgment.mjs',
