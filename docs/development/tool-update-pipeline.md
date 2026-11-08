@@ -296,6 +296,20 @@ replay alone cannot establish unchanged upstream behavior. No entire lane is
 operationally ready. These records grant no authority, never become manual reviews,
 and are not yet consumed by any command or assessment.
 
+The Codex source library uses injected transport only, exact `rust-v<version>`
+tags and pinned commits from the job, and code-owned paths. Map v2 compares the
+complete Cargo workspace, configuration, patch and vendored-input tree identities,
+including serialization, producers, transformations, hooks and invocation inputs.
+Changed or incomplete closures remain unknown. The checked-in draft-07 config
+schema can identify known consumed model, effort or sandbox field/type/enum changes;
+it cannot establish unchanged rollout, hook or whole-group serialized contracts.
+Only `api.github.com` is contacted, with same-origin/resource manual redirects.
+Limits are 4 MiB decoded per document, 16 MiB per job including identity
+revalidation, 128 responses, five redirects and 120 seconds. Failed, truncated,
+drifted or exhausted reads produce unavailable evidence, never partial success.
+Bodies are transient; records retain hashes and finite findings only. Client-source
+identity does not establish packaging, native execution, delivery or backend meaning.
+
 ## Contract review records
 
 A contract review record is a manual claim by a maintainer: "for this lane and this

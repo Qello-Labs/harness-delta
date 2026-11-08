@@ -23,7 +23,7 @@ export interface Comparison {
 export interface DifferenceIdentities {
   readonly source_digest: string;
   readonly engine_digest: string;
-  readonly map_revision: 'difference-map-v0' | 'difference-map-v1';
+  readonly map_revision: 'difference-map-v0' | 'difference-map-v1' | 'difference-map-v2';
   readonly engine_revision: 'difference-engine-v0' | 'difference-engine-v1';
   readonly contract_revision: 'consumed-v1';
 }

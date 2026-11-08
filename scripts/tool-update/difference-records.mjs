@@ -23,7 +23,7 @@ const refSchema = z.strictObject({
 const sortedUnique = values => values.every((value, index) => index === 0 || value > values[index - 1]);
 const idsSchema = z.array(shaSchema).max(256).refine(sortedUnique);
 const reasonsSchema = z.array(z.enum(reasonCodes)).max(reasonCodes.length).refine(sortedUnique);
-const mapSchema = z.enum(['difference-map-v0', 'difference-map-v1']);
+const mapSchema = z.enum(['difference-map-v0', 'difference-map-v1', 'difference-map-v2']);
 const engineRevisionSchema = z.enum(['difference-engine-v0', 'difference-engine-v1']);
 const comparisonFields = {
   comparison_kind: z.enum(['adjacent_release', 'parser_base']),
@@ -107,7 +107,9 @@ function comparisonChain(job, from, reasons) {
   const versions = new Map();
   for (const ref of releases) {
     const previous = versions.get(ref.version);
-    if (previous) reasons.push(previous.commit === ref.commit ? 'edge_duplicate' : 'edge_commit_conflict');
+    if (previous) {
+      reasons.push(previous.commit === ref.commit ? 'edge_duplicate' : 'edge_commit_conflict');
+    }
     versions.set(ref.version, ref);
   }
   const start = versions.get(from.version);
@@ -115,20 +117,30 @@ function comparisonChain(job, from, reasons) {
   if (!start || !end) reasons.push('release_coverage_incomplete');
   if ((start && !sameRef(start, from)) || (end && !sameRef(end, job.target))) reasons.push('edge_commit_conflict');
   const ordered = [...versions.values()].sort((a, b) => compareVersions(a.version, b.version));
-  return ordered.slice(1).map((to, index) => ({ comparison_kind: 'adjacent_release', from: ordered[index], to }));
+  return ordered.slice(1).map((to, index) => ({
+    comparison_kind: 'adjacent_release',
+    from: ordered[index],
+    to
+  }));
 }
 export function requiredDifferenceCoverage(job) {
   const reasons = [];
   if (!job.baseline_row) reasons.push('baseline_missing');
   if (!job.parser_base) reasons.push('parser_base_missing');
-  if (job.inventory.coverage !== 'complete') reasons.push('release_coverage_incomplete');
+  if (job.inventory.coverage !== 'complete') {
+    reasons.push('release_coverage_incomplete');
+  }
   const comparisons = [...comparisonChain(job, job.baseline_row?.ref, reasons), ...comparisonChain(job, job.parser_base, reasons)];
-  if (job.parser_base)
+  if (job.parser_base) {
     comparisons.push({
       comparison_kind: 'parser_base',
-      from: { version: job.parser_base.version, commit: job.parser_base.commit },
+      from: {
+        version: job.parser_base.version,
+        commit: job.parser_base.commit
+      },
       to: job.target
     });
+  }
   return {
     comparisons: [...new Map(comparisons.map(row => [canonical(row), row])).values()],
     reasons: [...new Set(reasons)].sort()
@@ -398,8 +410,9 @@ export const differenceJudgmentSchema = z
                 method => !methods[method].facets.includes(facet.facet) || (methods[method].product !== null && methods[method].product !== value.lane.product)
               )
           )
-        )
+        ) {
           return false;
+        }
         if (group.facets.some(facet => facet.result === 'unaffected' && !facet.methods.some(method => methods[method].establishesUnchanged))) return false;
         if (
           group.facets.some(facet => {
@@ -411,8 +424,9 @@ export const differenceJudgmentSchema = z
                 pending.requiredValidation.some(validation => !group.required_validation.includes(validation)))
             );
           })
-        )
+        ) {
           return false;
+        }
         const recommendation =
           group.result === 'affected' ? 'blocked_by_affected_contract' : group.result === 'unknown' ? 'validation_pending' : 'ready_for_scoped_review';
         if (group.eligibility_recommendation !== recommendation) {

@@ -269,6 +269,19 @@ build/native/artifact 다이제스트에 `not_applicable`과 null을 사용합�
 동작의 불변성을 확정할 수 없습니다. 전체 레인의 운영 준비가 완료되지는 않습니다.
 이 레코드는 권한을 부여하거나 수동 검토가 되지 않으며, 아직 어떤 명령이나 평가도 소비하지 않습니다.
 
+Codex 소스 라이브러리는 주입된 transport, 작업에 고정된 commit과 정확한
+`rust-v<version>` 태그, 코드가 소유한 경로만 사용합니다. Map v2는 직렬화, 생산자,
+변환, hook, 호출 입력을 포함하는 전체 Cargo workspace, 설정, patch, vendored 입력의
+tree identity를 비교합니다. 변경되거나 불완전한 closure는 unknown입니다.
+저장소의 draft-07 설정 schema로 소비하는 model, effort, sandbox의 알려진
+필드/type/enum 변경을 확인할 수 있지만, rollout, hook, 전체 그룹의 직렬화 계약이
+불변임을 확정할 수는 없습니다. 호스트는 `api.github.com`뿐이며 같은 origin/resource의
+수동 redirect만 허용합니다. 제한은 문서당 decoded 4 MiB, identity 재검증을 포함한
+작업당 16 MiB, 응답 128개, redirect 5회, 120초입니다. 실패, 잘림, drift, 제한 소진은
+부분 성공이 아닌 사용할 수 없는 증거가 됩니다. 본문은 일시적으로만 보관하고 레코드에는
+해시와 유한한 발견만 남깁니다. client-source identity는 패키징, native 실행, 전달,
+backend 의미를 확정하지 않습니다.
+
 ## 계약 검토 레코드
 
 계약 검토 레코드는 유지보수자의 수동 주장입니다. "이 레인과 이 릴리스 간선에서 소비하는 계약은

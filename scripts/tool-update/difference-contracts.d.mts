@@ -63,7 +63,7 @@ export type ReasonCode =
   | 'backend_validation_pending'
   | 'real_session_validation_pending';
 export const contractRevision: 'consumed-v1';
-export const mapRevision: 'difference-map-v1';
+export const mapRevision: 'difference-map-v2';
 export const engineRevision: 'difference-engine-v1';
 export const facets: readonly Facet[];
 export const variantRequirements: readonly VariantRequirement[];
@@ -83,6 +83,23 @@ export const methods: Readonly<
   >
 >;
 export const contractFacetMap: Readonly<Record<ContractId, readonly Facet[]>>;
+export const codexSourcePaths: Readonly<Record<string, { readonly path: string; readonly type: 'tree' | 'blob' }>>;
+export const codexContractDescriptors: Readonly<
+  Record<
+    ContractId,
+    {
+      readonly pathIds: readonly string[];
+      readonly facets: readonly Facet[];
+      readonly schemaPathId: string | null;
+      readonly schemaCompleteness: 'partial';
+      readonly unsupportedReason: ReasonCode;
+    }
+  >
+>;
+export const codexSchemaFields: readonly {
+  readonly property: string;
+  readonly fieldId: 'model' | 'effort' | 'permission_mode';
+}[];
 export const deferredValidation: Readonly<
   Partial<
     Record<
