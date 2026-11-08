@@ -562,25 +562,43 @@ function documentationSections(bytes) {
   const sections = new Map();
   let current = null;
   let fence = null;
+  let html = null;
   for (const line of text.split(/\r?\n/)) {
-    if (line.includes('<!--') || line.includes('-->')) return null;
-    const marker = /^(?:`{3,}|~{3,})/.exec(line)?.[0];
-    if (marker) {
-      if (fence === null) fence = marker;
-      else if (marker[0] === fence[0] && marker.length >= fence.length) {
-        fence = null;
-      }
+    const marker = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line);
+    if (fence !== null) {
+      if (marker?.[1][0] === fence[0] && marker[1].length >= fence.length && /^[ \t]*$/.test(marker[2])) fence = null;
       continue;
     }
-    if (fence !== null) continue;
+    if (html !== null) {
+      if (html.test(line)) html = null;
+      else if (line.includes('<')) return null;
+      continue;
+    }
+    if (marker) {
+      if (marker[1][0] === '`' && marker[2].includes('`')) return null;
+      fence = marker[1];
+      continue;
+    }
+    const htmlStart = /^ {0,3}<(pre|code)>[ \t]*$/i.exec(line);
+    if (htmlStart) {
+      html = new RegExp(`^ {0,3}</${htmlStart[1]}>[ \\t]*$`, 'i');
+      continue;
+    }
+    // Unclassified markup can change whether later lines are examples.
+    if (line.includes('<') || line.includes('-->')) return null;
+    if (/^(?:`{3,}|~{3,})/.test(line.trimStart())) return null;
+    if (/^ {0,3}#{3,6}(?:[ \t]|$)/.test(line) || /^ {0,3}(?:=+|-+)[ \t]*$/.test(line)) return null;
     if (line.startsWith('## ')) {
       const version = line.slice(3);
       if (!versionSchema.safeParse(version).success || sections.has(version)) return null;
       current = [];
       sections.set(version, current);
-    } else if (current) current.push(line);
+    } else if (current) {
+      if (/^ {0,3}#{1,6}(?:[ \t]|$)/.test(line)) return null;
+      current.push(line);
+    }
   }
-  return sections.size && fence === null ? sections : null;
+  return sections.size && fence === null && html === null ? sections : null;
 }
 async function claudeDocumentationSnapshot(transport, readTree, blobs, ref) {
   const entry = (await readTree(ref.commit)).get(claudeDocumentationPaths.changelog.path);

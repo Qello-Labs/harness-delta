@@ -76,6 +76,77 @@ test.each([
   expect(judgeDifferences(wire.job, result.evidence, currentIdentities).groups.every(group => group.result === 'unknown')).toBe(true);
 });
 test.each([
+  ['one-space backtick fence', ' ```text\n- Removed `requestId` from assistant transcript records.\n ```', 'complete'],
+  ['three-space tilde fence', '   ~~~text\n- Removed `requestId` from assistant transcript records.\n   ~~~', 'complete'],
+  ['preformatted HTML', '<pre>\n- Removed `requestId` from assistant transcript records.\n</pre>', 'complete'],
+  ['example subheading', '### Example\n- Removed `requestId` from assistant transcript records.', 'incomplete'],
+  ['unclosed fence', ' ```text\n- Removed `requestId` from assistant transcript records.', 'incomplete'],
+  ['code HTML block', '<code>\n- Removed `requestId` from assistant transcript records.\n</code>', 'complete'],
+  ['two-space backtick fence', '  ```text\n- Removed `requestId` from assistant transcript records.\n  ```', 'complete'],
+  ['one-space tilde fence', ' ~~~text\n- Removed `requestId` from assistant transcript records.\n ~~~', 'complete'],
+  ['mixed fence contents', '  ~~~text\n```\n- Removed `requestId` from assistant transcript records.\n  ~~~', 'complete'],
+  ['short fence close', ' ````text\n- Removed `requestId` from assistant transcript records.\n ```', 'incomplete'],
+  ['wrong fence close', ' ```text\n- Removed `requestId` from assistant transcript records.\n ~~~', 'incomplete'],
+  ['fence close with info', ' ```text\n ```text\n- Removed `requestId` from assistant transcript records.', 'incomplete'],
+  ['unclosed HTML', '<pre>\n- Removed `requestId` from assistant transcript records.', 'incomplete'],
+  ['nested HTML', '<pre>\n<code>\n- Removed `requestId` from assistant transcript records.\n</code>\n</pre>', 'incomplete'],
+  ['mixed HTML', '<pre>\n</code>\n- Removed `requestId` from assistant transcript records.\n</pre>', 'incomplete'],
+  ['setext example subheading', 'Example\n-------\n- Removed `requestId` from assistant transcript records.', 'incomplete'],
+  ['attributed HTML', '<pre class="example">\n- Removed `requestId` from assistant transcript records.\n</pre>', 'incomplete'],
+  ['unsupported fence indentation', '    ```text\n- Removed `requestId` from assistant transcript records.\n    ```', 'incomplete'],
+  ['backtick info string', ' ```te`xt\n- Removed `requestId` from assistant transcript records.\n ```', 'incomplete']
+] as const)('example context %s never becomes a confirmed contract change', async (_context, lines, completeness) => {
+  const wire = documentationWire({ lines: { '2.1.308': lines } });
+  const result = await collectClaudeDocumentationEvidence(wire.job, {
+    fetch: wire.fetchImpl
+  });
+  const target = result.evidence.filter(record => record.comparison.to.version === '2.1.308');
+  expect(result.failure).toBeNull();
+  expect(target).toHaveLength(2);
+  expect(target.flatMap(record => record.findings).filter(row => row.result === 'affected' || row.reason === 'confirmed_contract_change')).toEqual([]);
+  expect(target.map(record => record.extraction_completeness)).toEqual([completeness, completeness]);
+  for (const record of target) {
+    expect(record.findings).toContainEqual({
+      contract_id: 'identity_source_mapping',
+      facet: 'serialized_shape',
+      result: 'unknown',
+      reason: completeness === 'complete' ? 'undocumented_contract' : 'unsupported_extractor',
+      impact: 'undetermined',
+      field_id: null,
+      expected: null,
+      actual: null
+    });
+  }
+  const judgment = judgeDifferences(wire.job, result.evidence, currentIdentities);
+  expect(judgment.groups.map(group => group.result)).toEqual(Array.from({ length: 8 }, () => 'unknown'));
+  expect(judgment.groups[0]?.facets[0]?.reasons).toContain(completeness === 'complete' ? 'undocumented_contract' : 'extraction_incomplete');
+});
+test.each([
+  ['zero-space backtick', '```text', '```'],
+  ['one-space tilde', ' ~~~text', '~~~'],
+  ['two-space backtick', '  ```text', ' ```` \t'],
+  ['three-space tilde', '   ~~~~text', '  ~~~~~'],
+  ['pre HTML', '<pre>', '</pre>'],
+  ['case-insensitive code HTML', ' <CoDe>', '   </cOdE>']
+])('a real disclosure after a matching %s close retains its scoped contradiction', async (_context, open, close) => {
+  const wire = documentationWire({
+    lines: {
+      '2.1.308': `${open}\n- synthetic example\n${close}\n- Removed \`requestId\` from assistant transcript records.`
+    }
+  });
+  const result = await collectClaudeDocumentationEvidence(wire.job, {
+    fetch: wire.fetchImpl
+  });
+  expect(result.failure).toBeNull();
+  const target = result.evidence.filter(record => record.comparison.to.version === '2.1.308');
+  expect(target.map(record => record.extraction_completeness)).toEqual(['complete', 'complete']);
+  expect(target.map(record => record.findings.filter(row => row.result === 'affected').map(row => [row.contract_id, row.facet, row.reason]))).toEqual([
+    [['identity_source_mapping', 'serialized_shape', 'confirmed_contract_change']],
+    [['identity_source_mapping', 'serialized_shape', 'confirmed_contract_change']]
+  ]);
+  expect(judgeDifferences(wire.job, result.evidence, currentIdentities).groups[0]?.result).toBe('affected');
+});
+test.each([
   ['unavailable', 'source_material_absent'],
   ['truncated', 'source_fetch_failed'],
   ['drifted', 'source_identity_drift'],
