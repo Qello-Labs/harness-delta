@@ -171,6 +171,7 @@ export const promotionGateInputSchema = z
   .strictObject({
     scope: promotionScopeSchema,
     requested_grants: grantsSchema.nonempty(),
+    required_validation: classesSchema,
     coverage: coverageSchema,
     contracts: contractsSchema,
     gate_matrix: z.array(gateSchema).length(12),
@@ -271,6 +272,7 @@ export const promotionProposalSchema = z
     const input = {
       scope: value.scope,
       requested_grants: value.requested_grants,
+      required_validation: value.required_validation,
       coverage: value.coverage,
       contracts: value.contracts,
       gate_matrix: value.gate_matrix,
@@ -330,6 +332,7 @@ export const promotionValidationSchema = z
     if (value.accepted_result_ids.length === 0 || value.unresolved_requirements.length > 0) return false;
     if (origin !== 'actual') return true;
     return (
+      !value.limitations.includes('synthetic_only') &&
       value.reviewer_reference !== null &&
       Object.entries(value.pins).every(([key, pin]) => key === 'model' || pin !== null) &&
       (!['native_trial', 'real_session'].includes(value.evidence_class) || value.pins.model !== null)

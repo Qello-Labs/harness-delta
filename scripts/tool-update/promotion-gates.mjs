@@ -9,7 +9,7 @@ const gateRequirements = {
   G04: [['static'], ['synthetic']],
   G05: [['actual_target_binary_conformance']],
   G06: [['native_trial', 'real_session']],
-  G07: [['synthetic'], ['real_session']],
+  G07: [['synthetic'], ['native_trial', 'real_session']],
   G08: [['pinned_upstream_comparison'], ['synthetic'], ['actual_target_binary_conformance'], ['native_trial', 'real_session']],
   G09: [['static'], ['synthetic']],
   G10: [['static'], ['synthetic']],
@@ -27,6 +27,11 @@ function classResult(evidence, evidenceClass) {
 function requirementResult(evidence, classes) {
   const results = classes.map(evidenceClass => classResult(evidence, evidenceClass));
   return results.includes('fail') ? 'fail' : results.includes('pass') ? 'pass' : 'unknown';
+}
+function validationState(evidence, evidenceClass) {
+  const result = classResult(evidence, evidenceClass);
+  if (result === 'pass') return 'ready_for_decision';
+  return result === 'fail' || !actualClasses.includes(evidenceClass) ? 'blocked' : 'pending_pre_release';
 }
 function evaluateGate(row) {
   const requirements = [...gateRequirements[row.gate_id], ...row.required_classes.map(value => [value])];
@@ -130,12 +135,18 @@ export function reducePromotionGates(input) {
   const gates = parsed.gate_matrix.map(evaluateGate);
   const coverage = coverageReasons(parsed);
   const contracts = evaluateContracts(parsed);
+  const evidence = parsed.gate_matrix.flatMap(row => row.evidence);
+  const validation = reduceState([
+    ...parsed.required_validation.map(evidenceClass => validationState(evidence, evidenceClass)),
+    ...parsed.gate_matrix.flatMap(row => row.required_classes.map(evidenceClass => validationState(row.evidence, evidenceClass)))
+  ]);
   const capability = grant => {
     if (!parsed.requested_grants.includes(grant)) return 'not_requested';
     const required = [...commonGates, ...(grant === 'qualification' ? ['G06'] : []), ...(grant === 'children' ? ['G06', 'G08'] : [])];
     return reduceState([
       coverage.length ? 'blocked' : 'ready_for_decision',
       contracts.state,
+      validation,
       ...gates.filter(row => required.includes(row.gate_id)).map(row => row.state)
     ]);
   };

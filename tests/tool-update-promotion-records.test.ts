@@ -253,6 +253,21 @@ test('actual-class records require complete execution pins, result identities an
   expect(() => parsePromotionValidation({ ...record, reviewer_reference: null })).toThrow('invalid_record');
   expect(() => parsePromotionValidation({ ...record, accepted_result_ids: [] })).toThrow('invalid_record');
 });
+test.each(['actual_target_binary_conformance', 'native_trial', 'real_session'] as const)(
+  'passing %s validation rejects a synthetic-only limitation',
+  evidence_class => {
+    const record = {
+      ...validation(),
+      evidence_class,
+      evidence_origin: 'actual',
+      limitations: ['synthetic_only'],
+      pins: { image: id, component: id, build: id, instrument: id, implementation: id, runtime: id, model: id },
+      reviewer_reference: id
+    };
+    expect(() => parsePromotionValidation(record)).toThrow('invalid_record');
+    expect(parsePromotionValidation({ ...record, limitations: [] }).result).toBe('pass');
+  }
+);
 test.each([
   ['demote', 'qualification_withdrawn'],
   ['retire', 'maintenance_ended'],
@@ -289,6 +304,32 @@ test('portable proposals cannot claim a state that bypasses the pure gate reduct
   }));
   const contracts = record.contracts.map(group => ({ ...group, facets: group.facets.map(row => ({ ...row, result: 'unaffected' })) }));
   expect(parsePromotionProposal({ ...record, gate_matrix, contracts, state: 'ready_for_decision' }).state).toBe('ready_for_decision');
+});
+test.each(['proposal', 'unused_gate'] as const)('required validation on %s constrains proposal readiness even outside requested grants', source => {
+  const record = proposal();
+  const gate_matrix = record.gate_matrix.map(row => ({
+    ...row,
+    required_classes: source === 'unused_gate' && row.gate_id === 'G08' ? ['native_trial'] : [],
+    evidence: promotionEvidenceClasses
+      .filter(evidence_class => evidence_class !== 'native_trial')
+      .map(evidence_class => ({
+        evidence_id: digest({ gate_id: row.gate_id, evidence_class }),
+        evidence_class,
+        scope_digest: digest(record.scope),
+        result: 'pass',
+        freshness: 'current',
+        contract_id: null,
+        facet: null
+      }))
+      .sort((a, b) => a.evidence_id.localeCompare(b.evidence_id, 'en'))
+  }));
+  const contracts = record.contracts.map(group => ({ ...group, facets: group.facets.map(row => ({ ...row, result: 'unaffected' })) }));
+  const required_validation = source === 'proposal' ? ['native_trial'] : [];
+  const packet = { ...record, contracts, gate_matrix, required_validation, state: 'ready_for_decision' };
+  expect(() => parsePromotionProposal(packet)).toThrow('invalid_record');
+  expect(parsePromotionProposal({ ...packet, state: 'pending_pre_release' }).state).toBe('pending_pre_release');
+  const cleared = gate_matrix.map(row => ({ ...row, required_classes: [] }));
+  expect(parsePromotionProposal({ ...packet, gate_matrix: cleared, required_validation: [] }).state).toBe('ready_for_decision');
 });
 test('decisions cannot expand a grant, retarget a proposal, clear a deny or follow terminal deletion', () => {
   const record = decision();

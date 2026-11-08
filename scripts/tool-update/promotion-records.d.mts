@@ -48,6 +48,7 @@ export interface PromotionContract {
 export interface PromotionGateInput {
   readonly scope: PromotionScope;
   readonly requested_grants: readonly PromotionGrant[];
+  readonly required_validation: readonly PromotionEvidenceClass[];
   readonly coverage: PromotionCoverage;
   readonly contracts: readonly PromotionContract[];
   readonly gate_matrix: readonly PromotionGate[];
@@ -117,7 +118,6 @@ export interface PromotionProposal extends Omit<PromotionGateInput, 'unresolved_
     readonly implementation_scheme: 'promotion-implementation-v1';
     readonly evidence_revision: 'promotion-evidence-v1';
   };
-  readonly required_validation: readonly PromotionEvidenceClass[];
   readonly reasons: readonly PromotionReason[];
   readonly reconciliation: PromotionReconciliation | null;
 }

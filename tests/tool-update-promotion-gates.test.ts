@@ -18,6 +18,7 @@ function completeInput(): PromotionGateInput {
   return {
     scope,
     requested_grants: ['admission', 'qualification'],
+    required_validation: [],
     coverage: {
       baseline_status: 'present',
       baseline_digest: job.baseline_digest,
@@ -75,6 +76,31 @@ test('complete evidence reaches decision readiness but never issues authority or
       .map(row => row.result)
   ).toEqual(['unknown', 'unknown']);
 });
+test.each(['native_only', 'synthetic_only', 'gate_real_session', 'proposal_real_session'] as const)(
+  'G07 actual alternatives preserve the %s evidence boundary',
+  scenario => {
+    const input = completeInput();
+    const gate_matrix = input.gate_matrix.map(row => {
+      const evidence = scenario === 'proposal_real_session' ? row.evidence.filter(proof => proof.evidence_class !== 'real_session') : row.evidence;
+      if (row.gate_id === 'G12') return { ...row, evidence: [] };
+      if (row.gate_id !== 'G07') return { ...row, evidence };
+      return {
+        ...row,
+        required_classes: scenario === 'gate_real_session' ? ['real_session'] : [],
+        evidence: evidence.filter(proof => proof.evidence_class === 'synthetic' || (scenario !== 'synthetic_only' && proof.evidence_class === 'native_trial'))
+      };
+    });
+    const result = reducePromotionGates({
+      ...input,
+      gate_matrix,
+      required_validation: scenario === 'proposal_real_session' ? ['real_session'] : []
+    });
+    expect(result.state).toBe(scenario === 'native_only' ? 'ready_for_decision' : 'pending_pre_release');
+    expect(result.gates.find(row => row.gate_id === 'G07')?.result).toBe(['native_only', 'proposal_real_session'].includes(scenario) ? 'pass' : 'unknown');
+    expect(result.gates.find(row => row.gate_id === 'G12')?.result).toBe('unknown');
+    expect(result.authority).toBe('none');
+  }
+);
 test('unknown proof never counts as pass even when a same-class passing proof exists', () => {
   const input = completeInput();
   const gates = input.gate_matrix.map(row =>
