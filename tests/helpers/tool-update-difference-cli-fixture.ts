@@ -201,7 +201,13 @@ export async function tree(root: string): Promise<readonly (readonly [string, st
   }
   return result.sort(([a], [b]) => a.localeCompare(b));
 }
-export async function auditedCli(root: string, script: string, args: readonly string[]) {
+export interface TransportResponse {
+  readonly url: string;
+  readonly status: number;
+  readonly headers: readonly (readonly [string, string])[];
+  readonly body: string;
+}
+export async function auditedCli(root: string, script: string, args: readonly string[], transport?: readonly TransportResponse[]) {
   const home = join(root, 'home');
   const temporary = join(root, 'tmp');
   await mkdir(home, { recursive: true });
@@ -224,7 +230,15 @@ const root=${JSON.stringify(root)},home=${JSON.stringify(home)};
 const ledger={network:0,processes:0,modules:0,privateReads:0,writes:[]};
 const save=fs.writeFileSync;
 const denied=key=>{ledger[key]++;throw new Error('forbidden_'+key);};
-globalThis.fetch=()=>denied('network');
+const transport=${JSON.stringify(transport ?? null)};
+globalThis.fetch=async input=>{
+ if(!transport)return denied('network');
+ ledger.network++;
+ const response=transport.shift();
+ const url=String(input instanceof Request?input.url:input);
+ if(!response||response.url!==url)throw new Error('unexpected_synthetic_request');
+ return new Response(response.body,{status:response.status,headers:response.headers});
+};
 for(const object of [http,https]) for(const name of ['get','request']) object[name]=()=>denied('network');
 for(const object of [net,tls]) for(const name of ['connect','createConnection']) if(name in object) object[name]=()=>denied('network');
 for(const name of ['spawn','spawnSync','exec','execSync','execFile','execFileSync','fork']) cp[name]=()=>denied('processes');
@@ -260,7 +274,11 @@ syncBuiltinESMExports();
 process.on('exit',()=>save(${JSON.stringify(ledgerPath)},JSON.stringify(ledger)));
 `
   );
-  const { stdout, stderr, exitCode } = await new Promise<{ readonly stdout: string; readonly stderr: string; readonly exitCode: number }>((resolve, reject) => {
+  const { stdout, stderr, exitCode } = await new Promise<{
+    readonly stdout: string;
+    readonly stderr: string;
+    readonly exitCode: number;
+  }>((resolve, reject) => {
     execFile(
       process.execPath,
       ['--import', loader, script, ...args],
