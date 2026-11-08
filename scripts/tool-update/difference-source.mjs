@@ -365,11 +365,23 @@ function schemaProjection(schema) {
   const definitions = schema.definitions ?? {};
   if (definitions === null || typeof definitions !== 'object' || Array.isArray(definitions)) fail('source_schema_unsupported');
   if (!codexSchemaFields.some(({ property }) => Object.hasOwn(schema.properties, property))) fail('source_schema_unsupported');
-  return codexSchemaFields.map(({ property, fieldId }) => ({
-    fieldId,
-    required: required.includes(property),
-    shape: Object.hasOwn(schema.properties, property) ? schemaShape(schema.properties[property], definitions) : null
-  }));
+  return codexSchemaFields.map(({ property, fieldId }) => {
+    const field = { fieldId, required: required.includes(property) };
+    try {
+      return {
+        ...field,
+        shape: Object.hasOwn(schema.properties, property) ? schemaShape(schema.properties[property], definitions) : null,
+        reason: null
+      };
+    } catch (error) {
+      if (!(error instanceof ToolUpdateError)) throw error;
+      return {
+        ...field,
+        shape: null,
+        reason: error.code === 'source_schema_dependency' ? 'unresolved_dependency' : 'unsupported_extractor'
+      };
+    }
+  });
 }
 const finding = (contractId, facet, result, reason) => ({
   contract_id: contractId,
@@ -394,22 +406,32 @@ function schemaFindings(from, to) {
   try {
     const before = schemaProjection(from.schema);
     const after = schemaProjection(to.schema);
-    const changed = before.find((field, index) => canonical(field) !== canonical(after[index]));
-    if (!changed) return [];
-    const actual = after.find(field => field.fieldId === changed.fieldId);
     const fact = field => ({
       kind: 'field_shape',
       value: field.shape === null ? 'absent' : field.shape.enum ? 'string_enum' : field.shape.type
     });
-    return [
-      {
-        ...finding(contractId, 'serialized_shape', 'affected', 'confirmed_contract_change'),
-        impact: 'shape_changed',
-        field_id: changed.fieldId,
-        expected: fact(changed),
-        actual: fact(actual)
+    const findings = before.flatMap((field, index) => {
+      const actual = after[index];
+      const reason = field.reason ?? actual.reason;
+      if (reason) {
+        return [finding(contractId, 'serialized_shape', 'unknown', reason)];
       }
-    ];
+      if (canonical(field) === canonical(actual)) return [];
+      if ([field.shape, actual.shape].some(shape => shape !== null && Object.keys(shape).some(key => !['type', 'enum'].includes(key)))) {
+        return [finding(contractId, 'serialized_shape', 'unknown', 'source_changed_impact_unknown')];
+      }
+      return [
+        {
+          ...finding(contractId, 'serialized_shape', 'affected', 'confirmed_contract_change'),
+          impact: 'shape_changed',
+          field_id: field.fieldId,
+          expected: fact(field),
+          actual: fact(actual)
+        }
+      ];
+    });
+    const strongest = findings.find(row => row.result === 'affected') ?? findings.find(row => row.result === 'unknown');
+    return strongest ? [strongest] : [];
   } catch (error) {
     if (!(error instanceof ToolUpdateError)) throw error;
     const reason = error.code === 'source_schema_dependency' ? 'unresolved_dependency' : 'unsupported_extractor';
@@ -462,14 +484,21 @@ export async function collectCodexSourceEvidence(jobInput, options) {
   ) {
     fail('source_options_invalid');
   }
+  const comparisons = requiredDifferenceCoverage(job).comparisons;
+  const refs = [...new Map([...comparisons.flatMap(row => [row.from, row.to]), job.target].map(ref => [`${ref.version}:${ref.commit}`, ref])).values()];
+  const ledger = { responses: 0, decodedBytes: 0 };
+  if (refs.length > codexSourceLimits.responses) {
+    return {
+      evidence: [],
+      failure: 'source_response_limit',
+      usage: ledger
+    };
+  }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(new ToolUpdateError('source_deadline')), codexSourceLimits.deadlineMs);
   timer.unref();
   const signal = options.signal ? AbortSignal.any([controller.signal, options.signal]) : controller.signal;
-  const ledger = { responses: 0, decodedBytes: 0 };
   const transport = sourceTransport(options.fetch, signal, ledger);
-  const comparisons = requiredDifferenceCoverage(job).comparisons;
-  const refs = [...new Map([...comparisons.flatMap(row => [row.from, row.to]), job.target].map(ref => [`${ref.version}:${ref.commit}`, ref])).values()];
   const snapshots = new Map();
   let failure = null;
   try {

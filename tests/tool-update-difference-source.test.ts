@@ -10,6 +10,7 @@ import {
   differenceEvidenceSchema,
   differenceJudgmentSchema,
   parseDifferenceEvidence,
+  parseDifferenceJob,
   parseDifferenceJudgment
 } from '../scripts/tool-update/difference-records.mjs';
 import { canonical, loadRecord, publishRecord, ToolUpdateError } from '../scripts/tool-update/manifest.mjs';
@@ -211,6 +212,116 @@ test.each([
       actual: { kind: 'field_shape', value: actual }
     }))
   );
+  expect(judgment.groups.find(group => group.contract_id === 'invocation_permissions_config_model_effort')?.result).toBe('affected');
+});
+test.each([
+  [
+    'unsupported effort',
+    {
+      anyOf: [{ type: 'string' }, { type: 'null' }]
+    }
+  ],
+  ['unresolved effort', { $ref: '#/definitions/Missing' }]
+] as const)('mixed supported model change and %s preserve the established contradiction', async (_name, effort) => {
+  const wire = sourceFixture({
+    change: (version, files) => {
+      if (version !== '0.165.0') return;
+      const schema = syntheticSchema();
+      files.set('codex-rs/core/config.schema.json', {
+        type: 'blob',
+        value: JSON.stringify({
+          ...schema,
+          properties: {
+            ...schema.properties,
+            model: { type: 'integer' },
+            model_reasoning_effort: effort
+          }
+        })
+      });
+    }
+  });
+  const result = await collectCodexSourceEvidence(wire.job, {
+    fetch: wire.fetchImpl
+  });
+  const judgment = judgeDifferences(wire.job, result.evidence, currentIdentities);
+  expect(result.failure).toBeNull();
+  expect(
+    result.evidence.filter(record => record.method === 'serialized_schema' && record.comparison.to.version === '0.165.0').flatMap(record => record.findings)
+  ).toEqual(
+    Array.from({ length: 2 }, () => ({
+      contract_id: 'invocation_permissions_config_model_effort',
+      facet: 'serialized_shape',
+      result: 'affected',
+      reason: 'confirmed_contract_change',
+      impact: 'shape_changed',
+      field_id: 'model',
+      expected: { kind: 'field_shape', value: 'string' },
+      actual: { kind: 'field_shape', value: 'integer' }
+    }))
+  );
+  expect(judgment.groups.find(group => group.contract_id === 'invocation_permissions_config_model_effort')?.result).toBe('affected');
+});
+test.each([
+  [{ type: 'string' }, { type: 'string', minLength: 0 }],
+  [
+    { type: 'string', enum: ['a'], pattern: '^a$' },
+    {
+      type: 'string',
+      enum: ['a', 'b'],
+      pattern: '^a$'
+    }
+  ],
+  [
+    { type: 'integer', minimum: 0, maximum: 0 },
+    {
+      type: 'number',
+      minimum: 0,
+      maximum: 0
+    }
+  ]
+])('neutral accepted-value differences never establish a consumed contradiction: %j to %j', async (before, after) => {
+  const wire = sourceFixture({
+    change: (version, files) => {
+      const schema = syntheticSchema();
+      files.set('codex-rs/core/config.schema.json', {
+        type: 'blob',
+        value: JSON.stringify({
+          ...schema,
+          properties: {
+            ...schema.properties,
+            model: version === '0.165.0' ? after : before
+          }
+        })
+      });
+    }
+  });
+  const result = await collectCodexSourceEvidence(wire.job, {
+    fetch: wire.fetchImpl
+  });
+  const judgment = judgeDifferences(wire.job, result.evidence, currentIdentities);
+  const findings = result.evidence.flatMap(record => record.findings);
+  expect(result.failure).toBeNull();
+  expect(findings.some(finding => finding.result === 'affected' || finding.reason === 'confirmed_contract_change')).toBe(false);
+  expect(judgment.groups.find(group => group.contract_id === 'invocation_permissions_config_model_effort')?.result).toBe('unknown');
+});
+test('a newly required supported field establishes its consumed schema change', async () => {
+  const wire = sourceFixture({
+    change: (version, files) => {
+      if (version !== '0.165.0') return;
+      files.set('codex-rs/core/config.schema.json', {
+        type: 'blob',
+        value: JSON.stringify({
+          ...syntheticSchema(),
+          required: ['model']
+        })
+      });
+    }
+  });
+  const result = await collectCodexSourceEvidence(wire.job, {
+    fetch: wire.fetchImpl
+  });
+  const judgment = judgeDifferences(wire.job, result.evidence, currentIdentities);
+  expect(result.failure).toBeNull();
   expect(judgment.groups.find(group => group.contract_id === 'invocation_permissions_config_model_effort')?.result).toBe('affected');
 });
 test.each([
@@ -474,6 +585,100 @@ test.each([40, 128])('128 responses bounds a %s-release job including revalidati
   expect(wire.calls).toHaveLength(128);
   if (releaseCount === 40) expect([...wire.counts.values()]).toContain(2);
   expect(result.evidence.every(record => record.availability === 'failed')).toBe(true);
+});
+test.each([129, 256])(
+  'large schema-valid %s-release failures still reduce with every required comparison',
+  async releaseCount => {
+    const base = differenceJob();
+    const releases = Array.from({ length: releaseCount }, (_, index) => ({
+      version: `0.${163 + index}.0`,
+      commit: (index + 1).toString(16).padStart(40, '0')
+    }));
+    const first = releases[0];
+    const last = releases.at(-1);
+    if (!first || !last || !base.baseline_row) {
+      throw new Error('invalid_synthetic_inventory');
+    }
+    const job = parseDifferenceJob({
+      ...base,
+      baseline_row: { ...base.baseline_row, ref: first },
+      parser_base: { ...first, profile_id: base.lane.profile_id },
+      target: last,
+      comparison: {
+        comparison_kind: 'adjacent_release',
+        from: first,
+        to: last
+      },
+      inventory: { ...base.inventory, releases }
+    });
+    const wire = sourceFixture({ job });
+    const result = await collectCodexSourceEvidence(job, {
+      fetch: wire.fetchImpl
+    });
+    const judgment = parseDifferenceJudgment(judgeDifferences(job, result.evidence, currentIdentities));
+    expect(result.failure).toBe('source_response_limit');
+    expect(judgment.groups).toHaveLength(8);
+    expect(judgment.groups.every(group => group.result === 'unknown')).toBe(true);
+    expect(judgment.comparisons).toEqual([
+      ...releases.slice(1).map((to, index) => ({
+        comparison_kind: 'adjacent_release',
+        from: releases[index],
+        to
+      })),
+      { comparison_kind: 'parser_base', from: first, to: last }
+    ]);
+    expect(wire.calls).toHaveLength(0);
+  },
+  30000
+);
+test.each([
+  ['redirected', false, 'source_redirect_invalid'],
+  ['redirected', true, 'source_redirect_invalid'],
+  ['final_url', false, 'source_redirect_invalid'],
+  ['final_url', true, 'source_redirect_invalid'],
+  ['blob_sha', false, 'source_identity_invalid'],
+  ['blob_sha', true, 'source_identity_invalid']
+] as const)('%s identity failure with late=%s invalidates all earlier material', async (kind, late, failure) => {
+  let blobReads = 0;
+  const wire = sourceFixture({
+    change: (version, files) => {
+      if (!late || version !== '0.165.0') return;
+      const schema = syntheticSchema();
+      schema.properties.model.description = 'SYNTHETIC_LATE_IDENTITY';
+      files.set('codex-rs/core/config.schema.json', {
+        type: 'blob',
+        value: JSON.stringify(schema)
+      });
+    },
+    rewrite: async (url, attempt, response) => {
+      const isBlob = url.pathname.includes('/git/blobs/');
+      if (isBlob && attempt === 1) blobReads++;
+      const trigger = late ? isBlob && attempt === 1 && blobReads === 2 : kind === 'blob_sha' ? isBlob : url.pathname === '/repos/openai/codex';
+      if (!trigger) return response;
+      switch (kind) {
+        case 'redirected':
+          Object.defineProperty(response, 'redirected', {
+            value: true
+          });
+          return response;
+        case 'final_url':
+          Object.defineProperty(response, 'url', {
+            value: 'https://api.github.com/repos/openai/codex/git/trees/9999999999999999999999999999999999999999'
+          });
+          return response;
+        case 'blob_sha':
+          return new Response(`${await response.text()} `);
+        default:
+          throw new Error('invalid_synthetic_guard');
+      }
+    }
+  });
+  const result = await collectCodexSourceEvidence(wire.job, {
+    fetch: wire.fetchImpl
+  });
+  expect(result.failure).toBe(failure);
+  if (late) expect(blobReads).toBe(2);
+  noPass(result);
 });
 test('the 120-second deadline bounds a transport that never resolves or honors cancellation', async () => {
   vi.useFakeTimers();
