@@ -72,6 +72,12 @@ Follow the checklist's machine-judgment steps. Stale machine results stay
 `unknown`, pending validation and conflicts with manual reviews stay visible,
 and no machine result closes a gate or replaces the comparison below.
 
+The offline `prepare-promotion` and `reconcile-promotion` commands each take
+`--input <file> --out <directory>`, where the input is an explicit bounded inventory
+of content-addressed records. They publish only non-authorizing `promotion_proposal`
+records. Follow the checklist's promotion-proposal steps; a proposal is never a
+decision, support change or registry, ledger or baseline edit.
+
 Record each consumed contract as `unchanged`, `changed` or `unknown`, with its
 evidence and effect on the existing parser. Separate upstream changes from their
 impact: an unrelated TUI fix does not establish stable token semantics.

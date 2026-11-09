@@ -19,6 +19,8 @@ Codex CLI 또는 Claude Code의 현재 안정 릴리스를 찾고, 그 후보를
 - `difference-job`, `collect-difference-evidence`, `judge`는 기계 차이 레코드를 만들고,
   `assess --judgment`는 별도 채널로 이를 읽습니다
   ([기계 차이 명령](#기계-차이-명령) 참고).
+- `prepare-promotion`과 `reconcile-promotion`은 명시적 입력 목록을 오프라인에서 권한 없는
+  승격 proposal로 바꿉니다([승격 명령](#승격-명령) 참고).
 
 아무것도 설치하지 않고 벤더 바이너리도 실행하지 않습니다. 세션, 사용자 데이터베이스, 도구
 설정을 읽지 않으며 허용, 기본값, CI, 추적 파일도 바꾸지 않습니다. 네트워크 요청은 `discover`와
@@ -262,7 +264,7 @@ built 선택별로 독립 고정합니다. packet은 runner나 실행·활성화
 `promotion_proposal`, `promotion_validation`, `promotion_decision`은 엄격한 재귀
 schema, canonical JSON, SHA-256 ID, 256 KiB 제한과 불변 게시를 사용합니다.
 폴더는 `promotion-proposals/`, `promotion-validations/`, `promotion-decisions/`입니다.
-아직 이 레코드를 생성하는 명령은 없습니다.
+아래 두 명령만 proposal을 만들며, validation이나 decision을 만드는 명령은 없습니다.
 
 세 종류 모두 권한을 부여하지 않습니다. decision 레코드는 외부 결정을 기술하며,
 schema 유효성이 동의나 runtime 지원 변경을 확정하지 않습니다. 순수 gate reducer는
@@ -271,6 +273,75 @@ admission, qualification, 자식을 구분하고 unknown과 유예된 실제 증
 mapping, descriptor, 미해결 발견 참조를 보존하며 권한을 철회하거나 복원할 수 없습니다.
 별도로 버전을 관리하는 promotion-engine identity는 레코드와 reducer 의존성을 포함합니다.
 difference-engine이나 평가 identity를 대체하지 않습니다.
+
+## 승격 명령
+
+두 명령 모두 오프라인에서 명시적으로 실행합니다. 각각 입력 목록 파일 하나를 읽고
+레코드 루트 하나에 게시합니다.
+
+```sh
+node scripts/tool-update.mjs prepare-promotion --input "$inventory_file" --out "$out"
+node scripts/tool-update.mjs reconcile-promotion --input "$inventory_file" --out "$out"
+```
+
+입력은 엄격한 revision-1 JSON envelope입니다. 실행이 읽을 수 있는 레코드를 content ID와
+파일 참조로만 나열합니다. 명령은 탐색, 디렉터리 순회, latest pointer 추적을 하지 않으므로
+결과는 주어진 목록에 대해서만 완전합니다. 한 번 실행에 참조 레코드 최대 256개, lineage
+간선 최대 256개를 받으며, 각 레코드는 256 KiB 제한을 유지합니다.
+
+각 파일 참조는 `{"id":"<canonical SHA-256>","path":"<입력 파일>"}`입니다.
+상대 경로는 입력 목록 파일의 디렉터리를 기준으로 해석합니다. 파싱한 레코드의 canonical
+바이트에서 ID를 다시 계산하며, 파일명은 identity가 아닙니다. 입력 목록 파일도 256 KiB로
+제한합니다. 두 envelope 모두 알 수 없는 필드를 거부합니다.
+
+| Envelope | 필수 필드 |
+| --- | --- |
+| 준비 | `schema_version:1`, `kind:"promotion_preparation"`, `selection_reason`, `selection_reference`, `scope`, `requested_grants`, `candidate`, `observation`, `assessments`, `jobs`, `judgments`, `descriptor`, `registry`, `ledger`, `decision_payload`, `mappings`, `predecessor_proposals`, `gate_matrix`, `required_validation` |
+| 조정 | `schema_version:1`, `kind:"promotion_reconciliation"`, `judgments`, `proposals`, `decisions`, `descriptors`, `mappings`, `successors` |
+
+준비의 candidate, observation, descriptor, registry, ledger, decision payload는
+단일 파일 참조이며, 나머지 레코드 입력은 파일 참조 배열입니다. assessment와 job은 각각
+하나 이상 필요합니다. registry는 제공된 registry 배열이며, ledger는 버전이 있는 결과
+ledger 형식을 유지합니다. decision payload는 `promotion_decision` 필드 중
+`registry_before_digest`, `effective_projection_digest`를 제외한 형태이며, 미리보기에만
+읽고 게시하지 않습니다. `scope`, gate, grant, validation class는 승격 레코드 schema를
+사용합니다. `predecessor_proposals`는 미해결 발견을 우회해 ready proposal을 새로 만드는
+대신 발견을 보존합니다. 조정의 여섯 입력 목록은 모두 파일 참조 배열이며, 해당 입력이
+없으면 빈 배열을 씁니다.
+
+coverage mapping은 `schema_version:1`, `kind:"promotion_coverage_mapping"`,
+`original_lane`, `scope`, `descriptor_digest`, `review_reference`, `contracts`,
+`facets`를 사용합니다. operation이나 topology를 확장할 수 없습니다. descriptor successor는
+`schema_version:1`, `kind:"promotion_descriptor_successor"`,
+`predecessor_descriptor_digest`, `successor_descriptor_digest`,
+`predecessor_proposal_id`, `successor_proposal_id`, `coverage_mapping_ids`,
+`review_reference`를 사용합니다. 두 정의 모두 content ID와 엄격한 schema를 가지며,
+review 참조는 외부 검토를 기술할 뿐 기계 승인이 아닙니다.
+
+- `prepare-promotion`은 제공된 후보, 관측, 평가, 작업, 판단 레코드와 대기 descriptor,
+  registry와 ledger 상태, 제공된 decision 미리보기 payload, 범위가 정해진 증명 입력을
+  연결합니다. 승격 gate reducer가 proposal 상태를 도출하며 `ready_for_decision`을 넘지
+  않습니다. descriptor, registry-before, proposed-projection 다이제스트는 그 미리보기
+  payload로 기존 descriptor·ledger 다이제스트 함수가 계산합니다. 다른 레인의 증명은
+  인정하지 않습니다.
+- `reconcile-promotion`은 제공된 proposal·decision 체인, 검토된 레인 coverage mapping,
+  검토된 같은 대상 descriptor 후속을 검증합니다. 그 mapping과 후속만 따라가고 원래 증거
+  레인 ID를 유지하며, 영향받는 겹침마다 `review_needed` 후속을 게시합니다. 미해결 발견은
+  그대로 이어집니다. stale이나 unknown 판단, 검토된 해소가 없는 이후의 unaffected 판단은
+  발견을 지우지 못합니다. 아무것과도 맞지 않는 제공 ID는 unused로 보고합니다. 잘못된
+  revision, 누락된 predecessor, 순환, 충돌하는 mapping은 게시 전에 실패하며, 같은 입력은
+  같은 결과를 냅니다.
+
+각 실행은 고정 JSON 상태 한 줄을 출력합니다. 결과물은 권한이 없는 불변
+`promotion_proposal`뿐입니다. 두 명령 모두 validation이나 decision을 쓰지 않고, runtime
+지원을 바꾸지 않으며, registry, ledger, 기준선을 수정하지 않습니다. 네트워크, 데이터베이스,
+native, 벤더 바이너리, 설정, 세션에 접근하지 않습니다.
+
+준비는 `promotion_prepared`와 `proposal_id`를 반환합니다. 조정은 `promotion_reconciled`,
+정렬된 `proposal_ids`, 선언된 `input_ids`, 명시적인 `unused_ids`를 반환합니다.
+identity 불일치, mapping 충돌, 잘못된 lineage는 각각 `promotion_identity_mismatch`,
+`promotion_mapping_conflict`, `promotion_lineage_invalid`로 exit 2를 반환하며,
+잘못된 schema는 `invalid_record`를 사용합니다.
 
 ## 기계 차이 판단 레코드
 

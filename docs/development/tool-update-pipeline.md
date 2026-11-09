@@ -21,6 +21,9 @@ these records changes a default.
 - `difference-job`, `collect-difference-evidence` and `judge` build machine
   difference records, and `assess --judgment` reads them through a separate channel
   (see [Machine difference commands](#machine-difference-commands)).
+- `prepare-promotion` and `reconcile-promotion` turn an explicit input inventory
+  into non-authorizing promotion proposals offline
+  (see [Promotion commands](#promotion-commands)).
 
 It won't install anything or run a vendor binary. It also doesn't read sessions,
 the user database, or tool configuration, and it never changes admission, defaults,
@@ -289,7 +292,8 @@ Three additional revision-1 kinds describe portable promotion metadata:
 `promotion_proposal`, `promotion_validation` and `promotion_decision`. They use
 strict recursive schemas, canonical JSON, SHA-256 IDs, the 256 KiB limit and
 immutable publication in `promotion-proposals/`, `promotion-validations/` and
-`promotion-decisions/`. No command produces them yet.
+`promotion-decisions/`. Only the two commands below produce proposals; no command
+produces validations or decisions.
 
 All three are non-authorizing. A decision record describes an external decision;
 schema validity does not establish consent or change runtime support. The pure
@@ -299,6 +303,80 @@ unknown and deferred actual evidence, and stops at `ready_for_decision`.
 unresolved-finding references; they cannot revoke or restore authority. The
 separate versioned promotion-engine identity covers the record and reducer
 dependencies. It does not replace the difference-engine or assessment identities.
+
+## Promotion commands
+
+Both commands are offline and explicit. Each reads one input inventory file and
+publishes into one record root:
+
+```sh
+node scripts/tool-update.mjs prepare-promotion --input "$inventory_file" --out "$out"
+node scripts/tool-update.mjs reconcile-promotion --input "$inventory_file" --out "$out"
+```
+
+The input is a strict revision-1 JSON envelope. It lists every record the run may
+read by content ID and file reference, nothing else. The commands never discover,
+crawl a directory or follow a latest pointer, so a result is complete only for the
+inventory it was given. One invocation accepts at most 256 referenced records and
+256 lineage edges, and each record keeps the 256 KiB limit.
+
+Each file reference is `{"id":"<canonical SHA-256>","path":"<input file>"}`.
+Relative paths resolve from the inventory file's directory. IDs are recomputed
+from parsed canonical record bytes; filenames are not identities. The inventory
+file is also bounded to 256 KiB. Both envelopes reject unknown fields:
+
+| Envelope | Required fields |
+| --- | --- |
+| Preparation | `schema_version:1`, `kind:"promotion_preparation"`, `selection_reason`, `selection_reference`, `scope`, `requested_grants`, `candidate`, `observation`, `assessments`, `jobs`, `judgments`, `descriptor`, `registry`, `ledger`, `decision_payload`, `mappings`, `predecessor_proposals`, `gate_matrix`, `required_validation` |
+| Reconciliation | `schema_version:1`, `kind:"promotion_reconciliation"`, `judgments`, `proposals`, `decisions`, `descriptors`, `mappings`, `successors` |
+
+Preparation's candidate, observation, descriptor, registry, ledger and decision
+payload are single file references; the other record inputs are arrays of file
+references. At least one assessment and job are required. The registry is the
+supplied registry array; the ledger retains its versioned result-ledger shape.
+The decision payload has the `promotion_decision` fields except
+`registry_before_digest` and `effective_projection_digest`; it is read for preview,
+never published. `scope`, gates, grants and validation classes use the promotion
+record schemas. `predecessor_proposals` retains unresolved findings rather than
+preparing a fresh ready proposal around them. Reconciliation's six input lists
+are arrays of file references, including empty arrays where applicable.
+
+Coverage mappings use `schema_version:1`, `kind:"promotion_coverage_mapping"`,
+`original_lane`, `scope`, `descriptor_digest`, `review_reference`, `contracts`
+and `facets`. They cannot expand operation or topology. Descriptor successors use
+`schema_version:1`, `kind:"promotion_descriptor_successor"`,
+`predecessor_descriptor_digest`, `successor_descriptor_digest`,
+`predecessor_proposal_id`, `successor_proposal_id`, `coverage_mapping_ids`
+and `review_reference`. Both definitions have content IDs and strict schemas;
+their review references describe external review, not machine approval.
+
+- `prepare-promotion` binds the supplied candidate, observation, assessment, job
+  and judgment records, the pending descriptor, the registry and ledger state, the
+  supplied decision preview payload and its scoped proof inputs. The promotion gate
+  reducer derives the proposal state, which never goes past `ready_for_decision`.
+  The descriptor, registry-before and proposed-projection digests come from the
+  existing descriptor and ledger digest functions, computed from that preview payload.
+  Proof from another lane doesn't count.
+- `reconcile-promotion` validates the supplied proposal and decision chains, the
+  reviewed lane coverage mappings and reviewed same-target descriptor successors.
+  It follows only those mappings and successors, keeps the original evidence lane
+  IDs and publishes a `review_needed` successor for each affected overlap. Unresolved
+  findings carry forward. A stale or unknown judgment, or a later unaffected one
+  without a reviewed resolution, can't clear a finding. Supplied IDs that match
+  nothing are reported as unused. Invalid revisions, missing predecessors, cycles
+  and conflicting mappings fail before anything is published, and identical inputs
+  give the same result.
+
+Each run prints one fixed JSON status line. Output is only an immutable
+`promotion_proposal` with no authority. Neither command writes a validation or
+decision, changes runtime support, or edits the registry, ledger or baselines. They
+make no network, database, native, vendor binary, configuration or session access.
+
+Preparation returns `promotion_prepared` and `proposal_id`. Reconciliation returns
+`promotion_reconciled`, sorted `proposal_ids`, the declared `input_ids` and explicit
+`unused_ids`. Identity mismatches, conflicting mappings and invalid lineage return
+`promotion_identity_mismatch`, `promotion_mapping_conflict` or
+`promotion_lineage_invalid` with exit 2; invalid schemas use `invalid_record`.
 
 ## Machine difference records
 
