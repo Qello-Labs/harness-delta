@@ -29,7 +29,13 @@ function fixture(target = '0.163.0', product: Product = 'codex', versions = [tar
     commit: '1'.repeat(40),
     npm_integrity: `sha512-${Buffer.alloc(64).toString('base64')}`
   };
-  const candidate: Candidate = { schema_version: 1, kind: 'candidate', product, target, ...identity };
+  const candidate: Candidate = {
+    schema_version: 1,
+    kind: 'candidate',
+    product,
+    target,
+    ...identity
+  };
   const observation: Observation = {
     schema_version: 1,
     kind: 'observation',
@@ -65,7 +71,7 @@ async function reviewed(input = fixture(), baseline?: Baseline) {
     reviews: [unusedReview()],
     ...(baseline ? { baseline } : {})
   });
-  if (result.schema_version !== 8 || result.review_ids === undefined || result.judgment_ids !== undefined) throw new Error('reviewed_schema_8_required');
+  if (result.schema_version !== 9 || result.review_ids === undefined || result.judgment_ids !== undefined) throw new Error('reviewed_schema_9_required');
   return result;
 }
 function syntheticRegistry(base?: string): SourceRegistry {
@@ -114,7 +120,10 @@ function review(sourceDigest = 'b'.repeat(64)): ContractReview {
     contract_revision: 'consumed-v1',
     from: { version: '0.162.1', commit: '2'.repeat(40) },
     to: { version: '0.163.0', commit: '1'.repeat(40) },
-    contracts: consumedContracts.map(contract_id => ({ contract_id, judgment: 'unaffected' })),
+    contracts: consumedContracts.map(contract_id => ({
+      contract_id,
+      judgment: 'unaffected'
+    })),
     evidence_ids: ['a'.repeat(64)],
     source_digest: sourceDigest
   };
@@ -147,8 +156,8 @@ test('reviewed schema 8 preserves every schema 3 lane field when selection polic
   });
 
   // Then
-  expect(result.schema_version).toBe(8);
-  if (result.schema_version !== 8 || result.review_ids === undefined || result.judgment_ids !== undefined) throw new Error('reviewed_schema_8_required');
+  expect(result.schema_version).toBe(9);
+  if (result.schema_version !== 9 || result.review_ids === undefined || result.judgment_ids !== undefined) throw new Error('reviewed_schema_9_required');
   expect(result.lanes).toHaveLength(39);
   const previousLanes = result.lanes
     .filter(row => !['codex-binding-01660-direct-family-v1', 'codex-binding-root-window-v1'].includes(row.profile_id))
@@ -163,7 +172,7 @@ test('reviewed schema 8 preserves every schema 3 lane field when selection polic
   expect(digest(plain.lanes.filter(row => !['codex-binding-01660-direct-family-v1', 'codex-binding-root-window-v1'].includes(row.profile_id)))).toBe(
     '356ee379727d6dcdfd211428b62ea7ef21151134075979bf40a7a71c8271d228'
   );
-  expect(plain.schema_version).toBe(8);
+  expect(plain.schema_version).toBe(9);
   expect(plain.lanes.every(row => !('selection_policy' in row))).toBe(true);
 });
 
@@ -354,7 +363,10 @@ test('39-lane assessments fit the unchanged byte limit and oversized records are
     ...result,
     lanes: result.lanes.map(row => ({
       ...row,
-      review: { ...row.review, releases: Array.from({ length: 256 }, () => release) }
+      review: {
+        ...row.review,
+        releases: Array.from({ length: 256 }, () => release)
+      }
     }))
   };
 
@@ -406,23 +418,49 @@ test.each(['codex', 'claude_code'] as const)('assessment preserves the exact adm
   const result = await assessCandidate(fixture(descriptor.version, product));
   const selected = result.lanes.filter(row => row.profile_id === descriptor.profileId);
   expect(selected.map(row => [row.operation, row.topology, row.static_selection])).toEqual([['collect', 'root', 'exact']]);
-  expect(selected[0]?.declared_scope).toEqual({ max_depth: 0, max_members: 1, read_only: false, exact_only: true });
+  expect(selected[0]?.declared_scope).toEqual({
+    max_depth: 0,
+    max_members: 1,
+    read_only: false,
+    exact_only: true
+  });
   expect(result.lanes.filter(row => row.profile_id !== descriptor.profileId).map(row => row.profile_id)).toEqual(
     ['codex-file-checkpoint-v1', 'codex-file-checkpoint-v1'].filter(() => product === 'codex')
   );
 });
 test.each([
-  { grants: ['qualification'] as const, topology: 'root' as const, expected: [] },
-  { grants: ['admission'] as const, topology: 'bounded_family' as const, expected: [] },
-  { grants: ['admission', 'children'] as const, topology: 'bounded_family' as const, expected: [['collect', 'bounded_family', 1, 3]] }
+  {
+    grants: ['qualification'] as const,
+    topology: 'root' as const,
+    expected: []
+  },
+  {
+    grants: ['admission'] as const,
+    topology: 'bounded_family' as const,
+    expected: []
+  },
+  {
+    grants: ['admission', 'children'] as const,
+    topology: 'bounded_family' as const,
+    expected: [['collect', 'bounded_family', 1, 3]]
+  }
 ])('assessment requires admission and independent child authority: $grants $topology', async ({ grants, topology, expected }) => {
   const input = promotionFixture();
   const descriptor = input.descriptors[0];
   if (!descriptor) throw new Error('fixture_descriptor_required');
   const record = appendPromotionDecision(input, {
     scope: {
-      target: { version: descriptor.version, commit: descriptor.sourceRef },
-      lane: { product: 'codex', route: 'codex_binding', profile_id: descriptor.profileId, operation: 'collect', topology },
+      target: {
+        version: descriptor.version,
+        commit: descriptor.sourceRef
+      },
+      lane: {
+        product: 'codex',
+        route: 'codex_binding',
+        profile_id: descriptor.profileId,
+        operation: 'collect',
+        topology
+      },
       platform: 'darwin_arm64',
       runtime: 'node26'
     },
@@ -461,15 +499,33 @@ test('an explicitly admitted resume facet is selectable and valid in a new basel
   if (!current) throw new Error('fixture_descriptor_required');
   const descriptor = parseToolVersionPromotionDescriptor({
     ...current,
-    scopes: [...current.scopes, { operation: 'resume', topology: 'root', maxDepth: 0, maxFamilyMembers: 1, grants: ['admission'] }]
+    scopes: [
+      ...current.scopes,
+      {
+        operation: 'resume',
+        topology: 'root',
+        maxDepth: 0,
+        maxFamilyMembers: 1,
+        grants: ['admission']
+      }
+    ]
   });
   input.descriptors = [descriptor];
   const record = appendPromotionDecision(input, {
     requested_grants: ['admission'],
     grants: ['admission'],
     scope: {
-      target: { version: descriptor.version, commit: descriptor.sourceRef },
-      lane: { product: 'codex', route: 'codex_binding', profile_id: descriptor.profileId, operation: 'resume', topology: 'root' },
+      target: {
+        version: descriptor.version,
+        commit: descriptor.sourceRef
+      },
+      lane: {
+        product: 'codex',
+        route: 'codex_binding',
+        profile_id: descriptor.profileId,
+        operation: 'resume',
+        topology: 'root'
+      },
       platform: 'darwin_arm64',
       runtime: 'node26'
     }

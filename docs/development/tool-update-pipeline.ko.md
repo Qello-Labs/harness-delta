@@ -54,10 +54,11 @@ import도 따라가지 않습니다. 이 파일의 변경은 `source_scope_chang
 기존 레코드는 계속 읽을 수 있으며 다시 쓰지 않습니다. 과거 다이제스트로는 현재 계약 검토
 게이트를 닫을 수 없습니다.
 
-현재 `static-assessment-v4` writer는 중복 제거된 경로 정확히 55개를 수집하며 여유 항목은 없습니다.
-v3 closure에 `src/core/tool-version-promotion.ts`, `src/core/tool-version-promotions.json`,
-`src/core/tool-version-promotion-result.json`을 더한 것입니다. 정확히 52개 경로인
-static-assessment-v3 closure는 고정된 과거 기록입니다. Codex window의
+현재 `static-assessment-v5` writer는 중복 제거된 경로 정확히 82개를 수집하며 여유 항목은 없습니다.
+고정된 v4의 55개 경로에 producer, 전체 bundle, generator, 배포, installer 의존성,
+execution-pin API의 해시 전용 입력 27개를 더합니다. 평가는 이 입력을 로드하거나 실행하지 않습니다.
+v4 closure는 v3 closure에 `src/core/tool-version-promotion.ts`, `src/core/tool-version-promotions.json`,
+`src/core/tool-version-promotion-result.json`을 더한 것이며, v3의 52개 경로도 고정된 과거 기록입니다. Codex window의
 해시 전용 입력에는 `src/connect/codex-connect-installation.ts`,
 `skills/harness-connect-window-codex/SKILL.md`,
 `skills/harness-connect-window-codex/scripts/connect.mjs`가 포함됩니다. 범용 raw window
@@ -121,7 +122,7 @@ GitHub와 npm에 걸친 원자적 스냅샷이 아니므로 그렇게 설명하�
 새 방식은 전체 목록 조회를 피하며, 처음 1000개를 완전한 이력으로 재해석하지 않습니다.
 
 새 관측은 `schema_version: 2`와 `inventory_scope: "latest_and_npm_review_range"`를 씁니다.
-평가는 schema 8로 관측의 범위를 전달하며, schema-1 입력에는 `legacy_full_inventory`를
+평가는 schema 9로 관측의 범위를 전달하며, schema-1 입력에는 `legacy_full_inventory`를
 표시합니다. 기존 schema-1 관측과 평가는 다시 쓰지 않고 계속 읽을 수 있습니다. legacy 범위 표시는
 과거 레코드 형식을 나타낼 뿐 검증 범위에 대한 인증된 증거는 아닙니다. 후보의
 schema와 식별자는 바뀌지 않습니다. `metadata_reconciled`는 표시된 범위만 증명하며 전체
@@ -187,7 +188,7 @@ node scripts/tool-update.mjs assess \
 
 ### 선택 정책
 
-검토 레코드가 있으면 현재 schema-8 수동 채널은 모든 레인에 엄격한 `selection_policy` 객체를
+검토 레코드가 있으면 현재 schema-9 수동 채널은 모든 레인에 엄격한 `selection_policy` 객체를
 포함합니다. 고정된 schema 6도 같은 요구 사항을 유지합니다.
 
 ```json
@@ -225,10 +226,10 @@ node scripts/tool-update.mjs assess \
 어느 상태에도 해당하지 않으면 경로를 추측하지 않고 `invalid_record`로 실패합니다.
 평가 레코드의 크기 제한은 256 KiB 그대로입니다.
 
-현재 writer는 일반, 수동, 기계 채널 모두에 `static-assessment-v4`로 schema 8을 출력합니다.
-schema 1-7 reader는 고정된 과거 기록입니다. `static-assessment-v1`의 schema 1–4와 명시된
-`static-assessment-v2` 또는 `static-assessment-v3` 리비전의 schema 5-7을 계속 읽습니다.
-두 root 정책 ID는 schema 5-7에서는 v3로, schema 8에서는 v4로 허용하며 v2 레코드를 다시 쓰지 않습니다. v3 schema는 일반 root 참조 정책 레인 두 개,
+현재 writer는 일반, 수동, 기계 채널 모두에 `static-assessment-v5`로 schema 9를 출력합니다.
+schema 1-8 reader는 고정된 과거 기록입니다. `static-assessment-v1`의 schema 1–4와 명시된
+`static-assessment-v2` 또는 `static-assessment-v3` 리비전의 schema 5-7, `static-assessment-v4`의 schema 8을 계속 읽습니다.
+두 root 정책 ID는 schema 5-7에서는 v3로, schema 8에서는 v4로, schema 9에서는 v5로 허용하며 v2 레코드를 다시 쓰지 않습니다. v3 schema는 일반 root 참조 정책 레인 두 개,
 `codex-binding-root-window-v1`과 `claude-binding-root-window-v1`을 추가합니다. 규칙 리비전은
 `codex-ordinary-root-window-v1`과 `claude-ordinary-root-window-v1`입니다. 각 레인은 root만
 다룹니다. link, collect, restart만 있고 `exact_only:false`, 깊이 0, 멤버 하나이며 launch, resume,
@@ -369,7 +370,7 @@ node scripts/tool-update.mjs assess \
 ### 평가 schema 7
 
 schema 7은 고정된 과거 기록입니다. `--judgment`가 하나 이상이면 현재 writer는 이 필드를
-schema 8로 출력하며, schema 1-6 reader는 바뀌지 않습니다. schema 7은 정적·수동 투영 전체를
+schema 9로 출력하며, schema 1-6 reader는 바뀌지 않습니다. schema 7은 정적·수동 투영 전체를
 유지하고 다음을 추가합니다.
 
 - 정렬된 최상위 `judgment_ids`와 `unused_judgment_ids`
@@ -384,7 +385,7 @@ map revision 중 하나가 현재와 다르면 자동 결과는 고정된 최신
 `stale_engine`, `stale_map`)와 함께 `unknown`입니다. 기준선이 없거나, 기준선이 대상과 같거나,
 파서 체인이 불완전하면 결과는 대기로 남습니다.
 
-고정된 schema 7과 현재 schema-8 기계 채널은 모두 지원을 확정하지 않습니다. 기계 결과는 `contracts_unknown`, `exact_only`,
+고정된 schema 7과 현재 schema-9 기계 채널은 모두 지원을 확정하지 않습니다. 기계 결과는 `contracts_unknown`, `exact_only`,
 `upper_bound`, `minor_transition`, `no_window`, live `not_assessed` 필드, 적합성, 허용,
 기본값 게이트를 닫지 않습니다. 지원, live, 허용, 기본값, 차단 결정을 쓰지 않으며 창 밖의
 버전을 선택 가능하게 만들지 않습니다. `affected` 결과도 차단을 쓰지 않습니다.

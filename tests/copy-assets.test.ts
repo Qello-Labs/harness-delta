@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { expect, test } from 'vitest';
+import { promotedInputs } from '../scripts/tool-update/fixtures.mjs';
 
 test.each([
   ['config-confirmation', 'core/configuration-evidence'],
@@ -64,9 +65,17 @@ test.each([
     put('scripts/session-binding-codex-hook.mjs', 'Synthetic recorder');
     const windowProducer = readFileSync(new URL('../scripts/session-binding-codex-window-hook.mjs', import.meta.url), 'utf8');
     put('scripts/session-binding-codex-window-hook.mjs', windowProducer);
+    const promotedProducer = readFileSync(new URL('../scripts/session-binding-codex-promoted-hook.mjs', import.meta.url), 'utf8');
+    put('scripts/session-binding-codex-promoted-hook.mjs', promotedProducer);
+    for (const inputs of Object.values(promotedInputs)) {
+      for (const member of inputs.members) {
+        put(`${inputs.skill}/${member}`, readFileSync(new URL(`../${inputs.skill}/${member}`, import.meta.url), 'utf8'));
+      }
+    }
     put('scripts/generated/current-support.json', '{"schemaVersion":1}');
     put('dist/assets/session-binding-codex-hook.mjs', 'Stale recorder');
     put('dist/assets/session-binding-codex-window-hook.mjs', 'Stale window recorder');
+    put('dist/assets/session-binding-codex-promoted-hook.mjs', 'Stale promoted recorder');
     put('dist/skills/harness-connect-window-codex/scripts/connect.mjs', 'Stale window helper');
     put('dist/assets/current-support.json', 'Stale support data');
     put('dist/flexible-candidates.json', 'Retired candidate data');
@@ -83,6 +92,12 @@ test.each([
     expect(existsSync(join(root, 'dist/flexible-candidates.json'))).toBe(false);
     expect(readFileSync(join(root, 'dist/assets/session-binding-codex-hook.mjs'), 'utf8')).toBe('Synthetic recorder');
     expect(readFileSync(join(root, 'dist/assets/session-binding-codex-window-hook.mjs'), 'utf8')).toBe(windowProducer);
+    expect(readFileSync(join(root, 'dist/assets/session-binding-codex-promoted-hook.mjs'), 'utf8')).toBe(promotedProducer);
+    for (const inputs of Object.values(promotedInputs)) {
+      for (const member of inputs.members) {
+        expect(readFileSync(join(root, inputs.builtSkill, member))).toEqual(readFileSync(new URL(`../${inputs.skill}/${member}`, import.meta.url)));
+      }
+    }
     for (const path of ['SKILL.md', 'scripts/connect.mjs']) {
       expect(readFileSync(join(root, `dist/skills/harness-connect-window-codex/${path}`))).toEqual(
         readFileSync(new URL(`../skills/harness-connect-window-codex/${path}`, import.meta.url))

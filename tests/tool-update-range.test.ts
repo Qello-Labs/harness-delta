@@ -16,7 +16,10 @@ test.each([
 ])('rejects malformed or non-stable official latest %#', async githubLatest => {
   const wire = fixture({ githubLatest });
 
-  const result = await discover('codex', { fetchImpl: wire.fetchImpl, now });
+  const result = await discover('codex', {
+    fetchImpl: wire.fetchImpl,
+    now
+  });
 
   expect(result.observation.reasons).toContain('metadata_invalid');
   expect(result.candidate).toBeNull();
@@ -24,18 +27,40 @@ test.each([
 });
 
 test('requires explicit scope in schema 2 while keeping legacy observations readable', async () => {
-  const result = await discover('codex', { fetchImpl: fixture().fetchImpl, now });
+  const result = await discover('codex', {
+    fetchImpl: fixture().fetchImpl,
+    now
+  });
   const fields = Object.fromEntries(Object.entries(result.observation).filter(([key]) => key !== 'inventory_scope'));
 
   expect(observationSchema.safeParse(fields).success).toBe(false);
-  expect(observationSchema.safeParse({ ...result.observation, inventory_scope: 'all_history' }).success).toBe(false);
-  expect(observationSchema.safeParse({ ...result.observation, schema_version: 1 }).success).toBe(false);
+  expect(
+    observationSchema.safeParse({
+      ...result.observation,
+      inventory_scope: 'all_history'
+    }).success
+  ).toBe(false);
+  expect(
+    observationSchema.safeParse({
+      ...result.observation,
+      schema_version: 1
+    }).success
+  ).toBe(false);
   expect(observationSchema.safeParse({ ...fields, schema_version: 1 }).success).toBe(false);
-  expect(observationSchema.safeParse({ ...fields, schema_version: 1, checks: [] }).success).toBe(true);
+  expect(
+    observationSchema.safeParse({
+      ...fields,
+      schema_version: 1,
+      checks: []
+    }).success
+  ).toBe(true);
 });
 
 test.each([1, 2])('preserves observation scope from schema %i in static assessment', async schema => {
-  const result = await discover('codex', { fetchImpl: fixture().fetchImpl, now });
+  const result = await discover('codex', {
+    fetchImpl: fixture().fetchImpl,
+    now
+  });
   if (!result.candidate) throw new Error('synthetic_candidate_missing');
   const fields = Object.fromEntries(Object.entries(result.observation).filter(([key]) => key !== 'inventory_scope'));
   const observation = schema === 1 ? { ...fields, schema_version: 1, checks: [] } : result.observation;
@@ -47,8 +72,8 @@ test.each([1, 2])('preserves observation scope from schema %i in static assessme
   });
 
   expect(assessment).toMatchObject({
-    schema_version: 8,
-    rule_revision: 'static-assessment-v4',
+    schema_version: 9,
+    rule_revision: 'static-assessment-v5',
     inventory_scope: schema === 1 ? 'legacy_full_inventory' : 'latest_and_npm_review_range'
   });
   expect(assessmentSchema.safeParse(frozenAssessmentFixture('codex')).success).toBe(true);

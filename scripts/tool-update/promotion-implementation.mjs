@@ -34,10 +34,13 @@ export const promotionImplementationFiles = Object.freeze([
 	"scripts/conformance/runner.ts",
 	"scripts/conformance/session-start-recorder.mjs",
 	"scripts/conformance/tsconfig.json",
+	"scripts/copy-assets.mjs",
 	"scripts/generate-tool-version-assets.mjs",
 	"scripts/generated/tool-version-data.mjs",
 	"scripts/session-binding-codex-hook.mjs",
 	"scripts/session-binding-codex-hook.template.mjs",
+	"scripts/session-binding-codex-promoted-hook.mjs",
+	"scripts/session-binding-codex-promoted-hook.template.mjs",
 	"scripts/tool-update.mjs",
 	"scripts/tool-update/assessment.mjs",
 	"scripts/tool-update/difference-contracts.mjs",
@@ -48,17 +51,35 @@ export const promotionImplementationFiles = Object.freeze([
 	"scripts/tool-update/discovery-records.mjs",
 	"scripts/tool-update/discovery-transport.mjs",
 	"scripts/tool-update/discovery.mjs",
+	"scripts/tool-update/fixtures.d.mts",
+	"scripts/tool-update/fixtures.mjs",
 	"scripts/tool-update/lanes.mjs",
 	"scripts/tool-update/manifest.d.mts",
 	"scripts/tool-update/manifest.mjs",
 	"scripts/tool-update/promotion-gates.d.mts",
 	"scripts/tool-update/promotion-gates.mjs",
+	"scripts/tool-update/promotion-execution-pins.d.mts",
+	"scripts/tool-update/promotion-execution-pins.mjs",
 	"scripts/tool-update/promotion-implementation.d.mts",
 	"scripts/tool-update/promotion-implementation.mjs",
 	"scripts/tool-update/promotion-records.d.mts",
 	"scripts/tool-update/promotion-records.mjs",
 	"scripts/tool-update/source-snapshot.mjs",
 	"skills/harness-apply/SKILL.md",
+	"skills/harness-connect/SKILL.md",
+	"skills/harness-connect/agents/openai.yaml",
+	"skills/harness-connect/references/support.md",
+	"skills/harness-connect/scripts/claude-session-hook.mjs",
+	"skills/harness-connect/scripts/connect.mjs",
+	"skills/harness-connect/tests/current.mjs",
+	"skills/harness-connect/tests/package.mjs",
+	"skills/harness-connect/tests/transport.mjs",
+	"skills/harness-connect/tests/verify.mjs",
+	"skills/harness-connect-promoted-claude/SKILL.md",
+	"skills/harness-connect-promoted-claude/scripts/claude-session-hook.mjs",
+	"skills/harness-connect-promoted-claude/scripts/connect.mjs",
+	"skills/harness-connect-promoted-codex/SKILL.md",
+	"skills/harness-connect-promoted-codex/scripts/connect.mjs",
 	"src/adapter-profiles.ts",
 	"src/binding/binding-child-readiness.ts",
 	"src/binding/binding-family-diagnostics.ts",
@@ -82,6 +103,8 @@ export const promotionImplementationFiles = Object.freeze([
 	"src/comparison/reports/comparison-invalidation.ts",
 	"src/comparison/reports/comparison-task.ts",
 	"src/comparison/reports/flexible-comparison.ts",
+	"src/connect/claude-connect-installation.ts",
+	"src/connect/codex-connect-installation.ts",
 	"src/contracts.ts",
 	"src/core/canonical-json.ts",
 	"src/core/configuration-evidence.ts",
@@ -217,7 +240,10 @@ export async function promotionImplementationDigest(root) {
 	const hash = createHash("sha256").update(promotionImplementationScheme)
 		.update("\0");
 	for (const path of promotionImplementationFiles) {
-		hash.update(path).update("\0").update(await readFile(join(root, path)))
+		hash
+			.update(path)
+			.update("\0")
+			.update(await readFile(join(root, path)))
 			.update("\0");
 	}
 	return hash.digest("hex");

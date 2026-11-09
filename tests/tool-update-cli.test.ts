@@ -35,21 +35,34 @@ function transport(mismatch = false): typeof fetch {
           name: '@openai/codex',
           'dist-tags': { latest: target },
           versions: {
-            '0.162.0': { name: '@openai/codex', version: '0.162.0', dist: { integrity } },
-            [target]: { name: '@openai/codex', version: target, dist: { integrity } }
+            '0.162.0': {
+              name: '@openai/codex',
+              version: '0.162.0',
+              dist: { integrity }
+            },
+            [target]: {
+              name: '@openai/codex',
+              version: target,
+              dist: { integrity }
+            }
           }
         })
       );
     }
-    if (url.pathname === '/repos/openai/codex') return Promise.resolve(Response.json({ id: 42, full_name: 'openai/codex' }));
-    if (url.pathname.endsWith('/releases/latest')) return Promise.resolve(Response.json(releases[0]));
-    if (url.pathname.includes('/git/ref'))
+    if (url.pathname === '/repos/openai/codex') {
+      return Promise.resolve(Response.json({ id: 42, full_name: 'openai/codex' }));
+    }
+    if (url.pathname.endsWith('/releases/latest')) {
+      return Promise.resolve(Response.json(releases[0]));
+    }
+    if (url.pathname.includes('/git/ref')) {
       return Promise.resolve(
         Response.json({
           ref: `refs/tags/${decodeURIComponent(url.pathname.split('/').at(-1) ?? '')}`,
           object: { type: 'commit', sha: 'a'.repeat(40) }
         })
       );
+    }
     return Promise.reject(new Error('synthetic-private HTTP error /Users/synthetic/private'));
   };
 }
@@ -61,7 +74,11 @@ test('local discovery publishes candidate then a matching completion observation
   const observationNames = await readdir(join(root, 'observations'));
   const candidate = candidateSchema.parse(JSON.parse(await readFile(join(root, 'candidates', candidateNames[0] ?? ''), 'utf8')));
   const observation = observationSchema.parse(JSON.parse(await readFile(join(root, 'observations', observationNames[0] ?? ''), 'utf8')));
-  expect(result.output).toMatchObject({ status: 'metadata_reconciled', candidate_id: digest(candidate), observation_id: digest(observation) });
+  expect(result.output).toMatchObject({
+    status: 'metadata_reconciled',
+    candidate_id: digest(candidate),
+    observation_id: digest(observation)
+  });
   expect(observation.candidate_id).toBe(digest(candidate));
   expect(candidate.target).toBe('0.163.0');
   expect(JSON.stringify(observation)).not.toContain(root);
@@ -70,17 +87,29 @@ test('a failed requery records failure rather than reporting prior success', asy
   const root = await temporaryRoot();
   const args = ['discover', '--product', 'codex', '--out', root];
   await runToolUpdate(args, { fetchImpl: transport(), now: () => checkedAt });
-  const failure = await runToolUpdate(args, { fetchImpl: transport(true), now: () => '2026-10-24T00:01:00.000Z' });
+  const failure = await runToolUpdate(args, {
+    fetchImpl: transport(true),
+    now: () => '2026-10-24T00:01:00.000Z'
+  });
   expect(failure.exitCode).toBe(2);
-  expect(failure.output).toMatchObject({ status: 'release_mismatch', candidate_id: null });
+  expect(failure.output).toMatchObject({
+    status: 'release_mismatch',
+    candidate_id: null
+  });
   expect(await readdir(join(root, 'candidates'))).toHaveLength(1);
   expect(await readdir(join(root, 'observations'))).toHaveLength(2);
 });
 test('query time changes observations without retargeting a candidate', async () => {
   const root = await temporaryRoot();
   const args = ['discover', '--product', 'codex', '--out', root];
-  const first = await runToolUpdate(args, { fetchImpl: transport(), now: () => checkedAt });
-  const second = await runToolUpdate(args, { fetchImpl: transport(), now: () => '2026-10-24T00:01:00.000Z' });
+  const first = await runToolUpdate(args, {
+    fetchImpl: transport(),
+    now: () => checkedAt
+  });
+  const second = await runToolUpdate(args, {
+    fetchImpl: transport(),
+    now: () => '2026-10-24T00:01:00.000Z'
+  });
   expect(first.exitCode).toBe(0);
   expect(second.exitCode).toBe(0);
   expect(first.output.candidate_id).toBe(second.output.candidate_id);
@@ -114,8 +143,8 @@ test('assessment CLI writes a source-fresh static result without granting suppor
   const raw: unknown = JSON.parse(await readFile(join(root, 'assessments', `${result.output.assessment_id}.json`), 'utf8'));
   const record = assessmentSchema.parse(raw);
   expect(record).toMatchObject({
-    schema_version: 8,
-    rule_revision: 'static-assessment-v4',
+    schema_version: 9,
+    rule_revision: 'static-assessment-v5',
     inventory_scope: 'latest_and_npm_review_range'
   });
   expect(record.baseline_digest).toBeNull();
@@ -130,14 +159,25 @@ test('failed completion publication cannot turn an orphan candidate into a succe
   const outside = await temporaryRoot();
   await symlink(outside, join(root, 'observations'));
   const result = await runToolUpdate(['discover', '--product', 'codex', '--out', root], { fetchImpl: transport(), now: () => checkedAt });
-  expect(result).toEqual({ exitCode: 2, output: { status: 'unsafe_output' } });
+  expect(result).toEqual({
+    exitCode: 2,
+    output: { status: 'unsafe_output' }
+  });
   expect(await readdir(join(root, 'candidates'))).toHaveLength(1);
   expect(await readdir(outside)).toEqual([]);
 });
 test('invalid baseline fields fail before network access and never leak input', async () => {
   const root = await temporaryRoot();
   const path = join(root, 'baseline.json');
-  await writeFile(path, JSON.stringify({ schema_version: 1, kind: 'baseline', rows: [], secret: 'synthetic-secret' }));
+  await writeFile(
+    path,
+    JSON.stringify({
+      schema_version: 1,
+      kind: 'baseline',
+      rows: [],
+      secret: 'synthetic-secret'
+    })
+  );
   let fetched = false;
   const result = await runToolUpdate(['discover', '--product', 'codex', '--out', root, '--baseline', path], {
     fetchImpl: () => {
@@ -145,13 +185,21 @@ test('invalid baseline fields fail before network access and never leak input', 
       return Promise.reject(new Error('unexpected_fetch'));
     }
   });
-  expect(result).toEqual({ exitCode: 2, output: { status: 'invalid_baseline' } });
+  expect(result).toEqual({
+    exitCode: 2,
+    output: { status: 'invalid_baseline' }
+  });
   expect(fetched).toBe(false);
 });
 test.each(
-  [[], ['--untrusted', 'synthetic-secret'], ['discover', '--product', 'codex'], ['assess', '--manifest', '/Users/synthetic/private']].map(args => ({ args }))
+  [[], ['--untrusted', 'synthetic-secret'], ['discover', '--product', 'codex'], ['assess', '--manifest', '/Users/synthetic/private']].map(args => ({
+    args
+  }))
 )('invalid command arguments have fixed diagnostics', async ({ args }) => {
-  expect(await runToolUpdate(args)).toEqual({ exitCode: 2, output: { status: 'invalid_arguments' } });
+  expect(await runToolUpdate(args)).toEqual({
+    exitCode: 2,
+    output: { status: 'invalid_arguments' }
+  });
 });
 test('the actual Node CLI writes only to its chosen output outside an isolated source copy', async () => {
   const root = await temporaryRoot();
@@ -165,7 +213,9 @@ globalThis.fetch=(${transport.toString()})();\n`
   );
   const project = join(root, 'project');
   await mkdir(join(project, 'scripts'), { recursive: true });
-  await cp('scripts/tool-update', join(project, 'scripts/tool-update'), { recursive: true });
+  await cp('scripts/tool-update', join(project, 'scripts/tool-update'), {
+    recursive: true
+  });
   await cp('scripts/tool-update.mjs', join(project, 'scripts/tool-update.mjs'));
   await symlink(realpathSync('node_modules'), join(project, 'node_modules'), 'dir');
   const inventory = async () => {

@@ -82,6 +82,33 @@ const frozenLegacyAssessment = {
 
 const root = realpathSync(fileURLToPath(new URL('..', import.meta.url)));
 const parserPaths = [
+  'skills/harness-connect/SKILL.md',
+  'skills/harness-connect/agents/openai.yaml',
+  'skills/harness-connect/references/support.md',
+  'skills/harness-connect/scripts/claude-session-hook.mjs',
+  'skills/harness-connect/scripts/connect.mjs',
+  'skills/harness-connect/tests/current.mjs',
+  'skills/harness-connect/tests/package.mjs',
+  'skills/harness-connect/tests/transport.mjs',
+  'skills/harness-connect/tests/verify.mjs',
+  'scripts/session-binding-codex-hook.mjs',
+  'scripts/session-binding-codex-hook.template.mjs',
+  'scripts/tool-update/promotion-implementation.mjs',
+  'scripts/session-binding-codex-promoted-hook.template.mjs',
+  'scripts/session-binding-codex-promoted-hook.mjs',
+  'skills/harness-connect-promoted-codex/SKILL.md',
+  'skills/harness-connect-promoted-codex/scripts/connect.mjs',
+  'skills/harness-connect-promoted-claude/SKILL.md',
+  'skills/harness-connect-promoted-claude/scripts/connect.mjs',
+  'skills/harness-connect-promoted-claude/scripts/claude-session-hook.mjs',
+  'scripts/tool-update/promotion-execution-pins.mjs',
+  'scripts/tool-update/promotion-execution-pins.d.mts',
+  'scripts/tool-update/fixtures.mjs',
+  'scripts/tool-update/fixtures.d.mts',
+  'scripts/generate-tool-version-assets.mjs',
+  'scripts/copy-assets.mjs',
+  'src/core/repository-files.ts',
+  'src/package-paths.ts',
   'src/connect/claude-connect-installation.ts',
   'skills/harness-connect-window-claude/SKILL.md',
   'skills/harness-connect-window-claude/scripts/connect.mjs',
@@ -102,7 +129,9 @@ const parserPaths = [
 ] as const;
 const temporary: string[] = [];
 afterEach(async () => {
-  for (const path of temporary.splice(0)) await rm(path, { recursive: true, force: true });
+  for (const path of temporary.splice(0)) {
+    await rm(path, { recursive: true, force: true });
+  }
 });
 function fixture(product: Product = 'codex', versions = ['0.163.0']) {
   const releases: Release[] = versions.map((version, i) => ({
@@ -115,7 +144,13 @@ function fixture(product: Product = 'codex', versions = ['0.163.0']) {
   const last = releases.at(-1);
   if (!last) throw new Error('fixture_release_required');
   const { version, ...identity } = last;
-  const candidate: Candidate = { schema_version: 1, kind: 'candidate', product, target: version, ...identity };
+  const candidate: Candidate = {
+    schema_version: 1,
+    kind: 'candidate',
+    product,
+    target: version,
+    ...identity
+  };
   const observation: Observation = {
     schema_version: 1,
     kind: 'observation',
@@ -241,7 +276,10 @@ test('historical ordinary profiles remain explicit lanes after default changes',
 });
 
 test('pins every adjacent review edge and keeps parser cumulative review separate', async () => {
-  const result = await assessCandidate({ ...fixture('codex', ['0.162.1', '0.162.2', '0.163.0']), baseline: baseline() });
+  const result = await assessCandidate({
+    ...fixture('codex', ['0.162.1', '0.162.2', '0.163.0']),
+    baseline: baseline()
+  });
   const review = lane(result, 'codex-file-checkpoint-v1').review;
   expect(review.edges.map(edge => [edge.from.version, edge.to.version])).toEqual([
     ['0.162.1', '0.162.2'],
@@ -264,7 +302,10 @@ test('pins every adjacent review edge and keeps parser cumulative review separat
 });
 
 test('equal baseline has no interval but does not pass review or runtime gates', async () => {
-  const result = await assessCandidate({ ...fixture(), baseline: baseline('0.163.0') });
+  const result = await assessCandidate({
+    ...fixture(),
+    baseline: baseline('0.163.0')
+  });
   const selected = lane(result, 'codex-file-checkpoint-v1');
   expect(selected.review.edges).toEqual([]);
   expect(selected.review.releases).toEqual([]);
@@ -288,7 +329,19 @@ test('rejects unknown ordinary profiles before using baseline coverage', async (
   const row = input.rows[0];
   if (!row) throw new Error('fixture_row_required');
   await expect(
-    validateBaselineForSource({ ...input, rows: [{ ...row, route: 'codex_binding', profile_id: 'codex-binding-09999-direct-family-v1' }] }, root)
+    validateBaselineForSource(
+      {
+        ...input,
+        rows: [
+          {
+            ...row,
+            route: 'codex_binding',
+            profile_id: 'codex-binding-09999-direct-family-v1'
+          }
+        ]
+      },
+      root
+    )
   ).rejects.toMatchObject({ code: 'invalid_baseline' });
 });
 test('rejects permanently unsupported child resume baseline keys', async () => {
@@ -319,23 +372,49 @@ test.each(['candidate_id', 'product', 'commit', 'heads'] as const)('rejects cand
   const input = fixture();
   const observation =
     field === 'commit'
-      ? { ...input.observation, releases: input.observation.releases.map(row => ({ ...row, commit: 'f'.repeat(40) })) }
+      ? {
+          ...input.observation,
+          releases: input.observation.releases.map(row => ({
+            ...row,
+            commit: 'f'.repeat(40)
+          }))
+        }
       : field === 'product'
-        ? { ...input.observation, product: 'claude_code', releases: input.observation.releases.map(row => ({ ...row, tag: `v${row.version}` })) }
+        ? {
+            ...input.observation,
+            product: 'claude_code',
+            releases: input.observation.releases.map(row => ({
+              ...row,
+              tag: `v${row.version}`
+            }))
+          }
         : field === 'heads'
-          ? { ...input.observation, heads: { github: '0.162.0', npm_latest: '0.163.0', npm_stable: '0.163.0' } }
+          ? {
+              ...input.observation,
+              heads: {
+                github: '0.162.0',
+                npm_latest: '0.163.0',
+                npm_stable: '0.163.0'
+              }
+            }
           : { ...input.observation, candidate_id: 'f'.repeat(64) };
   await expect(assessCandidate({ ...input, observation, root: '/not-read' })).rejects.toMatchObject({ code: 'observation_mismatch' });
 });
 
 test('ignores stale dist and responds to current source mutations', async () => {
   const directory = await sourceFixture();
-  const before = await assessCandidate({ ...fixture('codex', ['0.164.0']), root: directory });
+  const before = await assessCandidate({
+    ...fixture('codex', ['0.164.0']),
+    root: directory
+  });
   await mkdir(join(directory, 'dist'));
   await writeFile(join(directory, 'dist/source-compatibility.js'), 'throw new Error("must_not_load_dist")');
   const path = join(directory, 'src/source-compatibility.ts');
   await writeFile(path, (await readFile(path, 'utf8')).replaceAll("upper_exclusive: '0.164.0'", "upper_exclusive: '0.165.0'"));
-  const after = await assessCandidate({ ...fixture('codex', ['0.164.0']), root: directory });
+  const after = await assessCandidate({
+    ...fixture('codex', ['0.164.0']),
+    root: directory
+  });
   expect(lane(before, 'codex-file-checkpoint-v1').static_selection).toBe('unsupported');
   expect(lane(after, 'codex-file-checkpoint-v1').static_selection).toBe('inherited');
   expect(after.source_digest).not.toBe(before.source_digest);
@@ -414,7 +493,7 @@ test.each(parserPaths)('a one-byte change in %s invalidates baseline and review 
     baseline: currentBaseline,
     reviews: [record]
   });
-  if (before.schema_version !== 8 || before.review_ids === undefined || before.judgment_ids !== undefined) throw new Error('reviewed_schema_8_required');
+  if (before.schema_version !== 9 || before.review_ids === undefined || before.judgment_ids !== undefined) throw new Error('reviewed_schema_9_required');
   expect(lane(before, row.profile_id).gates.contracts_reviewed).toBe('closed');
   expect(lane(before, row.profile_id).reasons).not.toContain('baseline_source_changed');
   const legacyLanes = before.lanes.filter(current => current.rule_revision === 'forward-version-v1');
@@ -465,8 +544,9 @@ test.each(parserPaths.flatMap(path => ['missing', 'symlink', 'oversized'].map(ki
   async ({ path, kind }) => {
     const directory = await sourceFixture();
     const full = join(directory, path);
-    if (kind === 'oversized') await writeFile(full, Buffer.alloc(8 * 1024 * 1024 + 1));
-    else {
+    if (kind === 'oversized') {
+      await writeFile(full, Buffer.alloc(8 * 1024 * 1024 + 1));
+    } else {
       await rm(full);
       if (kind === 'symlink') await symlink(join(root, path), full);
     }
@@ -490,8 +570,9 @@ test('captures an 8 MiB hash-only input without loading it', async () => {
 });
 test('rejects aggregate capture above 16 MiB even when each hash-only input fits 8 MiB', async () => {
   const directory = await sourceFixture();
-  for (const path of ['src/nested-candidate.ts', 'src/codex-candidate-rollout.ts', 'src/core/ordinary-window-store.ts'])
+  for (const path of ['src/nested-candidate.ts', 'src/codex-candidate-rollout.ts', 'src/core/ordinary-window-store.ts']) {
     await writeFile(join(directory, path), Buffer.alloc(6 * 1024 * 1024));
+  }
   let projected = false;
   await expect(
     withSourceSnapshot(directory, () => {
@@ -500,9 +581,9 @@ test('rejects aggregate capture above 16 MiB even when each hash-only input fits
   ).rejects.toMatchObject({ code: 'source_snapshot_unavailable' });
   expect(projected).toBe(false);
 });
-test('the v4 snapshot consumes the finite promotion closure', async () => {
+test('the current snapshot consumes the finite promoted producer closure', async () => {
   const snapshot = await withSourceSnapshot(root, () => null);
-  expect(snapshot.source_paths).toHaveLength(55);
+  expect(snapshot.source_paths).toHaveLength(82);
 });
 test.each(['src/core/tool-version-promotion.ts', 'src/core/tool-version-promotions.json', 'src/core/tool-version-promotion-result.json'])(
   'a metadata-preserving byte change in %s changes the snapshot identity',
@@ -527,7 +608,7 @@ test('loads nested source imports and retirement metadata without dist', async (
   expect(snapshot.value.retired).toEqual(['2.1.288', '2.1.291']);
   expect(snapshot.value.admitted?.state).toBe('verified');
   expect(snapshot.source_paths).toEqual(sourcePathAllowlist);
-  expect(snapshot.source_paths).toHaveLength(55);
+  expect(snapshot.source_paths).toHaveLength(82);
 });
 test.each([
   ['escape', "import '../../package.json' with { type: 'json' };"],
@@ -595,7 +676,22 @@ test('strict portable assessment rejects private fields and invented gate passes
   const first = result.lanes[0];
   if (!first) throw new Error('fixture_lane_required');
   expect(assessmentSchema.safeParse({ ...result, private_path: '/SECRET' }).success).toBe(false);
-  expect(assessmentSchema.safeParse({ ...result, lanes: [{ ...first, live: { ...first.live, source: '/SECRET' } }] }).success).toBe(false);
-  expect(assessmentSchema.safeParse({ ...result, lanes: [{ ...first, gates: { ...first.gates, conformance: 'pass' } }] }).success).toBe(false);
+  expect(
+    assessmentSchema.safeParse({
+      ...result,
+      lanes: [{ ...first, live: { ...first.live, source: '/SECRET' } }]
+    }).success
+  ).toBe(false);
+  expect(
+    assessmentSchema.safeParse({
+      ...result,
+      lanes: [
+        {
+          ...first,
+          gates: { ...first.gates, conformance: 'pass' }
+        }
+      ]
+    }).success
+  ).toBe(false);
   expect(assessmentSchema.safeParse({ ...result, source_paths: ['../SECRET'] }).success).toBe(false);
 });

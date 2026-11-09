@@ -84,7 +84,9 @@ const frozenLegacyAssessment = {
 const root = realpathSync(fileURLToPath(new URL('..', import.meta.url)));
 const temporary: string[] = [];
 afterEach(async () => {
-  for (const path of temporary.splice(0)) await rm(path, { recursive: true, force: true });
+  for (const path of temporary.splice(0)) {
+    await rm(path, { recursive: true, force: true });
+  }
 });
 async function scratch() {
   const directory = await mkdtemp(join(realpathSync(tmpdir()), 'tool-update-review-'));
@@ -120,7 +122,13 @@ function fixture(versions = ['0.162.1', '0.162.2', '0.163.0'], product: Product 
   const last = releases.at(-1);
   if (!last) throw new Error('fixture_release_required');
   const { version, ...identity } = last;
-  const candidate: Candidate = { schema_version: 1, kind: 'candidate', product, target: version, ...identity };
+  const candidate: Candidate = {
+    schema_version: 1,
+    kind: 'candidate',
+    product,
+    target: version,
+    ...identity
+  };
   const observation: Observation = {
     schema_version: 1,
     kind: 'observation',
@@ -152,7 +160,10 @@ function baseline(version = '0.162.1', evidenceIds = ['a'.repeat(64)]): Baseline
 }
 type Judgment = 'unaffected' | 'affected' | 'unknown';
 const contracts = (judgment: Judgment, overrides: Partial<Record<(typeof consumedContracts)[number], Judgment>> = {}) =>
-  consumedContracts.map(contract_id => ({ contract_id, judgment: overrides[contract_id] ?? judgment }));
+  consumedContracts.map(contract_id => ({
+    contract_id,
+    judgment: overrides[contract_id] ?? judgment
+  }));
 const ref = (version: string) => ({ version, commit: commits[version] ?? '' });
 function review(from: string, to: string, change: Partial<ContractReview> = {}): ContractReview {
   return {
@@ -204,14 +215,18 @@ test('a review record is a strict fixed-code object', () => {
     { ...valid, evidence_ids: ['d'.repeat(64), evidence] },
     { ...valid, evidence_ids: [evidence, evidence] },
     { ...valid, source_digest: 'F'.repeat(64) },
-    { ...valid, evidence_ids: Array.from({ length: 65 }, (_, index) => index.toString(16).padStart(64, '0')) },
+    {
+      ...valid,
+      evidence_ids: Array.from({ length: 65 }, (_, index) => index.toString(16).padStart(64, '0'))
+    },
     { ...valid, from: ref('0.162.2'), to: ref('0.162.1') },
     { ...valid, to: valid.from },
     { ...valid, to: { ...valid.to, commit: 'F'.repeat(40) } },
     { ...valid, from: { ...valid.from, version: '0.162.x' } },
     { ...valid, to: { ...valid.to, version: '0.162.2-beta' } }
-  ])
+  ]) {
     expect(contractReviewSchema.safeParse(bad).success).toBe(false);
+  }
 });
 
 test('record-review publishes the record under its content address and prints one status', async () => {
@@ -220,7 +235,10 @@ test('record-review publishes the record under its content address and prints on
   const input = join(output, 'input.json');
   await writeFile(input, JSON.stringify(record));
   const result = await runToolUpdate(['record-review', '--input', input, '--out', output]);
-  expect(result).toEqual({ exitCode: 0, output: { status: 'review_recorded', review_id: digest(record) } });
+  expect(result).toEqual({
+    exitCode: 0,
+    output: { status: 'review_recorded', review_id: digest(record) }
+  });
   expect(await readFile(join(output, 'reviews', `${digest(record)}.json`), 'utf8')).toBe(canonical(record));
   expect(await runToolUpdate(['record-review', '--input', input, '--out', output])).toEqual(result);
   expect(await readdir(join(output, 'reviews'))).toEqual([`${digest(record)}.json`]);
@@ -238,16 +256,22 @@ test('record-review rejects malformed input without publishing and requires both
   await writeFile(input, JSON.stringify({ ...first(), note: 'synthetic-secret' }));
   expect(await runToolUpdate(['record-review', '--input', input, '--out', output])).toEqual({ exitCode: 2, output: { status: 'invalid_review' } });
   expect(await readdir(output)).toEqual(['input.json']);
-  expect(await runToolUpdate(['record-review', '--input', input])).toEqual({ exitCode: 2, output: { status: 'invalid_arguments' } });
-  expect(await runToolUpdate(['record-review', '--out', output])).toEqual({ exitCode: 2, output: { status: 'invalid_arguments' } });
+  expect(await runToolUpdate(['record-review', '--input', input])).toEqual({
+    exitCode: 2,
+    output: { status: 'invalid_arguments' }
+  });
+  expect(await runToolUpdate(['record-review', '--out', output])).toEqual({
+    exitCode: 2,
+    output: { status: 'invalid_arguments' }
+  });
 });
 
 test('a lane closes only when every edge has a matching all-unaffected record', async () => {
   const plain = await assess(null);
   const result = await assess([second(), first()]);
-  if (result.schema_version !== 8 || result.review_ids === undefined || result.judgment_ids !== undefined) throw new Error('reviewed_schema_8_required');
+  if (result.schema_version !== 9 || result.review_ids === undefined || result.judgment_ids !== undefined) throw new Error('reviewed_schema_9_required');
   const selected = lane(result);
-  expect(result.schema_version).toBe(8);
+  expect(result.schema_version).toBe(9);
   expect(selected.review.edges.every(edge => edge.contracts.every(row => row.judgment === 'unaffected'))).toBe(true);
   expect(selected.review.contracts).toEqual(contracts('unaffected'));
   expect(selected.gates.contracts_reviewed).toBe('closed');
@@ -326,7 +350,9 @@ test('lane contracts are the per-contract worst case across edges', async () => 
     await assess([
       first(),
       review('0.162.2', '0.163.0', {
-        contracts: contracts('unaffected', { fields_types_enums: 'unknown' })
+        contracts: contracts('unaffected', {
+          fields_types_enums: 'unknown'
+        })
       })
     ])
   );
@@ -351,7 +377,7 @@ test('a source digest mismatch keeps the edge unknown and marks the lane', async
   expect(selected.review.edges.map(edge => edge.contracts[0]?.judgment)).toEqual(['unknown', 'unaffected']);
   expect(selected.gates.contracts_reviewed).toBe('unknown');
   expect(selected.reasons).toEqual(expect.arrayContaining(['review_source_changed', 'contracts_unknown']));
-  if (result.schema_version !== 8 || result.review_ids === undefined || result.judgment_ids !== undefined) throw new Error('reviewed_schema_8_required');
+  if (result.schema_version !== 9 || result.review_ids === undefined || result.judgment_ids !== undefined) throw new Error('reviewed_schema_9_required');
   expect(result.unused_review_ids).toEqual([]);
   expect(result.review_ids).toContain(digest(stale));
 });
@@ -367,23 +393,41 @@ test('records that match no lane or edge are listed as unused', async () => {
     review('0.158.0', '0.162.1')
   ];
   const result = await assess([...unmatched, first()]);
-  if (result.schema_version !== 8 || result.review_ids === undefined || result.judgment_ids !== undefined) throw new Error('reviewed_schema_8_required');
+  if (result.schema_version !== 9 || result.review_ids === undefined || result.judgment_ids !== undefined) throw new Error('reviewed_schema_9_required');
   expect(result.unused_review_ids).toEqual(unmatched.map(digest).sort());
   expect(lane(result).gates.contracts_reviewed).toBe('unknown');
   expect(lane(result, 'codex-file-legacy-v1').gates.contracts_reviewed).toBe('unknown');
 });
 
 test('conflicting records for one lane edge fail closed', async () => {
-  const other = review('0.162.1', '0.162.2', { evidence_ids: ['d'.repeat(64)] });
-  await expect(assess([first(), other, second()])).rejects.toMatchObject({ code: 'review_conflict' });
+  const other = review('0.162.1', '0.162.2', {
+    evidence_ids: ['d'.repeat(64)]
+  });
+  await expect(assess([first(), other, second()])).rejects.toMatchObject({
+    code: 'review_conflict'
+  });
   await expect(assess([first(), review('0.162.1', '0.162.2', { source_digest: 'f'.repeat(64) })])).rejects.toMatchObject({ code: 'review_conflict' });
 });
 
 test.each([
-  ['to', () => review('0.162.1', '0.162.2', { to: { version: '0.162.2', commit: 'f'.repeat(40) } })],
-  ['from', () => review('0.162.1', '0.162.2', { from: { version: '0.162.1', commit: 'f'.repeat(40) } })]
+  [
+    'to',
+    () =>
+      review('0.162.1', '0.162.2', {
+        to: { version: '0.162.2', commit: 'f'.repeat(40) }
+      })
+  ],
+  [
+    'from',
+    () =>
+      review('0.162.1', '0.162.2', {
+        from: { version: '0.162.1', commit: 'f'.repeat(40) }
+      })
+  ]
 ])('a record with a conflicting %s commit fails closed', async (_, build) => {
-  await expect(assess([build(), second()])).rejects.toMatchObject({ code: 'review_commit_conflict' });
+  await expect(assess([build(), second()])).rejects.toMatchObject({
+    code: 'review_commit_conflict'
+  });
 });
 
 test('a malformed record fails closed', async () => {
@@ -486,15 +530,35 @@ test('a record alone cannot close a lane the baseline does not bind', async () =
   const result = await zero(record, ['a'.repeat(64)]);
   expect(lane(result).gates.contracts_reviewed).toBe('unknown');
   expect(lane(result).reasons).toContain('contracts_unknown');
-  if (result.schema_version !== 8 || result.review_ids === undefined || result.judgment_ids !== undefined) throw new Error('reviewed_schema_8_required');
+  if (result.schema_version !== 9 || result.review_ids === undefined || result.judgment_ids !== undefined) throw new Error('reviewed_schema_9_required');
   expect(result.unused_review_ids).toEqual([digest(record)]);
 });
 
 test.each([
   ['stale digest', () => zeroReview({ source_digest: 'f'.repeat(64) }), 'unknown', true],
   ['older to version', () => review('0.158.0', '0.162.1'), 'unknown', false],
-  ['affected contract', () => zeroReview({ contracts: contracts('unaffected', { fields_types_enums: 'affected' }) }), 'affected', false],
-  ['unknown contract', () => zeroReview({ contracts: contracts('unaffected', { fields_types_enums: 'unknown' }) }), 'unknown', false]
+  [
+    'affected contract',
+    () =>
+      zeroReview({
+        contracts: contracts('unaffected', {
+          fields_types_enums: 'affected'
+        })
+      }),
+    'affected',
+    false
+  ],
+  [
+    'unknown contract',
+    () =>
+      zeroReview({
+        contracts: contracts('unaffected', {
+          fields_types_enums: 'unknown'
+        })
+      }),
+    'unknown',
+    false
+  ]
 ] as const)('zero-edge binding with %s does not close the lane', async (_, build, gate, changed) => {
   const result = await zero(build());
   expect(lane(result).gates.contracts_reviewed).toBe(gate);
@@ -510,7 +574,7 @@ test('lanes without a baseline row stay unknown whatever is supplied', async () 
   expect(selected.gates.contracts_reviewed).toBe('unknown');
   expect(selected.reasons).toContain('baseline_missing');
   expect(selected.review.contracts).toEqual(contracts('unknown'));
-  if (result.schema_version !== 8 || result.review_ids === undefined || result.judgment_ids !== undefined) throw new Error('reviewed_schema_8_required');
+  if (result.schema_version !== 9 || result.review_ids === undefined || result.judgment_ids !== undefined) throw new Error('reviewed_schema_9_required');
   expect(result.unused_review_ids).toEqual([digest(legacy)]);
 });
 
@@ -539,7 +603,7 @@ test('parser comparison needs a contiguous chain from the parser base to the tar
     to: { version: '0.163.0' },
     contracts: contracts('unaffected')
   });
-  if (closed.schema_version !== 8 || closed.review_ids === undefined || closed.judgment_ids !== undefined) throw new Error('reviewed_schema_8_required');
+  if (closed.schema_version !== 9 || closed.review_ids === undefined || closed.judgment_ids !== undefined) throw new Error('reviewed_schema_9_required');
   expect(closed.unused_review_ids).toEqual([]);
   const mixed = await assess(
     [
@@ -560,14 +624,18 @@ test('parser comparison needs a contiguous chain from the parser base to the tar
 test('parser comparison cannot skip an observed release', async () => {
   const result = await assess([review('0.158.0', '0.163.0')], fixture(['0.158.0', '0.162.1', '0.163.0']));
   expect(lane(result).review.parser_comparison?.contracts).toEqual(contracts('unknown'));
-  if (result.schema_version !== 8 || result.review_ids === undefined || result.judgment_ids !== undefined) throw new Error('reviewed_schema_8_required');
+  if (result.schema_version !== 9 || result.review_ids === undefined || result.judgment_ids !== undefined) throw new Error('reviewed_schema_9_required');
   expect(result.unused_review_ids).toEqual([digest(review('0.158.0', '0.163.0'))]);
 });
 
 test('parser comparison cannot trust a base or intermediate commit absent from the observation', async () => {
   const chain = [
-    review('0.158.0', '0.151.0', { to: { version: '0.160.0', commit: 'a'.repeat(40) } }),
-    review('0.151.0', '0.162.1', { from: { version: '0.160.0', commit: 'b'.repeat(40) } }),
+    review('0.158.0', '0.151.0', {
+      to: { version: '0.160.0', commit: 'a'.repeat(40) }
+    }),
+    review('0.151.0', '0.162.1', {
+      from: { version: '0.160.0', commit: 'b'.repeat(40) }
+    }),
     first(),
     second()
   ];
@@ -577,13 +645,13 @@ test('parser comparison cannot trust a base or intermediate commit absent from t
   expect(lane(missingBase).review.parser_comparison?.contracts).toEqual(contracts('unknown'));
 });
 
-test('without reviews the assessment writes schema 8 and old schemas stay readable', async () => {
+test('without reviews the assessment writes schema 9 and old schemas stay readable', async () => {
   const plain = await assess(null);
-  expect(plain.schema_version).toBe(8);
+  expect(plain.schema_version).toBe(9);
   expect(plain).not.toHaveProperty('review_ids');
   expect(await assess(undefined)).toEqual(plain);
-  if (plain.schema_version !== 8 || plain.review_ids !== undefined) {
-    throw new Error('plain_schema_8_required');
+  if (plain.schema_version !== 9 || plain.review_ids !== undefined) {
+    throw new Error('plain_schema_9_required');
   }
   expect(plain.inventory_scope).toBe('legacy_full_inventory');
   expect(assessmentSchema.safeParse(frozenLegacyAssessment).success).toBe(true);
@@ -614,7 +682,7 @@ test('without reviews the assessment writes schema 8 and old schemas stay readab
   }
   const closed = await assess([first(), second()]);
   expect(assessmentSchema.safeParse(closed).success).toBe(true);
-  if (closed.schema_version !== 8 || closed.review_ids === undefined || closed.judgment_ids !== undefined) throw new Error('reviewed_schema_8_required');
+  if (closed.schema_version !== 9 || closed.review_ids === undefined || closed.judgment_ids !== undefined) throw new Error('reviewed_schema_9_required');
   for (const current of closed.lanes.filter(row => row.rule_revision === 'forward-version-v1')) {
     expect(current.selection_policy).toBeDefined();
   }
@@ -671,7 +739,9 @@ async function stage(versions = ['0.162.1', '0.162.2', '0.163.0']) {
       '--baseline',
       await file('baseline.json', base)
     ];
-    for (const [index, value] of reviews.entries()) args.push('--review', await file(`review-${index}.json`, value));
+    for (const [index, value] of reviews.entries()) {
+      args.push('--review', await file(`review-${index}.json`, value));
+    }
     return runToolUpdate(args);
   };
   return { output, run };
@@ -687,11 +757,11 @@ test('assess --review is repeatable, order independent and writes schema 8', asy
   expect(await run([second(), first()])).toEqual(forward);
   const stored: unknown = JSON.parse(await readFile(join(output, 'assessments', `${forward.output.assessment_id}.json`), 'utf8'));
   const record = assessmentSchema.parse(stored);
-  expect(record.schema_version).toBe(8);
+  expect(record.schema_version).toBe(9);
   expect(lane(record).gates.contracts_reviewed).toBe('closed');
   const plain = await run([]);
   const plainRecord = assessmentSchema.parse(JSON.parse(await readFile(join(output, 'assessments', `${plain.output.assessment_id}.json`), 'utf8')));
-  expect(plainRecord.schema_version).toBe(8);
+  expect(plainRecord.schema_version).toBe(9);
 });
 
 test('assess --review reports fixed codes for conflicting, commit-conflicting and malformed records', async () => {
@@ -700,11 +770,20 @@ test('assess --review reports fixed codes for conflicting, commit-conflicting an
     exitCode: 2,
     output: { status: 'review_conflict' }
   });
-  expect(await run([review('0.162.1', '0.162.2', { to: { version: '0.162.2', commit: 'f'.repeat(40) } })])).toEqual({
+  expect(
+    await run([
+      review('0.162.1', '0.162.2', {
+        to: { version: '0.162.2', commit: 'f'.repeat(40) }
+      })
+    ])
+  ).toEqual({
     exitCode: 2,
     output: { status: 'review_commit_conflict' }
   });
-  expect(await run([{ ...first(), note: 'synthetic-secret' }])).toEqual({ exitCode: 2, output: { status: 'invalid_review' } });
+  expect(await run([{ ...first(), note: 'synthetic-secret' }])).toEqual({
+    exitCode: 2,
+    output: { status: 'invalid_review' }
+  });
 });
 
 test('review-file failures are fixed and independent of option order', async () => {
@@ -731,5 +810,8 @@ test('review-file failures are fixed and independent of option order', async () 
   ]) {
     expect(await runToolUpdate([...args, ...files.flatMap(path => ['--review', path])])).toEqual({ exitCode: 2, output: { status: 'invalid_review' } });
   }
-  expect(await runToolUpdate([...args, '--review', unreadable])).toEqual({ exitCode: 2, output: { status: 'record_read_failed' } });
+  expect(await runToolUpdate([...args, '--review', unreadable])).toEqual({
+    exitCode: 2,
+    output: { status: 'record_read_failed' }
+  });
 });

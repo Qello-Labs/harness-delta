@@ -12,6 +12,9 @@ const manifestPath = `${metadata}/installation.json`;
 const configPath = 'scripts/claude-connect-config.mjs';
 const windowReceiptDirectory = '.harness-delta/claude-window-receipts';
 const windowBundleRevision = 'claude-window-bundle-v1';
+const promotedBundleRevision = 'claude-promoted-bundle-v1';
+const promotedReceiptDirectory = '.harness-delta/claude-promoted-receipts';
+const promotedConfigPath = 'scripts/claude-promoted-connect-config.mjs';
 const digest = z.string().regex(/^[a-f0-9]{64}$/);
 const relative = z.string().refine(safeRelativePath);
 const manifestSchema = z.strictObject({
@@ -34,7 +37,12 @@ const windowManifestSchema = manifestSchema.extend({
   bundle_mode: z.literal('ordinary_window'),
   bundle_revision: z.literal(windowBundleRevision)
 });
-const installationManifestSchema = z.union([manifestSchema, windowManifestSchema]);
+const promotedManifestSchema = manifestSchema.extend({
+  schema_version: z.literal(3),
+  bundle_mode: z.literal('promoted'),
+  bundle_revision: z.literal(promotedBundleRevision)
+});
+const installationManifestSchema = z.union([manifestSchema, windowManifestSchema, promotedManifestSchema]);
 type Manifest = z.infer<typeof installationManifestSchema>;
 const lockOwnerSchema = z.strictObject({ pid: z.number().int().positive() });
 export interface ClaudeConnectInstallationOptions {
@@ -42,14 +50,20 @@ export interface ClaudeConnectInstallationOptions {
   /** Trusted development seam, never a UI-selected destination. */
   readonly packageRoot?: string;
   readonly windowPackageRoot?: string;
+  readonly promotedPackageRoot?: string;
+  readonly productVersion?: string | undefined;
+  readonly promotedInUse?: boolean | (() => boolean) | undefined;
+  readonly quiescentBoundaryConfirmed?: boolean;
   /** Trusted backend proof; never discovers native processes or sources. */
   readonly windowInUse?: boolean | (() => boolean);
   readonly expectedPackageHash?: string | null;
   readonly expectedInstalledHash?: string | null;
 }
-export interface ClaudeConnectInstallationPreviewOptions extends ClaudeConnectInstallationOptions {
+export type ClaudePromotedConnectInstallationOptions = Omit<ClaudeConnectInstallationOptions, 'bundleMode'> & { readonly bundleMode: 'promoted' };
+type InstallationOptions = ClaudeConnectInstallationOptions | ClaudePromotedConnectInstallationOptions;
+export type ClaudeConnectInstallationPreviewOptions = InstallationOptions & {
   readonly operation?: 'install' | 'remove';
-}
+};
 export interface ClaudeConnectInstallationChange {
   readonly path: string;
   readonly action: 'create' | 'update' | 'delete';
@@ -63,8 +77,10 @@ export interface ClaudeConnectInstallationStatus {
   readonly installedHash: string | null;
   readonly destination: typeof destination;
   readonly receiptDirectory: string;
-  readonly bundleMode?: 'ordinary_window';
-  readonly bundleRevision?: typeof windowBundleRevision;
+  readonly bundleMode?: 'ordinary_window' | 'promoted';
+  readonly bundleRevision?: typeof windowBundleRevision | typeof promotedBundleRevision;
+  readonly producerContract?: 'promoted_producer_contract_unverified';
+  readonly requiresFreshRoots?: true;
   readonly hookRegistration: 'unverified';
   readonly blockers: readonly string[];
 }
@@ -159,7 +175,7 @@ const bundleHash = (files: Map<string, Buffer>, windowIdentity?: string) => {
     )
   );
 };
-function packageSource(options: ClaudeConnectInstallationOptions): { files: Map<string, Buffer>; shipped: Map<string, Buffer> } {
+function packageSource(options: InstallationOptions): { files: Map<string, Buffer>; shipped: Map<string, Buffer> } {
   const window = options.bundleMode === 'ordinary_window';
   const sourceRoot = options.packageRoot ?? packagedSkillPath('harness-connect');
   rootIdentity(sourceRoot, true);
@@ -199,7 +215,9 @@ function packageSource(options: ClaudeConnectInstallationOptions): { files: Map<
           : path === 'scripts/claude-session-hook.mjs'
             ? 'scripts/claude-window-session-hook.mjs'
             : path;
-      if (path !== 'SKILL.md' && shipped.has(installed)) fail('package_invalid');
+      if (path !== 'SKILL.md' && shipped.has(installed)) {
+        fail('package_invalid');
+      }
       shipped.set(installed, bytes);
       if (path === 'scripts/claude-session-hook.mjs') {
         const text = bytes.toString('utf8');
@@ -276,7 +294,7 @@ function inspectOwned(projectRoot: string) {
 function blocker(error: unknown): string {
   return error instanceof ClaudeConnectInstallationError ? error.code : 'installation_unavailable';
 }
-function assertWindowIdle(options: ClaudeConnectInstallationOptions): void {
+function assertWindowIdle(options: InstallationOptions): void {
   if (typeof options.windowInUse === 'function' ? options.windowInUse() : options.windowInUse) fail('ordinary_installation_in_use');
 }
 function metadataBlockers(projectRoot: string, window: boolean): string[] {
@@ -284,8 +302,12 @@ function metadataBlockers(projectRoot: string, window: boolean): string[] {
   if (window) {
     try {
       const receipts = entry(projectRoot, windowReceiptDirectory);
-      if (receipts && (!receipts.isDirectory() || (receipts.mode & 0o077) !== 0 || (typeof process.getuid === 'function' && receipts.uid !== process.getuid())))
+      if (
+        receipts &&
+        (!receipts.isDirectory() || (receipts.mode & 0o077) !== 0 || (typeof process.getuid === 'function' && receipts.uid !== process.getuid()))
+      ) {
         fail('metadata_unsafe');
+      }
     } catch (error) {
       blockers.push(blocker(error));
     }
@@ -309,7 +331,94 @@ function metadataBlockers(projectRoot: string, window: boolean): string[] {
   }
   return blockers;
 }
-function plan(projectRoot: string, options: ClaudeConnectInstallationPreviewOptions) {
+function assertPromotedIdle(options: InstallationOptions): void {
+  const inUse = typeof options.promotedInUse === 'function' ? options.promotedInUse() : options.promotedInUse;
+  if (inUse === undefined) fail('promoted_in_use_unverified');
+  if (inUse !== false) fail('promoted_installation_in_use');
+}
+function promotedSettingsHash(projectRoot: string): string | null {
+  const path = '.claude/settings.json';
+  const stat = entry(projectRoot, path);
+  if (!stat) return null;
+  if (!stat.isFile() || stat.nlink !== 1) return fail('unsafe_path');
+  const bytes = readRepositoryFile(projectRoot, path);
+  const settings = z.object({ hooks: z.unknown().optional() }).parse(readStrictJson(bytes));
+  const conflicting = (value: unknown): boolean => {
+    if (typeof value === 'string') {
+      return /harness-connect|claude-(?:window-)?session-hook\.mjs/.test(value);
+    }
+    if (Array.isArray(value)) return value.some(conflicting);
+    return value !== null && typeof value === 'object' && Object.values(value).some(conflicting);
+  };
+  if (conflicting(settings.hooks)) fail('promoted_registration_conflict');
+  return hashBytes(bytes);
+}
+function promotedSource(options: InstallationOptions, owned: ReturnType<typeof inspectOwned>) {
+  if (!options.productVersion || !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(options.productVersion)) {
+    return fail('promoted_product_version_invalid');
+  }
+  const base = owned.manifest ? { files: new Map(owned.files), shipped: new Map<string, Buffer>() } : packageSource({ ...options, bundleMode: 'exact' });
+  const selected = tree(options.promotedPackageRoot ?? packagedSkillPath('harness-connect-promoted-claude'), '', true);
+  const paths = ['SKILL.md', 'scripts/connect.mjs', 'scripts/claude-session-hook.mjs'];
+  if (selected.size !== paths.length || paths.some(path => !selected.has(path))) return fail('package_invalid');
+  for (const [path, bytes] of selected) {
+    const installed =
+      path === 'scripts/connect.mjs'
+        ? 'scripts/connect-promoted.mjs'
+        : path === 'scripts/claude-session-hook.mjs'
+          ? 'scripts/claude-promoted-session-hook.mjs'
+          : path;
+    if (path !== 'SKILL.md' && owned.manifest?.schema_version !== 3 && base.files.has(installed)) fail('promoted_registration_conflict');
+    base.shipped.set(installed, bytes);
+    const text = bytes.toString('utf8');
+    const split = text.startsWith('#!') ? text.indexOf('\n') + 1 : 0;
+    base.files.set(
+      installed,
+      path === 'SKILL.md' ? bytes : Buffer.from(text.slice(0, split) + "import './claude-promoted-connect-config.mjs';\n" + text.slice(split))
+    );
+  }
+  if (owned.manifest?.schema_version !== 3 && base.files.has(promotedConfigPath)) fail('promoted_registration_conflict');
+  base.files.set(
+    promotedConfigPath,
+    Buffer.from(
+      "import { fileURLToPath } from 'node:url';\n" +
+        "import { resolve } from 'node:path';\n" +
+        `process.env.HARNESS_DELTA_PROMOTED_RECEIPT_DIR = fileURLToPath(new URL('../../../../${promotedReceiptDirectory}', import.meta.url));\n` +
+        "process.env.HARNESS_DELTA_PROMOTED_PROJECT_ROOT = resolve(fileURLToPath(new URL('../../../../', import.meta.url)));\n" +
+        `process.env.HARNESS_DELTA_PROMOTED_PRODUCT_VERSION = ${JSON.stringify(options.productVersion)};\n`
+    )
+  );
+  if (base.files.size > 256) fail('package_invalid');
+  return base;
+}
+function promotedReceiptIdentity(projectRoot: string): string | null {
+  const receipts = entry(projectRoot, promotedReceiptDirectory);
+  if (!receipts) return null;
+  if (!receipts.isDirectory() || (receipts.mode & 0o077) !== 0 || (typeof process.getuid === 'function' && receipts.uid !== process.getuid())) {
+    fail('metadata_unsafe');
+  }
+  return `${receipts.dev}:${receipts.ino}:${receipts.birthtimeMs}`;
+}
+function promotedHash(
+  files: Map<string, Buffer>,
+  identity: string,
+  localState: {
+    readonly settingsHash: string | null;
+    readonly receiptsIdentity: string | null;
+  }
+) {
+  return hashBytes(
+    JSON.stringify({
+      bundle_mode: 'promoted',
+      bundle_revision: promotedBundleRevision,
+      root_identity: identity,
+      settings_sha256: localState.settingsHash,
+      receipts_identity: localState.receiptsIdentity,
+      files_sha256: bundleHash(files)
+    })
+  );
+}
+function installationInputs(projectRoot: string, options: ClaudeConnectInstallationPreviewOptions) {
   const operation = options.operation ?? 'install';
   let owned: ReturnType<typeof inspectOwned> | undefined;
   let source: ReturnType<typeof packageSource> | undefined;
@@ -320,15 +429,31 @@ function plan(projectRoot: string, options: ClaudeConnectInstallationPreviewOpti
     blockers.push(blocker(error));
   }
   const installedWindow = owned?.manifest?.schema_version === 2;
+  const installedPromoted = owned?.manifest?.schema_version === 3;
   const bundleMode = options.bundleMode ?? (installedWindow ? 'ordinary_window' : 'exact');
+  const promoted = bundleMode === 'promoted';
+  let settingsHash: string | null = null;
+  let receiptsIdentity: string | null = null;
+  if (installedPromoted && (!promoted || operation === 'remove')) {
+    blockers.push('promoted_cutover_required');
+  }
+  if (promoted) {
+    try {
+      assertPromotedIdle(options);
+      settingsHash = promotedSettingsHash(projectRoot);
+      receiptsIdentity = promotedReceiptIdentity(projectRoot);
+    } catch (error) {
+      blockers.push(blocker(error));
+    }
+  }
   const window = bundleMode === 'ordinary_window';
   const guardedWindow = window || installedWindow;
   if (owned) blockers.push(...metadataBlockers(projectRoot, guardedWindow));
   try {
-    source = packageSource({ ...options, bundleMode });
-  } catch {
+    source = promoted && owned ? promotedSource(options, owned) : packageSource({ ...options, bundleMode });
+  } catch (error) {
     if (operation === 'install') {
-      blockers.push('package_source_unavailable');
+      blockers.push(promoted && error instanceof ClaudeConnectInstallationError ? error.code : 'package_source_unavailable');
     }
   }
   const changes: ClaudeConnectInstallationChange[] = [];
@@ -349,6 +474,15 @@ function plan(projectRoot: string, options: ClaudeConnectInstallationPreviewOpti
       }
     }
   }
+  if (promoted && operation === 'install' && owned && !blockers.length && receiptsIdentity === null) {
+    changes.push({
+      path: promotedReceiptDirectory,
+      action: 'create',
+      beforeHash: null,
+      afterHash: hashBytes('directory:0700')
+    });
+  }
+  if (promoted && changes.length && options.quiescentBoundaryConfirmed !== true) blockers.push('promoted_quiescent_boundary_unconfirmed');
   if (guardedWindow && owned && !blockers.length && (changes.length || (operation === 'install' && window !== installedWindow))) {
     try {
       assertWindowIdle(options);
@@ -356,23 +490,63 @@ function plan(projectRoot: string, options: ClaudeConnectInstallationPreviewOpti
       blockers.push(blocker(error));
     }
   }
+  return {
+    operation,
+    owned,
+    source,
+    blockers,
+    changes,
+    window,
+    guardedWindow,
+    promoted,
+    settingsHash,
+    receiptsIdentity,
+    installedWindow,
+    installedPromoted
+  };
+}
+function plan(projectRoot: string, options: ClaudeConnectInstallationPreviewOptions) {
+  const { operation, owned, source, blockers, changes, window, guardedWindow, promoted, settingsHash, receiptsIdentity, installedWindow, installedPromoted } =
+    installationInputs(projectRoot, options);
+  const localState = { settingsHash, receiptsIdentity };
   const preview: ClaudeConnectInstallationPreview = {
     state: blockers.length
       ? 'blocked'
       : !owned?.manifest
         ? 'absent'
-        : source && (window !== installedWindow || bundleHash(source.files) !== bundleHash(owned.files))
+        : source &&
+            (window !== installedWindow ||
+              promoted !== installedPromoted ||
+              (promoted && receiptsIdentity === null) ||
+              bundleHash(source.files) !== bundleHash(owned.files))
           ? 'update_available'
           : 'installed',
     source: source ? 'available' : 'unavailable',
-    packageHash: source && (!window || owned) ? bundleHash(source.files, window ? owned?.identity : undefined) : null,
-    installedHash: owned?.manifest ? bundleHash(owned.files, installedWindow ? owned.identity : undefined) : null,
+    packageHash:
+      source && (!window || owned)
+        ? promoted && owned
+          ? promotedHash(source.files, owned.identity, localState)
+          : bundleHash(source.files, window ? owned?.identity : undefined)
+        : null,
+    installedHash: owned?.manifest
+      ? installedPromoted
+        ? promotedHash(owned.files, owned.identity, localState)
+        : bundleHash(owned.files, installedWindow ? owned.identity : undefined)
+      : null,
     destination,
-    receiptDirectory: window ? windowReceiptDirectory : `${metadata}/receipts`,
+    receiptDirectory: promoted ? promotedReceiptDirectory : window ? windowReceiptDirectory : `${metadata}/receipts`,
     ...(window
       ? {
           bundleMode: 'ordinary_window' as const,
           bundleRevision: windowBundleRevision
+        }
+      : {}),
+    ...(promoted
+      ? {
+          bundleMode: 'promoted' as const,
+          bundleRevision: promotedBundleRevision,
+          producerContract: 'promoted_producer_contract_unverified' as const,
+          requiresFreshRoots: true as const
         }
       : {}),
     hookRegistration: 'unverified',
@@ -380,12 +554,30 @@ function plan(projectRoot: string, options: ClaudeConnectInstallationPreviewOpti
     changes: blockers.length ? [] : changes,
     blockers
   };
-  return { preview, owned, source, window, guardedWindow };
+  return {
+    preview,
+    owned,
+    source,
+    window,
+    guardedWindow,
+    promoted,
+    settingsHash,
+    receiptsIdentity
+  };
 }
 export function previewClaudeConnectInstallation(projectRoot: string, options: ClaudeConnectInstallationPreviewOptions = {}): ClaudeConnectInstallationPreview {
   return plan(projectRoot, options).preview;
 }
-export function statusClaudeConnectInstallation(projectRoot: string, options: ClaudeConnectInstallationOptions = {}): ClaudeConnectInstallationStatus {
+export function statusClaudeConnectInstallation(
+  projectRoot: string,
+  options?: ClaudeConnectInstallationOptions
+): Omit<ClaudeConnectInstallationStatus, 'bundleMode' | 'bundleRevision'> & {
+  readonly bundleMode?: 'ordinary_window';
+  readonly bundleRevision?: typeof windowBundleRevision;
+};
+export function statusClaudeConnectInstallation(projectRoot: string, options: ClaudePromotedConnectInstallationOptions): ClaudeConnectInstallationStatus;
+export function statusClaudeConnectInstallation(projectRoot: string, options: InstallationOptions): ClaudeConnectInstallationStatus;
+export function statusClaudeConnectInstallation(projectRoot: string, options: InstallationOptions = {}): ClaudeConnectInstallationStatus {
   const result = plan(projectRoot, options).preview;
   return {
     state: result.state,
@@ -398,6 +590,12 @@ export function statusClaudeConnectInstallation(projectRoot: string, options: Cl
       ? {
           bundleMode: result.bundleMode,
           bundleRevision: result.bundleRevision
+        }
+      : {}),
+    ...(result.producerContract
+      ? {
+          producerContract: result.producerContract,
+          requiresFreshRoots: result.requiresFreshRoots
         }
       : {}),
     hookRegistration: result.hookRegistration,
@@ -415,18 +613,79 @@ function assertOwnedUnchanged(projectRoot: string, owned: ReturnType<typeof insp
     bundleHash(current.files) !== bundleHash(owned.files) ||
     [...owned.identities].some(([path, identity]) => current.identities.get(path) !== identity) ||
     !((current.bytes === null && owned.bytes === null) || current.bytes?.equals(owned.bytes ?? Buffer.alloc(0)))
-  )
+  ) {
     fail('changed_path');
+  }
+}
+function installedManifest(
+  owned: ReturnType<typeof inspectOwned>,
+  source: ReturnType<typeof packageSource>,
+  bundleMode: 'exact' | 'ordinary_window' | 'promoted'
+): Manifest {
+  const common = {
+    package: 'harness-connect',
+    root_identity: owned.identity,
+    files: [...source.files]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([path, bytes]) => ({
+        path,
+        shipped_sha256: source.shipped.has(path)
+          ? hashBytes(source.shipped.get(path) ?? Buffer.alloc(0))
+          : bundleMode === 'promoted'
+            ? (owned.manifest?.files.find(file => file.path === path)?.shipped_sha256 ?? null)
+            : null,
+        installed_sha256: hashBytes(bytes)
+      }))
+  } as const;
+  if (bundleMode === 'promoted') {
+    return {
+      ...common,
+      schema_version: 3,
+      bundle_mode: 'promoted',
+      bundle_revision: promotedBundleRevision
+    };
+  }
+  if (bundleMode === 'ordinary_window') {
+    return {
+      ...common,
+      schema_version: 2,
+      bundle_mode: 'ordinary_window',
+      bundle_revision: windowBundleRevision
+    };
+  }
+  return { schema_version: 1, ...common };
+}
+function assertCutoverBoundary(projectRoot: string, options: ClaudeConnectInstallationPreviewOptions, planned: ReturnType<typeof plan>): void {
+  if (planned.guardedWindow) assertWindowIdle(options);
+  if (planned.promoted) {
+    assertPromotedIdle(options);
+    if (options.quiescentBoundaryConfirmed !== true) {
+      fail('promoted_quiescent_boundary_unconfirmed');
+    }
+    if (promotedSettingsHash(projectRoot) !== planned.settingsHash) {
+      fail('installation_preview_changed');
+    }
+    const currentReceipts = promotedReceiptIdentity(projectRoot);
+    if (planned.receiptsIdentity !== null && currentReceipts !== planned.receiptsIdentity) fail('installation_preview_changed');
+  }
 }
 function apply(projectRoot: string, options: ClaudeConnectInstallationPreviewOptions): ClaudeConnectInstallationStatus {
   const planned = plan(projectRoot, options);
-  const { owned, source, preview, window, guardedWindow } = planned;
+  const { owned, source, preview, window, guardedWindow, promoted } = planned;
   assertPreviewMatches(options, preview);
   if (preview.blockers.length || !owned) return preview;
   if (preview.operation === 'remove' && !owned.manifest) return preview;
   if (preview.operation === 'install' && !source) return preview;
-  if (preview.operation === 'install' && owned.manifest && !preview.changes.length && window === (owned.manifest.schema_version === 2)) return preview;
-  if (guardedWindow && (options.expectedPackageHash === undefined || options.expectedInstalledHash === undefined)) {
+  if (
+    preview.operation === 'install' &&
+    owned.manifest &&
+    !preview.changes.length &&
+    window === (owned.manifest.schema_version === 2) &&
+    promoted === (owned.manifest.schema_version === 3)
+  ) {
+    return preview;
+  }
+  if ((guardedWindow || promoted) && (options.expectedPackageHash === undefined || options.expectedInstalledHash === undefined)) {
     return fail('installation_preview_required');
   }
   const createdDirectories: string[] = [];
@@ -463,34 +722,19 @@ function apply(projectRoot: string, options: ClaudeConnectInstallationPreviewOpt
     ensure('.claude/skills');
     ensure(transaction);
     staged = true;
+    if (promoted) {
+      ensure(promotedReceiptDirectory);
+    }
     if (preview.operation === 'install' && source) {
       ensure(`${transaction}/package`);
       for (const [path, bytes] of source.files) {
         durablePrivateBytes(projectRoot, `${transaction}/package/${path}`, bytes);
       }
-      const common = {
-        package: 'harness-connect',
-        root_identity: owned.identity,
-        files: [...source.files]
-          .sort(([a], [b]) => a.localeCompare(b))
-          .map(([path, bytes]) => ({
-            path,
-            shipped_sha256: source.shipped.has(path) ? hashBytes(source.shipped.get(path) ?? Buffer.alloc(0)) : null,
-            installed_sha256: hashBytes(bytes)
-          }))
-      } as const;
-      const manifest: Manifest = window
-        ? {
-            ...common,
-            schema_version: 2,
-            bundle_mode: 'ordinary_window',
-            bundle_revision: windowBundleRevision
-          }
-        : { schema_version: 1, ...common };
+      const manifest = installedManifest(owned, source, promoted ? 'promoted' : window ? 'ordinary_window' : 'exact');
       durablePrivateBytes(projectRoot, `${transaction}/manifest.json`, Buffer.from(JSON.stringify(manifest) + '\n'));
     }
     assertOwnedUnchanged(projectRoot, owned);
-    if (guardedWindow) assertWindowIdle(options);
+    assertCutoverBoundary(projectRoot, options, planned);
     if (owned.manifest) {
       renameSync(join(projectRoot, destination), join(projectRoot, transaction, 'previous'));
       moved = true;
@@ -552,16 +796,16 @@ function apply(projectRoot: string, options: ClaudeConnectInstallationPreviewOpt
   return plan(projectRoot, options).preview;
 }
 /** Caller must resolve projectRoot from its registered project before this explicit apply. */
-export function installClaudeConnectInstallation(projectRoot: string, options: ClaudeConnectInstallationOptions = {}): ClaudeConnectInstallationStatus {
+export function installClaudeConnectInstallation(projectRoot: string, options: InstallationOptions = {}): ClaudeConnectInstallationStatus {
   return apply(projectRoot, { ...options, operation: 'install' });
 }
 /** Receipts and transcripts are deliberately outside package ownership. */
-export function removeClaudeConnectInstallation(projectRoot: string, options: ClaudeConnectInstallationOptions = {}): ClaudeConnectInstallationStatus {
+export function removeClaudeConnectInstallation(projectRoot: string, options: InstallationOptions = {}): ClaudeConnectInstallationStatus {
   return apply(projectRoot, { ...options, operation: 'remove' });
 }
 
 /** Only a proved-dead, clean transaction can release its owned metadata lock. */
-export function recoverClaudeConnectInstallationLock(projectRoot: string, options: ClaudeConnectInstallationOptions = {}): ClaudeConnectInstallationStatus {
+export function recoverClaudeConnectInstallationLock(projectRoot: string, options: InstallationOptions = {}): ClaudeConnectInstallationStatus {
   inspectOwned(projectRoot);
   const lock = `${metadata}/installation-lock`;
   if (!entry(projectRoot, lock)) {
