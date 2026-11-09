@@ -68,7 +68,7 @@ export function boundedParse(input, schema) {
 function ioCode(error, code) {
   return error instanceof Error && 'code' in error && error.code === code;
 }
-async function readRecordBytes(path, checkCtime = true) {
+async function readRecordBytes(path, checkCtime = true, allowMissing = false) {
   let file;
   try {
     await checkAncestors(dirname(resolve(path)));
@@ -88,6 +88,7 @@ async function readRecordBytes(path, checkCtime = true) {
       checkCtime && before.ctimeMs !== after.ctimeMs) fail('record_conflict');
     return buffer.subarray(0, length);
   } catch (error) {
+    if (allowMissing && ioCode(error, 'ENOENT')) return null;
     if (error instanceof ToolUpdateError) throw error;
     return fail('record_read_failed');
   } finally { await file?.close(); }
@@ -112,11 +113,21 @@ async function checkAncestors(path, create = false) {
     if (!stat.isDirectory() || stat.isSymbolicLink()) fail('unsafe_output');
   }
 }
+const folders = { candidate: 'candidates', observation: 'observations', assessment: 'assessments', contract_review: 'reviews',
+  difference_job: 'difference-jobs', difference_evidence: 'difference-evidence', difference_judgment: 'difference-judgments',
+  promotion_proposal: 'promotion-proposals', promotion_validation: 'promotion-validations', promotion_decision: 'promotion-decisions' };
+export async function preflightRecords(root, inputs, schema) {
+  for (const input of inputs) {
+    const record = boundedParse(input, schema);
+    const folder = folders[record.kind];
+    if (!folder) fail('invalid_record');
+    const destination = join(resolve(root), folder, `${digest(record)}.json`);
+    const existing = await readRecordBytes(destination, false, true);
+    if (existing !== null && !existing.equals(Buffer.from(canonical(record)))) fail('record_conflict');
+  }
+}
 export async function publishRecord(root, input, schema) {
   const record = boundedParse(input, schema);
-  const folders = { candidate: 'candidates', observation: 'observations', assessment: 'assessments', contract_review: 'reviews',
-    difference_job: 'difference-jobs', difference_evidence: 'difference-evidence', difference_judgment: 'difference-judgments',
-    promotion_proposal: 'promotion-proposals', promotion_validation: 'promotion-validations', promotion_decision: 'promotion-decisions' };
   const folder = folders[record.kind];
   if (!folder) fail('invalid_record');
   const id = digest(record);

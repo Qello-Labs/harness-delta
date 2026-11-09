@@ -13,6 +13,10 @@ export interface ToolUpdateResult {
     readonly job_id?: string;
     readonly evidence_ids?: readonly string[];
     readonly judgment_id?: string;
+    readonly proposal_id?: string;
+    readonly proposal_ids?: readonly string[];
+    readonly input_ids?: readonly string[];
+    readonly unused_ids?: readonly string[];
     readonly failure?: string | null;
     readonly heads?: {
       readonly github: string | null;

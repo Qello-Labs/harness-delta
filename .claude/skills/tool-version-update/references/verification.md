@@ -104,6 +104,30 @@ comparison table by itself. It closes no manual, live, conformance, admission or
 default gate and writes no support or block decision. Native, backend and
 real-session facets stay pending until the actual target-binary gate below passes.
 
+## Promotion proposals
+
+The [pipeline guide](../../../../docs/development/tool-update-pipeline.md#promotion-commands)
+defines `prepare-promotion` and `reconcile-promotion`. Both run offline with
+`--input <file> --out <directory>`:
+
+1. List every record the run may read in the input inventory by content ID and file
+   reference. Nothing is discovered, crawled or taken from a latest pointer, so the
+   result covers only that inventory. Keep each run within 256 referenced records,
+   256 lineage edges and 256 KiB per record.
+2. For `prepare-promotion`, supply the candidate, observation, assessment, job and
+   judgment records, the pending descriptor, registry and ledger state, the decision
+   preview payload and its scoped proof inputs. The derived state stops at
+   `ready_for_decision`; proof from another lane doesn't count.
+3. For `reconcile-promotion`, supply the proposal and decision chains, the reviewed
+   lane coverage mappings and any reviewed same-target descriptor successors. Copy
+   each `review_needed` successor's retained lanes and unresolved findings into the
+   comparison record. A stale, unknown or later unaffected judgment doesn't clear a
+   finding, and unused IDs mean the input matched nothing.
+
+A proposal is review input with no authority. It isn't a `promotion_decision`,
+changes no runtime support and edits no registry, ledger or baseline. Any decision
+still needs its own user authorization.
+
 ## Actual target-binary verification
 
 Before a native/backend call, finish the source review and synthetic regressions.

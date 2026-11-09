@@ -83,6 +83,17 @@ test('local discovery publishes candidate then a matching completion observation
   expect(candidate.target).toBe('0.163.0');
   expect(JSON.stringify(observation)).not.toContain(root);
 });
+test.each(['prepare-promotion', 'reconcile-promotion'])('%s dispatches explicit record input without discovery', async command => {
+  const root = await temporaryRoot();
+  const result = await runToolUpdate([command, '--input', join(root, 'missing.json'), '--out', root], {
+    fetchImpl: () => Promise.reject(new Error('unexpected_network'))
+  });
+  expect(result).toEqual({
+    exitCode: 2,
+    output: { status: 'record_read_failed' }
+  });
+  expect(await readdir(root)).toEqual([]);
+});
 test('a failed requery records failure rather than reporting prior success', async () => {
   const root = await temporaryRoot();
   const args = ['discover', '--product', 'codex', '--out', root];
