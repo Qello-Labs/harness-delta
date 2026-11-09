@@ -182,6 +182,71 @@ test.each(['SessionStart', 'Stop'])('refuses unowned legacy registration in %s b
   });
 });
 
+test.each([
+  ['canonical', (path: string) => `'${path}'`],
+  ['dotted', (path: string) => `'${path.replace('/codex-connect/', '/codex-connect/./')}'`],
+  ['double-slash', (path: string) => `'${path.replace('/codex-connect/', '/codex-connect//')}'`],
+  ['parent-segment', (path: string) => `'${path.replace('/codex-connect/', '/codex-connect/unused/../')}'`],
+  ['trailing-segments', (path: string) => `'${path}/unused/../.'`],
+  ['double-quoted', (path: string) => `"${path}"`],
+  ['split-quoted', (path: string) => path.replace('session-binding-codex-hook.mjs', "session-'binding'-codex-hook.mjs")],
+  ['unclosed-quote', (path: string) => `'${path}`],
+  ['shell-substitution', (path: string) => `'${dirname(path)}'/"$(printf %s session-binding-codex-hook.mjs)"`]
+] as const)('refuses %s owned helper references without changing hooks or historical bytes', (_name, spelling) => {
+  const f = fixture();
+  install(f.project, reviewed(f.project, f.legacy));
+  const document = hookDocument(f.project);
+  const original = z.object({ hooks: z.tuple([z.object({ command: z.string() })]) }).parse(document.hooks.SessionStart?.[1]).hooks[0].command;
+  const command = original.replace(`'${join(f.project, legacyRecorder)}'`, spelling(join(f.project, legacyRecorder)));
+  document.hooks.SessionStart?.push({
+    hooks: [{ type: 'command', command }]
+  });
+  put(f.project, hooksPath, JSON.stringify(document));
+  const beforeHooks = readFileSync(join(f.project, hooksPath));
+  const beforeHelper = readFileSync(join(f.project, legacyRecorder));
+
+  expect(preview(f.project, f.promoted)).toMatchObject({
+    state: 'blocked',
+    blockers: ['codex_connect_hooks_unowned'],
+    changes: []
+  });
+  expect(install(f.project, f.promoted).state).toBe('blocked');
+  expect(readFileSync(join(f.project, hooksPath))).toEqual(beforeHooks);
+  expect(readFileSync(join(f.project, legacyRecorder))).toEqual(beforeHelper);
+});
+
+test('preserves unrelated helpers with matching basenames or an owned directory during cutover', () => {
+  const f = fixture();
+  install(f.project, reviewed(f.project, f.legacy));
+  const document = hookDocument(f.project);
+  const retained = [
+    {
+      hooks: [
+        {
+          type: 'command',
+          command: "node '/synthetic-unrelated/session-binding-codex-hook.mjs'"
+        }
+      ]
+    },
+    {
+      hooks: [
+        {
+          type: 'command',
+          command: `node '${join(f.project, metadata, 'unrelated.mjs')}'`
+        }
+      ]
+    }
+  ];
+  document.hooks.Stop = retained;
+  put(f.project, hooksPath, JSON.stringify(document));
+  const beforeHelper = readFileSync(join(f.project, legacyRecorder));
+
+  expect(install(f.project, reviewed(f.project, f.promoted)).state).toBe('installed');
+  expect(hookDocument(f.project).hooks.Stop).toEqual(retained);
+  expect(hookDocument(f.project).hooks.SessionStart?.[0]).toEqual(unrelated);
+  expect(readFileSync(join(f.project, legacyRecorder))).toEqual(beforeHelper);
+});
+
 test('refuses an unowned skill rather than overwriting its registration', () => {
   const f = fixture();
   put(f.project, `${destination}/SKILL.md`, 'synthetic unowned skill');

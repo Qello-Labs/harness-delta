@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { lstatSync, mkdirSync, readdirSync, realpathSync, renameSync, rmdirSync, unlinkSync } from 'node:fs';
 import type { Stats } from 'node:fs';
-import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, posix, resolve } from 'node:path';
 import { z } from 'zod';
 import { getCodexBindingAdmission } from '../codex-binding-admission.js';
 import { resolveOrdinaryWindow } from '../core/ordinary-window-policy.js';
@@ -699,6 +699,19 @@ function prepareWindowPackage(root: string, owned: ReturnType<typeof inspectOwne
     if (source.files.size > 257 || [...source.files.values()].reduce((size, bytes) => size + bytes.length, 0) > 8 * 1048576) fail('package_limit');
   }
 }
+function referencesOwnedHook(value: unknown): boolean {
+  if (typeof value === 'string') {
+    const lexical = value.replace(/\\\r?\n/g, '').replace(/['"\\]/g, '');
+    const paths = lexical.split(/[\s;&|<>()`$]+/).map(path => posix.normalize(path));
+    const helpers = [recorder, windowRecorder, promotedRecorder];
+    return (
+      paths.some(path => helpers.some(helper => path === helper || path.endsWith(`/${helper}`)) || /(?:^|\/)harness-connect\/scripts(?:\/|$)/.test(path)) ||
+      (helpers.some(helper => lexical.includes(basename(helper))) && paths.some(path => /(?:^|\/)\.harness-delta\/codex-connect(?:\/|$)/.test(path)))
+    );
+  }
+  if (Array.isArray(value)) return value.some(referencesOwnedHook);
+  return value !== null && typeof value === 'object' && Object.values(value).some(referencesOwnedHook);
+}
 function plannedHooks(owned: ReturnType<typeof inspectOwned>, source: PackageSource | undefined, operation: 'install' | 'remove'): Buffer | null {
   if (source?.promoted) {
     const withoutOwned = mergeWindowHooks(
@@ -709,8 +722,9 @@ function plannedHooks(owned: ReturnType<typeof inspectOwned>, source: PackageSou
       },
       { exact: null, window: null }
     );
-    const remaining = JSON.stringify(hookDocument(withoutOwned).hooks);
-    if ([recorder, windowRecorder, promotedRecorder, 'harness-connect/scripts/'].some(path => remaining.includes(path))) fail('hooks_unowned');
+    if (referencesOwnedHook(hookDocument(withoutOwned).hooks)) {
+      fail('hooks_unowned');
+    }
   }
   const after =
     source?.windowHooks || manifestWindowHooks(owned.manifest)
