@@ -98,7 +98,7 @@ test('local denial refuses promoted support and overlays historical usage withou
 
 test.each(['static', 'factory', 'cached'] as const)('web %s provider selection refuses a denied pin before returning a provider', entry => {
   const f = fixture();
-  f.store.execute("INSERT INTO projects(id) VALUES ('project')", []);
+  f.store.execute("INSERT INTO projects(id,local_root) VALUES ('project','/synthetic/project')", []);
   f.store.execute("INSERT INTO tasks(id,project_id) VALUES ('task','project')", []);
   f.store.execute("INSERT INTO sessions(id,project_id,task_id,product,product_version) VALUES ('session','project','task','codex',?)", [f.key.productVersion]);
   f.store.execute("INSERT INTO session_source_compatibility(session_id,payload) VALUES ('session',?)", [JSON.stringify(f.compatibility)]);
@@ -154,7 +154,7 @@ test('removing a required promoted facet refuses its frozen pin instead of selec
 
 test('an explicit frozen window remains independently authorized after an exact-scope denial', () => {
   const f = fixture();
-  const window = ordinaryWindowFixture();
+  const window = ordinaryWindowFixture('codex', f.key.productVersion);
   stores.push(window.store);
   window.activate();
   window.connect();

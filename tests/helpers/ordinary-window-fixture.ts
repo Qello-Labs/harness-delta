@@ -13,7 +13,7 @@ import type {
   VerifiedSessionIdentity
 } from '../../src/session-binding-contract.js';
 
-export function ordinaryWindowFixture(product: 'codex' | 'claude_code' = 'codex') {
+export function ordinaryWindowFixture(product: 'codex' | 'claude_code' = 'codex', declaredVersion?: string) {
   const clock = () => '2026-11-06T01:00:00.000Z';
   const store = new Store(':memory:', clock);
   const life = new Lifecycle(store, clock);
@@ -25,7 +25,7 @@ export function ordinaryWindowFixture(product: 'codex' | 'claude_code' = 'codex'
       mode: 'ordinary_window',
       project_id: 'project',
       product,
-      declared_version: product === 'codex' ? '0.167.0' : '2.1.318',
+      declared_version: declaredVersion ?? (product === 'codex' ? '0.167.0' : '2.1.318'),
       policy_id: product === 'codex' ? 'codex-binding-root-window-v1' : 'claude-binding-root-window-v1',
       criterion_ids: ['accepted']
     },
