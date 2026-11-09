@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
   "implementation_scheme": "promotion-implementation-v1",
-  "implementation_digest": "2a18ca9b345971e6e7522c0370fa2caa960a17a085c3ec6d6916884b44a2360a",
-  "effective_projection_digest": "42e7e5bb2cded6d6941bf3ec70572bdd960d8dec27f79459cb5b98e8283e3299"
+  "implementation_digest": "0ff9dbfdd68e2ccc7e0fbee9b19ea81a2f597dac56849288f02243af6a2a85cc",
+  "effective_projection_digest": "1b9d6db4130e952b68f88b239e6cda46d857a7e8792c0d514ead048d034f9c7b"
 }
