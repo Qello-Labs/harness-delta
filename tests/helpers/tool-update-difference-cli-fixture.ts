@@ -243,6 +243,7 @@ for(const object of [http,https]) for(const name of ['get','request']) object[na
 for(const object of [net,tls]) for(const name of ['connect','createConnection']) if(name in object) object[name]=()=>denied('network');
 for(const name of ['spawn','spawnSync','exec','execSync','execFile','execFileSync','fork']) cp[name]=()=>denied('processes');
 registerHooks({resolve(specifier,context,next){
+ if(/^(?:node:)?sqlite$/.test(specifier)) denied('modules');
  const result=next(specifier,context);
  if(/better-sqlite3|\\/(?:store|session-binding-(?:codex|claude|service)|ordinary-session-binding|conformance|claude-localhost)\\.(?:m?js|ts)$/.test(result.url)) denied('modules');
  return result;

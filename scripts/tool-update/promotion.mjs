@@ -1,6 +1,6 @@
 import { dirname, resolve } from 'node:path';
 import { z } from 'zod';
-import { boundedParse, canonical, digest, fail, loadRecord, publishRecord, shaSchema } from './manifest.mjs';
+import { boundedParse, canonical, digest, fail, loadRecord, preflightRecords, publishRecord, shaSchema } from './manifest.mjs';
 import { candidateSchema, observationSchema } from './discovery.mjs';
 import { assessmentSchema } from './assessment.mjs';
 import { laneKey, laneSchema } from './lanes.mjs';
@@ -481,8 +481,19 @@ function validateLineage(inventory) {
     for (const id of proposal.coverage_mapping_ids) {
       requireEntry(inventory.mappings, id);
     }
+    if (proposal.reconciliation?.coverage_mapping_ids.some(id => !proposal.coverage_mapping_ids.includes(id))) {
+      fail('promotion_lineage_invalid');
+    }
     for (const id of proposal.reconciliation?.predecessor_proposal_ids ?? []) {
-      requireEntry(inventory.proposals, id);
+      const previous = requireEntry(inventory.proposals, id);
+      const reviewed = [...inventory.successors.values()].some(row => row.predecessor_proposal_id === id && row.successor_proposal_id === digest(proposal));
+      if (
+        !reviewed &&
+        (!same(previous.scope, proposal.scope) ||
+          previous.descriptor_digest !== proposal.descriptor_digest ||
+          !same(previous.coverage_mapping_ids, proposal.coverage_mapping_ids))
+      )
+        fail('promotion_lineage_invalid');
       edges++;
     }
     for (const id of unique([...(proposal.reconciliation?.originating_grant_ids ?? []), ...(proposal.reconciliation?.current_grant_ids ?? [])])) {
@@ -552,6 +563,9 @@ function validateDescriptorSuccessors(inventory) {
     ) {
       fail('promotion_lineage_invalid');
     }
+    if (!same(row.coverage_mapping_ids, next.coverage_mapping_ids)) {
+      fail('promotion_lineage_invalid');
+    }
     for (const id of row.coverage_mapping_ids) {
       const mapping = requireEntry(inventory.mappings, id);
       if (!next.coverage_mapping_ids.includes(id) || !same(mapping.scope, next.scope) || mapping.descriptor_digest !== next.descriptor_digest) {
@@ -605,9 +619,6 @@ function grantLineage(id, grant, inventory) {
     }
     for (const [proposalId, proposal] of inventory.proposals) {
       if (!proposal.reconciliation?.predecessor_proposal_ids.includes(parent.id) || !proposal.reconciliation.originating_grant_ids.includes(id)) continue;
-      if (!same(proposal.scope, parent.proposal.scope) || proposal.descriptor_digest !== parent.proposal.descriptor_digest) {
-        fail('promotion_lineage_invalid');
-      }
       if (!result.some(row => row.id === proposalId)) {
         result.push({
           ...parent,
@@ -758,6 +769,7 @@ export async function runPromotionCommand(name, flags, root) {
     };
   }
   const result = await reconcilePromotion(flags.input, root);
+  await preflightRecords(flags.out, result.proposals, promotionProposalSchema);
   const ids = [];
   for (const proposal of result.proposals) {
     ids.push(await publishRecord(flags.out, proposal, promotionProposalSchema));

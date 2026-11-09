@@ -24,4 +24,5 @@ export function laneKey(row: z.infer<typeof laneSchema>): string;
 export function parseBaseline(input: unknown): Baseline;
 export function boundedParse<T>(input: unknown, schema: z.ZodType<T>): T;
 export function loadRecord<T>(path: string, schema: z.ZodType<T>): Promise<T>;
+export function preflightRecords<T>(root: string, inputs: readonly T[], schema: z.ZodType<T>): Promise<void>;
 export function publishRecord<T>(root: string, input: T, schema: z.ZodType<T>): Promise<string>;

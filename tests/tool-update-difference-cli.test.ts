@@ -536,6 +536,42 @@ const probes=[
     writes: []
   });
 });
+test.each([
+  ['node:sqlite', 'import'],
+  ['node:sqlite', 'require'],
+  ['sqlite', 'import'],
+  ['sqlite', 'require']
+] as const)('the effect ledger calibration denies %s through %s before a synthetic database operation', async (specifier, mode) => {
+  const root = await scratch();
+  roots.push(root);
+  const control = await auditedCli(root, '-e', [
+    `
+(async()=>{
+ try {
+  const {DatabaseSync}=${mode === 'import' ? `await import(${JSON.stringify(specifier)})` : `require(${JSON.stringify(specifier)})`};
+  const database=new DatabaseSync(':memory:');
+  database.exec('CREATE TABLE synthetic_probe (value INTEGER)');
+  database.close();
+  process.stdout.write(JSON.stringify({status:'mutation_completed'})+'\\n');
+ } catch(error) {
+  process.stdout.write(JSON.stringify({status:'mutation_denied',reason:error.message})+'\\n');
+ }
+})();
+`
+  ]);
+  expect(control.exitCode, control.stdout + control.stderr).toBe(0);
+  expect(control.ledger, JSON.stringify(control.output)).toEqual({
+    network: 0,
+    processes: 0,
+    modules: 1,
+    privateReads: 0,
+    writes: []
+  });
+  expect(control.output).toEqual({
+    status: 'mutation_denied',
+    reason: 'forbidden_modules'
+  });
+});
 test('the real source CLI in a built checkout publishes only records without Store, vendor, sessions, network or block writes', async () => {
   await access(join(projectRoot, 'dist', 'index.js'));
   const script = 'scripts/tool-update.mjs';

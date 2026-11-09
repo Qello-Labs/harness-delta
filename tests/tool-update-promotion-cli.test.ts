@@ -6,6 +6,7 @@ import { judgmentEngineDigest } from '../scripts/tool-update/difference-judgment
 import { consumedContracts, mapRevision, requiredFacets } from '../scripts/tool-update/difference-contracts.mjs';
 import { canonical, digest, loadRecord } from '../scripts/tool-update/manifest.mjs';
 import { runToolUpdate } from '../scripts/tool-update.mjs';
+import { reconcilePromotion } from '../scripts/tool-update/promotion.mjs';
 import { promotionEvidenceClasses, promotionGateIds, promotionProposalSchema } from '../scripts/tool-update/promotion-records.mjs';
 import {
   previewToolVersionPromotion,
@@ -857,4 +858,173 @@ test.each([256, 257])('reconcile enforces %i lineage edges independently of its 
   input.packet.judgments = [];
   const result = await reconcile(input);
   expect(result.exitCode, JSON.stringify(result.output)).toBe(count === 256 ? 0 : 2);
+});
+
+test('ordinary review-needed successors cannot replace approval-bound coverage mappings', async () => {
+  const input = await reconciliation();
+  const first = (await successors(input))[0];
+  if (!first?.reconciliation) throw new Error('review_successor_required');
+  const lane = {
+    ...input.judgment.lane,
+    profile_id: 'codex-binding-01640-direct-family-v1'
+  };
+  const mapping = await reference(input.root, {
+    ...input.mapping,
+    original_lane: lane
+  });
+  const judgment = {
+    ...input.judgment,
+    lane,
+    baseline_row: { ...input.judgment.baseline_row, ...lane },
+    parser_base: {
+      ...input.judgment.parser_base,
+      profile_id: lane.profile_id
+    }
+  };
+  input.packet.judgments = [await reference(input.root, judgment)];
+  input.packet.mappings.push(mapping);
+  input.packet.proposals.push(
+    await reference(input.root, {
+      ...first,
+      coverage_mapping_ids: [mapping.id],
+      reconciliation: {
+        ...first.reconciliation,
+        coverage_mapping_ids: [mapping.id]
+      }
+    })
+  );
+  const before = await tree(join(input.root, 'promotion-proposals'));
+  expect(await reconcile(input)).toEqual({
+    exitCode: 2,
+    output: { status: 'promotion_lineage_invalid' }
+  });
+  expect(await tree(join(input.root, 'promotion-proposals'))).toEqual(before);
+});
+test('ordinary review-needed successors retain the approved mapping and original lane match', async () => {
+  const input = await reconciliation();
+  const first = (await successors(input))[0];
+  if (!first) throw new Error('review_successor_required');
+  input.packet.proposals.push(await reference(input.root, first));
+  const result = await reconcile(input);
+  expect(result.exitCode, JSON.stringify(result.output)).toBe(0);
+  expect(result.output.proposal_ids).toHaveLength(1);
+  const next = await proposal(input.root, result.output.proposal_ids?.[0]);
+  expect(next.coverage_mapping_ids).toEqual(input.origin.coverage_mapping_ids);
+  expect(next.reconciliation).toMatchObject({
+    coverage_mapping_ids: input.origin.coverage_mapping_ids,
+    triggering_judgment_ids: [digest(input.judgment)]
+  });
+  expect(result.output.unused_ids).not.toContain(input.origin.coverage_mapping_ids[0]);
+});
+test('an explicit reviewed lineage can change coverage mappings for the same descriptor', async () => {
+  const input = await reconciliation();
+  const lane = {
+    ...input.judgment.lane,
+    profile_id: 'codex-binding-01640-direct-family-v1'
+  };
+  const mapping = await reference(input.root, {
+    ...input.mapping,
+    original_lane: lane
+  });
+  const next = await reference(input.root, {
+    ...input.origin,
+    original_lanes: [lane],
+    coverage_mapping_ids: [mapping.id]
+  });
+  input.packet.proposals.push(next);
+  input.packet.mappings.push(mapping);
+  input.packet.successors.push(
+    await reference(input.root, {
+      schema_version: 1,
+      kind: 'promotion_descriptor_successor',
+      predecessor_descriptor_digest: input.origin.descriptor_digest,
+      successor_descriptor_digest: input.origin.descriptor_digest,
+      predecessor_proposal_id: input.originRef.id,
+      successor_proposal_id: next.id,
+      coverage_mapping_ids: [mapping.id],
+      review_reference: digest('synthetic_mapping_review')
+    })
+  );
+  const judgment = {
+    ...input.judgment,
+    lane,
+    baseline_row: { ...input.judgment.baseline_row, ...lane },
+    parser_base: {
+      ...input.judgment.parser_base,
+      profile_id: lane.profile_id
+    }
+  };
+  input.packet.judgments = [await reference(input.root, judgment)];
+  const rows = await successors(input);
+  expect(rows).toHaveLength(1);
+  expect(rows[0]?.coverage_mapping_ids).toEqual([mapping.id]);
+  expect(rows[0]?.reconciliation?.triggering_judgment_ids).toEqual([digest(judgment)]);
+});
+test('reviewed lineage cannot smuggle a coverage mapping outside its explicit reviewed set', async () => {
+  const input = await reconciliation();
+  const reviewed = await reviewedDescriptorSuccessor(input);
+  const next = await loadRecord(reviewed.nextRef.path, promotionProposalSchema);
+  const extra = await reference(input.root, {
+    ...input.mapping,
+    descriptor_digest: reviewed.descriptorRef.id,
+    original_lane: {
+      ...input.mapping.original_lane,
+      profile_id: 'codex-binding-01640-direct-family-v1'
+    }
+  });
+  const replaced = await reference(input.root, {
+    ...next,
+    coverage_mapping_ids: [...next.coverage_mapping_ids, extra.id].sort()
+  });
+  input.packet.mappings.push(extra);
+  input.packet.proposals = input.packet.proposals.map(row => (row.id === reviewed.nextRef.id ? replaced : row));
+  input.packet.successors = [
+    await reference(input.root, {
+      ...reviewed.successor,
+      successor_proposal_id: replaced.id
+    })
+  ];
+  const before = await tree(join(input.root, 'promotion-proposals'));
+  expect(await reconcile(input)).toEqual({
+    exitCode: 2,
+    output: { status: 'promotion_lineage_invalid' }
+  });
+  expect(await tree(join(input.root, 'promotion-proposals'))).toEqual(before);
+});
+test.each(['different_record', 'noncanonical_record'])('reconcile preflights every output before publishing with a later %s conflict', async scenario => {
+  const input = await reconciliation();
+  for (const label of ['left', 'right']) {
+    const sibling = await reference(input.root, {
+      ...input.origin,
+      selection_reference: digest({ label })
+    });
+    input.packet.proposals.push(sibling);
+    input.packet.successors.push(
+      await reference(input.root, {
+        schema_version: 1,
+        kind: 'promotion_descriptor_successor',
+        predecessor_descriptor_digest: input.origin.descriptor_digest,
+        successor_descriptor_digest: input.origin.descriptor_digest,
+        predecessor_proposal_id: input.originRef.id,
+        successor_proposal_id: sibling.id,
+        coverage_mapping_ids: input.origin.coverage_mapping_ids,
+        review_reference: digest({ reviewed: label })
+      })
+    );
+  }
+  await writeFile(input.path, canonical(input.packet));
+  const preview = await reconcilePromotion(input.path, projectRoot);
+  expect(preview.proposals).toHaveLength(2);
+  const second = preview.proposals[1];
+  if (!second) throw new Error('second_proposal_required');
+  const destination = join(input.root, 'promotion-proposals', `${digest(second)}.json`);
+  const conflictingBytes = scenario === 'different_record' ? canonical({ synthetic_conflict: true }) : JSON.stringify(second);
+  await writeFile(destination, conflictingBytes);
+  const before = await tree(join(input.root, 'promotion-proposals'));
+  expect(await reconcile(input)).toEqual({
+    exitCode: 2,
+    output: { status: 'record_conflict' }
+  });
+  expect(await tree(join(input.root, 'promotion-proposals'))).toEqual(before);
+  expect(await readFile(destination, 'utf8')).toBe(conflictingBytes);
 });
