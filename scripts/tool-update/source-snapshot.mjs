@@ -9,8 +9,9 @@ import { scopeSourceDigests } from './lanes.mjs';
 
 export const legacyAssessmentRuleRevision = 'static-assessment-v1';
 export const expandedAssessmentRuleRevision = 'static-assessment-v2';
-export const assessmentRuleRevision = 'static-assessment-v3';
-export const assessmentSourcePathLimit = 52;
+export const policyAssessmentRuleRevision = 'static-assessment-v3';
+export const assessmentRuleRevision = 'static-assessment-v4';
+export const policyAssessmentSourcePathLimit = 52;
 export const expandedAssessmentSourcePathLimit = 48;
 export const legacySourcePathAllowlist = Object.freeze([
   "package-lock.json",
@@ -86,7 +87,12 @@ export const expandedSourcePathAllowlist = Object.freeze([
     'src/core/tool-version-profiles.json', 'src/core/tool-version-recipes.json', 'src/core/tool-version-identities.json', ...scopePaths, ...expandedHashOnlyPaths]),
   'package.json', 'package-lock.json',
 ].sort());
-export const sourcePathAllowlist = Object.freeze([...new Set([...expandedSourcePathAllowlist, ...hashOnlyPaths])].sort());
+export const policySourcePathAllowlist = Object.freeze([...new Set([...expandedSourcePathAllowlist, ...hashOnlyPaths])].sort());
+export const sourcePathAllowlist = Object.freeze([
+  ...policySourcePathAllowlist, 'src/core/tool-version-promotion.ts', 'src/core/tool-version-promotions.json',
+  'src/core/tool-version-promotion-result.json',
+].sort());
+export const assessmentSourcePathLimit = 55;
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 
 function snapshotImports(ts, path, output) {
@@ -198,7 +204,8 @@ export async function withSourceSnapshot(root, project) {
       resolve: compatibility.resolveSourceCompatibility, ruleRevision: compatibility.compatibilityRuleRevision,
       ordinaryWindows: ordinary.ordinaryWindowPolicies, resolveOrdinaryWindow: ordinary.resolveOrdinaryWindow,
       windows: compatibility.sourceCompatibilityWindows, files: profiles.registeredFileProfiles,
-      evidence: readiness.productionSourceEvidence, codexAdmissions: codex.codexBindingAdmissions,
+      evidence: readiness.productionSourceEvidence, promotionFacets: core.toolVersionPromotionProjection.facets,
+      codexAdmissions: codex.codexBindingAdmissions,
       claudeAdmissions: claude.claudeBindingAdmissions, retiredClaudeWorkflowVersions: core.retiredClaudeWorkflowVersions,
     });
     for (const [path, bytes] of inputs)

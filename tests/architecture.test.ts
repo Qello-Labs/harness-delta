@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test } from 'vitest';
@@ -27,8 +27,18 @@ test('source imports introduce no cycles or area violations and frozen lists sta
   const files = readdirSync(src, { recursive: true, withFileTypes: true })
     .filter(entry => entry.isFile())
     .map(entry => join(entry.parentPath, entry.name));
-  const modules = files.filter(path => path.endsWith('.ts')).map(path => ({ path: relative(root, path), text: readFileSync(path, 'utf8') }));
+  const modules = files
+    .filter(path => path.endsWith('.ts'))
+    .map(path => ({
+      path: relative(root, path),
+      text: readFileSync(path, 'utf8')
+    }));
   const assets = files.filter(path => !path.endsWith('.ts')).map(path => relative(root, path));
+  assets.push(
+    ...readdirSync(join(root, 'scripts/tool-update'))
+      .filter(path => path.endsWith('.d.mts'))
+      .map(path => `scripts/tool-update/${path}`)
+  );
   const unmapped = modules.filter(module => ranks[area(module.path)] === undefined).map(module => module.path);
   expect(unmapped).toEqual([]);
   expect(checkArchitecture(buildImportGraph(modules, assets), policy)).toEqual([]);
@@ -42,6 +52,32 @@ test('a new runtime cycle fails even within an already cyclic component', () => 
       cycles: ['core/a.ts -> core/b.ts -> core/a.ts']
     })
   ).toEqual(['New runtime cycle: core/a.ts -> core/b.ts -> core/c.ts -> core/a.ts']);
+});
+
+test('declaration assets resolve type imports without permitting runtime maintainer imports', () => {
+  const path = 'scripts/tool-update/promotion-records';
+  expect(
+    buildImportGraph(
+      [
+        {
+          path: 'src/core/example.ts',
+          text: `import type { PromotionDecision } from '../../${path}.mjs';`
+        }
+      ],
+      [`${path}.d.mts`]
+    )
+  ).toEqual([]);
+  expect(() =>
+    buildImportGraph(
+      [
+        {
+          path: 'src/core/example.ts',
+          text: `import { parsePromotionDecision } from '../../${path}.mjs';`
+        }
+      ],
+      [`${path}.d.mts`]
+    )
+  ).toThrow('Unresolved relative dependency');
 });
 
 test.each(['feature', 'peer'])('a new upward or sideways edge to %s fails', target => {

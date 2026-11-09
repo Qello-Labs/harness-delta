@@ -6,6 +6,7 @@ import { candidateSchema, observationSchema } from './discovery.mjs';
 import { laneKey, laneSchema, sourceLanes } from './lanes.mjs';
 import { assessmentRuleRevision, expandedAssessmentRuleRevision, assessmentSourcePathLimit, expandedAssessmentSourcePathLimit,
   expandedSourcePathAllowlist, legacyAssessmentRuleRevision, legacySourcePathAllowlist,
+  policyAssessmentRuleRevision, policyAssessmentSourcePathLimit, policySourcePathAllowlist,
   sourcePathAllowlist, withSourceSnapshot } from './source-snapshot.mjs';
 
 export const consumedContracts = [
@@ -99,8 +100,8 @@ const assessmentFields = {
   rule_revision: z.literal(legacyAssessmentRuleRevision), lanes: z.array(laneAssessment(false)).min(1).max(128),
 };
 const expandedAssessmentFields = {
-  ...assessmentFields, source_paths: z.array(z.enum(sourcePathAllowlist)).min(1).max(assessmentSourcePathLimit),
-  rule_revision: z.enum([expandedAssessmentRuleRevision, assessmentRuleRevision]),
+  ...assessmentFields, source_paths: z.array(z.enum(policySourcePathAllowlist)).min(1).max(policyAssessmentSourcePathLimit),
+  rule_revision: z.enum([expandedAssessmentRuleRevision, policyAssessmentRuleRevision]),
   lanes: z.array(laneAssessment(false, true)).min(1).max(128),
 };
 const expandedSourcePathsSchema = z.array(z.enum(expandedSourcePathAllowlist)).min(1).max(expandedAssessmentSourcePathLimit);
@@ -144,6 +145,26 @@ const automatedSchema = z.strictObject({
 }).refine(value => value.comparisons.every(row => value.judgment_ids.includes(row.judgment_id)) &&
   value.conflicts.every(row => value.judgment_ids.includes(row.judgment_id)) &&
   ['native_execution', 'backend_counter_meaning', 'real_session'].every(code => value.required_validation.includes(code)));
+const currentAssessmentFields = {
+  ...expandedAssessmentFields, schema_version: z.literal(8), inventory_scope: inventoryScope,
+  source_paths: z.array(z.enum(sourcePathAllowlist)).min(1).max(assessmentSourcePathLimit),
+  rule_revision: z.literal(assessmentRuleRevision),
+};
+const currentAssessmentVariants = [
+  z.strictObject(currentAssessmentFields),
+  z.strictObject({
+    ...reviewFields, ...currentAssessmentFields,
+    lanes: z.array(laneAssessment(true, true).extend({ selection_policy: selectionPolicySchema })).min(1).max(128),
+  }),
+  z.strictObject({
+    ...currentAssessmentFields,
+    review_ids: z.array(shaSchema).max(256), unused_review_ids: z.array(shaSchema).max(256),
+    judgment_ids: z.array(shaSchema).min(1).max(256), unused_judgment_ids: z.array(shaSchema).max(256),
+    lanes: z.array(laneAssessment(true, true).extend({
+      selection_policy: selectionPolicySchema.optional(), automated: automatedSchema,
+    })).min(1).max(128),
+  }),
+];
 export const assessmentSchema = z.discriminatedUnion('schema_version', [
   z.strictObject({ schema_version: z.literal(1), ...assessmentFields }),
   z.strictObject({ schema_version: z.literal(2), inventory_scope: inventoryScope, ...assessmentFields }),
@@ -168,14 +189,29 @@ export const assessmentSchema = z.discriminatedUnion('schema_version', [
       selection_policy: selectionPolicySchema.optional(), automated: automatedSchema,
     })).min(1).max(128),
   }),
+  z.strictObject({
+    ...currentAssessmentFields,
+    review_ids: z.array(shaSchema).max(256).optional(), unused_review_ids: z.array(shaSchema).max(256).optional(),
+    judgment_ids: z.array(shaSchema).min(1).max(256).optional(), unused_judgment_ids: z.array(shaSchema).max(256).optional(),
+    lanes: z.array(laneAssessment(true, true).extend({
+      selection_policy: selectionPolicySchema.optional(), automated: automatedSchema.optional(),
+    })).min(1).max(128),
+  }),
 ]).superRefine((value, context) => {
+  if (value.schema_version === 8) {
+    const parsed = z.union(currentAssessmentVariants).safeParse(value);
+    if (!parsed.success) {
+      for (const issue of parsed.error.issues) context.addIssue(issue);
+      return;
+    }
+  }
   if (new Set(value.lanes.map(laneKey)).size !== value.lanes.length ||
       new Set(value.source_paths).size !== value.source_paths.length ||
-      [3, 4, 6, 7].includes(value.schema_version) && (!sortedUnique(value.review_ids) || !sortedUnique(value.unused_review_ids) ||
+      'review_ids' in value && value.review_ids !== undefined && (!sortedUnique(value.review_ids) || !sortedUnique(value.unused_review_ids) ||
         value.unused_review_ids.some(id => !value.review_ids.includes(id)) ||
         value.lanes.some(row => row.gates.contracts_reviewed !== gateOf(row.review.contracts))))
     context.addIssue({ code: 'custom', message: 'invalid_assessment' });
-  if (value.schema_version === 7 && (!sortedUnique(value.judgment_ids) || !sortedUnique(value.unused_judgment_ids) ||
+  if ('judgment_ids' in value && value.judgment_ids !== undefined && (!sortedUnique(value.judgment_ids) || !sortedUnique(value.unused_judgment_ids) ||
     value.unused_judgment_ids.some(id => !value.judgment_ids.includes(id)) ||
     value.lanes.some(lane => lane.automated.judgment_ids.some(id => !value.judgment_ids.includes(id)) ||
       lane.automated.conflicts.some(row => !value.review_ids.includes(row.review_id)))))
@@ -190,7 +226,7 @@ export const assessmentSchema = z.discriminatedUnion('schema_version', [
     if (!policy) return row.rule_revision !== 'forward-version-v1' || row.compatibility !== null &&
       (row.compatibility.rule_revision !== 'forward-version-v1' || ordinaryLaneRules.some(policy =>
         policy.profile === row.compatibility.profile_id || policy.profile === row.compatibility.parser_revision));
-    return value.schema_version < 5 || value.rule_revision !== assessmentRuleRevision || row.product !== policy.product || row.route !== policy.route ||
+    return value.schema_version < 5 || value.rule_revision !== (value.schema_version === 8 ? assessmentRuleRevision : policyAssessmentRuleRevision) || row.product !== policy.product || row.route !== policy.route ||
       row.rule_revision !== policy.revision || row.topology !== 'root' || !['link', 'collect', 'restart'].includes(row.operation) ||
       row.declared_scope.max_depth !== 0 || row.declared_scope.max_members !== 1 || row.declared_scope.exact_only || !row.declared_scope.read_only ||
       row.compatibility !== null && (row.compatibility.rule_revision !== policy.revision || row.compatibility.product !== row.product ||
@@ -198,9 +234,18 @@ export const assessmentSchema = z.discriminatedUnion('schema_version', [
   });
   if (invalidPolicy) context.addIssue({ code: 'custom', message: 'invalid_policy_lane' });
 }).refine(value => Buffer.byteLength(JSON.stringify(value)) <= 256 * 1024);
-function validateSourceKeys(baseline, source) {
-  const lanes = sourceLanes(source).filter(row => !(row.operation === 'resume' && row.route.endsWith('_binding')) &&
+function assessmentLanes(source, baseline = false) {
+  const lanes = sourceLanes(source).filter(row => !baseline || !(row.operation === 'resume' && row.route.endsWith('_binding')) &&
     !(row.topology === 'root_direct_child' && (row.operation === 'resume' || row.route === 'codex_workflow' && row.operation === 'link')));
+  for (const { decision } of source.promotionFacets) {
+    const lane = decision.scope.lane;
+    if (decision.grants.includes('admission') && (lane.topology === 'root' || decision.grants.includes('children')) &&
+        !lanes.some(row => laneKey(row) === laneKey(lane))) lanes.push(laneSchema.parse(lane));
+  }
+  return lanes.sort((a, b) => laneKey(a).localeCompare(laneKey(b), 'en'));
+}
+function validateSourceKeys(baseline, source) {
+  const lanes = assessmentLanes(source, true);
   if (baseline.rows.some(row => !lanes.some(lane => laneKey(lane) === laneKey(row)))) fail('invalid_baseline');
 }
 export async function validateBaselineForSource(input, root) {
@@ -216,27 +261,34 @@ function resolveLaneSelection(lane, source, target) {
   const ordinary = source.ordinaryWindows.find(row => row.policyId === lane.profile_id);
   const window = ordinary ? { base: ordinary.baseVersion, upper_exclusive: ordinary.upperExclusive }
     : source.windows.find(row => row.product === lane.product && row.source === lane.route && row.profile_id === lane.profile_id);
+  const promoted = source.promotionFacets.find(({ decision }) => decision.scope.target.version === target &&
+    laneKey(decision.scope.lane) === laneKey(lane) && decision.grants.includes('admission') &&
+    (lane.topology === 'root' || decision.grants.includes('children')));
   const compatibility = ordinary ? source.resolveOrdinaryWindow(lane.product, target, lane.profile_id)?.compatibility ?? null
-    : source.resolve(lane.product, target, lane.route, lane.profile_id);
+    : source.resolve(lane.product, target, lane.route, lane.profile_id, ...(promoted ? [lane.operation, lane.topology] : []));
+  const promotedScope = promoted?.descriptor.scopes.find(scope => scope.operation === lane.operation && scope.topology === lane.topology);
   const child = lane.topology === 'root_direct_child';
   const binding = !ordinary && lane.route.endsWith('_binding');
-  return { window, compatibility, child, binding, ruleRevision: ordinary?.ruleRevision ?? source.ruleRevision,
-    readOnly: ordinary !== undefined || child };
+  const admission = (lane.product === 'codex' ? source.codexAdmissions : source.claudeAdmissions)
+    .find(row => row.profileId === lane.profile_id);
+  return { window, compatibility, child, binding, promoted, promotedScope, ruleRevision: ordinary?.ruleRevision ?? source.ruleRevision,
+    readOnly: ordinary !== undefined || child, admission,
+    maxDepth: promotedScope ? promotedScope.maxDepth : child ? 1 : binding && lane.topology === 'bounded_family' ? admission?.maxDepth ?? 1 : 0,
+    maxMembers: promotedScope ? promotedScope.maxFamilyMembers : child ? 2 : binding && lane.topology === 'bounded_family' ? admission?.maxFamilyMembers ?? null : 1,
+  };
 }
 function projectLane(lane, source, candidate, observation, baseline, reviewed) {
   const row = baseline?.rows.find(row => laneKey(row) === laneKey(lane));
-  const { window, compatibility, child, binding, ruleRevision, readOnly } = resolveLaneSelection(lane, source, candidate.target);
+  const { window, compatibility, child, binding, promoted, promotedScope, ruleRevision, readOnly, admission, maxDepth, maxMembers } = resolveLaneSelection(lane, source, candidate.target);
   const exact = compatibility?.parser_version === candidate.target;
-  const operationAllowed = !(binding && lane.operation === 'resume') && !(child && lane.operation === 'resume') &&
+  const operationAllowed = promotedScope !== undefined || !(binding && lane.operation === 'resume') && !(child && lane.operation === 'resume') &&
     !(lane.route === 'codex_workflow' && child && lane.operation === 'link') &&
     !(lane.route === 'claude_workflow' && lane.operation === 'resume' && !exact);
   const selected = compatibility && operationAllowed;
-  const admission = (lane.product === 'codex' ? source.codexAdmissions : source.claudeAdmissions)
-    .find(row => row.profileId === lane.profile_id);
   const registered = source.evidence.find(row => row.product === lane.product && row.profile_id === lane.profile_id)?.product_version ??
     source.files.find(row => row.product === lane.product &&
       source.resolve(lane.product, row.version, lane.route, lane.profile_id)?.state === 'verified')?.version;
-  const parserBase = compatibility?.parser_version ?? window?.base ?? admission?.productVersion ?? registered ?? null;
+  const parserBase = compatibility?.parser_version ?? window?.base ?? admission?.productVersion ?? promoted?.descriptor.version ?? registered ?? null;
   const required = ['contracts_unknown'];
   if (lane.route === 'claude_workflow' && source.retiredClaudeWorkflowVersions.includes(candidate.target))
     required.push('retired');
@@ -283,8 +335,8 @@ function projectLane(lane, source, candidate, observation, baseline, reviewed) {
     window: window ? { base: window.base, upper_exclusive: window.upper_exclusive } : null,
     rule_revision: ruleRevision,
     declared_scope: {
-      max_depth: child ? 1 : binding && lane.topology === 'bounded_family' ? admission?.maxDepth ?? 1 : 0,
-      max_members: child ? 2 : binding && lane.topology === 'bounded_family' ? admission?.maxFamilyMembers ?? null : 1,
+      max_depth: maxDepth,
+      max_members: maxMembers,
       read_only: readOnly, exact_only: binding || lane.route === 'claude_workflow' && (child || lane.operation === 'resume'),
     },
     reasons: [...new Set(required)].sort(),
@@ -496,7 +548,7 @@ export async function assessCandidate({
   const rows = reviewInputs?.length ? prepareReviews(reviewInputs, candidate, releases) : null;
   const used = new Set();
   const snapshot = await withSourceSnapshot(root, source => {
-    const lanes = sourceLanes(source);
+    const lanes = assessmentLanes(source);
     if (baseline) validateSourceKeys(baseline, source);
     if (baseline?.rows.some(row => row.product === candidate.product && compareVersions(row.last_reviewed_version, candidate.target) > 0))
       fail('baseline_ahead');
@@ -510,7 +562,7 @@ export async function assessCandidate({
     lane.reasons.sort();
   }
   const assessment = {
-    schema_version: rows ? 6 : 5, kind: 'assessment',
+    schema_version: 8, kind: 'assessment',
     inventory_scope: observation.schema_version === 2 ? observation.inventory_scope : 'legacy_full_inventory',
     candidate_id: digest(candidate), observation_id: digest(observation),
     baseline_digest: baseline ? digest(baseline) : null, source_digest: snapshot.source_digest,
@@ -524,7 +576,6 @@ export async function assessCandidate({
     const judgments = await prepareJudgments(judgmentInputs, assessment, baseline, releases, root);
     const usedJudgments = new Set();
     for (const lane of assessment.lanes) applyJudgments(lane, judgments, rows ?? [], snapshot.source_digest, usedJudgments);
-    assessment.schema_version = 7;
     assessment.review_ids = rows?.map(row => row.id) ?? [];
     assessment.unused_review_ids = assessment.review_ids.filter(id => !used.has(id));
     assessment.judgment_ids = judgments.map(row => row.id);

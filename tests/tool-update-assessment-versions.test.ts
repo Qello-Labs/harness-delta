@@ -1,9 +1,16 @@
 import { expect, test } from 'vitest';
 import { assessmentSchema, consumedContracts } from '../scripts/tool-update/assessment.mjs';
 import { boundedParse, canonical, maxRecordBytes } from '../scripts/tool-update/manifest.mjs';
-import { expandedSourcePathAllowlist, legacySourcePathAllowlist, sourcePathAllowlist } from '../scripts/tool-update/source-snapshot.mjs';
+import {
+  assessmentSourcePathLimit,
+  expandedSourcePathAllowlist,
+  legacySourcePathAllowlist,
+  policyAssessmentSourcePathLimit,
+  policySourcePathAllowlist,
+  sourcePathAllowlist
+} from '../scripts/tool-update/source-snapshot.mjs';
 
-const versions = [1, 2, 3, 4, 5, 6] as const;
+const versions = [1, 2, 3, 4, 5, 6, 7] as const;
 const policy = { parser_base_transition: 'none', baseline_transition: null, next_step: 'selected_exact' } as const;
 const lane = {
   product: 'codex',
@@ -46,10 +53,21 @@ function record(schemaVersion: (typeof versions)[number]) {
     source_digest: 'c'.repeat(64),
     source_paths: schemaVersion <= 4 ? legacySourcePathAllowlist : expandedSourcePathAllowlist,
     rule_revision: schemaVersion <= 4 ? 'static-assessment-v1' : 'static-assessment-v2',
-    review_sources: [{ version: '0.158.0', commit: 'd'.repeat(40), path: 'codex-rs/protocol/src/protocol.rs', availability: 'not_assessed' }],
+    review_sources: [
+      {
+        version: '0.158.0',
+        commit: 'd'.repeat(40),
+        path: 'codex-rs/protocol/src/protocol.rs',
+        availability: 'not_assessed'
+      }
+    ],
     lanes: [lane]
   };
-  const reviewed = { inventory_scope: 'legacy_full_inventory', review_ids: ['a'.repeat(64), 'b'.repeat(64)], unused_review_ids: ['a'.repeat(64)] };
+  const reviewed = {
+    inventory_scope: 'legacy_full_inventory',
+    review_ids: ['a'.repeat(64), 'b'.repeat(64)],
+    unused_review_ids: ['a'.repeat(64)]
+  };
   switch (schemaVersion) {
     case 1:
       return fields;
@@ -60,7 +78,19 @@ function record(schemaVersion: (typeof versions)[number]) {
       return { ...fields, ...reviewed };
     case 4:
     case 6:
-      return { ...fields, ...reviewed, lanes: [{ ...lane, selection_policy: policy }] };
+      return {
+        ...fields,
+        ...reviewed,
+        lanes: [{ ...lane, selection_policy: policy }]
+      };
+    case 7:
+      return {
+        ...fields,
+        ...reviewed,
+        judgment_ids: automated.judgment_ids,
+        unused_judgment_ids: [],
+        lanes: [{ ...lane, automated }]
+      };
   }
 }
 
@@ -79,9 +109,15 @@ test.each([5, 6] as const)('schema %i reads both named expanded revisions withou
   for (const rule_revision of ['static-assessment-v2', 'static-assessment-v3']) {
     expect(assessmentSchema.parse({ ...input, rule_revision })).toEqual({ ...input, rule_revision });
   }
-  for (const path of sourcePathAllowlist.filter(path => !expandedSourcePathAllowlist.includes(path))) {
+  for (const path of policySourcePathAllowlist.filter(path => !expandedSourcePathAllowlist.includes(path))) {
     expect(assessmentSchema.safeParse({ ...input, source_paths: [path] }).success).toBe(false);
-    expect(assessmentSchema.parse({ ...input, rule_revision: 'static-assessment-v3', source_paths: [path] }).source_paths).toEqual([path]);
+    expect(
+      assessmentSchema.parse({
+        ...input,
+        rule_revision: 'static-assessment-v3',
+        source_paths: [path]
+      }).source_paths
+    ).toEqual([path]);
   }
 });
 
@@ -202,7 +238,7 @@ test.each([1, 2, 3, 4] as const)('legacy schema %i refuses new root-policy profi
   }
 });
 
-test.each([0, 7])('rejects unknown assessment schema %i', schema_version => {
+test.each([0, 7, 9])('rejects unsupported or incomplete assessment schema %i', schema_version => {
   expect(assessmentSchema.safeParse({ ...record(5), schema_version }).success).toBe(false);
 });
 
@@ -225,4 +261,272 @@ test.each(versions)('schema %i keeps root policy IDs out of legacy compatibility
       expect(
         assessmentSchema.safeParse({ ...legacy, lanes: legacy.lanes.map(row => ({ ...row, compatibility: { ...compatibility, [key]: id } })) }).success
       ).toBe(false);
+});
+
+const automated = {
+  judgment_ids: ['e'.repeat(64)],
+  contracts: consumedContracts.map(contract_id => ({
+    contract_id,
+    judgment: 'unknown'
+  })),
+  comparisons: [],
+  freshness_reasons: [],
+  pending_reasons: ['baseline_missing'],
+  required_validation: ['backend_counter_meaning', 'native_execution', 'real_session'],
+  validation: 'pending',
+  conflicts: []
+};
+test.each([3, 4, 6, 7] as const)('frozen schema %i retains closed manual gates and rejects mismatched contracts', schemaVersion => {
+  const input = record(schemaVersion);
+  const selected = input.lanes[0];
+  if (!selected) throw new Error('fixture_lane_required');
+  const closed = {
+    ...input,
+    lanes: [
+      {
+        ...selected,
+        reasons: [],
+        review: {
+          ...selected.review,
+          contracts: consumedContracts.map(contract_id => ({
+            contract_id,
+            judgment: 'unaffected'
+          }))
+        },
+        gates: { ...selected.gates, contracts_reviewed: 'closed' }
+      }
+    ]
+  };
+  expect(assessmentSchema.parse(closed)).toEqual(closed);
+  expect(
+    assessmentSchema.safeParse({
+      ...closed,
+      lanes: closed.lanes.map(row => ({
+        ...row,
+        review: { ...row.review, contracts: lane.review.contracts }
+      }))
+    }).success
+  ).toBe(false);
+});
+test('frozen schema7 retains automated identity, sorting, pending and conflict boundaries', () => {
+  const input = record(7);
+  expect(assessmentSchema.parse(input)).toEqual(input);
+  for (const changes of [
+    { judgment_ids: ['f'.repeat(64)] },
+    { judgment_ids: ['f'.repeat(64), 'e'.repeat(64)] },
+    { unused_judgment_ids: ['f'.repeat(64)] },
+    {
+      lanes: [
+        {
+          ...lane,
+          automated: { ...automated, validation: 'pass' }
+        }
+      ]
+    },
+    {
+      lanes: [
+        {
+          ...lane,
+          automated: {
+            ...automated,
+            required_validation: ['native_execution']
+          }
+        }
+      ]
+    },
+    {
+      lanes: [
+        {
+          ...lane,
+          automated: {
+            ...automated,
+            comparisons: [
+              {
+                comparison_kind: 'parser_base',
+                from: {
+                  version: '0.158.0',
+                  commit: 'a'.repeat(40)
+                },
+                to: { version: '0.163.0', commit: 'b'.repeat(40) },
+                judgment_id: 'f'.repeat(64),
+                result_scope: 'job_aggregate',
+                contracts: automated.contracts
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]) {
+    expect(assessmentSchema.safeParse({ ...input, ...changes }).success).toBe(false);
+  }
+});
+function currentRecord(reviewed = false, machine = false) {
+  return {
+    ...record(5),
+    schema_version: 8,
+    rule_revision: 'static-assessment-v4',
+    source_paths: sourcePathAllowlist,
+    ...(reviewed || machine
+      ? {
+          review_ids: reviewed ? ['a'.repeat(64)] : [],
+          unused_review_ids: []
+        }
+      : {}),
+    ...(machine ? { judgment_ids: automated.judgment_ids, unused_judgment_ids: [] } : {}),
+    lanes: [
+      {
+        ...lane,
+        ...(reviewed ? { selection_policy: policy } : {}),
+        ...(machine ? { automated } : {})
+      }
+    ]
+  };
+}
+
+test.each([5, 6, 7])('frozen schema %i retains the v3 closure and excludes promotion inputs', schema_version => {
+  const input = {
+    ...record(schema_version === 6 ? 6 : 5),
+    schema_version,
+    rule_revision: 'static-assessment-v3',
+    source_paths: policySourcePathAllowlist,
+    ...(schema_version === 7
+      ? {
+          review_ids: [],
+          unused_review_ids: [],
+          judgment_ids: automated.judgment_ids,
+          unused_judgment_ids: [],
+          lanes: [{ ...lane, automated }]
+        }
+      : {})
+  };
+  expect(policySourcePathAllowlist).toHaveLength(52);
+  expect(policyAssessmentSourcePathLimit).toBe(52);
+  expect(assessmentSchema.parse(input)).toEqual(input);
+  for (const path of ['src/core/tool-version-promotion.ts', 'src/core/tool-version-promotions.json', 'src/core/tool-version-promotion-result.json']) {
+    expect(assessmentSchema.safeParse({ ...input, source_paths: [path] }).success).toBe(false);
+    expect(
+      assessmentSchema.safeParse({
+        ...input,
+        rule_revision: 'static-assessment-v4',
+        source_paths: [path]
+      }).success
+    ).toBe(false);
+  }
+  const overflow = assessmentSchema.safeParse({
+    ...input,
+    source_paths: Array<string>(53).fill('src/source-compatibility.ts')
+  });
+  if (overflow.success) throw new Error('frozen_path_limit_required');
+  expect(overflow.error.issues).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        code: 'too_big',
+        maximum: 52,
+        path: ['source_paths']
+      })
+    ])
+  );
+});
+
+test.each([
+  [false, false],
+  [true, false],
+  [false, true],
+  [true, true]
+])('schema8 preserves manual=%s machine=%s channels without authorizing gates', (reviewed, machine) => {
+  const input = currentRecord(reviewed, machine);
+  expect(assessmentSourcePathLimit).toBe(55);
+  expect(sourcePathAllowlist).toEqual(
+    [
+      ...policySourcePathAllowlist,
+      'src/core/tool-version-promotion.ts',
+      'src/core/tool-version-promotions.json',
+      'src/core/tool-version-promotion-result.json'
+    ].sort()
+  );
+  expect(assessmentSchema.parse(input)).toEqual(input);
+  const overflow = assessmentSchema.safeParse({
+    ...input,
+    source_paths: Array<string>(56).fill('src/source-compatibility.ts')
+  });
+  if (overflow.success) throw new Error('current_path_limit_required');
+  expect(overflow.error.issues).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        code: 'too_big',
+        maximum: 55,
+        path: ['source_paths']
+      })
+    ])
+  );
+  const selected = input.lanes[0];
+  if (!selected) throw new Error('fixture_lane_required');
+  expect(
+    assessmentSchema.safeParse({
+      ...input,
+      lanes: [
+        {
+          ...selected,
+          gates: { ...selected.gates, admission: 'closed' }
+        }
+      ]
+    }).success
+  ).toBe(false);
+  expect(
+    assessmentSchema.safeParse({
+      ...input,
+      rule_revision: 'static-assessment-v3'
+    }).success
+  ).toBe(false);
+  expect(
+    assessmentSchema.safeParse({
+      ...input,
+      source_paths: [...sourcePathAllowlist, 'src/unlisted-control.ts']
+    }).success
+  ).toBe(false);
+  expect(
+    assessmentSchema.safeParse({
+      ...input,
+      review_ids: ['b'.repeat(64), 'a'.repeat(64)]
+    }).success
+  ).toBe(false);
+  expect(
+    assessmentSchema.safeParse({
+      ...input,
+      unused_review_ids: ['f'.repeat(64)]
+    }).success
+  ).toBe(false);
+  if (machine) {
+    expect(
+      assessmentSchema.safeParse({
+        ...input,
+        unused_judgment_ids: ['f'.repeat(64)]
+      }).success
+    ).toBe(false);
+    expect(
+      assessmentSchema.safeParse({
+        ...input,
+        judgment_ids: ['f'.repeat(64)]
+      }).success
+    ).toBe(false);
+    expect(
+      assessmentSchema.safeParse({
+        ...input,
+        lanes: [
+          {
+            ...selected,
+            automated: { ...automated, validation: 'pass' }
+          }
+        ]
+      }).success
+    ).toBe(false);
+  } else {
+    expect(
+      assessmentSchema.safeParse({
+        ...input,
+        lanes: [{ ...selected, automated }]
+      }).success
+    ).toBe(false);
+  }
 });

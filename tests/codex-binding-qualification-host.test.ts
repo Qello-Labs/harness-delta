@@ -8,10 +8,15 @@ const crypto = vi.hoisted(() => ({
   digest: vi.fn(() => '79f123a85dbc61e8f5d0f0c050dfc3f4b81a8305d33a32b41e008b7f6e035698')
 }));
 // A valid digest isolates filesystem guards without retaining release binaries in fixtures.
-vi.mock('node:crypto', async importOriginal => ({
-  ...(await importOriginal<typeof import('node:crypto')>()),
-  createHash: () => ({ update: () => ({ digest: crypto.digest }) })
-}));
+vi.mock('node:crypto', async importOriginal => {
+  const actual = await importOriginal<typeof import('node:crypto')>();
+  return {
+    ...actual,
+    createHash: (algorithm: string) => ({
+      update: (data: string | Buffer) => (Buffer.isBuffer(data) ? { digest: crypto.digest } : actual.createHash(algorithm).update(data))
+    })
+  };
+});
 
 let root: string;
 beforeEach(() => {

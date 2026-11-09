@@ -1,4 +1,11 @@
-import { legacyClaudeBindingAdmissions } from './core/tool-version-profiles.js';
+import {
+  legacyClaudeBindingAdmissions,
+  lookupEffectiveToolVersionFacet,
+  lookupToolVersionProfile,
+  toolVersionIdentity,
+  toolVersionPromotionProjection
+} from './core/tool-version-profiles.js';
+import { promotionEvidenceId, type ToolVersionPromotionDescriptor } from './core/tool-version-promotion.js';
 export const defaultClaudeBindingVersion = '2.1.306';
 
 // Literal declarations preserve the legacy API; values come from the registry.
@@ -48,6 +55,87 @@ export const claudeBindingAdmission = claudeBindingAdmissions[0] as Readonly<{
 
 export function getClaudeBindingAdmission(version: string) {
   return claudeBindingAdmissions.find(admission => admission.productVersion === version);
+}
+
+export interface EffectiveClaudeBindingAdmission {
+  readonly kind: 'legacy' | 'promoted';
+  readonly profileId: string;
+  readonly productVersion: string;
+  readonly binarySha256: string;
+  readonly model: string;
+  readonly admitted: true;
+  readonly maxDepth: number;
+  readonly maxFamilyMembers: number;
+  readonly evidenceId: string;
+  readonly qualified: boolean;
+  readonly finalityVariant: ToolVersionPromotionDescriptor['variants']['finality'];
+  readonly descriptor?: ToolVersionPromotionDescriptor;
+}
+export function getEffectiveClaudeBindingAdmission(version: string, operation = 'collect', topology = 'root'): EffectiveClaudeBindingAdmission | undefined {
+  const legacy = getClaudeBindingAdmission(version);
+  if (legacy && ['link', 'collect', 'restart', 'resume'].includes(operation) && ['root', 'bounded_family'].includes(topology)) {
+    return {
+      ...legacy,
+      kind: 'legacy',
+      maxDepth: 1,
+      finalityVariant: lookupToolVersionProfile('claude_code', version)?.transcriptProfile?.finalityVariant ?? 'claude_candidate_quiescence_v1'
+    };
+  }
+  const facet = lookupEffectiveToolVersionFacet(
+    'claude_code',
+    version,
+    operation,
+    topology,
+    `${process.platform}_${process.arch}`,
+    `node${process.versions.node.split('.')[0]}`
+  );
+  if (!facet) return undefined;
+  const scope = facet.descriptor.scopes.find(scope => scope.operation === operation && scope.topology === topology);
+  if (!scope) throw new Error('tool_version_promotion_invalid');
+  return {
+    kind: 'promoted',
+    profileId: facet.descriptor.profileId,
+    productVersion: facet.descriptor.version,
+    binarySha256: toolVersionIdentity(facet.descriptor.nativeIdentity).sha256,
+    model: facet.descriptor.model,
+    admitted: true,
+    maxDepth: scope.maxDepth,
+    maxFamilyMembers: scope.maxFamilyMembers,
+    evidenceId: promotionEvidenceId(facet),
+    qualified: facet.decision.grants.includes('qualification'),
+    finalityVariant: facet.descriptor.variants.finality,
+    descriptor: facet.descriptor
+  };
+}
+export function getEffectiveClaudeExactImages(): readonly {
+  readonly productVersion: string;
+  readonly binarySha256: string;
+  readonly admitted: true;
+}[] {
+  const images = new Map<
+    string,
+    {
+      readonly productVersion: string;
+      readonly binarySha256: string;
+      readonly admitted: true;
+    }
+  >(claudeBindingAdmissions.map(admission => [admission.productVersion, admission]));
+  const promoted: {
+    productVersion: string;
+    binarySha256: string;
+    admitted: true;
+  }[] = [];
+  for (const facet of toolVersionPromotionProjection.facets) {
+    if (facet.descriptor.product !== 'claude_code') continue;
+    const admission = getEffectiveClaudeBindingAdmission(facet.descriptor.version, facet.decision.scope.lane.operation, facet.decision.scope.lane.topology);
+    if (!admission || images.has(admission.productVersion) || promoted.some(image => image.productVersion === admission.productVersion)) continue;
+    promoted.push({
+      productVersion: admission.productVersion,
+      binarySha256: admission.binarySha256,
+      admitted: true
+    });
+  }
+  return [...images.values(), ...promoted];
 }
 
 export function isClaudeModel(model: string | null): boolean {

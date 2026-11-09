@@ -1,21 +1,21 @@
 import type { SourceCompatibility } from './contracts.js';
 import { assertCompatibilityAllowed, resolveSourceCompatibility } from './source-compatibility.js';
-import { getCodexBindingAdmission } from './codex-binding-admission.js';
+import { getEffectiveCodexBindingAdmission } from './codex-binding-admission.js';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
-import { addTokens, IdSchema, ModelSchema, TimestampSchema, TokenSchema, type Reading } from './contracts.js';
+import { addTokens, IdSchema, ModelSchema, type Reading, TimestampSchema, TokenSchema } from './contracts.js';
 import {
+  type CostCoverageEvidence,
   CostCoverageEvidenceSchema,
   CostFactsSchema,
-  EventV2Schema,
-  RuntimeEvidenceSchema,
-  type CostCoverageEvidence,
   type EventV2,
-  type RuntimeEvidence
+  EventV2Schema,
+  type RuntimeEvidence,
+  RuntimeEvidenceSchema
 } from './flexible-contracts.js';
 import { putUsageWithEvidence, requireActiveScope } from './core/runtime-history.js';
 import type { Store } from './store.js';
-import { claudeProbeProductVersion, claudeWorkflowProductVersions, type ClaudeWorkflowProductVersion } from './claude-workflow-versions.js';
+import { claudeProbeProductVersion, type ClaudeWorkflowProductVersion, claudeWorkflowProductVersions } from './claude-workflow-versions.js';
 import { toolVersionRecipe } from './core/tool-version-profiles.js';
 import { resolveOrdinaryWindow } from './core/ordinary-window-policy.js';
 
@@ -412,13 +412,15 @@ function checkWorkflowCompatibility(scope: CandidateScope, compatibility: Source
       JSON.stringify(resolved.compatibility) !== JSON.stringify(compatibility) ||
       scope.sessions.length !== 1 ||
       scope.sessions.some(s => s.product !== 'codex' || s.parentSessionId !== null || s.processId !== null || s.agentId !== null)
-    )
+    ) {
       throw new Error('candidate_scope_mismatch');
+    }
     return;
   }
   const source = compatibility.source === 'codex_binding' ? 'codex_binding' : scope.sessions[0]?.product === 'codex' ? 'codex_workflow' : 'claude_workflow';
-  const resolved = resolveSourceCompatibility(compatibility.product, compatibility.product_version, source, compatibility.profile_id);
-  const admission = source === 'codex_binding' ? getCodexBindingAdmission(compatibility.product_version) : undefined;
+  const topology = scope.sessions.some(session => session.parentSessionId !== null) ? 'bounded_family' : 'root';
+  const resolved = resolveSourceCompatibility(compatibility.product, compatibility.product_version, source, compatibility.profile_id, 'collect', topology);
+  const admission = source === 'codex_binding' ? getEffectiveCodexBindingAdmission(compatibility.product_version, 'collect', topology) : undefined;
   if (
     !resolved ||
     JSON.stringify(resolved) !== JSON.stringify(compatibility) ||
@@ -432,8 +434,9 @@ function checkWorkflowCompatibility(scope: CandidateScope, compatibility: Source
       (source === 'claude_workflow'
         ? scope.sessions.length !== 1
         : scope.sessions.length > 2 || scope.sessions.some(s => s.parentSessionId !== null && s.parentSessionId !== s.rootSessionId)))
-  )
+  ) {
     throw new Error('candidate_scope_mismatch');
+  }
 }
 export function authorizeCandidateScope(store: Store, scope: CandidateScope, compatibility?: SourceCompatibility): void {
   // Window writes require the staged coordinator's Store authority and provenance.

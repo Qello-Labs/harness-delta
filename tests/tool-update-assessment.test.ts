@@ -14,6 +14,72 @@ import type { Candidate, Observation, Product, Release } from '../scripts/tool-u
 import { laneSchema, sourceLanes } from '../scripts/tool-update/lanes.mjs';
 import { legacySourcePathAllowlist, sourcePathAllowlist, withSourceSnapshot } from '../scripts/tool-update/source-snapshot.mjs';
 
+const frozenLegacyAssessment = {
+  schema_version: 1,
+  kind: 'assessment',
+  candidate_id: 'a'.repeat(64),
+  observation_id: 'b'.repeat(64),
+  baseline_digest: null,
+  source_digest: 'c'.repeat(64),
+  source_paths: legacySourcePathAllowlist,
+  rule_revision: 'static-assessment-v1',
+  review_sources: [
+    {
+      version: '0.158.0',
+      commit: 'd'.repeat(40),
+      path: 'codex-rs/protocol/src/protocol.rs',
+      availability: 'not_assessed'
+    }
+  ],
+  lanes: [
+    {
+      product: 'codex',
+      route: 'file',
+      profile_id: 'codex-file-checkpoint-v1',
+      operation: 'collect',
+      topology: 'root',
+      static_selection: 'exact',
+      compatibility: null,
+      parser_base: '0.158.0',
+      window: null,
+      rule_revision: 'forward-version-v1',
+      declared_scope: {
+        max_depth: 0,
+        max_members: 1,
+        read_only: false,
+        exact_only: false
+      },
+      reasons: ['baseline_missing', 'contracts_unknown'],
+      review: {
+        coverage: 'baseline_missing',
+        baseline_version: null,
+        releases: [],
+        edges: [],
+        parser_comparison: null,
+        contracts: consumedContracts.map(contract_id => ({
+          contract_id,
+          judgment: 'unknown'
+        }))
+      },
+      live: {
+        invalidation: 'not_assessed',
+        binary: 'not_assessed',
+        permissions: 'not_assessed',
+        config: 'not_assessed',
+        authentication: 'not_assessed'
+      },
+      gates: {
+        contracts_reviewed: 'unknown',
+        conformance: 'not_assessed',
+        regression: 'not_assessed',
+        implementation_review: 'not_assessed',
+        admission: 'not_assessed',
+        default_promotion: 'not_assessed'
+      }
+    }
+  ]
+};
+
 const root = realpathSync(fileURLToPath(new URL('..', import.meta.url)));
 const parserPaths = [
   'src/connect/claude-connect-installation.ts',
@@ -311,14 +377,20 @@ test('rejects compile-to-scope reread drift before validating the later pin', as
 });
 test.each(parserPaths)('a one-byte change in %s invalidates baseline and review digests', async parserPath => {
   const directory = await sourceFixture();
-  const input = { ...fixture('codex', ['0.162.1', '0.163.0']), root: directory };
+  const input = {
+    ...fixture('codex', ['0.162.1', '0.163.0']),
+    root: directory
+  };
   const snapshot = await withSourceSnapshot(directory, () => null);
   const base = baseline();
   const row = base.rows[0];
   const from = input.observation.releases[0];
   const to = input.observation.releases[1];
   if (!row || !from || !to) throw new Error('fixture_review_required');
-  const currentBaseline = { ...base, rows: [{ ...row, source_digest: snapshot.source_digest }] };
+  const currentBaseline = {
+    ...base,
+    rows: [{ ...row, source_digest: snapshot.source_digest }]
+  };
   const record: ContractReview = {
     schema_version: 1,
     kind: 'contract_review',
@@ -330,27 +402,32 @@ test.each(parserPaths)('a one-byte change in %s invalidates baseline and review 
     contract_revision: 'consumed-v1',
     from: { version: from.version, commit: from.commit },
     to: { version: to.version, commit: to.commit },
-    contracts: consumedContracts.map(contract_id => ({ contract_id, judgment: 'unaffected' })),
+    contracts: consumedContracts.map(contract_id => ({
+      contract_id,
+      judgment: 'unaffected'
+    })),
     evidence_ids: ['a'.repeat(64)],
     source_digest: snapshot.source_digest
   };
-  const before = await assessCandidate({ ...input, baseline: currentBaseline, reviews: [record] });
-  if (before.schema_version !== 6) throw new Error('schema_6_required');
+  const before = await assessCandidate({
+    ...input,
+    baseline: currentBaseline,
+    reviews: [record]
+  });
+  if (before.schema_version !== 8 || before.review_ids === undefined || before.judgment_ids !== undefined) throw new Error('reviewed_schema_8_required');
   expect(lane(before, row.profile_id).gates.contracts_reviewed).toBe('closed');
   expect(lane(before, row.profile_id).reasons).not.toContain('baseline_source_changed');
+  const legacyLanes = before.lanes.filter(current => current.rule_revision === 'forward-version-v1');
+  for (const current of legacyLanes) {
+    expect(current.selection_policy).toBeDefined();
+  }
   expect(
     assessmentSchema.safeParse({
-      ...before,
+      ...frozenLegacyAssessment,
       schema_version: 3,
-      rule_revision: 'static-assessment-v1',
-      lanes: before.lanes
-        .filter(current => current.rule_revision === 'forward-version-v1')
-        .map(current => {
-          const { selection_policy, ...previous } = current;
-          expect(selection_policy).toBeDefined();
-          return previous;
-        }),
-      source_paths: legacySourcePathAllowlist
+      inventory_scope: 'legacy_full_inventory',
+      review_ids: ['a'.repeat(64)],
+      unused_review_ids: []
     }).success
   ).toBe(true);
   const path = join(directory, parserPath);
@@ -359,7 +436,11 @@ test.each(parserPaths)('a one-byte change in %s invalidates baseline and review 
   if (first === undefined) throw new Error('fixture_source_required');
   bytes[0] = first ^ 1;
   await writeFile(path, bytes);
-  const after = await assessCandidate({ ...input, baseline: currentBaseline, reviews: [record] });
+  const after = await assessCandidate({
+    ...input,
+    baseline: currentBaseline,
+    reviews: [record]
+  });
   expect(after.source_digest).not.toBe(before.source_digest);
   expect(lane(after, row.profile_id).reasons).toEqual(expect.arrayContaining(['baseline_source_changed', 'review_source_changed']));
   expect(lane(after, row.profile_id).gates.contracts_reviewed).toBe('unknown');
@@ -419,10 +500,22 @@ test('rejects aggregate capture above 16 MiB even when each hash-only input fits
   ).rejects.toMatchObject({ code: 'source_snapshot_unavailable' });
   expect(projected).toBe(false);
 });
-test('the v3 snapshot consumes the finite 52-path Claude package contract', async () => {
+test('the v4 snapshot consumes the finite promotion closure', async () => {
   const snapshot = await withSourceSnapshot(root, () => null);
-  expect(snapshot.source_paths).toHaveLength(52);
+  expect(snapshot.source_paths).toHaveLength(55);
 });
+test.each(['src/core/tool-version-promotion.ts', 'src/core/tool-version-promotions.json', 'src/core/tool-version-promotion-result.json'])(
+  'a metadata-preserving byte change in %s changes the snapshot identity',
+  async path => {
+    const directory = await sourceFixture();
+    const before = await withSourceSnapshot(directory, () => null);
+    const full = join(directory, path);
+    await writeFile(full, `${await readFile(full, 'utf8')}\n`);
+    const after = await withSourceSnapshot(directory, () => null);
+    expect(after.source_paths).toEqual(before.source_paths);
+    expect(after.source_digest).not.toBe(before.source_digest);
+  }
+);
 test('loads nested source imports and retirement metadata without dist', async () => {
   const directory = await sourceFixture();
   const path = join(directory, 'src/core/tool-version-profiles.ts');
@@ -434,7 +527,7 @@ test('loads nested source imports and retirement metadata without dist', async (
   expect(snapshot.value.retired).toEqual(['2.1.288', '2.1.291']);
   expect(snapshot.value.admitted?.state).toBe('verified');
   expect(snapshot.source_paths).toEqual(sourcePathAllowlist);
-  expect(snapshot.source_paths).toHaveLength(52);
+  expect(snapshot.source_paths).toHaveLength(55);
 });
 test.each([
   ['escape', "import '../../package.json' with { type: 'json' };"],
@@ -456,14 +549,12 @@ test.each([
   ).rejects.toMatchObject({ code: 'source_snapshot_unavailable' });
   expect(projected).toBe(false);
 });
-test('legacy schema 1 and 2 assessments parse without the hash-only parser paths', async () => {
-  const current = await assessCandidate(fixture());
-  if (current.schema_version !== 5) throw new Error('schema_5_required');
+test('legacy schema 1 and 2 assessments parse without the hash-only parser paths', () => {
   const legacy = {
-    ...current,
+    ...frozenLegacyAssessment,
+    inventory_scope: 'legacy_full_inventory',
     schema_version: 2,
     rule_revision: 'static-assessment-v1',
-    lanes: current.lanes.filter(row => row.rule_revision === 'forward-version-v1'),
     source_paths: legacySourcePathAllowlist.filter(
       path =>
         !['src/nested-candidate.ts', 'src/codex-candidate-rollout.ts', 'src/core/ordinary-window-store.ts', 'src/ordinary-window-binding.ts'].includes(path)

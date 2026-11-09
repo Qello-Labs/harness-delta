@@ -112,7 +112,7 @@ type LegacyAssessment = AssessmentFields & { readonly rule_revision: 'static-ass
     readonly lanes: readonly (AssessmentLane & { readonly selection_policy: SelectionPolicy })[];
   }
 );
-export type Assessment = LegacyAssessment | AssessmentFields & { readonly rule_revision: 'static-assessment-v2' | 'static-assessment-v3' } & (
+type ExpandedAssessment = AssessmentFields & { readonly rule_revision: 'static-assessment-v2' | 'static-assessment-v3' } & (
   { readonly schema_version: 5; readonly inventory_scope: 'legacy_full_inventory' | 'latest_and_npm_review_range';
     readonly lanes: readonly AssessmentLane[] } |
   { readonly schema_version: 6; readonly inventory_scope: 'legacy_full_inventory' | 'latest_and_npm_review_range';
@@ -125,6 +125,30 @@ export type Assessment = LegacyAssessment | AssessmentFields & { readonly rule_r
       readonly selection_policy?: SelectionPolicy; readonly automated: AutomatedAssessment;
     })[] }
 );
+type CurrentAssessment = AssessmentFields & {
+  readonly schema_version: 8;
+  readonly rule_revision: 'static-assessment-v4';
+  readonly inventory_scope: 'legacy_full_inventory' | 'latest_and_npm_review_range';
+} & (
+  {
+    readonly review_ids?: never; readonly unused_review_ids?: never;
+    readonly judgment_ids?: never; readonly unused_judgment_ids?: never;
+    readonly lanes: readonly AssessmentLane[];
+  } |
+  {
+    readonly review_ids: readonly string[]; readonly unused_review_ids: readonly string[];
+    readonly judgment_ids?: never; readonly unused_judgment_ids?: never;
+    readonly lanes: readonly (AssessmentLane & { readonly selection_policy: SelectionPolicy })[];
+  } |
+  {
+    readonly review_ids: readonly string[]; readonly unused_review_ids: readonly string[];
+    readonly judgment_ids: readonly string[]; readonly unused_judgment_ids: readonly string[];
+    readonly lanes: readonly (AssessmentLane & {
+      readonly selection_policy?: SelectionPolicy; readonly automated: AutomatedAssessment;
+    })[];
+  }
+);
+export type Assessment = LegacyAssessment | ExpandedAssessment | CurrentAssessment;
 export const assessmentSchema: z.ZodType<Assessment>;
 export function assessCandidate(input: {
   readonly candidate: unknown; readonly observation: unknown; readonly baseline?: unknown;

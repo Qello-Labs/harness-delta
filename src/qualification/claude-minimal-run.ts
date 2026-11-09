@@ -7,9 +7,9 @@ import {
   lstatSync,
   mkdirSync,
   openSync,
-  readSync,
-  readFileSync,
   readdirSync,
+  readFileSync,
+  readSync,
   realpathSync,
   writeFileSync
 } from 'node:fs';
@@ -51,15 +51,33 @@ function implementationDigest(): string {
     'source-compatibility',
     'core/ordinary-window-policy',
     'package-paths',
-    'core/tool-version-profiles'
+    'core/tool-version-profiles',
+    'core/tool-version-promotion'
   ];
-  const files = names.map(name => ({ name, sha256: digest(readFileSync(implementationPath(name + implementationExtension))) }));
-  for (const name of ['core/tool-version-profiles.json', 'core/tool-version-recipes.json', 'core/tool-version-identities.json'])
-    files.push({ name, sha256: digest(readFileSync(implementationPath(name))) });
+  const files = names.map(name => ({
+    name,
+    sha256: digest(readFileSync(implementationPath(name + implementationExtension)))
+  }));
+  for (const name of [
+    'core/tool-version-profiles.json',
+    'core/tool-version-recipes.json',
+    'core/tool-version-identities.json',
+    'core/tool-version-promotions.json',
+    'core/tool-version-promotion-result.json'
+  ]) {
+    files.push({
+      name,
+      sha256: digest(readFileSync(implementationPath(name)))
+    });
+  }
   for (const name of readdirSync(implementationPath('migrations'))
     .filter(n => n.endsWith('.sql'))
-    .sort())
-    files.push({ name, sha256: digest(readFileSync(implementationPath('migrations', name))) });
+    .sort()) {
+    files.push({
+      name,
+      sha256: digest(readFileSync(implementationPath('migrations', name)))
+    });
+  }
   return digest(JSON.stringify(files));
 }
 const binarySchema = z.strictObject({

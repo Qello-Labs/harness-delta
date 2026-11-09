@@ -1,6 +1,15 @@
 import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+	parseToolVersionPromotionDescriptor,
+	projectToolVersionPromotions,
+	promotionProjectionDigest,
+	promotionRegistryDigest,
+} from "../src/core/tool-version-promotion.ts";
+import {
+	promotionImplementationDigest,
+} from "./tool-update/promotion-implementation.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const check = process.argv.length === 3 && process.argv[2] === "--check";
@@ -8,10 +17,21 @@ if (process.argv.length > 2 && !check) {
 	throw new Error("tool_version_assets_arguments");
 }
 const read = (path) => readFileSync(join(root, path), "utf8");
-const profiles = JSON.parse(read("src/core/tool-version-profiles.json"));
+const rawProfiles = JSON.parse(read("src/core/tool-version-profiles.json"));
+const profiles = rawProfiles.filter((profile) =>
+	profile.kind !== "promoted_descriptor"
+);
+const descriptors = rawProfiles.filter((profile) =>
+	profile.kind === "promoted_descriptor"
+).map(parseToolVersionPromotionDescriptor);
 const recipes = JSON.parse(read("src/core/tool-version-recipes.json"));
 const identities =
 	JSON.parse(read("src/core/tool-version-identities.json")).entries;
+const registryDigest = promotionRegistryDigest({
+	profiles: rawProfiles,
+	recipes,
+	identities,
+});
 const receiptProfiles = profiles.filter((profile) =>
 	profile.product === "codex" && profile.exportOrder.receipt !== undefined
 )
@@ -29,6 +49,7 @@ const admittedImage = {
 };
 const literal = (value) => `'${value}'`;
 const artifacts = new Map();
+const changed = [];
 
 function frozenLiteral(value) {
 	if (Array.isArray(value)) {
@@ -102,20 +123,66 @@ artifacts.set(
 			declaration(admittedImage.version)
 		}; sha256: string; size: ${declaration(admittedImage.size)} }>;\n`,
 );
+writeArtifacts();
+artifacts.clear();
+const implementationDigest = await promotionImplementationDigest(root);
+const projection = projectToolVersionPromotions({
+	descriptors,
+	ledger: JSON.parse(read("src/core/tool-version-promotions.json")),
+	registryDigest,
+	implementationDigest,
+});
+const promotedSupport = descriptors.map((descriptor) => ({
+	product: descriptor.product,
+	version: descriptor.version,
+	promotion: {
+		status:
+			projection.facets.some((facet) =>
+					facet.descriptor.product === descriptor.product &&
+					facet.descriptor.version === descriptor.version
+				)
+				? "effective"
+				: "pending",
+		profileId: descriptor.profileId,
+		route: descriptor.route,
+		declaredScopes: descriptor.scopes,
+		effectiveScopes: projection.facets.filter((facet) =>
+			facet.descriptor.product === descriptor.product &&
+			facet.descriptor.version === descriptor.version
+		).map(({ decision }) => {
+			const scope = descriptor.scopes.find((scope) =>
+				scope.operation === decision.scope.lane.operation &&
+				scope.topology === decision.scope.lane.topology
+			);
+			return {
+				operation: scope.operation,
+				topology: scope.topology,
+				maxDepth: scope.maxDepth,
+				maxFamilyMembers: scope.maxFamilyMembers,
+				platform: decision.scope.platform,
+				runtime: decision.scope.runtime,
+				grants: decision.grants,
+			};
+		}),
+	},
+}));
 const currentSupport = {
 	schemaVersion: 1,
-	profiles: profiles.map((profile) => ({
-		product: profile.product,
-		version: profile.version,
-		...(profile.file ? { file: profile.file } : {}),
-		...(profile.workflow ? { workflow: profile.workflow } : {}),
-		...(profile.ordinaryBinding
-			? { ordinaryBinding: profile.ordinaryBinding }
-			: {}),
-		...(profile.transcriptProfile
-			? { transcriptProfile: profile.transcriptProfile }
-			: {}),
-	})),
+	profiles: [
+		...profiles.map((profile) => ({
+			product: profile.product,
+			version: profile.version,
+			...(profile.file ? { file: profile.file } : {}),
+			...(profile.workflow ? { workflow: profile.workflow } : {}),
+			...(profile.ordinaryBinding
+				? { ordinaryBinding: profile.ordinaryBinding }
+				: {}),
+			...(profile.transcriptProfile
+				? { transcriptProfile: profile.transcriptProfile }
+				: {}),
+		})),
+		...promotedSupport,
+	],
 };
 artifacts.set(
 	"scripts/generated/current-support.json",
@@ -305,6 +372,7 @@ function supportMatrix(korean) {
 				"ordinaryBinding",
 				"ordinaryWindow",
 				"transcriptProfile",
+				...(profile.promotion ? ["promotion"] : []),
 			]
 		) {
 			const declared = profile[route];
@@ -445,35 +513,53 @@ factBlock(
 		"조건부 후속 버전 선택은 정확 admission과 별개입니다.",
 );
 
-const changed = [];
-for (const [path, expected] of artifacts) {
-	let current;
-	try {
-		const stat = statSync(join(root, path));
-		if ((stat.mode & 0o222) === 0) {
-			throw new Error(`tool_version_assets_read_only:${path}`);
+artifacts.set(
+	"src/core/tool-version-promotion-result.json",
+	JSON.stringify(
+		{
+			schema_version: 1,
+			implementation_scheme: "promotion-implementation-v1",
+			implementation_digest: implementationDigest,
+			effective_projection_digest: promotionProjectionDigest(projection),
+		},
+		null,
+		2,
+	) + "\n",
+);
+writeArtifacts();
+
+function writeArtifacts() {
+	const pending = [];
+	for (const [path, expected] of artifacts) {
+		let current;
+		try {
+			const stat = statSync(join(root, path));
+			if ((stat.mode & 0o222) === 0) {
+				throw new Error(`tool_version_assets_read_only:${path}`);
+			}
+			current = read(path);
+		} catch (error) {
+			if (
+				!(error instanceof Error) || !("code" in error) ||
+				error.code !== "ENOENT"
+			) throw error;
+			if (check) {
+				throw new Error(`tool_version_assets_missing:${path}`, {
+					cause: error,
+				});
+			}
+			current = null;
 		}
-		current = read(path);
-	} catch (error) {
-		if (
-			!(error instanceof Error) || !("code" in error) ||
-			error.code !== "ENOENT"
-		) throw error;
-		if (check) {
-			throw new Error(`tool_version_assets_missing:${path}`, {
-				cause: error,
-			});
+		if (current !== expected) {
+			if (check) throw new Error(`tool_version_assets_stale:${path}`);
+			pending.push([path, expected]);
 		}
-		current = null;
 	}
-	if (current !== expected) {
-		if (check) throw new Error(`tool_version_assets_stale:${path}`);
+	for (const [path, expected] of pending) {
+		mkdirSync(dirname(join(root, path)), { recursive: true });
+		writeFileSync(join(root, path), expected);
 		changed.push([path, expected]);
 	}
-}
-for (const [path, expected] of changed) {
-	mkdirSync(dirname(join(root, path)), { recursive: true });
-	writeFileSync(join(root, path), expected);
 }
 console.log(
 	JSON.stringify({

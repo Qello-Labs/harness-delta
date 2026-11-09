@@ -1,9 +1,9 @@
 import { lookupFileProfile, type RegisteredFileProfile } from './adapter-profiles.js';
-import { EventSchema, SourceCompatibilitySchema, type SourceCompatibility } from './contracts.js';
+import { EventSchema, type SourceCompatibility, SourceCompatibilitySchema } from './contracts.js';
 import { productionSourceEvidence } from './readiness.js';
 import type { Store } from './store.js';
-import { codexBindingAdmissions, getCodexBindingAdmission, isQualifiedCodexBindingAdmission } from './codex-binding-admission.js';
-import { getClaudeBindingAdmission } from './claude-binding-admission.js';
+import { getEffectiveCodexBindingAdmission } from './codex-binding-admission.js';
+import { getEffectiveClaudeBindingAdmission } from './claude-binding-admission.js';
 import { OrdinaryWindowSelectionSchema, resolveOrdinaryWindow } from './core/ordinary-window-policy.js';
 
 export type CompatibilitySource = SourceCompatibility['source'];
@@ -26,11 +26,18 @@ export const sourceCompatibilityWindows = Object.freeze([
   { product: 'claude_code', source: 'claude_workflow', base: '2.1.296', upper_exclusive: '2.2.0', profile_id: 'claude-workflow-own-trace-v1' }
 ] as const);
 
-export function resolveSourceCompatibility(product: string, version: string, source: CompatibilitySource, profileId?: string): SourceCompatibility | null {
+export function resolveSourceCompatibility(
+  product: string,
+  version: string,
+  source: CompatibilitySource,
+  profileId?: string,
+  operation = 'collect',
+  topology = 'root'
+): SourceCompatibility | null {
   const numbers = stableVersion(version);
   if (!numbers || !['codex', 'claude_code'].includes(product)) return null;
-  const claudeBindingAdmission = getClaudeBindingAdmission(version);
-  if (source === 'claude_binding')
+  const claudeBindingAdmission = getEffectiveClaudeBindingAdmission(version, operation, topology);
+  if (source === 'claude_binding') {
     return product === 'claude_code' && claudeBindingAdmission && (profileId === undefined || profileId === claudeBindingAdmission.profileId)
       ? SourceCompatibilitySchema.parse({
           state: claudeBindingAdmission.qualified ? 'verified' : 'compatibility_unverified',
@@ -43,11 +50,12 @@ export function resolveSourceCompatibility(product: string, version: string, sou
           rule_revision: compatibilityRuleRevision
         })
       : null;
-  const bindingAdmission = getCodexBindingAdmission(version);
-  if (source === 'codex_binding')
+  }
+  const bindingAdmission = getEffectiveCodexBindingAdmission(version, operation, topology);
+  if (source === 'codex_binding') {
     return product === 'codex' && bindingAdmission && (profileId === undefined || profileId === bindingAdmission.profileId)
       ? SourceCompatibilitySchema.parse({
-          state: isQualifiedCodexBindingAdmission(version) ? 'verified' : 'compatibility_unverified',
+          state: bindingAdmission.qualified ? 'verified' : 'compatibility_unverified',
           product,
           product_version: version,
           source,
@@ -57,6 +65,7 @@ export function resolveSourceCompatibility(product: string, version: string, sou
           rule_revision: compatibilityRuleRevision
         })
       : null;
+  }
   const file = source === 'file' ? lookupFileProfile(product, version) : 'unsupported';
   const native =
     source === 'file'
@@ -65,7 +74,7 @@ export function resolveSourceCompatibility(product: string, version: string, sou
           row =>
             row.product === product &&
             row.product_version === version &&
-            !codexBindingAdmissions.some(admission => row.profile_id === admission.profileId) &&
+            row.profile_id.includes('-workflow-') &&
             (profileId === undefined || row.profile_id === profileId) &&
             (product === 'codex' ? source === 'codex_workflow' : source === 'claude_workflow')
         );
@@ -77,7 +86,7 @@ export function resolveSourceCompatibility(product: string, version: string, sou
           ? 'codex-file-legacy-v1'
           : 'codex-file-checkpoint-v1'
       : native?.profile_id;
-  if (exactId && (profileId === undefined || profileId === exactId))
+  if (exactId && (profileId === undefined || profileId === exactId)) {
     return SourceCompatibilitySchema.parse({
       state: 'verified',
       product,
@@ -88,6 +97,7 @@ export function resolveSourceCompatibility(product: string, version: string, sou
       profile_id: exactId,
       rule_revision: compatibilityRuleRevision
     });
+  }
   const window = sourceCompatibilityWindows.find(
     row =>
       row.product === product &&

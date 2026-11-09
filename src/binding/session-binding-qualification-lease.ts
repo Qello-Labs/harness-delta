@@ -4,10 +4,10 @@ import { comparisonProtocol, protocolRow } from '../core/protocol-store.js';
 import { parseTaskMetadata } from '../flexible-contracts.js';
 import { Lifecycle } from '../core/lifecycle.js';
 import type { Store } from '../store.js';
-import type { VerifiedSessionIdentity, BindingUsageRecord } from '../session-binding-contract.js';
+import type { BindingUsageRecord, VerifiedSessionIdentity } from '../session-binding-contract.js';
 import type { OwnedCliInvocation } from '../connect/owned-cli-invocation.js';
 import { resolveSourceCompatibility } from '../source-compatibility.js';
-import { codexBindingQualificationPolicies, codexBindingQualificationVersions } from '../core/tool-version-profiles.js';
+import { codexBindingQualificationVersions, getEffectiveCodexBindingQualification } from '../core/tool-version-profiles.js';
 
 /** Opaque, process-local native qualification capability. No browser/profile flag. */
 export interface BindingQualificationLease {
@@ -38,7 +38,7 @@ interface State {
   store: Store;
   taskId: string;
   root: string;
-  productVersion: (typeof codexBindingQualificationVersions)[number];
+  productVersion: string;
   owner: OwnedCliInvocation;
   deadline: number;
   issuedAt: number;
@@ -107,20 +107,33 @@ export function issueCodexBindingLease(
     store.all('SELECT id FROM projects').length !== 1 ||
     store.all('SELECT id FROM sessions').length ||
     store.eventCount()
-  )
+  ) {
     throw new Error('binding_qualification_scope_invalid');
+  }
   const protocol = comparisonProtocol(store, protocolRow(store, assignment.protocol_id));
-  if (protocol.schema_version !== 2 || protocol.source_profiles.length !== 1 || protocol.source_profiles[0]?.product !== 'codex')
+  if (protocol.schema_version !== 2 || protocol.source_profiles.length !== 1 || protocol.source_profiles[0]?.product !== 'codex') {
     throw new Error('binding_qualification_scope_invalid');
+  }
   const productVersion = protocol.source_profiles[0].product_version;
-  if (productVersion !== '0.160.0' && productVersion !== '0.162.1' && productVersion !== '0.163.0' && productVersion !== '0.166.0')
-    throw new Error('binding_qualification_scope_invalid');
+  const qualification = getEffectiveCodexBindingQualification(productVersion, 'collect', plannedChildren === 0 ? 'root' : 'bounded_family');
+  const legacy = codexBindingQualificationVersions.some(version => version === productVersion);
   if (
-    productVersion === '0.166.0'
-      ? plannedChildren === undefined || protocol.source_profiles[0].profile_id !== 'codex-binding-01660-direct-family-v1'
-      : plannedChildren !== undefined && plannedChildren !== 2
-  )
+    !qualification ||
+    (!legacy &&
+      (plannedChildren === undefined ||
+        qualification.profileId !== protocol.source_profiles[0].profile_id ||
+        qualification.maxFamilyMembers < plannedChildren + 1))
+  ) {
     throw new Error('binding_qualification_scope_invalid');
+  }
+  if (
+    legacy &&
+    (productVersion === '0.166.0'
+      ? plannedChildren === undefined || protocol.source_profiles[0].profile_id !== 'codex-binding-01660-direct-family-v1'
+      : plannedChildren !== undefined && plannedChildren !== 2)
+  ) {
+    throw new Error('binding_qualification_scope_invalid');
+  }
   const lease = Object.freeze({ qualificationOnly: true as const });
   leases.set(lease, {
     store,
@@ -164,8 +177,12 @@ export function revokeBindingQualification(lease: BindingQualificationLease): vo
 export function assertBindingQualification(lease: BindingQualificationLease | undefined, store: Store, taskId: string): boolean {
   if (!lease) return false;
   const s = leases.get(lease);
-  if (!s || s.store !== store || s.taskId !== taskId || s.revoked || !s.owner.hasSpawned() || s.owner.stopRequested() || Date.now() >= s.deadline)
+  if (!s || s.store !== store || s.taskId !== taskId || s.revoked || !s.owner.hasSpawned() || s.owner.stopRequested() || Date.now() >= s.deadline) {
     throw new Error('binding_qualification_revoked');
+  }
+  if (!getEffectiveCodexBindingQualification(s.productVersion, 'collect', s.plannedChildren === 0 ? 'root' : 'bounded_family')) {
+    throw new Error('binding_qualification_revoked');
+  }
   const task = new Lifecycle(store).task(taskId);
   const assignment = store.get<{ variant_id: string; protocol_id: string }>('SELECT variant_id,protocol_id FROM comparison_assignments WHERE task_id=?', [
     taskId
@@ -183,8 +200,9 @@ export function assertBindingQualification(lease: BindingQualificationLease | un
     store.all('SELECT id FROM tasks').length !== 1 ||
     store.all('SELECT id FROM projects').length !== 1 ||
     store.get("SELECT 1 FROM tombstones WHERE (kind='task' AND id=?) OR (kind='project' AND id=?)", [taskId, task.project_id])
-  )
+  ) {
     throw new Error('binding_qualification_revoked');
+  }
   const protocol = comparisonProtocol(store, protocolRow(store, assignment.protocol_id));
   if (
     protocol.schema_version !== 2 ||
@@ -193,8 +211,9 @@ export function assertBindingQualification(lease: BindingQualificationLease | un
     protocol.source_profiles.length !== 1 ||
     protocol.source_profiles[0]?.product !== 'codex' ||
     protocol.source_profiles[0].product_version !== s.productVersion
-  )
+  ) {
     throw new Error('binding_qualification_revoked');
+  }
   return true;
 }
 export function bindingQualificationCompatibility(lease: BindingQualificationLease | undefined) {
@@ -242,21 +261,28 @@ export function checkBindingQualificationIdentity(
   if (!lease) return;
   assertBindingQualification(lease, store, taskId);
   const s = leases.get(lease)!;
+  if (value.parentSessionId !== null && s.plannedChildren === 0) {
+    throw new Error('binding_qualification_family_limit');
+  }
   if (
     value.product !== 'codex' ||
     value.productVersion !== s.productVersion ||
     value.cwd !== s.root ||
     Date.parse(value.createdAt) < s.issuedAt - 5000 ||
     statSync(value.sourceRef).birthtimeMs < s.issuedAt - 5000
-  )
+  ) {
     throw new Error('binding_qualification_identity_invalid');
+  }
   // Validate before a DB transaction; adopt family pins only after its commit.
   if (value.parentSessionId === null) {
-    if (s.rootId !== null && s.rootId !== value.sessionId) throw new Error('binding_qualification_family_limit');
+    if (s.rootId !== null && s.rootId !== value.sessionId) {
+      throw new Error('binding_qualification_family_limit');
+    }
     if (commit) s.rootId = value.sessionId;
   } else {
-    if (value.parentSessionId !== s.rootId || (!s.childIds.has(value.sessionId) && s.childIds.size >= s.plannedChildren))
+    if (value.parentSessionId !== s.rootId || (!s.childIds.has(value.sessionId) && s.childIds.size >= s.plannedChildren)) {
       throw new Error('binding_qualification_family_limit');
+    }
     if (commit) s.childIds.add(value.sessionId);
   }
 }
@@ -283,10 +309,18 @@ export function qualificationStopWitness(
   const own = (id: string | null) => records.filter(r => r.sessionId === id).length;
   const tokens = records.reduce((n, r) => n + (r.payload.input_total.value ?? 0) + (r.payload.output_total.value ?? 0), 0);
   const reached: LimitPredicate[] = [];
-  const policy = codexBindingQualificationPolicies[s.productVersion];
-  if (own(s.rootId) >= policy.rootRequestStop) reached.push('root_request_limit');
-  if ([...s.childIds].some(id => own(id) > 1)) reached.push('child_request_limit');
-  if (records.length >= policy.totalRequestStop) reached.push('total_request_limit');
+  const qualification = getEffectiveCodexBindingQualification(s.productVersion, 'collect', s.plannedChildren === 0 ? 'root' : 'bounded_family');
+  if (!qualification) throw new Error('binding_qualification_revoked');
+  const policy = qualification.policy;
+  if (own(s.rootId) >= policy.rootRequestStop) {
+    reached.push('root_request_limit');
+  }
+  if ([...s.childIds].some(id => own(id) > 1)) {
+    reached.push('child_request_limit');
+  }
+  if (records.length >= policy.totalRequestStop) {
+    reached.push('total_request_limit');
+  }
   if (tokens >= policy.tokenStop) reached.push('token_limit');
   return {
     predicate,
@@ -320,23 +354,33 @@ export function checkBindingQualificationRecord(
     value.effort !== 'high' ||
     value.payload.input_total.status !== 'observed' ||
     value.payload.output_total.status !== 'observed'
-  )
+  ) {
     throw new Error('binding_qualification_runtime_invalid');
+  }
   const key = qualificationRequestKey(value);
   const old = s.requests.get(key);
   if (old) {
-    if (JSON.stringify(old) !== JSON.stringify(value)) throw new Error('binding_qualification_request_conflict');
+    if (JSON.stringify(old) !== JSON.stringify(value)) {
+      throw new Error('binding_qualification_request_conflict');
+    }
     return;
   }
-  if (value.sessionId !== s.rootId && !s.childIds.has(value.sessionId)) throw new Error('binding_qualification_identity_invalid');
+  if (value.sessionId !== s.rootId && !s.childIds.has(value.sessionId)) {
+    throw new Error('binding_qualification_identity_invalid');
+  }
   const requests = [...s.requests.values()];
   const own = requests.filter(r => r.sessionId === value.sessionId).length;
   const tokens = [...requests, value].reduce((n, r) => n + (r.payload.input_total.value ?? 0) + (r.payload.output_total.value ?? 0), 0);
-  const policy = codexBindingQualificationPolicies[s.productVersion];
+  const qualification = getEffectiveCodexBindingQualification(s.productVersion, 'collect', s.plannedChildren === 0 ? 'root' : 'bounded_family');
+  if (!qualification) throw new Error('binding_qualification_revoked');
+  const policy = qualification.policy;
   const reached: LimitPredicate[] = [];
-  if (own >= (value.sessionId === s.rootId ? policy.rootRequestStop : 1))
+  if (own >= (value.sessionId === s.rootId ? policy.rootRequestStop : 1)) {
     reached.push(value.sessionId === s.rootId ? 'root_request_limit' : 'child_request_limit');
-  if (requests.length >= policy.totalRequestStop) reached.push('total_request_limit');
+  }
+  if (requests.length >= policy.totalRequestStop) {
+    reached.push('total_request_limit');
+  }
   if (tokens > policy.tokenStop) reached.push('token_limit');
   if (reached.length) {
     s.limitWitness ??= {

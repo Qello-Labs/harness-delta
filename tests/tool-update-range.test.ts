@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { expect, test } from 'vitest';
 import { discover, observationSchema } from '../scripts/tool-update/discovery.mjs';
 import { assessCandidate, assessmentSchema } from '../scripts/tool-update/assessment.mjs';
-import { legacySourcePathAllowlist } from '../scripts/tool-update/source-snapshot.mjs';
+import { frozenAssessmentFixture } from './helpers/tool-update-ordinary-window-fixture.js';
 import { fixture, now, privateText, release } from './tool-update-discovery-fixture.js';
 
 test.each([
@@ -47,18 +47,9 @@ test.each([1, 2])('preserves observation scope from schema %i in static assessme
   });
 
   expect(assessment).toMatchObject({
-    schema_version: 5,
-    rule_revision: 'static-assessment-v3',
+    schema_version: 8,
+    rule_revision: 'static-assessment-v4',
     inventory_scope: schema === 1 ? 'legacy_full_inventory' : 'latest_and_npm_review_range'
   });
-  const oldFields = Object.fromEntries(Object.entries(assessment).filter(([key]) => key !== 'inventory_scope'));
-  expect(
-    assessmentSchema.safeParse({
-      ...oldFields,
-      schema_version: 1,
-      rule_revision: 'static-assessment-v1',
-      source_paths: legacySourcePathAllowlist,
-      lanes: assessment.lanes.filter(row => row.rule_revision === 'forward-version-v1')
-    }).success
-  ).toBe(true);
+  expect(assessmentSchema.safeParse(frozenAssessmentFixture('codex')).success).toBe(true);
 });

@@ -11,8 +11,8 @@ export const scopeSourceDigests = Object.freeze({
   'src/ordinary-session-binding.ts': '34f59f9b76ebaa37eab0ecbdfd3fae5247e29739b2132758561cf1526b974085',
   'src/session-binding-service.ts': '4b49f8e7dc1c4a7554493577bff35331d2b634d1c6d62e631722462c475c1176',
   'src/claude-workflow-versions.ts': '3a85ae4d57edd2897954502420e000d41fedcdf2b475e502c6453a50a8218937',
-  'src/session-binding-codex.ts': '820730e96a6bac962231228a410704aa5028340fc7129a47957045f901d06930',
-  'src/session-binding-claude.ts': '57652e3da5e4dfdb57708c2280662a8f24f37d9e08c6b3aea500afda2cea9185',
+  'src/session-binding-codex.ts': '02ea06202c7d63a7819e0c6a4ebdd3137bf4886bcaab34c6e36a137b4feb5ef3',
+  'src/session-binding-claude.ts': '12f4e061999ec344629d9fdd3a91853f987332949284f33cfb3de1f6030c68b0',
 });
 export const laneSchema = z.strictObject({
   product: z.enum(['codex', 'claude_code']),
