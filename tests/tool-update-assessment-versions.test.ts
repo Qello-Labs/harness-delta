@@ -7,11 +7,17 @@ import {
   legacySourcePathAllowlist,
   policyAssessmentSourcePathLimit,
   policySourcePathAllowlist,
+  projectionAssessmentSourcePathLimit,
+  projectionSourcePathAllowlist,
   sourcePathAllowlist
 } from '../scripts/tool-update/source-snapshot.mjs';
 
 const versions = [1, 2, 3, 4, 5, 6, 7] as const;
-const policy = { parser_base_transition: 'none', baseline_transition: null, next_step: 'selected_exact' } as const;
+const policy = {
+  parser_base_transition: 'none',
+  baseline_transition: null,
+  next_step: 'selected_exact'
+} as const;
 const lane = {
   product: 'codex',
   route: 'file',
@@ -23,7 +29,12 @@ const lane = {
   parser_base: '0.158.0',
   window: null,
   rule_revision: 'forward-version-v1',
-  declared_scope: { max_depth: 0, max_members: 1, read_only: false, exact_only: false },
+  declared_scope: {
+    max_depth: 0,
+    max_members: 1,
+    read_only: false,
+    exact_only: false
+  },
   reasons: ['baseline_missing', 'contracts_unknown'],
   review: {
     coverage: 'baseline_missing',
@@ -31,9 +42,18 @@ const lane = {
     releases: [],
     edges: [],
     parser_comparison: null,
-    contracts: consumedContracts.map(contract_id => ({ contract_id, judgment: 'unknown' as const }))
+    contracts: consumedContracts.map(contract_id => ({
+      contract_id,
+      judgment: 'unknown' as const
+    }))
   },
-  live: { invalidation: 'not_assessed', binary: 'not_assessed', permissions: 'not_assessed', config: 'not_assessed', authentication: 'not_assessed' },
+  live: {
+    invalidation: 'not_assessed',
+    binary: 'not_assessed',
+    permissions: 'not_assessed',
+    config: 'not_assessed',
+    authentication: 'not_assessed'
+  },
   gates: {
     contracts_reviewed: 'unknown',
     conformance: 'not_assessed',
@@ -126,18 +146,36 @@ test.each(versions)('schema %i rejects wrong top-level and lane revisions', sche
   const revisions =
     schemaVersion <= 4 ? ['static-assessment-v2', 'static-assessment-v3', 'unknown'] : ['static-assessment-v1', 'static-assessment-v4', 'unknown'];
 
-  for (const rule_revision of revisions) expect(assessmentSchema.safeParse({ ...input, rule_revision }).success).toBe(false);
-  expect(assessmentSchema.safeParse({ ...input, lanes: input.lanes.map(row => ({ ...row, rule_revision: 'forward-version-v2' })) }).success).toBe(false);
+  for (const rule_revision of revisions) {
+    expect(assessmentSchema.safeParse({ ...input, rule_revision }).success).toBe(false);
+  }
+  expect(
+    assessmentSchema.safeParse({
+      ...input,
+      lanes: input.lanes.map(row => ({
+        ...row,
+        rule_revision: 'forward-version-v2'
+      }))
+    }).success
+  ).toBe(false);
 });
 
 test.each([1, 2, 3, 4] as const)('legacy schema %i refuses expanded writer control and migration paths', schemaVersion => {
   const input = record(schemaVersion);
   const expanded = sourcePathAllowlist.filter(path => !legacySourcePathAllowlist.includes(path));
 
-  for (const path of expanded) expect(assessmentSchema.safeParse({ ...input, source_paths: [path] }).success).toBe(false);
-  for (const path of ['src/store.ts', 'src/core/ordinary-window-activation.ts', 'src/migrations/037_ordinary_window_decisions.sql'])
+  for (const path of expanded) {
     expect(assessmentSchema.safeParse({ ...input, source_paths: [path] }).success).toBe(false);
-  expect(assessmentSchema.safeParse({ ...input, source_paths: sourcePathAllowlist }).success).toBe(false);
+  }
+  for (const path of ['src/store.ts', 'src/core/ordinary-window-activation.ts', 'src/migrations/037_ordinary_window_decisions.sql']) {
+    expect(assessmentSchema.safeParse({ ...input, source_paths: [path] }).success).toBe(false);
+  }
+  expect(
+    assessmentSchema.safeParse({
+      ...input,
+      source_paths: sourcePathAllowlist
+    }).success
+  ).toBe(false);
 });
 
 test.each(versions)('schema %i rejects unknown paths duplicates and over-bound lists', schemaVersion => {
@@ -145,12 +183,29 @@ test.each(versions)('schema %i rejects unknown paths duplicates and over-bound l
   const path = 'src/source-compatibility.ts';
   const limit = schemaVersion <= 4 ? 32 : 48;
 
-  for (const source_paths of [[], ['../SECRET'], ['src/unlisted-control.ts'], [path, path]])
+  for (const source_paths of [[], ['../SECRET'], ['src/unlisted-control.ts'], [path, path]]) {
     expect(assessmentSchema.safeParse({ ...input, source_paths }).success).toBe(false);
-  const overflow = assessmentSchema.safeParse({ ...input, source_paths: Array<string>(limit + 1).fill(path) });
+  }
+  const overflow = assessmentSchema.safeParse({
+    ...input,
+    source_paths: Array<string>(limit + 1).fill(path)
+  });
   if (overflow.success) throw new Error('source_path_limit_required');
-  expect(overflow.error.issues).toEqual(expect.arrayContaining([expect.objectContaining({ code: 'too_big', maximum: limit, path: ['source_paths'] })]));
-  expect(assessmentSchema.safeParse({ ...input, lanes: [...input.lanes, ...input.lanes] }).success).toBe(false);
+  expect(overflow.error.issues).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        code: 'too_big',
+        maximum: limit,
+        path: ['source_paths']
+      })
+    ])
+  );
+  expect(
+    assessmentSchema.safeParse({
+      ...input,
+      lanes: [...input.lanes, ...input.lanes]
+    }).success
+  ).toBe(false);
 });
 
 test.each(versions)('schema %i never accepts forged live or admission gates', schemaVersion => {
@@ -158,10 +213,32 @@ test.each(versions)('schema %i never accepts forged live or admission gates', sc
   const selected = input.lanes[0];
   if (!selected) throw new Error('fixture_lane_required');
 
-  for (const key of Object.keys(selected.live))
-    expect(assessmentSchema.safeParse({ ...input, lanes: [{ ...selected, live: { ...selected.live, [key]: 'pass' } }] }).success).toBe(false);
-  for (const key of ['conformance', 'regression', 'implementation_review', 'admission', 'default_promotion'])
-    expect(assessmentSchema.safeParse({ ...input, lanes: [{ ...selected, gates: { ...selected.gates, [key]: 'closed' } }] }).success).toBe(false);
+  for (const key of Object.keys(selected.live)) {
+    expect(
+      assessmentSchema.safeParse({
+        ...input,
+        lanes: [
+          {
+            ...selected,
+            live: { ...selected.live, [key]: 'pass' }
+          }
+        ]
+      }).success
+    ).toBe(false);
+  }
+  for (const key of ['conformance', 'regression', 'implementation_review', 'admission', 'default_promotion']) {
+    expect(
+      assessmentSchema.safeParse({
+        ...input,
+        lanes: [
+          {
+            ...selected,
+            gates: { ...selected.gates, [key]: 'closed' }
+          }
+        ]
+      }).success
+    ).toBe(false);
+  }
 });
 
 test.each([3, 4, 6] as const)('reviewed schema %i retains sorting subset and contract gate checks', schemaVersion => {
@@ -175,24 +252,56 @@ test.each([3, 4, 6] as const)('reviewed schema %i retains sorting subset and con
     { unused_review_ids: ['b'.repeat(64), 'a'.repeat(64)] },
     { unused_review_ids: ['a'.repeat(64), 'a'.repeat(64)] },
     { unused_review_ids: ['f'.repeat(64)] },
-    { lanes: [{ ...selected, gates: { ...selected.gates, contracts_reviewed: 'closed' } }] }
-  ])
+    {
+      lanes: [
+        {
+          ...selected,
+          gates: {
+            ...selected.gates,
+            contracts_reviewed: 'closed'
+          }
+        }
+      ]
+    }
+  ]) {
     expect(assessmentSchema.safeParse({ ...input, ...changes }).success).toBe(false);
+  }
 });
 
 test.each([4, 6] as const)('policy schema %i retains strict required selection fields', schemaVersion => {
   const input = record(schemaVersion);
-  const incomplete = { parser_base_transition: policy.parser_base_transition, baseline_transition: policy.baseline_transition };
+  const incomplete = {
+    parser_base_transition: policy.parser_base_transition,
+    baseline_transition: policy.baseline_transition
+  };
 
-  for (const selection_policy of [incomplete, { ...policy, next_step: 'supported' }, { ...policy, extra: true }])
-    expect(assessmentSchema.safeParse({ ...input, lanes: [{ ...lane, selection_policy }] }).success).toBe(false);
+  for (const selection_policy of [
+    incomplete,
+    {
+      ...policy,
+      next_step: 'supported'
+    },
+    { ...policy, extra: true }
+  ]) {
+    expect(
+      assessmentSchema.safeParse({
+        ...input,
+        lanes: [{ ...lane, selection_policy }]
+      }).success
+    ).toBe(false);
+  }
   expect(assessmentSchema.safeParse({ ...input, lanes: [lane] }).success).toBe(false);
 });
 
 test.each([1, 2, 3, 5] as const)('non-policy schema %i refuses selection policy fields', schemaVersion => {
   const input = record(schemaVersion);
 
-  expect(assessmentSchema.safeParse({ ...input, lanes: [{ ...lane, selection_policy: policy }] }).success).toBe(false);
+  expect(
+    assessmentSchema.safeParse({
+      ...input,
+      lanes: [{ ...lane, selection_policy: policy }]
+    }).success
+  ).toBe(false);
 });
 
 test.each([5, 6] as const)('schema %i keeps the 256 KiB portable record ceiling', schemaVersion => {
@@ -211,7 +320,10 @@ test.each([5, 6] as const)('schema %i keeps the 256 KiB portable record ceiling'
     lanes: ['link', 'collect', 'restart', 'launch', 'resume'].map(operation => ({
       ...selected,
       operation,
-      review: { ...selected.review, releases: Array.from({ length: 256 }, () => release) }
+      review: {
+        ...selected.review,
+        releases: Array.from({ length: 256 }, () => release)
+      }
     }))
   };
 
@@ -254,13 +366,24 @@ test.each(versions)('schema %i keeps root policy IDs out of legacy compatibility
     profile_id: 'codex-file-checkpoint-v1',
     rule_revision: 'forward-version-v1'
   };
-  const legacy = { ...input, lanes: input.lanes.map(row => ({ ...row, compatibility })) };
+  const legacy = {
+    ...input,
+    lanes: input.lanes.map(row => ({ ...row, compatibility }))
+  };
   expect(assessmentSchema.parse(legacy)).toEqual(legacy);
-  for (const id of ['codex-binding-root-window-v1', 'claude-binding-root-window-v1'])
-    for (const key of ['profile_id', 'parser_revision'])
+  for (const id of ['codex-binding-root-window-v1', 'claude-binding-root-window-v1']) {
+    for (const key of ['profile_id', 'parser_revision']) {
       expect(
-        assessmentSchema.safeParse({ ...legacy, lanes: legacy.lanes.map(row => ({ ...row, compatibility: { ...compatibility, [key]: id } })) }).success
+        assessmentSchema.safeParse({
+          ...legacy,
+          lanes: legacy.lanes.map(row => ({
+            ...row,
+            compatibility: { ...compatibility, [key]: id }
+          }))
+        }).success
       ).toBe(false);
+    }
+  }
 });
 
 const automated = {
@@ -347,7 +470,10 @@ test('frozen schema7 retains automated identity, sorting, pending and conflict b
                   version: '0.158.0',
                   commit: 'a'.repeat(40)
                 },
-                to: { version: '0.163.0', commit: 'b'.repeat(40) },
+                to: {
+                  version: '0.163.0',
+                  commit: 'b'.repeat(40)
+                },
                 judgment_id: 'f'.repeat(64),
                 result_scope: 'job_aggregate',
                 contracts: automated.contracts
@@ -366,7 +492,7 @@ function currentRecord(reviewed = false, machine = false) {
     ...record(5),
     schema_version: 8,
     rule_revision: 'static-assessment-v4',
-    source_paths: sourcePathAllowlist,
+    source_paths: projectionSourcePathAllowlist,
     ...(reviewed || machine
       ? {
           review_ids: reviewed ? ['a'.repeat(64)] : [],
@@ -383,6 +509,56 @@ function currentRecord(reviewed = false, machine = false) {
     ]
   };
 }
+
+test.each([
+  [false, false],
+  [true, false],
+  [false, true],
+  [true, true]
+])('schema9 preserves manual=%s machine=%s channels with promoted raw inputs', (reviewed, machine) => {
+  const input = {
+    ...currentRecord(reviewed, machine),
+    schema_version: 9,
+    rule_revision: 'static-assessment-v5',
+    source_paths: ['scripts/session-binding-codex-promoted-hook.template.mjs']
+  };
+  expect(assessmentSchema.parse(input)).toEqual(input);
+  expect(assessmentSourcePathLimit).toBe(82);
+  expect(sourcePathAllowlist).toHaveLength(82);
+  expect(
+    assessmentSchema.parse({
+      ...input,
+      source_paths: sourcePathAllowlist
+    }).source_paths
+  ).toEqual(sourcePathAllowlist);
+  const overflow = assessmentSchema.safeParse({
+    ...input,
+    source_paths: Array<string>(83).fill('src/source-compatibility.ts')
+  });
+  if (overflow.success) throw new Error('current_path_limit_required');
+  expect(overflow.error.issues).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        code: 'too_big',
+        maximum: 82,
+        path: ['source_paths']
+      })
+    ])
+  );
+  expect(
+    assessmentSchema.safeParse({
+      ...input,
+      schema_version: 8,
+      rule_revision: 'static-assessment-v4'
+    }).success
+  ).toBe(false);
+  expect(
+    assessmentSchema.safeParse({
+      ...input,
+      rule_revision: 'static-assessment-v4'
+    }).success
+  ).toBe(false);
+});
 
 test.each([5, 6, 7])('frozen schema %i retains the v3 closure and excludes promotion inputs', schema_version => {
   const input = {
@@ -436,8 +612,8 @@ test.each([
   [true, true]
 ])('schema8 preserves manual=%s machine=%s channels without authorizing gates', (reviewed, machine) => {
   const input = currentRecord(reviewed, machine);
-  expect(assessmentSourcePathLimit).toBe(55);
-  expect(sourcePathAllowlist).toEqual(
+  expect(projectionAssessmentSourcePathLimit).toBe(55);
+  expect(projectionSourcePathAllowlist).toEqual(
     [
       ...policySourcePathAllowlist,
       'src/core/tool-version-promotion.ts',
@@ -482,7 +658,7 @@ test.each([
   expect(
     assessmentSchema.safeParse({
       ...input,
-      source_paths: [...sourcePathAllowlist, 'src/unlisted-control.ts']
+      source_paths: [...projectionSourcePathAllowlist, 'src/unlisted-control.ts']
     }).success
   ).toBe(false);
   expect(

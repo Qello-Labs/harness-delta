@@ -7,9 +7,7 @@ import {
 	promotionProjectionDigest,
 	promotionRegistryDigest,
 } from "../src/core/tool-version-promotion.ts";
-import {
-	promotionImplementationDigest,
-} from "./tool-update/promotion-implementation.mjs";
+import { promotionImplementationDigest } from "./tool-update/promotion-implementation.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const check = process.argv.length === 3 && process.argv[2] === "--check";
@@ -32,9 +30,10 @@ const registryDigest = promotionRegistryDigest({
 	recipes,
 	identities,
 });
-const receiptProfiles = profiles.filter((profile) =>
-	profile.product === "codex" && profile.exportOrder.receipt !== undefined
-)
+const receiptProfiles = profiles
+	.filter((profile) =>
+		profile.product === "codex" && profile.exportOrder.receipt !== undefined
+	)
 	.sort((a, b) => a.exportOrder.receipt - b.exportOrder.receipt);
 const localRecipe = recipes.find((recipe) =>
 	recipe.id === "claude-localhost-02306"
@@ -57,9 +56,11 @@ function frozenLiteral(value) {
 	}
 	if (value !== null && typeof value === "object") {
 		return `Object.freeze({${
-			Object.entries(value).map(([key, item]) =>
-				`${JSON.stringify(key)}: ${frozenLiteral(item)}`
-			).join(", ")
+			Object.entries(value)
+				.map(([key, item]) =>
+					`${JSON.stringify(key)}: ${frozenLiteral(item)}`
+				)
+				.join(", ")
 		}})`;
 	}
 	return JSON.stringify(value);
@@ -71,9 +72,11 @@ function declaration(value) {
 	}
 	if (value !== null && typeof value === "object") {
 		return `{ ${
-			Object.entries(value).map(([key, item]) =>
-				`readonly ${JSON.stringify(key)}: ${declaration(item)};`
-			).join(" ")
+			Object.entries(value)
+				.map(([key, item]) =>
+					`readonly ${JSON.stringify(key)}: ${declaration(item)};`
+				)
+				.join(" ")
 		} }`;
 	}
 	return JSON.stringify(value);
@@ -103,6 +106,25 @@ hook = replaceToken(
 	}]`,
 );
 artifacts.set("scripts/session-binding-codex-hook.mjs", hook);
+const promotedTemplate = read(
+	"scripts/session-binding-codex-promoted-hook.template.mjs",
+);
+artifacts.set(
+	"scripts/session-binding-codex-promoted-hook.mjs",
+	replaceToken(promotedTemplate, "__PROMOTED_PRODUCT__", "codex"),
+);
+artifacts.set(
+	"skills/harness-connect-promoted-claude/scripts/connect.mjs",
+	replaceToken(
+		read("skills/harness-connect-promoted-codex/scripts/connect.mjs"),
+		"codex",
+		"claude_code",
+	),
+);
+artifacts.set(
+	"skills/harness-connect-promoted-claude/scripts/claude-session-hook.mjs",
+	replaceToken(promotedTemplate, "__PROMOTED_PRODUCT__", "claude_code"),
+);
 const generatedNotice =
 	"// Generated from code-owned registry inputs; edit those inputs instead.\n";
 artifacts.set(
@@ -120,7 +142,9 @@ artifacts.set(
 	generatedNotice +
 		`export const claudeLocalhostRecipe: ${declaration(localRecipe)};\n` +
 		`export const claudeLocalhostImage: Readonly<{ version: ${
-			declaration(admittedImage.version)
+			declaration(
+				admittedImage.version,
+			)
 		}; sha256: string; size: ${declaration(admittedImage.size)} }>;\n`,
 );
 writeArtifacts();
@@ -146,24 +170,26 @@ const promotedSupport = descriptors.map((descriptor) => ({
 		profileId: descriptor.profileId,
 		route: descriptor.route,
 		declaredScopes: descriptor.scopes,
-		effectiveScopes: projection.facets.filter((facet) =>
-			facet.descriptor.product === descriptor.product &&
-			facet.descriptor.version === descriptor.version
-		).map(({ decision }) => {
-			const scope = descriptor.scopes.find((scope) =>
-				scope.operation === decision.scope.lane.operation &&
-				scope.topology === decision.scope.lane.topology
-			);
-			return {
-				operation: scope.operation,
-				topology: scope.topology,
-				maxDepth: scope.maxDepth,
-				maxFamilyMembers: scope.maxFamilyMembers,
-				platform: decision.scope.platform,
-				runtime: decision.scope.runtime,
-				grants: decision.grants,
-			};
-		}),
+		effectiveScopes: projection.facets
+			.filter((facet) =>
+				facet.descriptor.product === descriptor.product &&
+				facet.descriptor.version === descriptor.version
+			)
+			.map(({ decision }) => {
+				const scope = descriptor.scopes.find((scope) =>
+					scope.operation === decision.scope.lane.operation &&
+					scope.topology === decision.scope.lane.topology
+				);
+				return {
+					operation: scope.operation,
+					topology: scope.topology,
+					maxDepth: scope.maxDepth,
+					maxFamilyMembers: scope.maxFamilyMembers,
+					platform: decision.scope.platform,
+					runtime: decision.scope.runtime,
+					grants: decision.grants,
+				};
+			}),
 	},
 }));
 const currentSupport = {
@@ -394,7 +420,9 @@ function supportMatrix(korean) {
 					`| ${cell(profile.product)} | ${cell(profile.version)} | ${
 						cell(route)
 					} | ${cell(status ?? "not_declared")} | ${
-						cell(profileId ?? "not_declared")
+						cell(
+							profileId ?? "not_declared",
+						)
 					} | ${cell(state)} | ${cell(details)} |`,
 				);
 			}
@@ -449,7 +477,9 @@ function factBlock(path, name, content) {
 	if (
 		current.split(start).length !== 2 || current.split(end).length !== 2 ||
 		current.indexOf(start) > current.indexOf(end)
-	) throw new Error(`tool_version_assets_markers:${path}`);
+	) {
+		throw new Error(`tool_version_assets_markers:${path}`);
+	}
 	const begin = current.indexOf(start) + start.length;
 	artifacts.set(
 		path,

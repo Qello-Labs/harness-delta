@@ -69,8 +69,8 @@ async function assess(input: CliFixture, paths: readonly string[], extra: readon
   return readAssessment(input.root, result.output.assessment_id);
 }
 function automated(record: Awaited<ReturnType<typeof readAssessment>>['record']) {
-  if (record.schema_version !== 8 || record.judgment_ids === undefined) {
-    throw new Error('machine_schema_8_required');
+  if (record.schema_version !== 9 || record.judgment_ids === undefined) {
+    throw new Error('machine_schema_9_required');
   }
   const selected = record.lanes.find(row => row.profile_id === laneKey.profile_id && row.operation === laneKey.operation);
   if (!selected) throw new Error('fixture_lane_required');
@@ -142,7 +142,11 @@ test('the collector publishes bounded injected public evidence with fixed output
   const names = await readdir(join(input.root, 'difference-evidence'));
   expect(result).toEqual({
     exitCode: 0,
-    output: { status: 'difference_evidence_created', evidence_ids: names.map(name => name.replace('.json', '')).sort(), failure: null }
+    output: {
+      status: 'difference_evidence_created',
+      evidence_ids: names.map(name => name.replace('.json', '')).sort(),
+      failure: null
+    }
   });
   expect(names).toHaveLength(6);
   expect(wire.calls.every(call => call.url.hostname === 'api.github.com')).toBe(true);
@@ -251,7 +255,10 @@ test.each(['candidate', 'observation', 'job', 'commit'] as const)('cross-%s judg
   const input = await setup();
   const original = judgmentFor(input);
   const differentCommit = { ...original.target, commit: '9'.repeat(40) };
-  const alternateLane = { ...input.job.lane, operation: 'restart' as const };
+  const alternateLane = {
+    ...input.job.lane,
+    operation: 'restart' as const
+  };
   const alternateJobId = await publishRecord(
     input.root,
     {
@@ -300,8 +307,8 @@ test('known machine claims preserve every static gate including the outside-wind
   });
   const judgment = await publishJudgment(input);
   const { record } = await assess(input, [judgment.path, judgment.path]);
-  if (record.schema_version !== 8 || record.judgment_ids === undefined) {
-    throw new Error('machine_schema_8_required');
+  if (record.schema_version !== 9 || record.judgment_ids === undefined) {
+    throw new Error('machine_schema_9_required');
   }
   expect(record.judgment_ids).toEqual([judgment.id]);
   expect(record.unused_judgment_ids).toEqual([]);
@@ -329,7 +336,7 @@ test.each(['missing', 'equal', 'incomplete'] as const)('%s coverage keeps judgme
   const input = await setup(mode);
   const judgment = await publishJudgment(input);
   const { record } = await assess(input, [judgment.path]);
-  if (record.schema_version !== 8 || record.judgment_ids === undefined) throw new Error('machine_schema_8_required');
+  if (record.schema_version !== 9 || record.judgment_ids === undefined) throw new Error('machine_schema_9_required');
   expect(record.unused_judgment_ids).toEqual([judgment.id]);
   expect(automated(record).judgment_ids).toEqual([judgment.id]);
   expect(automated(record).pending_reasons).toContain(
@@ -361,8 +368,8 @@ test('multiple lanes sort supplied and unused judgment IDs while retaining missi
   await publishRecord(input.root, job, differenceJobSchema);
   const second = await publishJudgment(input, judgmentFor({ ...input, job }));
   const { record } = await assess(input, [second.path, first.path, second.path]);
-  if (record.schema_version !== 8 || record.judgment_ids === undefined) {
-    throw new Error('machine_schema_8_required');
+  if (record.schema_version !== 9 || record.judgment_ids === undefined) {
+    throw new Error('machine_schema_9_required');
   }
   expect(record.judgment_ids).toEqual([first.id, second.id].sort());
   expect(record.unused_judgment_ids).toEqual([second.id]);
@@ -386,8 +393,8 @@ test.each(['unaffected', 'unknown'] as const)('manual %s claims remain separate 
     root: projectRoot
   });
   const { record } = await assess(input, [judgment.path], reviews.args);
-  if (record.schema_version !== 8 || record.judgment_ids === undefined) {
-    throw new Error('machine_schema_8_required');
+  if (record.schema_version !== 9 || record.judgment_ids === undefined) {
+    throw new Error('machine_schema_9_required');
   }
   expect(record.review_ids).toEqual(reviews.ids);
   expect(
@@ -434,7 +441,10 @@ test('a job-scoped affected claim does not contradict one unchanged edge without
   const judgment = await publishJudgment(input, judgmentFor(input, true));
   const { record } = await assess(input, [judgment.path], ['--review', join(input.root, 'reviews', `${digest(review)}.json`)]);
   expect(automated(record).conflicts).toEqual([]);
-  expect(automated(record).contracts).toContainEqual({ contract_id: 'fields_types_enums', judgment: 'affected' });
+  expect(automated(record).contracts).toContainEqual({
+    contract_id: 'fields_types_enums',
+    judgment: 'affected'
+  });
   expect(record.lanes.find(row => row.profile_id === laneKey.profile_id && row.operation === laneKey.operation)?.gates.contracts_reviewed).toBe('unknown');
 });
 
@@ -467,7 +477,7 @@ test.each([false, true])('without judgments manual=%s replay retains canonical c
     root: projectRoot
   });
   const { bytes, record } = await assess(input, [], reviews?.args ?? []);
-  expect(record.schema_version).toBe(8);
+  expect(record.schema_version).toBe(9);
   expect(bytes).toBe(canonical(legacy));
   const judgment = await publishJudgment(input);
   await assess(input, [judgment.path], reviews?.args ?? []);
@@ -518,7 +528,13 @@ const probes=[
   ]);
   expect(control.exitCode, control.stdout + control.stderr).toBe(0);
   expect(control.output).toEqual({ status: 'probes_denied' });
-  expect(control.ledger).toEqual({ network: 1, processes: 1, modules: 1, privateReads: 1, writes: [] });
+  expect(control.ledger).toEqual({
+    network: 1,
+    processes: 1,
+    modules: 1,
+    privateReads: 1,
+    writes: []
+  });
 });
 test('the real source CLI in a built checkout publishes only records without Store, vendor, sessions, network or block writes', async () => {
   await access(join(projectRoot, 'dist', 'index.js'));
@@ -531,7 +547,10 @@ test('the real source CLI in a built checkout publishes only records without Sto
   const judged = await auditedCli(input.root, join(projectRoot, script), ['judge', '--job', input.jobPath, '--out', judgeRoot]);
   expect(judged.exitCode, judged.stdout + judged.stderr).toBe(0);
   const judgeOutput = z
-    .strictObject({ status: z.literal('difference_judgment_created'), judgment_id: z.string().regex(/^[a-f0-9]{64}$/) })
+    .strictObject({
+      status: z.literal('difference_judgment_created'),
+      judgment_id: z.string().regex(/^[a-f0-9]{64}$/)
+    })
     .parse(judged.output);
   expect(await readdir(join(judgeRoot, 'difference-judgments'))).toEqual([`${judgeOutput.judgment_id}.json`]);
   expect(judged.stderr).toBe('');
@@ -541,10 +560,16 @@ test('the real source CLI in a built checkout publishes only records without Sto
   const assessed = await auditedCli(input.root, join(projectRoot, script), ['assess', ...input.inputArgs, '--judgment', judgment.path, '--out', output]);
   expect(assessed.exitCode, assessed.stdout + assessed.stderr).toBe(0);
   const assessmentOutput = z
-    .strictObject({ status: z.literal('assessment_created'), assessment_id: z.string().regex(/^[a-f0-9]{64}$/) })
+    .strictObject({
+      status: z.literal('assessment_created'),
+      assessment_id: z.string().regex(/^[a-f0-9]{64}$/)
+    })
     .parse(assessed.output);
   const { record } = await readAssessment(output, assessmentOutput.assessment_id);
-  expect(automated(record).contracts).toContainEqual({ contract_id: 'fields_types_enums', judgment: 'affected' });
+  expect(automated(record).contracts).toContainEqual({
+    contract_id: 'fields_types_enums',
+    judgment: 'affected'
+  });
   expect(assessed.stderr).toBe('');
   assertEffects(assessed.ledger, output, assessed.temporary);
   expect(await readdir(output)).toEqual(['assessments']);
@@ -585,7 +610,10 @@ test('the real difference-job CLI is offline and writes only its selected job re
   const job = await loadRecord(join(output, 'difference-jobs', `${published.job_id}.json`), differenceJobSchema);
   expect(job.candidate_id).toBe(digest(input.candidate));
   expect(job.observation_id).toBe(digest(input.observation));
-  expect(job.parser_base).toEqual({ ...baseRef, profile_id: laneKey.profile_id });
+  expect(job.parser_base).toEqual({
+    ...baseRef,
+    profile_id: laneKey.profile_id
+  });
   assertEffects(result.ledger, output, result.temporary);
   expect(await readdir(result.home)).toEqual([]);
   expect(await readdir(result.temporary)).toEqual([]);

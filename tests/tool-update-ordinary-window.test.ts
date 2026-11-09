@@ -35,7 +35,7 @@ test('snapshot exposes only the two finite root-policy operation sets and refuse
       .sort((a, b) => laneKey(a).localeCompare(laneKey(b), 'en'))
   );
   expect(snapshot.value.refused).toEqual(Array(10).fill(null));
-  expect(snapshot.source_paths).toHaveLength(55);
+  expect(snapshot.source_paths).toHaveLength(82);
 });
 
 test.each([
@@ -62,8 +62,10 @@ test.each([
 
   const result = await assessCandidate(ordinaryAssessmentFixture(product, target, true));
 
-  expect(result.schema_version).toBe(8);
-  if (result.schema_version !== 8) throw new Error('current_assessment_required');
+  expect(result.schema_version).toBe(9);
+  if (result.schema_version !== 9) {
+    throw new Error('current_assessment_required');
+  }
   const lanes = result.lanes.filter(row => row.profile_id === profile);
   expect(lanes.map(row => row.operation)).toEqual(['collect', 'link', 'restart']);
   for (const row of lanes) {
@@ -122,85 +124,94 @@ test.each([
   }
 });
 
-test.each(policies.flatMap(policy => [false, true].flatMap(reviewed => ['v3', 'current'].map(revision => ({ policy, reviewed, revision })))))(
-  '$revision writer and strict root-policy reader preserve $policy.0 reviewed=$reviewed',
-  async ({ policy, reviewed, revision: writer }) => {
-    const [product, , profile, revision, , , target] = policy;
-    const result =
-      writer === 'v3' ? frozenAssessmentFixture(product, reviewed, true) : await assessCandidate(ordinaryAssessmentFixture(product, target, reviewed));
-    const row = result.lanes.find(lane => lane.profile_id === profile && lane.operation === 'collect');
-    if (!row?.compatibility) {
-      throw new Error('fixture_inherited_lane_required');
-    }
-    const foreignRevision = product === 'codex' ? 'claude-ordinary-root-window-v1' : 'codex-ordinary-root-window-v1';
-    const foreignProfile = product === 'codex' ? 'claude-binding-root-window-v1' : 'codex-binding-root-window-v1';
-    const parse = (changes: object) =>
-      assessmentSchema.safeParse({
-        ...result,
-        lanes: [{ ...row, ...changes }]
-      });
-
-    expect(result.schema_version).toBe(writer === 'v3' ? (reviewed ? 6 : 5) : 8);
-    expect(result.rule_revision).toBe(writer === 'v3' ? 'static-assessment-v3' : 'static-assessment-v4');
-    expect(assessmentSchema.parse(result)).toEqual(result);
-    expect(row.rule_revision).toBe(revision);
-    for (const rule_revision of ['static-assessment-v1', 'static-assessment-v2', writer === 'v3' ? 'static-assessment-v4' : 'static-assessment-v3']) {
-      expect(assessmentSchema.safeParse({ ...result, rule_revision }).success).toBe(false);
-    }
-    for (const changes of [
-      { product: product === 'codex' ? 'claude_code' : 'codex' },
-      { route: 'file' },
-      { profile_id: foreignProfile },
-      { profile_id: 'codex-file-checkpoint-v1' },
-      { operation: 'resume' },
-      { operation: 'launch' },
-      { topology: 'bounded_family' },
-      { topology: 'root_direct_child' },
-      ...['forward-version-v1', foreignRevision, 'unknown'].map(rule_revision => ({ rule_revision })),
-      ...['forward-version-v1', foreignRevision, 'unknown'].map(rule_revision => ({
-        compatibility: { ...row.compatibility, rule_revision }
-      })),
-      ...['forward-version-v1', foreignRevision].map(rule_revision => ({
-        rule_revision,
-        compatibility: { ...row.compatibility, rule_revision }
-      })),
-      {
-        compatibility: {
-          ...row.compatibility,
-          product: product === 'codex' ? 'claude_code' : 'codex'
-        }
-      },
-      { compatibility: { ...row.compatibility, source: 'file' } },
-      {
-        compatibility: {
-          ...row.compatibility,
-          profile_id: foreignProfile
-        }
-      },
-      {
-        compatibility: {
-          ...row.compatibility,
-          parser_revision: foreignProfile
-        }
-      },
-      ...[{ max_depth: 1 }, { max_depth: null }, { max_members: 2 }, { max_members: null }, { read_only: false }, { exact_only: true }].map(scope => ({
-        declared_scope: { ...row.declared_scope, ...scope }
-      })),
-      ...Object.keys(row.live).map(key => ({
-        live: { ...row.live, [key]: 'pass' }
-      })),
-      ...['conformance', 'regression', 'implementation_review', 'admission', 'default_promotion'].map(key => ({
-        gates: { ...row.gates, [key]: 'closed' }
+test.each(
+  policies.flatMap(policy =>
+    [false, true].flatMap(reviewed =>
+      ['v3', 'current'].map(revision => ({
+        policy,
+        reviewed,
+        revision
       }))
-    ])
-      expect(parse(changes).success).toBe(false);
+    )
+  )
+)('$revision writer and strict root-policy reader preserve $policy.0 reviewed=$reviewed', async ({ policy, reviewed, revision: writer }) => {
+  const [product, , profile, revision, , , target] = policy;
+  const result =
+    writer === 'v3' ? frozenAssessmentFixture(product, reviewed, true) : await assessCandidate(ordinaryAssessmentFixture(product, target, reviewed));
+  const row = result.lanes.find(lane => lane.profile_id === profile && lane.operation === 'collect');
+  if (!row?.compatibility) {
+    throw new Error('fixture_inherited_lane_required');
   }
-);
+  const foreignRevision = product === 'codex' ? 'claude-ordinary-root-window-v1' : 'codex-ordinary-root-window-v1';
+  const foreignProfile = product === 'codex' ? 'claude-binding-root-window-v1' : 'codex-binding-root-window-v1';
+  const parse = (changes: object) =>
+    assessmentSchema.safeParse({
+      ...result,
+      lanes: [{ ...row, ...changes }]
+    });
+
+  expect(result.schema_version).toBe(writer === 'v3' ? (reviewed ? 6 : 5) : 9);
+  expect(result.rule_revision).toBe(writer === 'v3' ? 'static-assessment-v3' : 'static-assessment-v5');
+  expect(assessmentSchema.parse(result)).toEqual(result);
+  expect(row.rule_revision).toBe(revision);
+  for (const rule_revision of ['static-assessment-v1', 'static-assessment-v2', writer === 'v3' ? 'static-assessment-v4' : 'static-assessment-v3']) {
+    expect(assessmentSchema.safeParse({ ...result, rule_revision }).success).toBe(false);
+  }
+  for (const changes of [
+    { product: product === 'codex' ? 'claude_code' : 'codex' },
+    { route: 'file' },
+    { profile_id: foreignProfile },
+    { profile_id: 'codex-file-checkpoint-v1' },
+    { operation: 'resume' },
+    { operation: 'launch' },
+    { topology: 'bounded_family' },
+    { topology: 'root_direct_child' },
+    ...['forward-version-v1', foreignRevision, 'unknown'].map(rule_revision => ({ rule_revision })),
+    ...['forward-version-v1', foreignRevision, 'unknown'].map(rule_revision => ({
+      compatibility: { ...row.compatibility, rule_revision }
+    })),
+    ...['forward-version-v1', foreignRevision].map(rule_revision => ({
+      rule_revision,
+      compatibility: { ...row.compatibility, rule_revision }
+    })),
+    {
+      compatibility: {
+        ...row.compatibility,
+        product: product === 'codex' ? 'claude_code' : 'codex'
+      }
+    },
+    { compatibility: { ...row.compatibility, source: 'file' } },
+    {
+      compatibility: {
+        ...row.compatibility,
+        profile_id: foreignProfile
+      }
+    },
+    {
+      compatibility: {
+        ...row.compatibility,
+        parser_revision: foreignProfile
+      }
+    },
+    ...[{ max_depth: 1 }, { max_depth: null }, { max_members: 2 }, { max_members: null }, { read_only: false }, { exact_only: true }].map(scope => ({
+      declared_scope: { ...row.declared_scope, ...scope }
+    })),
+    ...Object.keys(row.live).map(key => ({
+      live: { ...row.live, [key]: 'pass' }
+    })),
+    ...['conformance', 'regression', 'implementation_review', 'admission', 'default_promotion'].map(key => ({
+      gates: { ...row.gates, [key]: 'closed' }
+    }))
+  ]) {
+    expect(parse(changes).success).toBe(false);
+  }
+});
 
 test('0.166.0 keeps exact assigned-family selection distinct from inherited root policy', async () => {
   const result = await assessCandidate(ordinaryAssessmentFixture('codex', '0.166.0', true));
-  if (result.schema_version !== 8 || result.review_ids === undefined || result.judgment_ids !== undefined)
+  if (result.schema_version !== 9 || result.review_ids === undefined || result.judgment_ids !== undefined) {
     throw new Error('current_manual_assessment_required');
+  }
 
   expect(
     result.lanes
