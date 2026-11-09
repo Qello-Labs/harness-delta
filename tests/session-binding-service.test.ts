@@ -14,10 +14,19 @@ import { externalContract } from '../src/core/external-session-contract.js';
 import { ExternalTaskSetupSchema, prepareExternalTask } from '../src/workflow/external-session-service.js';
 import { codexWorkflowFixture } from './helpers/codex-workflow-fixture.js';
 import { codexWorkflowProfileId } from '../src/workflow/codex-workflow-journal.js';
+import * as promotionProfiles from '../src/core/tool-version-profiles.js';
+import { projectToolVersionPromotions } from '../src/core/tool-version-promotion.js';
+import { recordToolVersionPromotionDenial } from '../src/core/tool-version-promotion-store.js';
+import { issuePromotionBindingAuthority } from '../src/binding/session-binding-promotion.js';
+import { appendPromotionDecision, promotionFixture } from './helpers/tool-version-promotion.js';
 
 const cleanups: (() => Promise<void>)[] = [];
+const originalPromotion = {
+  ...promotionProfiles.toolVersionPromotionProjection
+};
 afterEach(async () => {
   for (const cleanup of cleanups.splice(0)) await cleanup();
+  Object.assign(promotionProfiles.toolVersionPromotionProjection, originalPromotion);
 });
 async function fixture() {
   const f = localWebFixture();
@@ -146,6 +155,103 @@ async function fixture() {
     resolves: () => resolves
   };
 }
+
+async function promotedFixture() {
+  const f = await fixture();
+  const input = promotionFixture();
+  appendPromotionDecision(input, { grants: ['admission', 'qualification'] });
+  Object.assign(promotionProfiles.toolVersionPromotionProjection, projectToolVersionPromotions(input));
+  const authority = issuePromotionBindingAuthority(f.store, {
+    taskId: f.id,
+    product: 'codex',
+    productVersion: '0.169.0',
+    topology: 'root',
+    bundleContract: 'codex-promoted-bundle-v1'
+  });
+  Object.defineProperty(f.provider, 'promotionAuthority', {
+    value: authority
+  });
+  f.setCurrent({ ...f.current(), productVersion: '0.169.0' });
+  const deny = (unrelated = false) =>
+    recordToolVersionPromotionDenial(f.store, {
+      key: unrelated
+        ? {
+            ...authority.key,
+            profileId: authority.key.profileId + '-other'
+          }
+        : authority.key,
+      reason: 'revoke',
+      recordedAt: new Date().toISOString()
+    });
+  return { ...f, deny };
+}
+
+test('promoted denial prevents resolving a queued native receipt', async () => {
+  const f = await promotedFixture();
+  f.deny();
+  await expect(f.connect()).rejects.toThrow('promotion_authority_denied');
+  expect(f.resolves()).toBe(0);
+  expect(f.reads()).toBe(0);
+  expect(f.store.all('SELECT * FROM sessions')).toEqual([]);
+});
+
+test.each(['deny', 'generation', 'missing'] as const)('promoted %s after resolve prevents binding and baseline writes', async race => {
+  const f = await promotedFixture();
+  const resolve = f.provider.resolveCurrent.bind(f.provider);
+  f.provider.resolveCurrent = async request => {
+    const value = await resolve(request);
+    if (race === 'missing') {
+      Object.assign(promotionProfiles.toolVersionPromotionProjection, { facets: [] });
+    } else f.deny(race === 'generation');
+    return value;
+  };
+  await expect(f.connect()).rejects.toThrow();
+  expect(f.reads()).toBe(0);
+  expect(f.store.all('SELECT * FROM session_bindings')).toEqual([]);
+  expect(f.store.all('SELECT * FROM events')).toEqual([]);
+  expect(f.store.all('SELECT * FROM runtime_evidence')).toEqual([]);
+});
+
+test.each(['deny', 'generation'] as const)('promoted %s after usage cannot commit cursor or partial history', async race => {
+  const f = await promotedFixture();
+  await f.connect();
+  const before = f.store.get('SELECT cursor FROM session_bindings');
+  const usage = f.usage(f.current());
+  usage.payload.product_version = '0.169.0';
+  const read = f.provider.readUsage.bind(f.provider);
+  f.provider.readUsage = async (...args) => {
+    const batch = await read(...args);
+    f.deny(race === 'generation');
+    return batch;
+  };
+  await expect(f.service.tick(f.id)).rejects.toThrow();
+  expect(f.store.get('SELECT cursor FROM session_bindings')).toEqual(before);
+  expect(f.store.eventCount()).toBe(0);
+  expect(f.store.all('SELECT * FROM runtime_evidence')).toEqual([]);
+  expect(f.store.all('SELECT * FROM binding_requests')).toEqual([]);
+});
+
+test('a promoted denial injected inside the writer transaction rolls back usage and the cursor', async () => {
+  const f = await promotedFixture();
+  await f.connect();
+  const before = f.store.get('SELECT cursor FROM session_bindings');
+  const usage = f.usage(f.current());
+  usage.payload.product_version = '0.169.0';
+  const execute = f.store.execute.bind(f.store);
+  let armed = true;
+  vi.spyOn(f.store, 'execute').mockImplementation((sql, parameters) => {
+    if (armed && sql.startsWith('UPDATE session_bindings SET cursor=')) {
+      armed = false;
+      f.deny();
+    }
+    return execute(sql, parameters);
+  });
+  await expect(f.service.tick(f.id)).rejects.toThrow('promotion_authority_denied');
+  expect(f.store.get('SELECT cursor FROM session_bindings')).toEqual(before);
+  expect(f.store.eventCount()).toBe(0);
+  expect(f.store.all('SELECT * FROM runtime_evidence')).toEqual([]);
+  expect(f.store.all('SELECT * FROM binding_requests')).toEqual([]);
+});
 
 test('connect baselines old usage, replay is idempotent, multiple children and a descendant aggregate', async () => {
   const f = await fixture();

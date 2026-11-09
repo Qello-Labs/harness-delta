@@ -46,9 +46,11 @@ Root-only subagent metadata does not enroll a child or authorize source access.
 Supply the local origin, registered project, active task and opaque receipt
 explicitly. Never search native sources, receipts, processes, images or vendor
 configuration. Local pending hints are not portable authority or usage.
-The offline helper reports `promoted_provider_unavailable` after validating
-explicit selection; the live authorized provider is outside this bundle.
-It makes no HTTP requests and cannot activate collection. Do not substitute
+The HTTP-only helper forwards the explicit receipt to the selected local server.
+Only its live provider can authorize native verification and collection; the
+helper never reads native hints. It requires server proof and an observing
+readback before reporting connection. Missing grants, denials and stale scope
+remain blocked; verification means session identity, not qualification. Do not substitute
 historical helpers, install registrations, start tasks or retry implicitly.
 Fresh roots and separately confirmed quiescent cutover are required.
 Report categorical blockers only, never local hints or raw diagnostics.

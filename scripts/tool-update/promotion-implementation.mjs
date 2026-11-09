@@ -85,6 +85,7 @@ export const promotionImplementationFiles = Object.freeze([
 	"src/adapter-profiles.ts",
 	"src/binding/binding-child-readiness.ts",
 	"src/binding/binding-family-diagnostics.ts",
+	"src/binding/session-binding-promotion.ts",
 	"src/binding/session-binding-claude-human-pilot.ts",
 	"src/binding/session-binding-human-pilot.ts",
 	"src/binding/session-binding-qualification-lease.ts",

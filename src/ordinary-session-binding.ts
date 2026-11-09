@@ -3,7 +3,9 @@ import { execFileSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { addTokens, TimestampSchema } from './contracts.js';
-import { getClaudeBindingAdmission, isClaudeModel } from './claude-binding-admission.js';
+import { getClaudeBindingAdmission, getEffectiveClaudeBindingAdmission, isClaudeModel } from './claude-binding-admission.js';
+import { assertPromotionBindingCheckpoint, promotionBindingBaseline, promotionBindingCheckpoint } from './binding/session-binding-promotion.js';
+import type { ToolVersionPromotionAuthority } from './core/tool-version-promotion-store.js';
 import { childReadinessDeadline } from './binding/binding-child-readiness.js';
 import { assertApplicationWorkingIdentity, bindApplicationEpoch, effectiveTaskWorkspace } from './harness/harness-application.js';
 import { type Clock, Lifecycle, utcNow } from './core/lifecycle.js';
@@ -85,6 +87,7 @@ interface Attempt {
   readonly row?: BindingRow;
   readonly proof?: NativeConnectionProof;
   readonly members: Map<string, OrdinarySourceMetadata>;
+  readonly promotion: ToolVersionPromotionAuthority | undefined;
 }
 const hash = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const identityFor = (row: BindingRow) => VerifiedSessionIdentitySchema.parse(JSON.parse(row.identity) as unknown);
@@ -191,7 +194,7 @@ function providerFor(state: OrdinaryBindingState, taskId: string, product: Bindi
 
 function admissionFor(state: OrdinaryBindingState, taskId: string) {
   const { store } = state;
-  const admission = getClaudeBindingAdmission(ordinaryTaskSettings(store, taskId).product_version);
+  const admission = getEffectiveClaudeBindingAdmission(ordinaryTaskSettings(store, taskId).product_version);
   if (!admission?.admitted) throw new Error('binding_source_unqualified');
   return admission;
 }
@@ -214,6 +217,14 @@ function authorize(state: OrdinaryBindingState, taskId: string, active = false) 
   if (active && task.state !== 'active') {
     throw new Error('binding_scope_revoked');
   }
+  if (!getClaudeBindingAdmission(ordinaryTaskSettings(store, taskId).product_version)) {
+    const provider = providerFor(state, taskId);
+    if (!provider.promotionAuthority) {
+      admissionFor(state, taskId);
+      throw new Error('promoted_provider_unavailable');
+    }
+    promotionBindingCheckpoint(provider);
+  }
   compatibility(state, taskId);
   return task;
 }
@@ -233,6 +244,7 @@ function nativeAvailable(state: OrdinaryBindingState, nativeId: string) {
 function assertAttempt(state: OrdinaryBindingState, taskId: string, attempt: Attempt) {
   const { store } = state;
   const task = authorize(state, taskId, true);
+  assertPromotionBindingCheckpoint(providerFor(state, taskId), attempt.promotion);
   const current = selected(state, taskId);
   nativeAvailable(state, attempt.segment.native_root_id);
   if (
@@ -393,7 +405,9 @@ async function scoped<T>(state: OrdinaryBindingState, taskId: string, attempt: A
   assertAttempt(state, taskId, attempt);
   attempts.set(taskId, attempt);
   try {
-    return await work();
+    const result = await work();
+    assertAttempt(state, taskId, attempt);
+    return result;
   } finally {
     if (attempts.get(taskId) === attempt) attempts.delete(taskId);
   }
@@ -460,14 +474,26 @@ async function read(state: OrdinaryBindingState, taskId: string, segment: Segmen
     return;
   }
   const value = identityFor(row);
+  const provider = providerFor(state, taskId);
   const attempt: Attempt = {
     segment,
     row,
     generation: row.generation,
-    members: new Map()
+    members: new Map(),
+    promotion: promotionBindingCheckpoint(provider)
   };
   const keyFor = (requestId: string) => hash(['binding-request-v1', value.product, requestId]);
-  const addExcluded = (requestIds: readonly string[]) =>
+  const stagedLedger = attempt.promotion
+    ? promotionBindingBaseline(store, {
+        product: value.product,
+        sessionId: row.session_id,
+        sourceIdentity: value.sourceIdentity,
+        assertAuthorized: () => {
+          assertAttempt(state, taskId, attempt);
+        }
+      })
+    : undefined;
+  const addExcluded = (requestIds: readonly string[]) => {
     store.immediateTransaction(() => {
       assertAttempt(state, taskId, attempt);
       for (const requestId of requestIds) {
@@ -478,7 +504,8 @@ async function read(state: OrdinaryBindingState, taskId: string, segment: Segmen
         ]);
       }
     });
-  const ledger = {
+  };
+  const ledger = stagedLedger ?? {
     has: (requestId: string) => {
       assertAttempt(state, taskId, attempt);
       return !!store.get('SELECT 1 FROM binding_baseline_exclusions WHERE session_id=? AND source_identity=? AND request_key=?', [
@@ -574,7 +601,12 @@ async function read(state: OrdinaryBindingState, taskId: string, segment: Segmen
     if (!baseline && currentGaps.some(gap => !previousGaps.includes(gap))) {
       recordObservationGap(store, taskId, row.session_id, row.observed_since, now(state), 'incomplete', now(state));
     }
+    stagedLedger?.commit();
     store.execute('UPDATE session_bindings SET cursor=?,gaps=? WHERE session_id=?', [batch.cursor, JSON.stringify(gaps), row.session_id]);
+    assertAttempt(state, taskId, {
+      ...attempt,
+      row: { ...row, cursor: batch.cursor }
+    });
   });
 }
 
@@ -643,7 +675,8 @@ async function discover(state: OrdinaryBindingState, taskId: string, segment: Se
     segment,
     row: root,
     generation: root.generation,
-    members: new Map()
+    members: new Map(),
+    promotion: promotionBindingCheckpoint(providerFor(state, taskId))
   };
   const result = await scoped(state, taskId, attempt, () => providerFor(state, taskId).discoverChildren(identityFor(root)));
   assertAttempt(state, taskId, attempt);
@@ -653,6 +686,9 @@ async function discover(state: OrdinaryBindingState, taskId: string, segment: Se
   }
   store.immediateTransaction(() => {
     assertAttempt(state, taskId, attempt);
+    if (providerFor(state, taskId).promotionAuthority?.key.topology === 'root' && result.children.length) {
+      throw new Error('binding_root_only_required');
+    }
     if (result.gaps.length) {
       const prior = z.array(z.string()).parse(JSON.parse(root.gaps) as unknown);
       const reason = pending ? 'binding_child_pending' : 'binding_unobserved_context';
@@ -925,6 +961,7 @@ function connect(state: OrdinaryBindingState, taskId: string, product: BindingPr
   return serialized(state, taskId, async () => {
     const before = authorize(state, taskId);
     const provider = providerFor(state, taskId, product);
+    const promotion = promotionBindingCheckpoint(provider);
     const epoch = epochs.get(taskId) ?? 0;
     const input = CurrentIdentityRequestSchema.parse(request);
     if (!sourceSupported(state, taskId, product) || !provider.inspectCurrent) throw new Error('binding_source_unqualified');
@@ -934,6 +971,7 @@ function connect(state: OrdinaryBindingState, taskId: string, product: BindingPr
       ownerAvailable(state, previous);
     }
     const proof = await provider.inspectCurrent(input);
+    assertPromotionBindingCheckpoint(provider, promotion);
     authorize(state, taskId);
     if (epoch !== (epochs.get(taskId) ?? 0) || life.task(taskId).generation !== before.generation) throw new Error('binding_scope_revoked');
     nativeAvailable(state, proof.nativeSessionId);
@@ -960,7 +998,7 @@ function connect(state: OrdinaryBindingState, taskId: string, product: BindingPr
         ...status(state, taskId),
         status: 'already_connected',
         session_id: previous.root_session_id,
-        automatic_children: true
+        automatic_children: provider.promotionAuthority?.key.topology !== 'root'
       };
     }
     // Explicit connect replaces the selected segment; resume is the only path
@@ -987,6 +1025,7 @@ function connect(state: OrdinaryBindingState, taskId: string, product: BindingPr
       closed_at: null
     };
     store.immediateTransaction(() => {
+      assertPromotionBindingCheckpoint(provider, promotion);
       authorize(state, taskId);
       const task = life.task(taskId);
       if (task.generation !== before.generation && !previous) {
@@ -1006,12 +1045,14 @@ function connect(state: OrdinaryBindingState, taskId: string, product: BindingPr
         [rootId, taskId, proof.nativeSessionId, proof.cwd, ownIdentity(state), at]
       );
       store.execute('UPDATE ordinary_tasks SET selected_root_id=? WHERE task_id=?', [rootId, taskId]);
+      assertPromotionBindingCheckpoint(provider, promotion);
     });
     const attempt: Attempt = {
       segment,
       generation: life.task(taskId).generation,
       proof,
-      members: new Map()
+      members: new Map(),
+      promotion
     };
     try {
       const value = checkIdentity(state, taskId, await scoped(state, taskId, attempt, () => provider.resolveCurrent(input)), rootId);
@@ -1052,7 +1093,7 @@ function connect(state: OrdinaryBindingState, taskId: string, product: BindingPr
       ...status(state, taskId),
       status: 'connected',
       session_id: rootId,
-      automatic_children: true
+      automatic_children: provider.promotionAuthority?.key.topology !== 'root'
     };
   });
 }
@@ -1085,6 +1126,7 @@ function resume(state: OrdinaryBindingState, taskId: string) {
   const { store, life } = state;
   return serialized(state, taskId, async () => {
     authorize(state, taskId);
+    const promotion = promotionBindingCheckpoint(providerFor(state, taskId));
     const segment = selected(state, taskId);
     if (!segment || segment.state === 'closed' || segment.state === 'stopping') throw new Error('binding_reconnect_required');
     nativeAvailable(state, segment.native_root_id);
@@ -1097,6 +1139,7 @@ function resume(state: OrdinaryBindingState, taskId: string) {
     if (!root?.connect_receipt || !providerFor(state, taskId).revalidateBound) throw new Error('binding_reconnect_required');
     const expected = identityFor(root);
     store.immediateTransaction(() => {
+      assertPromotionBindingCheckpoint(providerFor(state, taskId), promotion);
       authorize(state, taskId);
       ownerAvailable(state, segment);
       store.execute("UPDATE binding_root_segments SET state='paused',revision=revision+1,observer_identity=? WHERE root_session_id=?", [
@@ -1107,6 +1150,7 @@ function resume(state: OrdinaryBindingState, taskId: string) {
     });
     gapAndPause(state, taskId, segment);
     store.immediateTransaction(() => {
+      assertPromotionBindingCheckpoint(providerFor(state, taskId), promotion);
       authorize(state, taskId);
       if (life.state(taskId) === 'paused') life.resume(taskId);
       const generation = life.task(taskId).generation;
@@ -1118,7 +1162,8 @@ function resume(state: OrdinaryBindingState, taskId: string) {
     const attempt: Attempt = {
       segment: current,
       generation: life.task(taskId).generation,
-      members: new Map()
+      members: new Map(),
+      promotion
     };
     try {
       const provider = providerFor(state, taskId);
@@ -1160,7 +1205,7 @@ function resume(state: OrdinaryBindingState, taskId: string) {
       ...status(state, taskId),
       status: 'reconnected',
       session_id: current.root_session_id,
-      automatic_children: true
+      automatic_children: providerFor(state, taskId).promotionAuthority?.key.topology !== 'root'
     };
   });
 }

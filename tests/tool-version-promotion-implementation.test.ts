@@ -117,6 +117,7 @@ test.each([
   'src/session-binding-codex.ts',
   'src/session-binding-claude.ts',
   'src/session-binding-service.ts',
+  'src/binding/session-binding-promotion.ts',
   'src/sources/adapters.ts',
   'src/codex-candidate-rollout.ts',
   'src/binding/session-binding-qualification-lease.ts',

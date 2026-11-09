@@ -230,8 +230,8 @@ test.each(['codex', 'claude_code'] as const)(
       ['parser_base', versions[0], versions[2]]
     ]);
     expect(judgment.record.coverage_reasons).toEqual([]);
-    if (current.record.schema_version !== 10 || current.record.judgment_ids === undefined) {
-      throw new Error('machine_schema_10_required');
+    if (current.record.schema_version !== 11 || current.record.judgment_ids === undefined) {
+      throw new Error('machine_schema_11_required');
     }
     expect(
       current.record.lanes.map(({ automated, ...lane }) => {
@@ -275,8 +275,8 @@ test('a collected machine judgment preserves the exact-only family beside the in
   const judgment = await judge(input, job.path, evidence.paths);
 
   const current = await assess(input, judgment.path);
-  if (current.record.schema_version !== 10 || current.record.judgment_ids === undefined) {
-    throw new Error('machine_schema_10_required');
+  if (current.record.schema_version !== 11 || current.record.judgment_ids === undefined) {
+    throw new Error('machine_schema_11_required');
   }
   const family = current.record.lanes.find(row => row.profile_id === 'codex-binding-01660-direct-family-v1' && row.operation === 'collect');
   expect(family).toMatchObject({
@@ -325,8 +325,8 @@ test.each(driftCases)(
     });
     expect(judgment.record.groups[1]?.facets.flatMap(facet => facet.reasons)).toContain(reason);
     const assessed = await assess(input, judgment.path);
-    if (assessed.record.schema_version !== 10 || assessed.record.judgment_ids === undefined) {
-      throw new Error('machine_schema_10_required');
+    if (assessed.record.schema_version !== 11 || assessed.record.judgment_ids === undefined) {
+      throw new Error('machine_schema_11_required');
     }
     const lane = assessed.record.lanes.find(row => row.profile_id === input.lane.profile_id && row.operation === input.lane.operation);
     expect(lane?.automated.contracts).toContainEqual({
@@ -366,8 +366,8 @@ test.each([
     const recordsBefore = await tree(input.records);
 
     const stale = await assess(input, judgment.path, copy);
-    if (stale.record.schema_version !== 10 || stale.record.judgment_ids === undefined) {
-      throw new Error('machine_schema_10_required');
+    if (stale.record.schema_version !== 11 || stale.record.judgment_ids === undefined) {
+      throw new Error('machine_schema_11_required');
     }
     const lane = stale.record.lanes.find(row => row.profile_id === input.lane.profile_id && row.operation === input.lane.operation);
     expect(lane?.automated.freshness_reasons).toEqual([reason]);

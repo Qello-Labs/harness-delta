@@ -44,9 +44,12 @@ import type { ExternalTaskSetup } from './workflow/external-session-service.js';
 import { assertHumanPilotScope, checkHumanPilotIdentity, humanPilotCompatibility, type HumanPilotScope } from './binding/session-binding-human-pilot.js';
 import { isClaudeHumanPilotScope } from './binding/session-binding-claude-human-pilot.js';
 import { assertCompatibilityAllowed, invalidateCompatibility, pinSessionCompatibility, resolveSourceCompatibility } from './source-compatibility.js';
-import { getCodexBindingAdmission, isAdmittedCodexBindingProtocol, isCodexGptModel } from './codex-binding-admission.js';
+import { isAdmittedCodexBindingProtocol, isCodexGptModel } from './codex-binding-admission.js';
 import { lstatSync } from 'node:fs';
 import { assertOrdinaryWindowSurfaceClosed, ordinaryWindowSelection } from './core/ordinary-window-store.js';
+import { getEffectiveCodexBindingAdmission } from './codex-binding-admission.js';
+import { assertPromotionBindingCheckpoint, promotionBindingBaseline, promotionBindingCheckpoint } from './binding/session-binding-promotion.js';
+import type { ToolVersionPromotionAuthority } from './core/tool-version-promotion-store.js';
 
 interface BindingRow {
   session_id: string;
@@ -233,6 +236,7 @@ function providerFor(state: SessionBindingState, product: BindingProduct, taskId
   assertOrdinaryWindowSurfaceClosed(store, taskId);
   const provider = (options.providersForTask?.(taskId) ?? options.providers).find(p => p.product === product);
   if (!provider) throw new Error('binding_provider_unavailable');
+  promotionBindingCheckpoint(provider);
   return provider;
 }
 
@@ -247,7 +251,7 @@ function sourceSupported(state: SessionBindingState, taskId: string, product: Bi
       ? options.providers.includes(provider) || options.syntheticProviderForTask?.(provider, taskId) === true
       : metadata.product === product &&
         provider instanceof CodexSessionBindingProvider &&
-        provider.admissionProfile() === getCodexBindingAdmission(options.setupFor(taskId).workflow.product_version)?.profileId)
+        provider.admissionProfile() === getEffectiveCodexBindingAdmission(options.setupFor(taskId).workflow.product_version)?.profileId)
   );
 }
 
@@ -389,7 +393,7 @@ function checkIdentity(state: SessionBindingState, taskId: string, input: Verifi
   if (!options.qualificationLease && !options.humanPilot && ordinaryAdmitted(state, taskId)) {
     const family = rows(state, taskId).map(identityFor);
     const root = family.find(member => member.parentSessionId === null);
-    const admission = getCodexBindingAdmission(value.productVersion);
+    const admission = getEffectiveCodexBindingAdmission(value.productVersion);
     if (!admission || outsideAdmittedFamily(value, root, old, task.registered_at, family.length, admission.maxFamilyMembers)) {
       throw new Error('binding_admission_family_scope');
     }
@@ -566,11 +570,15 @@ function invalidateSourceContract(state: SessionBindingState, taskId: string, er
 
 async function discoverFamily(state: SessionBindingState, taskId: string, row: BindingRow, value: VerifiedSessionIdentity, at: FamilyPhase) {
   const { readiness, clock, options } = state;
+  const provider = providerFor(state, value.product, taskId);
+  const promotion = promotionBindingCheckpoint(provider);
   try {
     const context = readiness.get(taskId);
     for (;;) {
       authorizeObservation(state, taskId, row);
-      const result = await providerFor(state, value.product, taskId).discoverChildren(value);
+      const result = await provider.discoverChildren(value);
+      assertPromotionBindingCheckpoint(provider, promotion);
+      if (provider.promotionAuthority?.key.topology === 'root' && result.children.length) throw new Error('binding_root_only_required');
       for (const reason of result.gaps) {
         invalidateSourceContract(state, taskId, new Error(reason));
       }
@@ -614,6 +622,7 @@ async function discoverFamily(state: SessionBindingState, taskId: string, row: B
         }
       }
       await delay(Math.min(20, remaining));
+      assertPromotionBindingCheckpoint(provider, promotion);
     }
   } catch (error) {
     invalidateSourceContract(state, taskId, error);
@@ -656,6 +665,18 @@ async function read(state: SessionBindingState, taskId: string, row: BindingRow,
   const value = identityFor(row);
   assertApplicationWorkingIdentity(store, taskId, value);
   const provider = providerFor(state, value.product, taskId);
+  const promotion = promotionBindingCheckpoint(provider);
+  const ledger = promotion
+    ? promotionBindingBaseline(store, {
+        product: value.product,
+        sessionId: row.session_id,
+        sourceIdentity: value.sourceIdentity,
+        assertAuthorized: () => {
+          assertPromotionBindingCheckpoint(provider, promotion);
+          authorizeObservation(state, taskId, row);
+        }
+      })
+    : undefined;
   if (options.humanPilot) {
     checkHumanPilotIdentity(options.humanPilot, store, taskId, value);
   }
@@ -684,7 +705,11 @@ async function read(state: SessionBindingState, taskId: string, row: BindingRow,
   }
   let batch: Awaited<ReturnType<SessionBindingProvider['readUsage']>>;
   try {
-    batch = await provider.readUsage(value, baseline ? null : row.cursor, scopeFor(state, taskId, row.root_id), { baseline });
+    batch = await provider.readUsage(value, baseline ? null : row.cursor, scopeFor(state, taskId, row.root_id), {
+      baseline,
+      ...(ledger ? { baselineLedger: ledger } : {})
+    });
+    assertPromotionBindingCheckpoint(provider, promotion);
   } catch (error) {
     invalidateSourceContract(state, taskId, error);
     throw error;
@@ -701,17 +726,20 @@ async function read(state: SessionBindingState, taskId: string, row: BindingRow,
     options.bindingObservation?.record(taskId, record, baseline);
   }
   store.immediateTransaction(() => {
+    assertPromotionBindingCheckpoint(provider, promotion);
     const task = authorizeObservation(state, taskId, row);
     for (const record of excluded) {
       checkBindingQualificationRecord(options.qualificationLease, store, taskId, record, true);
     }
     if (baseline) {
       for (const record of records) {
+        ledger?.add(record.requestId);
         checkBindingQualificationRecord(options.qualificationLease, store, taskId, record, true);
       }
     }
     if (!baseline) {
       for (const record of records) {
+        if (ledger?.has(record.requestId)) continue;
         if (!recordMatchesIdentity(record, value) || Date.parse(record.occurredAt) > Date.parse(clock())) throw new Error('binding_usage_invalid');
         if (Date.parse(record.occurredAt) < Date.parse(row.observed_since)) continue;
         const key = hash(['binding-request-v1', value.product, record.requestId]);
@@ -776,7 +804,10 @@ async function read(state: SessionBindingState, taskId: string, row: BindingRow,
     if (gaps.length) {
       recordObservationGap(store, taskId, value.sessionId, row.observed_since, clock(), 'incomplete', clock());
     }
+    ledger?.commit();
     store.execute('UPDATE session_bindings SET cursor=?,gaps=? WHERE session_id=?', [batch.cursor, JSON.stringify(gaps), value.sessionId]);
+    assertPromotionBindingCheckpoint(provider, promotion);
+    authorizeObservation(state, taskId, { ...row, cursor: batch.cursor });
   });
 }
 
@@ -1044,13 +1075,16 @@ function prepareConnection(
   if (options.qualificationLease && !bindingQualificationOwnerLive(options.qualificationLease)) throw new Error('binding_qualification_live_root_required');
   const before = authorizeConnection(state, taskId);
   const provider = providerFor(state, product, taskId);
+  const promotion = promotionBindingCheckpoint(provider);
   const input = CurrentIdentityRequestSchema.parse(request);
   if (options.qualificationLease || ((options.humanPilot || ordinaryAdmitted(state, taskId)) && provider instanceof CodexSessionBindingProvider)) {
     if (!(provider instanceof CodexSessionBindingProvider)) {
       throw new Error('binding_qualification_scope_invalid');
     }
     const root = rows(state, taskId).find(r => identityFor(r).parentSessionId === null);
-    provider.assertRootReceipt(input, root?.session_id ?? null);
+    if (!provider.promotionAuthority) {
+      provider.assertRootReceipt(input, root?.session_id ?? null);
+    }
   }
   // An injected dependency is used only inside an explicitly synthetic
   // protocol. Native manifest providers remain gated even in that workspace.
@@ -1059,7 +1093,7 @@ function prepareConnection(
     row => row.connect_receipt === input.receipt && identityFor(row).parentSessionId === null && identityFor(row).product === product
   );
   const boundRoot = expectedRoot ?? (pinned ? identityFor(pinned) : undefined);
-  return { before, provider, input, pinned, boundRoot };
+  return { before, provider, input, pinned, boundRoot, promotion };
 }
 
 function activateConnection(
@@ -1068,10 +1102,13 @@ function activateConnection(
   before: ReturnType<Lifecycle['task']>,
   value: VerifiedSessionIdentity,
   input: CurrentIdentityRequest,
-  restart: boolean
+  restart: boolean,
+  promotion: ToolVersionPromotionAuthority | undefined
 ) {
   const { store, life, clock } = state;
   store.immediateTransaction(() => {
+    const provider = providerFor(state, value.product, taskId);
+    assertPromotionBindingCheckpoint(provider, promotion);
     authorizeConnection(state, taskId, before.generation);
     if (before.state === 'registered') life.start(taskId);
     else if (before.state === 'paused') life.resume(taskId);
@@ -1099,6 +1136,7 @@ function activateConnection(
       clock(),
       taskId
     ]);
+    assertPromotionBindingCheckpoint(provider, promotion);
   });
 }
 
@@ -1137,11 +1175,13 @@ async function connect(
 > {
   const { options, store, readiness } = state;
   await flushForgotten(state);
-  const { before, provider, input, pinned, boundRoot } = prepareConnection(state, taskId, product, request, expectedRoot);
+  const { before, provider, input, pinned, boundRoot, promotion } = prepareConnection(state, taskId, product, request, expectedRoot);
   const resolved =
     boundRoot && pinned && 'revalidateBound' in provider && provider.revalidateBound
       ? await provider.revalidateBound(input, boundRoot)
       : await provider.resolveCurrent(input);
+  assertPromotionBindingCheckpoint(provider, promotion);
+  provider.promotionAuthority?.assertAuthorized(resolved.nativeMapping?.nativeSessionId ?? resolved.sessionId);
   authorizeConnection(state, taskId, before.generation);
   const value = checkIdentity(state, taskId, resolved);
   if (expectedRoot && bindingIdentityKey(value) !== bindingIdentityKey(expectedRoot)) throw new Error('binding_identity_mismatch');
@@ -1179,7 +1219,7 @@ async function connect(
     };
   }
   const restart = before.state !== 'active';
-  activateConnection(state, taskId, before, value, input, restart);
+  activateConnection(state, taskId, before, value, input, restart, promotion);
   if (restart) {
     noteBindingQualificationTransition(options.qualificationLease, store, taskId);
   }

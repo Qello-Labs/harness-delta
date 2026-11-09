@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { createServer } from 'node:http';
 import * as nativeFs from 'node:fs';
 import { copyFileSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -405,24 +406,309 @@ test.each(products)('%s bounds input and rejects malformed target arguments befo
 test.each(products)('%s connect helper requires an explicit receipt and cannot claim live authority', async product => {
   const f = fixture(product);
   const script = resolve(`skills/harness-connect-promoted-${product === 'codex' ? 'codex' : 'claude'}/scripts/connect.mjs`);
-  const args = ['connect', '--origin', 'http://127.0.0.1:43210', '--project', 'synthetic-project', '--task', 'synthetic-task'];
-  const missing = await invoke(f, { script, args });
-  requireNoAccess(missing);
-  expect(JSON.parse(missing.stdout)).toMatchObject({
-    status: 'blocked',
-    reason_code: 'invalid_input',
-    verified: false
+  const server = await promotedTransportServer(product, 'missing');
+  const args = ['connect', '--origin', server.origin, '--project', 'synthetic-project', '--task', 'synthetic-task'];
+  try {
+    const missing = await invoke(f, { script, args });
+    requireNoAccess(missing);
+    expect(JSON.parse(missing.stdout)).toMatchObject({
+      status: 'blocked',
+      reason_code: 'invalid_input',
+      verified: false
+    });
+    const explicit = await invoke(f, {
+      script,
+      args: [...args, '--receipt', '11111111-1111-4111-8111-111111111111']
+    });
+    requireNoAccess(explicit);
+    expect(JSON.parse(explicit.stdout)).toMatchObject({
+      status: 'blocked',
+      reason_code: 'promoted_provider_unavailable',
+      verified: false,
+      collection_active: false
+    });
+    expect(receipts(f)).toEqual([]);
+  } finally {
+    await server.close();
+  }
+});
+
+async function promotedTransportServer(
+  product: Product,
+  mode: 'allow' | 'deny' | 'readback' | 'missing',
+  redirect?: { readonly origin: string; readonly status: number }
+) {
+  let connected = false;
+  const selected = 'synthetic-session';
+  const bodies: unknown[] = [];
+  const assigned = product === 'codex' ? 'synthetic-variant' : null;
+  const server = createServer((request, response) => {
+    const reply = (value: unknown, status = 200) => {
+      response.writeHead(status, {
+        'Content-Type': 'application/json',
+        Connection: 'close'
+      });
+      response.end(JSON.stringify(value));
+    };
+    if (request.url === '/api/bootstrap') {
+      if (mode === 'missing') {
+        reply({ error: 'promoted_provider_unavailable' }, 409);
+        return;
+      }
+      reply({
+        csrf: 'c'.repeat(64),
+        data: {
+          projects: [{ id: 'synthetic-project' }],
+          tasks: [
+            {
+              id: 'synthetic-task',
+              project_id: 'synthetic-project'
+            }
+          ]
+        }
+      });
+    } else if (request.url === '/api/tasks/synthetic-task' && request.method === 'GET') {
+      reply({
+        id: 'synthetic-task',
+        project_id: 'synthetic-project',
+        version: `"${'a'.repeat(64)}"`,
+        state: 'active',
+        preparation: {
+          state: 'connected',
+          assigned_variant_id: assigned
+        },
+        actions: [
+          {
+            code: 'session-connect',
+            enabled: true,
+            reason: null
+          }
+        ],
+        binding: {
+          state: connected ? 'observing' : 'unlinked',
+          sessions:
+            connected && mode !== 'readback'
+              ? [
+                  {
+                    session_id: selected,
+                    identity_basis: 'native_metadata_receipt'
+                  }
+                ]
+              : []
+        }
+      });
+    } else if (request.url === '/api/tasks/synthetic-task/session-connect' && request.method === 'POST') {
+      let body = '';
+      request.on('data', chunk => {
+        body += String(chunk);
+      });
+      request.on('end', () => {
+        const value: unknown = JSON.parse(body);
+        bodies.push(value);
+        if (
+          request.headers['x-harness-csrf'] !== 'c'.repeat(64) ||
+          request.headers['if-match'] !== `"${'a'.repeat(64)}"` ||
+          request.headers.origin !== `http://127.0.0.1:${port}` ||
+          !request.headers['idempotency-key']
+        ) {
+          reply({ error: 'ui_state_changed' }, 409);
+          return;
+        }
+        if (mode === 'deny') {
+          reply({ error: 'promotion_authority_denied' }, 409);
+          return;
+        }
+        connected = true;
+        if (redirect) {
+          response.writeHead(redirect.status, {
+            Location: redirect.origin + '/sink',
+            Connection: 'close'
+          });
+          response.end();
+          return;
+        }
+        reply({
+          connection: {
+            status: 'connected',
+            project_id: 'synthetic-project',
+            task_id: 'synthetic-task',
+            session_id: selected,
+            assigned_variant_id: assigned,
+            identity_basis: 'native_metadata_receipt',
+            evidence: 'server_verified_identity_source_and_relations',
+            collection_active: true,
+            automatic_children: false,
+            cost_coverage: 'partial'
+          }
+        });
+      });
+    } else reply({ error: 'unsupported_ui_contract' }, 404);
   });
-  const explicit = await invoke(f, {
-    script,
-    args: [...args, '--receipt', '11111111-1111-4111-8111-111111111111']
+  await new Promise<void>(resolveListening => server.listen(0, '127.0.0.1', resolveListening));
+  const address = server.address();
+  if (!address || typeof address === 'string') {
+    throw new Error('synthetic_server_address_missing');
+  }
+  const port = address.port;
+  return {
+    origin: `http://127.0.0.1:${port}`,
+    bodies,
+    close: () => new Promise<void>((resolveClose, reject) => server.close(error => (error ? reject(error) : resolveClose())))
+  };
+}
+
+test.each(products)('%s promoted helper reaches the authorized callback without reading native hints', async product => {
+  const f = fixture(product);
+  const server = await promotedTransportServer(product, 'allow');
+  try {
+    const result = await invoke(f, {
+      script: resolve(`skills/harness-connect-promoted-${product === 'codex' ? 'codex' : 'claude'}/scripts/connect.mjs`),
+      args: ['connect', '--origin', server.origin, '--project', 'synthetic-project', '--task', 'synthetic-task', '--receipt', f.input.session_id]
+    });
+    requireNoAccess(result);
+    expect(result.code).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      status: 'connected',
+      producer_contract: contract,
+      collection_active: true,
+      session_id: 'synthetic-session',
+      automatic_children: false
+    });
+    expect(server.bodies).toEqual([
+      {
+        product,
+        receipt: f.input.session_id
+      }
+    ]);
+    expect(receipts(f)).toEqual([]);
+  } finally {
+    await server.close();
+  }
+});
+
+test.each(products.flatMap(product => [307, 308].map(status => ({ product, status }))))(
+  '$product promoted helper rejects $status redirects without contacting the target',
+  async ({ product, status }) => {
+    const f = fixture(product);
+    let targetRequests = 0;
+    const target = createServer((_request, response) => {
+      targetRequests += 1;
+      response.writeHead(200, {
+        'Content-Type': 'application/json',
+        Connection: 'close'
+      });
+      response.end(
+        JSON.stringify({
+          connection: {
+            status: 'connected',
+            project_id: 'synthetic-project',
+            task_id: 'synthetic-task',
+            session_id: 'synthetic-session',
+            identity_basis: 'native_metadata_receipt',
+            evidence: 'server_verified_identity_source_and_relations',
+            collection_active: true,
+            automatic_children: false,
+            cost_coverage: 'partial'
+          }
+        })
+      );
+    });
+    await new Promise<void>(resolveListening => target.listen(0, '127.0.0.1', resolveListening));
+    const address = target.address();
+    if (!address || typeof address === 'string') {
+      throw new Error('synthetic_server_address_missing');
+    }
+    try {
+      const server = await promotedTransportServer(product, 'allow', {
+        origin: `http://127.0.0.1:${address.port}`,
+        status
+      });
+      try {
+        const result = await invoke(f, {
+          script: resolve(`skills/harness-connect-promoted-${product === 'codex' ? 'codex' : 'claude'}/scripts/connect.mjs`),
+          args: ['connect', '--origin', server.origin, '--project', 'synthetic-project', '--task', 'synthetic-task', '--receipt', f.input.session_id]
+        });
+        expect(targetRequests).toBe(0);
+        requireNoAccess(result);
+        expect(server.bodies).toEqual([
+          {
+            product,
+            receipt: f.input.session_id
+          }
+        ]);
+        expect(result.code).toBe(1);
+        expect(JSON.parse(result.stdout)).toEqual({
+          status: 'blocked',
+          producer_contract: contract,
+          product,
+          reason_code: 'promoted_provider_unavailable',
+          verified: false,
+          collection_active: false
+        });
+      } finally {
+        await server.close();
+      }
+    } finally {
+      await new Promise<void>((resolveClose, reject) => target.close(error => (error ? reject(error) : resolveClose())));
+    }
+  }
+);
+
+test.each(
+  products.flatMap(product =>
+    [
+      'http://localhost',
+      'http://localhost:12345',
+      'http://[::1]',
+      'http://[::1]:12345',
+      'http://127.0.0.1',
+      'http://127.0.0.1:80',
+      'https://127.0.0.1:12345',
+      'http://192.0.2.1:12345',
+      'http://user:password@127.0.0.1:12345',
+      'http://127.0.0.1:12345/path',
+      'http://127.0.0.1:12345?query',
+      'http://127.0.0.1:12345#fragment'
+    ].map(origin => ({ product, origin }))
+  )
+)('$product promoted helper rejects origin $origin outside explicit IPv4 loopback ports', async ({ product, origin }) => {
+  const f = fixture(product);
+  const result = await invoke(f, {
+    script: resolve(`skills/harness-connect-promoted-${product === 'codex' ? 'codex' : 'claude'}/scripts/connect.mjs`),
+    args: ['inspect', '--origin', origin, '--project', 'synthetic-project', '--task', 'synthetic-task']
   });
-  requireNoAccess(explicit);
-  expect(JSON.parse(explicit.stdout)).toMatchObject({
+  requireNoAccess(result);
+  expect(result.code).toBe(1);
+  expect(JSON.parse(result.stdout)).toEqual({
     status: 'blocked',
-    reason_code: 'promoted_provider_unavailable',
+    producer_contract: contract,
+    product,
+    reason_code: 'invalid_origin',
     verified: false,
     collection_active: false
   });
-  expect(receipts(f)).toEqual([]);
 });
+
+test.each(products.flatMap(product => (['deny', 'readback'] as const).map(mode => ({ product, mode }))))(
+  '$product promoted helper refuses $mode rather than claiming collection',
+  async ({ product, mode }) => {
+    const f = fixture(product);
+    const server = await promotedTransportServer(product, mode);
+    try {
+      const result = await invoke(f, {
+        script: resolve(`skills/harness-connect-promoted-${product === 'codex' ? 'codex' : 'claude'}/scripts/connect.mjs`),
+        args: ['connect', '--origin', server.origin, '--project', 'synthetic-project', '--task', 'synthetic-task', '--receipt', f.input.session_id]
+      });
+      requireNoAccess(result);
+      expect(result.code).toBe(1);
+      expect(JSON.parse(result.stdout)).toMatchObject({
+        status: 'blocked',
+        reason_code: mode === 'deny' ? 'promotion_authority_denied' : 'connection_unverified',
+        verified: false,
+        collection_active: false
+      });
+    } finally {
+      await server.close();
+    }
+  }
+);

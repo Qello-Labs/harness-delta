@@ -61,8 +61,10 @@ Adding them makes the digest in every existing baseline row and review record
 stale. Those records remain readable and are not rewritten; their historical
 digests cannot close current contract review gates.
 
-The current `static-assessment-v6` writer captures exactly 87 deduplicated paths, with no spare entries.
-It adds the loaded `src/core/tool-version-promotion-store.ts` adapter and the hash-only
+The current `static-assessment-v7` writer captures exactly 88 deduplicated paths, with no spare entries.
+It adds the hash-only `src/binding/session-binding-promotion.ts` coordinator dependency
+without loading its Store or native dependencies. The v6/schema-10 closure is frozen at
+87 paths; it added the loaded `src/core/tool-version-promotion-store.ts` adapter and the hash-only
 `src/deletion.ts`, `src/migrations/038_tool_version_promotion_denials.sql`,
 `src/web/local-web-binding-providers.ts` and `src/web/local-web-support.ts` inputs.
 Assessment never constructs a Store or queries local denials. The v5/schema-9 closure
@@ -144,7 +146,7 @@ On 2026-10-29, the former all-history mode hit HTTP 422 beyond Codex's first
 the first 1000 as a complete history.
 
 New observations use `schema_version: 2` and
-`inventory_scope: "latest_and_npm_review_range"`. Assessments use schema 10 and
+`inventory_scope: "latest_and_npm_review_range"`. Assessments use schema 11 and
 carry the observation's scope (`legacy_full_inventory` for schema-1 inputs).
 Legacy schema-1 observations and assessments remain readable without rewriting
 them. The legacy scope label reflects the old record format, not authenticated
@@ -212,7 +214,7 @@ each path at the pinned commit before treating it as available review evidence.
 
 ### Selection policy
 
-With review records, the current schema-10 manual channel includes a strict `selection_policy`
+With review records, the current schema-11 manual channel includes a strict `selection_policy`
 object in every lane. Frozen schema 6 retains the same requirement:
 
 ```json
@@ -252,12 +254,13 @@ reasons, compatibility, windows, review coverage, gates, or live checks.
 An unmatched state fails with `invalid_record` rather than guessing a path.
 The assessment record limit remains 256 KiB.
 
-The current writer emits schema 10 with `static-assessment-v6` for the plain, manual
-and machine channels. Readers for schemas 1-8 are frozen history: schemas 1–4 with
+The current writer emits schema 11 with `static-assessment-v7` for the plain, manual
+and machine channels. Readers for schemas 1-10 are frozen history: schemas 1–4 with
 `static-assessment-v1` and schemas 5-7 with their named `static-assessment-v2` or
-`static-assessment-v3` revision, and schema 8 with `static-assessment-v4`.
+`static-assessment-v3` revision, schema 8 with `static-assessment-v4`, schema 9 with
+`static-assessment-v5` and schema 10 with `static-assessment-v6`.
 The two root-policy IDs are accepted with v3 on schemas 5-7, v4 on schema 8,
-v5 on schema 9, and v6 on schema 10; v2 records are not rewritten.
+v5 on schema 9, v6 on schema 10 and v7 on schema 11; v2 records are not rewritten.
 The v3 schemas add two ordinary root-reference
 policy lanes, `codex-binding-root-window-v1` and `claude-binding-root-window-v1`,
 with rule revisions `codex-ordinary-root-window-v1` and
@@ -487,7 +490,7 @@ different judgments for the same job are rejected.
 
 ### Assessment schema 7
 
-Schema 7 is frozen history; the current writer emits these fields in schema 10 when
+Schema 7 is frozen history; the current writer emits these fields in schema 11 when
 `assess` gets at least one `--judgment`, and readers for schemas 1-6 don't change.
 Schema 7 keeps the whole static and manual projection and adds:
 
@@ -505,7 +508,7 @@ from the current one, the automated result is `unknown` with a fixed freshness
 reason (`stale_source`, `stale_engine` or `stale_map`). A missing baseline, a
 baseline equal to the target, or an incomplete parser chain leaves the result pending.
 
-Neither frozen schema 7 nor the current schema-10 machine channel establishes support. Machine results never close `contracts_unknown`,
+Neither frozen schema 7 nor the current schema-11 machine channel establishes support. Machine results never close `contracts_unknown`,
 `exact_only`, `upper_bound`, `minor_transition`, `no_window`, live `not_assessed`
 fields, conformance, admission or default gates. They never write a support, live,
 admission, default or block decision, and they never make a version outside its

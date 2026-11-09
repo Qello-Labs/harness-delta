@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { lstatSync, mkdirSync, readdirSync, realpathSync, renameSync, rmdirSync, unlinkSync } from 'node:fs';
-import type { Stats } from 'node:fs';
+import type { BigIntStats, Stats } from 'node:fs';
 import { basename, dirname, isAbsolute, join, posix, resolve } from 'node:path';
 import { z } from 'zod';
 import { getCodexBindingAdmission } from '../codex-binding-admission.js';
@@ -920,6 +920,116 @@ function plan(root: string, options: CodexConnectInstallationPreviewOptions) {
 export function previewCodexConnectInstallation(root: string, options: CodexConnectInstallationPreviewOptions): CodexConnectInstallationPreview {
   return plan(root, options).preview;
 }
+let verifiedPromotedInstallation: string | undefined;
+function promotedInstallationInputs(root: string, options: CodexConnectInstallationOptions): string | undefined {
+  try {
+    const entries = new Map<string, BigIntStats | undefined>();
+    let cacheable = true;
+    const pin = (path: string): BigIntStats | undefined => {
+      if (entries.has(path)) return entries.get(path);
+      const parent = dirname(path);
+      if (!anchors.has(path) && parent !== path && !pin(parent)?.isDirectory()) {
+        entries.set(path, undefined);
+        return undefined;
+      }
+      const stat = lstatSync(path, {
+        bigint: true,
+        throwIfNoEntry: false
+      });
+      entries.set(path, stat);
+      if (stat?.isSymbolicLink()) cacheable = false;
+      return stat;
+    };
+    let count = 0;
+    const visit = (path: string, depth = 0): void => {
+      if (++count > 2048 || depth > 16) {
+        cacheable = false;
+        return;
+      }
+      const stat = pin(path);
+      if (stat?.isDirectory()) {
+        for (const name of readdirSync(path).sort()) {
+          visit(join(path, name), depth + 1);
+        }
+      }
+    };
+    const packageRoot = options.packageRoot ?? packagedSkillPath('harness-connect');
+    const promotedPackageRoot = options.promotedPackageRoot ?? packagedSkillPath('harness-connect-promoted-codex');
+    const hookSource =
+      options.hookSource ??
+      (implementationExtension === '.ts'
+        ? packagePath('scripts', 'session-binding-codex-hook.mjs')
+        : implementationPath('assets', 'session-binding-codex-hook.mjs'));
+    const promotedHookSource =
+      options.promotedHookSource ??
+      (implementationExtension === '.ts'
+        ? packagePath('scripts', 'session-binding-codex-promoted-hook.mjs')
+        : implementationPath('assets', 'session-binding-codex-promoted-hook.mjs'));
+    const runtime = realpathSync(process.execPath);
+    const anchors = new Set(
+      [root, packageRoot, promotedPackageRoot, dirname(hookSource), dirname(promotedHookSource), dirname(runtime)].map(path => resolve(path))
+    );
+    // External parent contents are unrelated, but their canonical path safety stays live.
+    for (const path of anchors) {
+      if (realpathSync(path) !== path) return undefined;
+    }
+    for (const path of [join(root, destination), packageRoot, promotedPackageRoot]) visit(resolve(path));
+    // Receipt entries are not installer-owned; only their directory identity is relevant.
+    for (const path of [manifestPath, hooksPath, recorder, windowRecorder, promotedRecorder, receiptDirectory, promotedReceiptDirectory]) {
+      pin(resolve(root, path));
+    }
+    for (const path of [hookSource, promotedHookSource, runtime]) {
+      pin(resolve(path));
+    }
+    return cacheable
+      ? JSON.stringify([
+          root,
+          options.productVersion,
+          options.bundleMode,
+          options.sourceRoots,
+          packageRoot,
+          promotedPackageRoot,
+          hookSource,
+          promotedHookSource,
+          runtime,
+          [...entries].map(([path, stat]) => [
+            path,
+            stat
+              ? `${stat.dev}:${stat.ino}:${stat.size}:${stat.mtimeNs}:${stat.ctimeNs}:${stat.birthtimeNs}:${stat.mode}:${stat.uid}:${stat.gid}:${stat.nlink}`
+              : null
+          ])
+        ])
+      : undefined;
+  } catch (error) {
+    if (!(error instanceof Error) || !('code' in error)) throw error;
+    // Sampling failures must leave refusal semantics to the original verifier.
+    return undefined;
+  }
+}
+export function verifyCodexPromotedConnectContract(root: string, options: CodexConnectInstallationOptions) {
+  const inputs = promotedInstallationInputs(root, options);
+  if (inputs === undefined || inputs !== verifiedPromotedInstallation) {
+    verifiedPromotedInstallation = undefined;
+    const owned = inspectOwned(root);
+    if (owned.manifest?.schema_version !== 3) {
+      fail('promoted_producer_contract_unverified');
+    }
+    const source = promotedPackageSource(root, options);
+    prepareWindowPackage(root, owned, source);
+    plannedHooks(owned, source, 'install');
+    if (!equal(manifestWindowHooks(owned.manifest), source.windowHooks) || source.files.size !== owned.files.size) fail('package_drift');
+    for (const [path, bytes] of source.files) {
+      if (!owned.files.get(path)?.equals(bytes)) fail('package_drift');
+    }
+    if (inputs !== undefined && inputs === promotedInstallationInputs(root, options)) verifiedPromotedInstallation = inputs;
+  }
+  return {
+    bundleContract: 'codex-promoted-bundle-v1' as const,
+    producerContract: 'promoted-payload-v1' as const,
+    receiptDirectory: join(root, promotedReceiptDirectory)
+  };
+}
+
 export function statusCodexConnectInstallation(root: string, options: CodexConnectInstallationOptions): CodexConnectInstallationStatus {
   const result = plan(root, options).preview;
   return {

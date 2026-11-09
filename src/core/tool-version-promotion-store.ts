@@ -107,6 +107,32 @@ export interface ToolVersionPromotionAuthority {
   readonly projectionDigest: string;
   readonly denialIds: readonly string[];
 }
+const projectionIdentities = new WeakMap<ToolVersionPromotionProjection, ReturnType<typeof deriveProjectionIdentities>>();
+function deriveProjectionIdentities(projection: ToolVersionPromotionProjection) {
+  const scope = (facet: ToolVersionPromotionFacet) => JSON.stringify(storedKey(toolVersionPromotionKey(facet)));
+  return {
+    registryDigest: projection.registry_digest,
+    implementationDigest: projection.implementation_digest,
+    facets: projection.facets,
+    denials: projection.denials,
+    projectionDigest: promotionProjectionDigest(projection),
+    effective: new Map(
+      projection.facets.map(facet => [
+        scope(facet),
+        {
+          facet,
+          descriptorDigest: promotionDescriptorDigest(facet.descriptor)
+        }
+      ])
+    ),
+    shippedDenials: projection.denials.map(facet => ({
+      scope: scope(facet),
+      facet,
+      id: promotionRegistryDigest(facet.decision)
+    })),
+    keys: new Map<string, { scopeKey: string; denialIds: ReadonlyMap<string, string> }>()
+  };
+}
 /** Promotion decisions cannot replace independent task, project or native-root fences. */
 export function readToolVersionPromotionAuthority(
   store: Store,
@@ -114,32 +140,52 @@ export function readToolVersionPromotionAuthority(
   projection: ToolVersionPromotionProjection = toolVersionPromotionProjection
 ): ToolVersionPromotionAuthority {
   const { key, requiredGrants } = querySchema.parse(input);
-  const scopeKey = promotionRegistryDigest(key);
+  let identities = projectionIdentities.get(projection);
+  if (
+    !identities ||
+    identities.registryDigest !== projection.registry_digest ||
+    identities.implementationDigest !== projection.implementation_digest ||
+    identities.facets !== projection.facets ||
+    identities.denials !== projection.denials
+  ) {
+    identities = deriveProjectionIdentities(projection);
+    projectionIdentities.set(projection, identities);
+  }
+  const keyJson = JSON.stringify(storedKey(key));
+  let keyIdentity = identities.keys.get(keyJson);
+  if (!keyIdentity) {
+    keyIdentity = {
+      scopeKey: promotionRegistryDigest(key),
+      denialIds: new Map(reasonSchema.options.map(reason => [reason, promotionRegistryDigest({ key, reason })]))
+    };
+    identities.keys.set(keyJson, keyIdentity);
+  }
   const currentGeneration = generation(store);
   const rows = store.all<{ denial_id: string; key_json: string; reason: string }>(
     'SELECT denial_id,key_json,reason FROM tool_version_promotion_denials WHERE scope_key=? ORDER BY denial_id',
-    [scopeKey]
+    [keyIdentity.scopeKey]
   );
   for (const row of rows) {
     const reason = reasonSchema.parse(row.reason);
-    if (row.key_json !== JSON.stringify(storedKey(key)) || promotionRegistryDigest({ key, reason }) !== row.denial_id) {
+    if (row.key_json !== keyJson || keyIdentity.denialIds.get(reason) !== row.denial_id) {
       throw new Error('promotion_denial_invalid');
     }
   }
-  const matches = (facet: ToolVersionPromotionFacet) => promotionRegistryDigest(toolVersionPromotionKey(facet)) === scopeKey;
-  const shipped = projection.denials.filter(facet => matches(facet) && requiredGrants.some(grant => !facet.decision.grants.includes(grant)));
-  const denialIds = [...rows.map(row => row.denial_id), ...shipped.map(facet => promotionRegistryDigest(facet.decision))].sort();
-  const facet = projection.facets.find(matches);
+  const shipped = identities.shippedDenials.filter(
+    entry => entry.scope === keyJson && requiredGrants.some(grant => !entry.facet.decision.grants.includes(grant))
+  );
+  const denialIds = [...rows.map(row => row.denial_id), ...shipped.map(entry => entry.id)].sort();
+  const effective = identities.effective.get(keyJson);
   const allowed =
-    facet !== undefined &&
-    facet.decision.implementation_digest === projection.implementation_digest &&
-    facet.decision.descriptor_digest === promotionDescriptorDigest(facet.descriptor) &&
-    requiredGrants.every(grant => facet.decision.grants.includes(grant)) &&
-    (key.topology === 'root' || facet.decision.grants.includes('children'));
+    effective !== undefined &&
+    effective.facet.decision.implementation_digest === projection.implementation_digest &&
+    effective.facet.decision.descriptor_digest === effective.descriptorDigest &&
+    requiredGrants.every(grant => effective.facet.decision.grants.includes(grant)) &&
+    (key.topology === 'root' || effective.facet.decision.grants.includes('children'));
   return {
     state: denialIds.length ? 'denied' : allowed ? 'allowed' : 'missing_grant',
     generation: currentGeneration,
-    projectionDigest: promotionProjectionDigest(projection),
+    projectionDigest: identities.projectionDigest,
     denialIds
   };
 }

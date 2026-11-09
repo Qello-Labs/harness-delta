@@ -82,6 +82,7 @@ const frozenLegacyAssessment = {
 
 const root = realpathSync(fileURLToPath(new URL('..', import.meta.url)));
 const parserPaths = [
+  'src/binding/session-binding-promotion.ts',
   'skills/harness-connect/SKILL.md',
   'skills/harness-connect/agents/openai.yaml',
   'skills/harness-connect/references/support.md',
@@ -493,7 +494,7 @@ test.each(parserPaths)('a one-byte change in %s invalidates baseline and review 
     baseline: currentBaseline,
     reviews: [record]
   });
-  if (before.schema_version !== 10 || before.review_ids === undefined || before.judgment_ids !== undefined) throw new Error('reviewed_schema_10_required');
+  if (before.schema_version !== 11 || before.review_ids === undefined || before.judgment_ids !== undefined) throw new Error('reviewed_schema_11_required');
   expect(lane(before, row.profile_id).gates.contracts_reviewed).toBe('closed');
   expect(lane(before, row.profile_id).reasons).not.toContain('baseline_source_changed');
   const legacyLanes = before.lanes.filter(current => current.rule_revision === 'forward-version-v1');
@@ -583,7 +584,7 @@ test('rejects aggregate capture above 16 MiB even when each hash-only input fits
 });
 test('the current snapshot consumes the finite promoted producer closure', async () => {
   const snapshot = await withSourceSnapshot(root, () => null);
-  expect(snapshot.source_paths).toHaveLength(87);
+  expect(snapshot.source_paths).toHaveLength(88);
 });
 test.each(['src/core/tool-version-promotion.ts', 'src/core/tool-version-promotions.json', 'src/core/tool-version-promotion-result.json'])(
   'a metadata-preserving byte change in %s changes the snapshot identity',
@@ -608,7 +609,7 @@ test('loads nested source imports and retirement metadata without dist', async (
   expect(snapshot.value.retired).toEqual(['2.1.288', '2.1.291']);
   expect(snapshot.value.admitted?.state).toBe('verified');
   expect(snapshot.source_paths).toEqual(sourcePathAllowlist);
-  expect(snapshot.source_paths).toHaveLength(87);
+  expect(snapshot.source_paths).toHaveLength(88);
 });
 test.each([
   ['escape', "import '../../package.json' with { type: 'json' };"],

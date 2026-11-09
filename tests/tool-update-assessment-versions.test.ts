@@ -3,6 +3,8 @@ import { assessmentSchema, consumedContracts } from '../scripts/tool-update/asse
 import { boundedParse, canonical, maxRecordBytes } from '../scripts/tool-update/manifest.mjs';
 import {
   assessmentSourcePathLimit,
+  denialAssessmentSourcePathLimit,
+  denialSourcePathAllowlist,
   expandedSourcePathAllowlist,
   legacySourcePathAllowlist,
   policyAssessmentSourcePathLimit,
@@ -15,6 +17,55 @@ import {
 } from '../scripts/tool-update/source-snapshot.mjs';
 
 const versions = [1, 2, 3, 4, 5, 6, 7] as const;
+test.each([
+  [false, false],
+  [true, false],
+  [false, true],
+  [true, true]
+])('schema11 captures the coordinator authority without widening schema10 manual=%s machine=%s', (reviewed, machine) => {
+  const input = {
+    ...currentRecord(reviewed, machine),
+    schema_version: 11,
+    rule_revision: 'static-assessment-v7',
+    source_paths: ['src/binding/session-binding-promotion.ts']
+  };
+  expect(assessmentSchema.parse(input)).toEqual(input);
+  for (const [schema_version, rule_revision] of [
+    [8, 'static-assessment-v4'],
+    [9, 'static-assessment-v5'],
+    [10, 'static-assessment-v6']
+  ]) {
+    expect(
+      assessmentSchema.safeParse({
+        ...input,
+        schema_version,
+        rule_revision
+      }).success
+    ).toBe(false);
+  }
+  expect(assessmentSourcePathLimit).toBe(88);
+  expect(sourcePathAllowlist).toHaveLength(88);
+  expect(
+    assessmentSchema.parse({
+      ...input,
+      source_paths: sourcePathAllowlist
+    }).source_paths
+  ).toEqual(sourcePathAllowlist);
+  const overflow = assessmentSchema.safeParse({
+    ...input,
+    source_paths: Array<string>(89).fill('src/source-compatibility.ts')
+  });
+  if (overflow.success) throw new Error('current_path_limit_required');
+  expect(overflow.error.issues).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        code: 'too_big',
+        maximum: 88,
+        path: ['source_paths']
+      })
+    ])
+  );
+});
 test.each([
   [false, false],
   [true, false],
@@ -35,8 +86,14 @@ test.each([
       rule_revision: 'static-assessment-v5'
     }).success
   ).toBe(false);
-  expect(assessmentSourcePathLimit).toBe(87);
-  expect(sourcePathAllowlist).toHaveLength(87);
+  expect(denialAssessmentSourcePathLimit).toBe(87);
+  expect(denialSourcePathAllowlist).toHaveLength(87);
+  expect(
+    assessmentSchema.parse({
+      ...input,
+      source_paths: denialSourcePathAllowlist
+    }).source_paths
+  ).toEqual(denialSourcePathAllowlist);
   expect(
     assessmentSchema.safeParse({
       ...input,

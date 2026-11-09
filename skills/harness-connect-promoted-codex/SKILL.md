@@ -21,9 +21,11 @@ explicitly. Never discover receipts, native sources, processes, images or vendor
 configuration. Local schema-3 `promotion_pending` metadata with contract
 `promoted-payload-v1` is not portable authority, identity, admission or usage.
 
-The offline helper validates explicit selection and reports
-`promoted_provider_unavailable`; the live authorized provider is not implemented
-by this bundle. It makes no HTTP requests and cannot activate collection.
+The HTTP-only helper forwards the explicit receipt to the selected local server.
+Only its live provider can authorize native verification and collection; the
+helper never reads native hints. It requires server proof and an observing
+readback before reporting connection. Missing grants, denials and stale scope
+remain blocked; verification means session identity, not qualification.
 Installation requires a separately confirmed quiescent cutover and fresh roots.
 Do not install, change registrations, start a task or retry mutations implicitly.
 Report categorical blockers only, never local path hints or raw diagnostics.
