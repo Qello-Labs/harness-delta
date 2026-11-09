@@ -94,10 +94,7 @@ export function assertOrdinaryWindowAuthority(store: Store, scope: OrdinaryWindo
       ? undefined
       : store.get<{ native_root_id: string }>('SELECT native_root_id FROM binding_root_segments WHERE root_session_id=?', [scope.rootSessionId])
           ?.native_root_id);
-  assertOrdinaryWindowDecision(store, selection, {
-    ...scope,
-    ...(nativeRootId === undefined ? {} : { nativeRootId })
-  });
+  assertOrdinaryWindowDecision(store, selection, { ...scope, ...(nativeRootId === undefined ? {} : { nativeRootId }) });
   if (scope.rootSessionId !== undefined) {
     assertOrdinaryWindowSegment(store, scope, selection);
   }

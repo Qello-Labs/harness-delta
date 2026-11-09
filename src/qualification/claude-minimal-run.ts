@@ -25,9 +25,7 @@ import { toolVersionRecipe } from '../core/tool-version-profiles.js';
 
 const recipe = (() => {
   const recipe = toolVersionRecipe('claude-internal-probe-02188');
-  if (recipe.kind !== 'claude_probe') {
-    throw new Error('claude_minimal_invalid_intent');
-  }
+  if (recipe.kind !== 'claude_probe') throw new Error('claude_minimal_invalid_intent');
   return recipe;
 })();
 

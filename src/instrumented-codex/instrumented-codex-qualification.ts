@@ -16,9 +16,7 @@ import { toolVersionIdentity, toolVersionRecipe } from '../core/tool-version-pro
 
 const instrumented = (() => {
   const recipe = toolVersionRecipe('codex-instrumented-01621');
-  if (recipe.kind !== 'codex_instrumented') {
-    throw new Error('instrumented_recipe_invalid');
-  }
+  if (recipe.kind !== 'codex_instrumented') throw new Error('instrumented_recipe_invalid');
   return recipe;
 })();
 

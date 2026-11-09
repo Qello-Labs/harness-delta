@@ -2,17 +2,13 @@ import { expect, test } from 'vitest';
 import { assignTask } from '../../src/comparison/allocation.js';
 import { buildExchangePackage, registerExchangeSource } from '../../src/comparison/exchange/source.js';
 import { assignmentInput, protocol } from '../helpers/comparison-fixture.js';
-import { assignAndSnapshot, dataPackage, exportTime, freshSource, namespaceId, packageId, sourceConfig } from '../helpers/exchange-fixture.js';
+import { freshSource, assignAndSnapshot, dataPackage, sourceConfig, exportTime, namespaceId, packageId } from '../helpers/exchange-fixture.js';
 
 test('export preserves assignment and private state while retry uses identical sealed bytes', () => {
   const store = freshSource();
   try {
     assignAndSnapshot(store);
-    assignTask(store, {
-      ...assignmentInput,
-      logical_task_id: 'logical-0',
-      alias_ids: ['alias-1']
-    });
+    assignTask(store, { ...assignmentInput, logical_task_id: 'logical-0', alias_ids: ['alias-1'] });
     const allocation = store.all('SELECT * FROM comparison_allocation_state');
     const pkg = dataPackage(store);
     expect(pkg.kind).toBe('assignment_metadata');
@@ -25,11 +21,7 @@ test('export preserves assignment and private state while retry uses identical s
       original_variant_id: protocol.variant_ids[0],
       allocation_index: 0
     });
-    expect(pkg.assignments[0]!.evidence.usage).toMatchObject({
-      status: 'missing',
-      partial_tokens: null,
-      complete_tokens: null
-    });
+    expect(pkg.assignments[0]!.evidence.usage).toMatchObject({ status: 'missing', partial_tokens: null, complete_tokens: null });
     expect(JSON.stringify(pkg)).not.toMatch(/code_base_commit|session_id|source_key|pending_variants|next_index/);
     expect(() => assignTask(store, { ...assignmentInput, alias_ids: ['new-alias'] })).toThrow('identity_sealed');
     expect(dataPackage(store)).toEqual(pkg);
@@ -44,18 +36,8 @@ test('historical and conflicting source registration fail closed', () => {
   const store = freshSource();
   try {
     assignAndSnapshot(store);
-    expect(() =>
-      registerExchangeSource(store, {
-        ...sourceConfig,
-        namespace_id: '44444444-4444-4444-8444-444444444444'
-      })
-    ).toThrow('source_scope_not_empty');
-    expect(() =>
-      registerExchangeSource(store, {
-        ...sourceConfig,
-        root: 'PRIVATE_SENTINEL'
-      })
-    ).toThrow('invalid_exchange_package');
+    expect(() => registerExchangeSource(store, { ...sourceConfig, namespace_id: '44444444-4444-4444-8444-444444444444' })).toThrow('source_scope_not_empty');
+    expect(() => registerExchangeSource(store, { ...sourceConfig, root: 'PRIVATE_SENTINEL' })).toThrow('invalid_exchange_package');
   } finally {
     store.close();
   }

@@ -59,10 +59,7 @@ function codexProvider(
             : {})
         }
       : options.nativePilot
-        ? {
-            maxDepth: 1,
-            maxFamilyMembers: codexRootPilotVersions.some(version => version === setupFor(record).workflow.product_version) ? 1 : 3
-          }
+        ? { maxDepth: 1, maxFamilyMembers: codexRootPilotVersions.some(version => version === setupFor(record).workflow.product_version) ? 1 : 3 }
         : {}),
     ...(ordinaryAdmission
       ? {
@@ -127,9 +124,7 @@ function profileConfiguration(dependencies: ProviderDependencies, task: Provider
   if (config.product === 'codex' && !applicationRequired(store, id) && config.project_root !== projectRoot) throw new Error('binding_scope_mismatch');
   if (projectConfig) {
     const receiptState = codexReceiptDirectoryState(config.receipt_directory);
-    if (receiptState !== 'ready') {
-      throw new Error(receiptState === 'missing' ? 'receipt_directory_missing' : 'receipt_directory_unsafe');
-    }
+    if (receiptState !== 'ready') throw new Error(receiptState === 'missing' ? 'receipt_directory_missing' : 'receipt_directory_unsafe');
   }
   return { config, ordinaryAdmission };
 }
@@ -214,21 +209,11 @@ export function createLocalWebBindingProviders(dependencies: ProviderDependencie
     const record = recordFor(id);
     if (!record) return [];
     if (record.profile_id === 'ordinary-claude') {
-      const result = [
-        ordinaryClaudeProvider(dependencies, {
-          id,
-          record,
-          projectRoot
-        })
-      ];
+      const result = [ordinaryClaudeProvider(dependencies, { id, record, projectRoot })];
       providers.set(id, result);
       return result;
     }
-    const result = profileProviders(dependencies, {
-      id,
-      record,
-      projectRoot
-    });
+    const result = profileProviders(dependencies, { id, record, projectRoot });
     if (result.length) providers.set(id, result);
     return result;
   };

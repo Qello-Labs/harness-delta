@@ -424,9 +424,7 @@ export const assessmentSchema = z
       const fields = value.schema_version === 8 ? projectionAssessmentFields : value.schema_version === 9 ? producerAssessmentFields : currentAssessmentFields;
       const parsed = z.union(currentAssessmentVariants(fields)).safeParse(value);
       if (!parsed.success) {
-        for (const issue of parsed.error.issues) {
-          context.addIssue(issue);
-        }
+        for (const issue of parsed.error.issues) context.addIssue(issue);
         return;
       }
     }
@@ -508,10 +506,7 @@ export const assessmentSchema = z
       );
     });
     if (invalidPolicy) {
-      context.addIssue({
-        code: 'custom',
-        message: 'invalid_policy_lane'
-      });
+      context.addIssue({ code: 'custom', message: 'invalid_policy_lane' });
     }
   })
   .refine(value => Buffer.byteLength(JSON.stringify(value)) <= 256 * 1024);
@@ -977,9 +972,8 @@ export async function assessCandidate({
     fail('observation_mismatch');
   }
   const releases = [...observation.releases].sort((a, b) => compareVersions(a.version, b.version));
-  if (new Set(releases.map(row => row.version)).size !== releases.length || releases.some(row => compareVersions(row.version, candidate.target) > 0)) {
+  if (new Set(releases.map(row => row.version)).size !== releases.length || releases.some(row => compareVersions(row.version, candidate.target) > 0))
     fail('discovery_incomplete');
-  }
   const reviewedVersions = baseline?.rows.filter(row => row.product === candidate.product).map(row => row.last_reviewed_version) ?? [];
   if (reviewedVersions.length === 0 && releases.length !== 1) {
     fail('discovery_incomplete');
