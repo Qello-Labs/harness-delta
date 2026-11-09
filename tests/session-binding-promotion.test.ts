@@ -8,6 +8,9 @@ import type { PromotionDecision } from '../scripts/tool-update/promotion-records
 import { appendPromotionDecision, type PromotionFixture } from './helpers/tool-version-promotion.js';
 import { projectToolVersionPromotions, promotionProjectionDigest, promotionRegistryDigest } from '../src/core/tool-version-promotion.js';
 import { promotionRegistryFixture } from './helpers/tool-version-promotion-registry.js';
+import { Store } from '../src/store.js';
+import { readToolVersionPromotionAuthority, toolVersionPromotionKey } from '../src/core/tool-version-promotion-store.js';
+import type { PromotionBindingAuthority } from '../src/session-binding-contract.js';
 
 const registry: {
   fixture:
@@ -94,7 +97,7 @@ vi.mock('../src/core/tool-version-promotion-result.json', async importOriginal =
             schema_version: 1,
             implementation_scheme: 'promotion-implementation-v1',
             implementation_digest: registry.fixture.implementationDigest,
-            effective_projection_digest: promotionProjectionDigest(projectToolVersionPromotions(registry.fixture))
+            effective_projection_digest: promotionProjectionDigest(currentProjection())
           }
         : actual.default;
     }
@@ -109,12 +112,14 @@ let readClaudeProcessBinary: typeof import('../src/claude-process-binary.js').re
 let getEffectiveCodexBindingQualification: typeof import('../src/qualification/codex-binding-qualification-versions.js').getEffectiveCodexBindingQualification;
 let codexBindingQualificationCodeModeHost: typeof import('../src/qualification/codex-binding-qualification-versions.js').codexBindingQualificationCodeModeHost;
 let root: string;
+let promotionStore: Store;
 const now = '2026-11-08T12:00:00.000Z';
 beforeEach(async () => {
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(now);
   vi.resetModules();
   root = realpathSync(mkdtempSync(join(tmpdir(), 'binding-promotion-')));
+  promotionStore = new Store(':memory:');
   registry.fixture = undefined;
   registry.image = join(root, 'synthetic-image');
   writeFileSync(registry.image, 'synthetic image', { mode: 0o700 });
@@ -124,6 +129,7 @@ beforeEach(async () => {
   await selectProduct('claude_code');
 });
 afterEach(() => {
+  promotionStore.close();
   vi.restoreAllMocks();
   vi.useRealTimers();
   rmSync(root, { recursive: true, force: true });
@@ -131,6 +137,26 @@ afterEach(() => {
 function fixture() {
   if (!registry.fixture) throw new Error('synthetic_registry_required');
   return registry.fixture;
+}
+let projectionCache:
+  | {
+      input: PromotionFixture;
+      key: string;
+      value: ReturnType<typeof projectToolVersionPromotions>;
+    }
+  | undefined;
+function currentProjection() {
+  const input = fixture();
+  const key = [input.registryDigest, input.implementationDigest, ...input.ledger.records.map(record => record.id)].join(':');
+  // Each content-addressed ledger state models immutable shipped bytes, not live Store authority.
+  if (!projectionCache || projectionCache.input !== input || projectionCache.key !== key) {
+    projectionCache = {
+      input,
+      key,
+      value: projectToolVersionPromotions(input)
+    };
+  }
+  return projectionCache.value;
 }
 async function selectProduct(product: 'codex' | 'claude_code') {
   vi.resetModules();
@@ -162,10 +188,10 @@ async function selectProduct(product: 'codex' | 'claude_code') {
   };
   const facade = await import('../src/core/tool-version-profiles.js');
   Object.defineProperty(facade.toolVersionPromotionProjection, 'facets', {
-    get: () => projectToolVersionPromotions(fixture()).facets
+    get: () => currentProjection().facets
   });
   Object.defineProperty(facade.toolVersionPromotionProjection, 'denials', {
-    get: () => projectToolVersionPromotions(fixture()).denials
+    get: () => currentProjection().denials
   });
   ({ ClaudeSessionBindingProvider, claudeProjectDirName } = await import('../src/session-binding-claude.js'));
   ({ CodexSessionBindingProvider, proposeCodexSessionBindingHooks } = await import('../src/session-binding-codex.js'));
@@ -205,6 +231,7 @@ function decision(operation: 'collect' | 'link' | 'restart' = 'collect', topolog
   });
 }
 function claude() {
+  const promotionAuthority = authority();
   return new ClaudeSessionBindingProvider({
     receiptDir: join(root, 'receipts'),
     claudeProjectsDir: join(root, 'projects'),
@@ -212,9 +239,39 @@ function claude() {
     productVersion: descriptor().version,
     ordinaryAdmission: true,
     maxFamilyMembers: 1,
+    ...(promotionAuthority ? { promotionAuthority } : {}),
     readProcessIdentity: () => 'synthetic-process',
     now: () => Date.parse(now)
   });
+}
+function authority(topology: 'root' | 'bounded_family' = 'root'): PromotionBindingAuthority | undefined {
+  const projection = currentProjection();
+  const facet = projection.facets.find(row => row.decision.scope.lane.operation === 'collect' && row.decision.scope.lane.topology === topology);
+  if (!facet) return undefined;
+  const key = toolVersionPromotionKey(facet);
+  return {
+    key,
+    producerContract: 'promoted-payload-v1',
+    grants: facet.decision.grants,
+    assertAuthorized: (_native, operation = 'collect') => {
+      const current = readToolVersionPromotionAuthority(
+        promotionStore,
+        {
+          key: {
+            ...key,
+            operation,
+            topology: operation === 'collect' ? topology : 'root'
+          },
+          requiredGrants: ['admission']
+        },
+        currentProjection()
+      );
+      if (current.state !== 'allowed') {
+        throw new Error(key.product === 'codex' ? 'binding_source_unqualified' : 'claude_source_version_unsupported');
+      }
+      return current;
+    }
+  };
 }
 function claudeReceipt(version = descriptor().version) {
   const native = randomUUID(),
@@ -237,20 +294,22 @@ function claudeReceipt(version = descriptor().version) {
     mode: 0o700
   });
   writeFileSync(
-    join(root, 'receipts', 'connect', `${receipt}.json`),
+    join(root, 'receipts', `${receipt}.json`),
     JSON.stringify({
-      schema_version: 1,
-      kind: 'connect',
-      receipt_id: receipt,
-      session_id: native,
-      agent_id: null,
-      agent_type: null,
-      transcript_path: source,
-      agent_transcript_path: null,
+      schemaVersion: 3,
+      kind: 'promotion_pending',
+      producerContract: 'promoted-payload-v1',
+      receipt,
+      product: 'claude_code',
+      productVersion: descriptor().version,
+      event: 'connect',
+      nativeSessionId: native,
+      nativeRootSessionId: native,
+      agentId: null,
+      sourceRef: source,
       cwd: root,
-      claude_pid: process.pid,
-      recorded_at: now,
-      uid: process.getuid?.() ?? null
+      processIdHint: process.pid,
+      recordedAt: now
     }),
     { mode: 0o600 }
   );
@@ -329,6 +388,7 @@ test('root-only Claude grant never inspects a child source or exposes family anc
 });
 
 function codex(maxDepth = 0, maxFamilyMembers = 1) {
+  const promotionAuthority = authority(maxFamilyMembers === 1 ? 'root' : 'bounded_family');
   return new CodexSessionBindingProvider({
     receiptDirectory: join(root, 'receipts'),
     sourceRoots: [root],
@@ -336,7 +396,8 @@ function codex(maxDepth = 0, maxFamilyMembers = 1) {
     productVersion: descriptor().version,
     ordinaryFamilyAdmission: true,
     maxDepth,
-    maxFamilyMembers
+    maxFamilyMembers,
+    ...(promotionAuthority ? { promotionAuthority } : {})
   });
 }
 function codexReceipt(parent: string | null = null) {
@@ -366,21 +427,23 @@ function codexReceipt(parent: string | null = null) {
       }
     }) + '\n'
   );
-  const stat = statSync(source);
   writeFileSync(
     join(root, 'receipts', `${receipt}.json`),
     JSON.stringify({
-      schemaVersion: 1,
+      schemaVersion: 3,
+      kind: 'promotion_pending',
+      producerContract: 'promoted-payload-v1',
       receipt,
+      product: 'codex',
       productVersion: descriptor().version,
-      event: parent ? 'SubagentStart' : 'SessionStart',
-      sessionId: parent ? 'child' : 'root',
-      parentSessionId: parent,
-      turnId: parent ? 'child-turn' : null,
+      event: parent ? 'subagent_start' : 'connect',
+      nativeSessionId: parent ? 'child' : 'root',
+      nativeRootSessionId: 'root',
+      agentId: parent ? 'child' : null,
       sourceRef: source,
-      sourceIdentity: `${stat.dev}:${stat.ino}`,
       cwd: root,
-      createdAt: now
+      processIdHint: null,
+      recordedAt: now
     }),
     { mode: 0o600 }
   );

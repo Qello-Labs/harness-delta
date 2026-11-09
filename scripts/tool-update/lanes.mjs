@@ -7,12 +7,12 @@ export const topologies = ['root', 'root_direct_child', 'bounded_family'];
 export const scopeSourceDigests = Object.freeze({
   'src/codex-workflow-adapter.ts': '14044d27e6db4c930cf3ece93b14a77051c1b305be636fa90cbf9b8b68378041',
   'src/claude-workflow-adapter.ts': '344a6483aba255249ae59a7f53e0f8937ed60c79ce3767b85df1c188f5928ac4',
-  'src/session-binding-contract.ts': 'c01de8b3c48c6a7db75247771031160a5f06745ad53c29323a658e9ef10e1454',
-  'src/ordinary-session-binding.ts': '34f59f9b76ebaa37eab0ecbdfd3fae5247e29739b2132758561cf1526b974085',
-  'src/session-binding-service.ts': '4b49f8e7dc1c4a7554493577bff35331d2b634d1c6d62e631722462c475c1176',
+  'src/session-binding-contract.ts': 'e03e22939662cf03e85f7db126718d622adba3ea2d3d7047651ab61a5f437fb5',
+  'src/ordinary-session-binding.ts': '8c617249257ebb584ba359dc812e23475c04f07a4f421a89bf4660ac50f8f12c',
+  'src/session-binding-service.ts': '55cad8fa77f8ab59df50cab1458cdbb91ad1189aa9f9d4ac8f464ffe740e5148',
   'src/claude-workflow-versions.ts': '3a85ae4d57edd2897954502420e000d41fedcdf2b475e502c6453a50a8218937',
-  'src/session-binding-codex.ts': '02ea06202c7d63a7819e0c6a4ebdd3137bf4886bcaab34c6e36a137b4feb5ef3',
-  'src/session-binding-claude.ts': '12f4e061999ec344629d9fdd3a91853f987332949284f33cfb3de1f6030c68b0',
+  'src/session-binding-codex.ts': '9f919685c6cbc4ad1654aed9e4c730b4109c7f5507b1981e1c564477f0c22d53',
+  'src/session-binding-claude.ts': '39470353953fae64ad244f21cf4cc8e82c34b5574e62589ae06c291594a0f1a3',
 });
 export const laneSchema = z.strictObject({
   product: z.enum(['codex', 'claude_code']),

@@ -1,10 +1,16 @@
 import { pendingChildReadiness } from './binding/binding-child-readiness.js';
 import { familyDiscovery, familyProviderError } from './binding/binding-family-diagnostics.js';
-import { bindingIdentityKey } from './session-binding-contract.js';
+import { bindingIdentityKey, PromotionPendingReceiptSchema } from './session-binding-contract.js';
 import { readCacheWriteTtl } from './sources/cache-write-ttl.js';
 import { claudeAgentMetadata } from './sources/agent-metadata.js';
 import { getEffectiveClaudeBindingAdmission, isClaudeModel } from './claude-binding-admission.js';
-import { legacyClaudeTranscriptProfiles, lookupToolVersionProfile, orderedToolVersionProfiles } from './core/tool-version-profiles.js';
+import {
+  legacyClaudeTranscriptProfiles,
+  lookupEffectiveToolVersionFacet,
+  lookupToolVersionProfile,
+  orderedToolVersionProfiles
+} from './core/tool-version-profiles.js';
+import type { ToolVersionPromotionAuthority } from './core/tool-version-promotion-store.js';
 import {
   type ClaudeProcessBinary,
   type ClaudeWindowBinaryAdapters,
@@ -16,6 +22,7 @@ import { assertClaudeWindowSourceAuthorization, type ClaudeWindowSourceAuthoriza
 import { emptyOrdinaryWindowCoverage, type OrdinaryWindowConnectionProof, type OrdinaryWindowCoverage } from './core/ordinary-window-policy.js';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import {
   closeSync,
   constants,
@@ -44,6 +51,9 @@ import type {
   NativeConnectionProof,
   OrdinaryWindowReadBoundary,
   OrdinaryWindowUsageBatch,
+  PromotionBindingAuthority,
+  PromotionBindingProof,
+  PromotionPendingReceipt,
   SessionBindingProvider,
   UsageBatch,
   VerifiedSessionIdentity
@@ -104,6 +114,7 @@ export interface ClaudeBindingOptions {
   /** The ordinary coordinator still supplies per-task, per-source read authority. */
   ordinaryAdmission?: boolean;
   productVersion?: string;
+  promotionAuthority?: PromotionBindingAuthority;
   profiles?: readonly ClaudeTranscriptProfile[];
   /** Task-owned metadata authorization, invoked before every content-bearing source read. */
   authorizeSource?: (metadata: { nativeSessionId: string; agentId: string | null; sourceRef: string; sourceIdentity: string; birthtimeMs: number }) => void;
@@ -236,15 +247,18 @@ const sharedGap: Record<string, string> = {
 };
 const shared = (codes: Iterable<string>) => [...new Set([...codes].map(code => sharedGap[code] ?? 'binding_usage_incomplete'))].sort();
 
-function readPrivateFile(path: string, limit: number): string {
+function readPrivateFile(path: string, limit: number, assertAuthorized?: () => void): string {
   let fd: number | undefined;
   try {
+    assertAuthorized?.();
     fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+    assertAuthorized?.();
     const stat = fstatSync(fd);
     if (!stat.isFile() || stat.size > limit || !isPrivate(stat)) fail('claude_receipt_untrusted');
     const buffer = Buffer.alloc(stat.size);
     let offset = 0;
     while (offset < stat.size) {
+      assertAuthorized?.();
       const length = readSync(fd, buffer, offset, stat.size - offset, offset);
       if (!length) break;
       offset += length;
@@ -356,10 +370,16 @@ interface Pending {
 
 export class ClaudeSessionBindingProvider implements SessionBindingProvider {
   readonly product = 'claude_code' as const;
-  readonly #options: Required<Omit<ClaudeBindingOptions, 'profiles' | 'authorizeSource' | 'memberEligible'>> &
+  readonly promotionAuthority?: PromotionBindingAuthority;
+  readonly #pending = new Map<string, PromotionBindingProof>();
+  readonly #promotionAttempt = new AsyncLocalStorage<ToolVersionPromotionAuthority | undefined>();
+  readonly #options: Required<Omit<ClaudeBindingOptions, 'profiles' | 'authorizeSource' | 'memberEligible' | 'promotionAuthority'>> &
     Pick<ClaudeBindingOptions, 'authorizeSource' | 'memberEligible'> & { profiles: readonly ClaudeTranscriptProfile[] };
   constructor(options: ClaudeBindingOptions) {
     if (!isAbsolute(options.receiptDir) || !isAbsolute(options.claudeProjectsDir) || !isAbsolute(options.projectRoot)) fail('claude_binding_config_invalid');
+    if (options.promotionAuthority) {
+      this.promotionAuthority = options.promotionAuthority;
+    }
     this.#options = {
       allowCandidateProfiles: false,
       ordinaryAdmission: false,
@@ -430,6 +450,7 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
     );
   }
   #assertEffectiveAdmission(operation: 'link' | 'collect' | 'restart', child = false): void {
+    this.#assertPromotion(undefined, operation, child);
     if (!this.#options.ordinaryAdmission) return;
     const admission = getEffectiveClaudeBindingAdmission(
       this.#options.productVersion,
@@ -441,17 +462,200 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
     }
   }
 
+  #isPromoted(): boolean {
+    return (
+      this.promotionAuthority !== undefined ||
+      getEffectiveClaudeBindingAdmission(this.#options.productVersion, 'collect', this.#options.maxFamilyMembers === 1 ? 'root' : 'bounded_family')?.kind ===
+        'promoted'
+    );
+  }
+
+  #assertPromotion(native?: string, operation: 'link' | 'collect' | 'restart' = 'collect', child = false): ToolVersionPromotionAuthority | undefined {
+    if (!this.#isPromoted()) return undefined;
+    const authority = this.promotionAuthority;
+    if (!authority) return fail('promoted_provider_unavailable');
+    const { key } = authority;
+    const topology = this.#options.maxFamilyMembers === 1 ? 'root' : 'bounded_family';
+    if (
+      authority.producerContract !== 'promoted-payload-v1' ||
+      !authority.grants.includes('admission') ||
+      key.product !== this.product ||
+      key.productVersion !== this.#options.productVersion ||
+      key.source !== 'claude_binding' ||
+      key.operation !== 'collect' ||
+      key.topology !== topology ||
+      key.platform !== `${process.platform}_${process.arch}` ||
+      key.runtime !== `node${process.versions.node.split('.')[0]}` ||
+      (child && (topology === 'root' || !authority.grants.includes('children')))
+    ) {
+      return fail('promoted_provider_unavailable');
+    }
+    const state = authority.assertAuthorized(native, operation);
+    if (state.state !== 'allowed') return fail('promotion_denied');
+    const expected = this.#promotionAttempt.getStore();
+    if (expected && (state.generation !== expected.generation || state.projectionDigest !== expected.projectionDigest)) {
+      return fail('promotion_authority_changed');
+    }
+    const facet = lookupEffectiveToolVersionFacet(key.product, key.productVersion, key.operation, key.topology, key.platform, key.runtime);
+    if (!facet) return fail('claude_source_version_unsupported');
+    if (
+      facet.descriptor.profileId !== key.profileId ||
+      facet.descriptor.sourceRef !== key.descriptorLineage ||
+      authority.grants.some(grant => !facet.decision.grants.includes(grant))
+    ) {
+      return fail('promoted_provider_unavailable');
+    }
+    return state;
+  }
+
+  #assertUnchanged(before: ToolVersionPromotionAuthority | undefined, native?: string, operation: 'link' | 'collect' | 'restart' = 'collect'): void {
+    const after = this.#assertPromotion(native, operation);
+    if (before && (!after || before.generation !== after.generation || before.projectionDigest !== after.projectionDigest)) {
+      fail('promotion_authority_changed');
+    }
+  }
+
+  pendingPromotionReceipt(input: CurrentIdentityRequest): PromotionPendingReceipt {
+    const before = this.#assertPromotion();
+    return this.#promotionAttempt.run(before, () => {
+      if (!uuidPattern.test(input.receipt)) {
+        return fail('claude_receipt_invalid');
+      }
+      assertPrivateDir(this.#options.receiptDir);
+      const receipt = PromotionPendingReceiptSchema.parse(
+        JSON.parse(readPrivateFile(join(this.#options.receiptDir, `${input.receipt}.json`), 16384, () => this.#assertPromotion()))
+      );
+      if (receipt.receipt !== input.receipt) {
+        return fail('claude_receipt_invalid');
+      }
+      return this.#validatePending(receipt);
+    });
+  }
+
+  #validatePending(input: PromotionPendingReceipt): PromotionPendingReceipt {
+    const receipt = PromotionPendingReceiptSchema.parse(input);
+    this.#assertPromotion(receipt.nativeRootSessionId, 'collect', receipt.agentId !== null);
+    if (
+      !this.#isPromoted() ||
+      receipt.product !== this.product ||
+      receipt.productVersion !== this.#options.productVersion ||
+      receipt.nativeSessionId !== receipt.nativeRootSessionId ||
+      !uuidPattern.test(receipt.nativeSessionId) ||
+      (receipt.agentId !== null && !agentPattern.test(receipt.agentId)) ||
+      (receipt.event === 'connect' ? receipt.agentId !== null : receipt.agentId === null) ||
+      receipt.sourceRef === null ||
+      !isAbsolute(receipt.sourceRef) ||
+      receipt.processIdHint === null
+    ) {
+      return fail('claude_receipt_invalid');
+    }
+    const age = this.#options.now() - Date.parse(receipt.recordedAt);
+    if (age < -5000 || age > this.#options.receiptMaxAgeMs) {
+      return fail('claude_receipt_expired');
+    }
+    return receipt;
+  }
+
+  async receivePending(input: PromotionPendingReceipt): Promise<PromotionBindingProof> {
+    const before = this.#assertPromotion();
+    return this.#promotionAttempt.run(before, async () => {
+      const result = await settle(() => {
+        const receipt = this.#validatePending(input);
+        if (receipt.sourceRef === null || receipt.processIdHint === null) {
+          return fail('claude_receipt_invalid');
+        }
+        const identity = this.#verifyNative({
+          native: receipt.nativeSessionId,
+          agent: receipt.agentId,
+          sourceRef: receipt.sourceRef,
+          cwd: receipt.cwd,
+          pid: receipt.processIdHint,
+          recordedAt: Date.parse(receipt.recordedAt)
+        });
+        const processId = identity.nativeMapping?.processId;
+        if (!processId) return fail('claude_process_unobserved');
+        return {
+          identity,
+          proof: {
+            receipt: receipt.receipt,
+            recordedAt: receipt.recordedAt,
+            nativeSessionId: receipt.nativeSessionId,
+            agentId: receipt.agentId,
+            sourceRef: identity.sourceRef,
+            sourceIdentity: identity.sourceIdentity,
+            cwd: identity.cwd,
+            processId,
+            productVersion: identity.productVersion
+          }
+        };
+      });
+      this.#assertUnchanged(before, result.proof.nativeSessionId);
+      this.#pending.set(result.identity.sessionId, result);
+      return result;
+    });
+  }
+
+  async #resolvePending(input: CurrentIdentityRequest, expected?: VerifiedSessionIdentity): Promise<PromotionBindingProof> {
+    const operation = expected ? 'restart' : 'link';
+    const before = this.#assertPromotion(undefined, operation);
+    return this.#promotionAttempt.run(before, async () => {
+      const receipt = this.pendingPromotionReceipt(input);
+      const result = await this.receivePending(receipt);
+      this.#assertUnchanged(before, receipt.nativeRootSessionId, operation);
+      if (expected && bindingIdentityKey(expected) !== bindingIdentityKey(result.identity)) return fail('claude_bound_identity_changed');
+      return result;
+    });
+  }
+
+  #assertPendingIdentity(identity: VerifiedSessionIdentity): void {
+    this.#assertPromotion(identity.nativeMapping?.nativeSessionId, 'collect', identity.parentSessionId !== null);
+    const provenance = this.#pending.get(identity.sessionId);
+    if (this.#isPromoted() && (!provenance || bindingIdentityKey(provenance.identity) !== bindingIdentityKey(identity))) {
+      fail('claude_bound_identity_changed');
+    }
+  }
+
   /** Metadata-only pilot scope check before receipt or transcript access. */
   assertProjectRoot(projectRoot: string): void {
     if (projectRoot !== this.#options.projectRoot) fail('binding_pilot_scope_invalid');
   }
   revalidateBound(input: CurrentIdentityRequest, expected: VerifiedSessionIdentity): Promise<VerifiedSessionIdentity> {
+    if (this.#isPromoted()) {
+      return this.#resolvePending(input, expected).then(result => result.identity);
+    }
     return settle(() => this.#resolve(input, expected));
   }
   resolveCurrent(input: CurrentIdentityRequest): Promise<VerifiedSessionIdentity> {
+    if (this.#isPromoted()) {
+      return this.#resolvePending(input).then(result => result.identity);
+    }
     return settle(() => this.#resolve(input));
   }
   inspectCurrent(input: CurrentIdentityRequest): Promise<NativeConnectionProof> {
+    if (this.#isPromoted()) {
+      return settle(() => {
+        const before = this.#assertPromotion(undefined, 'link');
+        return this.#promotionAttempt.run(before, () => {
+          const receipt = this.pendingPromotionReceipt(input);
+          if (receipt.agentId !== null || receipt.sourceRef === null || receipt.processIdHint === null) return fail('binding_child_requires_root');
+          const processId = this.#currentProcessProof(receipt.processIdHint);
+          this.#assertProjectScope(receipt.sourceRef, receipt.cwd);
+          const stat = this.#rootStat(receipt.sourceRef, receipt.nativeSessionId);
+          this.#assertUnchanged(before, receipt.nativeRootSessionId, 'link');
+          return {
+            receipt: receipt.receipt,
+            recordedAt: receipt.recordedAt,
+            nativeSessionId: receipt.nativeSessionId,
+            agentId: null,
+            sourceRef: receipt.sourceRef,
+            sourceIdentity: this.#sourceIdentity(stat, receipt.nativeSessionId),
+            cwd: this.#options.projectRoot,
+            processId,
+            productVersion: this.#options.productVersion
+          };
+        });
+      });
+    }
     return settle(() => {
       this.#assertEffectiveAdmission('link');
       this.#assertEffectiveAdmission('collect');
@@ -493,6 +697,7 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
     });
   }
   discoverChildren(parent: VerifiedSessionIdentity): Promise<ChildDiscovery> {
+    if (this.#isPromoted()) return this.#discoverPending(parent);
     return settle(() => this.#discover(parent));
   }
   /** A null cursor reads the complete owned snapshot to the current end.
@@ -507,6 +712,9 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
    *   is returned from the first one, independent of discovery time; only a request still
    *   being written is held back until complete. */
   readUsage(session: VerifiedSessionIdentity, cursor: string | null, scope: CandidateScope, boundary?: BindingReadBoundary): Promise<UsageBatch> {
+    if (this.#isPromoted()) {
+      return this.#pendingUsage(session, cursor, scope, boundary);
+    }
     return settle(() => this.#usage(session, cursor, scope, boundary?.baseline === true, boundary?.baselineLedger));
   }
 
@@ -564,6 +772,7 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
     return receipt;
   }
   #projectsRoot(): string {
+    this.#assertPromotion();
     try {
       return realpathSync(this.#options.claudeProjectsDir);
     } catch {
@@ -583,6 +792,7 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
   /** Scope before content: the transcript must live in the registered project's native
    * directory and the hook cwd must be inside the project. No transcript byte is read. */
   #assertProjectScope(rootPath: string, hookCwd: string) {
+    this.#assertPromotion();
     let root: string;
     let cwd: string;
     try {
@@ -599,6 +809,7 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
   }
 
   #currentProcessProof(pid: number): string {
+    this.#assertPromotion();
     this.#assertEffectiveAdmission('collect');
     try {
       process.kill(pid, 0);
@@ -606,8 +817,10 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
       fail((error as NodeJS.ErrnoException).code === 'EPERM' ? 'claude_receipt_untrusted' : 'claude_process_absent');
     }
     const identity = this.#options.readProcessIdentity(pid);
-    if (this.#options.ordinaryAdmission) {
+    this.#assertPromotion();
+    if (this.#options.ordinaryAdmission || this.#isPromoted()) {
       const binary = this.#options.readProcessBinary(pid);
+      this.#assertPromotion();
       const admission = getEffectiveClaudeBindingAdmission(
         this.#options.productVersion,
         'collect',
@@ -625,6 +838,7 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
     if (!match || this.#currentProcessProof(Number(match[1])) !== proof) fail('claude_bound_identity_changed');
   }
   #authorize(path: string, stat: Stats, native: string, agent: string | null) {
+    this.#assertPromotion(native, 'collect', agent !== null);
     this.#options.authorizeSource?.({
       nativeSessionId: native,
       agentId: agent,
@@ -632,6 +846,7 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
       sourceIdentity: this.#sourceIdentity(stat, agent === null ? native : `${native}:${agent}`),
       birthtimeMs: stat.birthtimeMs
     });
+    this.#assertPromotion(native, 'collect', agent !== null);
   }
   #readLines(
     path: string,
@@ -643,6 +858,7 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
     processProof: string | null | undefined,
     scanEnd = Number.POSITIVE_INFINITY
   ): ReadChunk {
+    this.#assertPromotion(native, 'collect', agent !== null);
     this.#assertEffectiveAdmission('collect', agent !== null);
     const stat = checkedSourceFile(path);
     const sessionId = agent === null ? native : `${native}:${agent}`;
@@ -653,7 +869,9 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
     this.#authorize(path, stat, native, agent);
     const fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
     try {
+      this.#assertPromotion(native, 'collect', agent !== null);
       const opened = fstatSync(fd);
+      this.#assertPromotion(native, 'collect', agent !== null);
       if (this.#sourceIdentity(opened, sessionId) !== expectedSourceIdentity || opened.uid !== stat.uid || opened.mode !== stat.mode) {
         fail('claude_source_untrusted');
       }
@@ -671,6 +889,7 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
       const buffer = Buffer.alloc(length);
       let read = 0;
       while (read < length) {
+        this.#assertPromotion(native, 'collect', agent !== null);
         const n = readSync(fd, buffer, read, length - read, offset + read);
         if (!n) break;
         read += n;
@@ -790,6 +1009,7 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
     };
   }
   #rootStat(rootPath: string, native: string): Stats {
+    this.#assertPromotion(native);
     if (!this.#memberPathValid(rootPath, native, null)) fail('claude_source_untrusted');
     return checkedSourceFile(rootPath);
   }
@@ -807,38 +1027,65 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
     if (receipt.kind !== 'connect' || receipt.receipt_id !== receiptId || age < -5000 || (!expected && age > this.#options.receiptMaxAgeMs)) {
       fail('claude_receipt_expired');
     }
+    return this.#verifyNative(
+      {
+        native: receipt.session_id,
+        agent: receipt.agent_id,
+        sourceRef: receipt.transcript_path,
+        cwd: receipt.cwd,
+        pid: receipt.claude_pid,
+        recordedAt,
+        agentType: receipt.agent_type
+      },
+      expected
+    );
+  }
+
+  #verifyNative(
+    metadata: {
+      readonly native: string;
+      readonly agent: string | null;
+      readonly sourceRef: string;
+      readonly cwd: string;
+      readonly pid: number;
+      readonly recordedAt: number;
+      readonly agentType?: unknown;
+    },
+    expected?: VerifiedSessionIdentity
+  ): VerifiedSessionIdentity {
+    this.#assertPromotion(metadata.native, expected ? 'restart' : 'collect', metadata.agent !== null);
     if (
       expected &&
       (expected.product !== 'claude_code' ||
         expected.parentSessionId !== null ||
-        receipt.agent_id !== null ||
-        expected.sessionId !== receipt.session_id ||
-        expected.nativeMapping?.nativeSessionId !== receipt.session_id ||
+        metadata.agent !== null ||
+        expected.sessionId !== metadata.native ||
+        expected.nativeMapping?.nativeSessionId !== metadata.native ||
         expected.nativeMapping.agentId !== null ||
         expected.cwd !== this.#options.projectRoot ||
-        expected.sourceRef !== receipt.transcript_path)
+        expected.sourceRef !== metadata.sourceRef)
     ) {
       fail('claude_bound_identity_changed');
     }
-    if (this.#forgotten(receipt.session_id)) fail('deleted_identifier');
-    const processId = this.#currentProcessProof(receipt.claude_pid);
+    if (this.#forgotten(metadata.native)) fail('deleted_identifier');
+    const processId = this.#currentProcessProof(metadata.pid);
     if (expected && expected.nativeMapping?.processId !== processId) {
       fail('claude_bound_identity_changed');
     }
     // Inside a subagent the hook transcript may be the root or the member file; derive the root.
-    const native = receipt.session_id;
+    const native = metadata.native;
     const rootPath =
-      receipt.agent_id !== null && receipt.transcript_path.endsWith(join(native, 'subagents', `agent-${receipt.agent_id}.jsonl`))
-        ? join(dirname(dirname(dirname(receipt.transcript_path))), `${native}.jsonl`)
-        : receipt.transcript_path;
+      metadata.agent !== null && metadata.sourceRef.endsWith(join(native, 'subagents', `agent-${metadata.agent}.jsonl`))
+        ? join(dirname(dirname(dirname(metadata.sourceRef))), `${native}.jsonl`)
+        : metadata.sourceRef;
     if (!this.#memberPathValid(rootPath, native, null)) {
       fail('claude_source_untrusted');
     }
-    this.#assertProjectScope(rootPath, receipt.cwd);
+    this.#assertProjectScope(rootPath, metadata.cwd);
     const rootStat = this.#rootStat(rootPath, native);
     if (expected) {
       if (this.#sourceIdentity(rootStat, native) !== expected.sourceIdentity) fail('claude_bound_identity_changed');
-      const identity = this.#identity(native, null, rootPath, rootPath, rootStat, expected.productVersion, expected.createdAt, receipt.agent_type, processId);
+      const identity = this.#identity(native, null, rootPath, rootPath, rootStat, expected.productVersion, expected.createdAt, metadata.agentType, processId);
       if (bindingIdentityKey(identity) !== bindingIdentityKey(expected)) {
         fail('claude_bound_identity_changed');
       }
@@ -849,7 +1096,7 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
       return identity;
     }
     // A connecting session has just written its transcript; a stale file is not current.
-    if (rootStat.mtimeMs < recordedAt - this.#options.receiptMaxAgeMs) {
+    if (rootStat.mtimeMs < metadata.recordedAt - this.#options.receiptMaxAgeMs) {
       fail('claude_source_stale');
     }
     const root = this.#firstOwnRow(rootPath, native, null, this.#sourceIdentity(rootStat, native), processId);
@@ -859,12 +1106,12 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
     if (!this.supportedVersion(root.version)) {
       fail('claude_source_version_unsupported');
     }
-    if (receipt.agent_id === null) {
-      const identity = this.#identity(native, null, rootPath, rootPath, rootStat, root.version!, root.createdAt!, receipt.agent_type, processId);
+    if (metadata.agent === null) {
+      const identity = this.#identity(native, null, rootPath, rootPath, rootStat, root.version!, root.createdAt!, metadata.agentType, processId);
       return identity;
     }
     // A re-invocation inside a subagent resolves to that member, never a new root.
-    const childPath = this.#childPath(rootPath, native, receipt.agent_id);
+    const childPath = this.#childPath(rootPath, native, metadata.agent);
     const childStat = (() => {
       try {
         return checkedSourceFile(childPath);
@@ -872,9 +1119,99 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
         return fail('claude_child_source_unavailable');
       }
     })();
-    const child = this.#firstOwnRow(childPath, native, receipt.agent_id, this.#sourceIdentity(childStat, `${native}:${receipt.agent_id}`), processId);
+    const child = this.#firstOwnRow(childPath, native, metadata.agent, this.#sourceIdentity(childStat, `${native}:${metadata.agent}`), processId);
     if (child.createdAt === null) fail('claude_child_source_unavailable');
-    return this.#identity(native, receipt.agent_id, rootPath, childPath, childStat, root.version!, child.createdAt!, receipt.agent_type);
+    return this.#identity(
+      native,
+      metadata.agent,
+      rootPath,
+      childPath,
+      childStat,
+      root.version!,
+      child.createdAt!,
+      metadata.agentType,
+      this.#isPromoted() ? processId : null
+    );
+  }
+
+  async #pendingUsage(session: VerifiedSessionIdentity, cursor: string | null, scope: CandidateScope, boundary?: BindingReadBoundary): Promise<UsageBatch> {
+    this.#assertPendingIdentity(session);
+    const before = this.#assertPromotion(session.nativeMapping?.nativeSessionId);
+    return this.#promotionAttempt.run(before, async () => {
+      const result = await settle(() => this.#usage(session, cursor, scope, boundary?.baseline === true, boundary?.baselineLedger));
+      this.#assertUnchanged(before, session.nativeMapping?.nativeSessionId);
+      return result;
+    });
+  }
+
+  async #discoverPending(parent: VerifiedSessionIdentity): Promise<ChildDiscovery> {
+    this.#assertPendingIdentity(parent);
+    const { native, agent } = nativeOf(parent);
+    const before = this.#assertPromotion(native);
+    return this.#promotionAttempt.run(before, async () => {
+      if (agent !== null || this.#options.maxFamilyMembers === 1) {
+        return { children: [], gaps: [] };
+      }
+      this.#assertPromotion(native, 'collect', true);
+      this.#assertBoundProcess(parent.nativeMapping?.processId);
+      this.#assertProjectScope(parent.sourceRef, parent.cwd);
+      const rootStat = this.#rootStat(parent.sourceRef, native);
+      if (this.#sourceIdentity(rootStat, native) !== parent.sourceIdentity) {
+        return fail('claude_source_replaced');
+      }
+      assertPrivateDir(this.#options.receiptDir);
+      const members = new Map<string, PromotionPendingReceipt>();
+      for (const name of readdirSync(this.#options.receiptDir).sort()) {
+        if (!/^[a-f0-9-]{36}\.json$/.test(name)) continue;
+        this.#assertPromotion(native, 'collect', true);
+        const receipt = this.pendingPromotionReceipt({
+          receipt: name.slice(0, -5)
+        });
+        if (receipt.nativeRootSessionId !== native || receipt.agentId === null) continue;
+        if (receipt.processIdHint !== Number(parent.nativeMapping?.processId?.split(':')[1])) return fail('claude_bound_identity_changed');
+        if (receipt.sourceRef !== parent.sourceRef && receipt.sourceRef !== this.#childPath(parent.sourceRef, native, receipt.agentId)) {
+          return fail('claude_source_untrusted');
+        }
+        const previous = members.get(receipt.agentId);
+        if (!previous || receipt.recordedAt > previous.recordedAt) {
+          members.set(receipt.agentId, receipt);
+        }
+      }
+      if (members.size >= this.#options.maxFamilyMembers) {
+        return fail('claude_family_scope_limit');
+      }
+      const children: ChildDiscovery['children'] = [];
+      const gaps: string[] = [];
+      for (const receipt of members.values()) {
+        this.#assertPromotion(native, 'collect', true);
+        const childPath = this.#childPath(parent.sourceRef, native, receipt.agentId!);
+        const stat = checkedSourceFile(childPath);
+        if (
+          !this.#options.memberEligible?.({
+            nativeSessionId: native,
+            agentId: receipt.agentId!,
+            sourceRef: childPath,
+            sourceIdentity: this.#sourceIdentity(stat, `${native}:${receipt.agentId}`),
+            birthtimeMs: stat.birthtimeMs,
+            recordedAt: receipt.recordedAt,
+            processId: parent.nativeMapping?.processId ?? ''
+          })
+        ) {
+          gaps.push('binding_unobserved_context');
+          continue;
+        }
+        this.#assertPromotion(native, 'collect', true);
+        const result = await this.receivePending(receipt);
+        this.#assertUnchanged(before, native);
+        children.push({
+          parentSessionId: native,
+          relationEvidenceId: result.identity.identityEvidenceId,
+          identity: result.identity
+        });
+      }
+      this.#assertUnchanged(before, native);
+      return { children, gaps };
+    });
   }
 
   #familyDiscoveryEnabled(parent: VerifiedSessionIdentity): boolean {
@@ -906,23 +1243,20 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
     if (this.#sourceIdentity(rootStat, native) !== parent.sourceIdentity)
       return familyDiscovery({ children: [], gaps: shared(['source_replaced']) }, ['source_replaced']);
     const gaps: string[] = [];
-    const agentsDir = join(this.#options.receiptDir, 'sessions', native, 'agents');
-    const names = (() => {
-      try {
-        assertPrivateDir(agentsDir);
-        return readdirSync(agentsDir);
-      } catch (error) {
-        if (error instanceof Error && error.message === 'claude_receipt_untrusted') gaps.push('child_receipt_untrusted');
-        return [];
-      }
-    })();
+    let names: string[] = [];
+    try {
+      assertPrivateDir(join(this.#options.receiptDir, 'sessions', native, 'agents'));
+      names = readdirSync(join(this.#options.receiptDir, 'sessions', native, 'agents'));
+    } catch (error) {
+      if (error instanceof Error && error.message === 'claude_receipt_untrusted') gaps.push('child_receipt_untrusted');
+    }
     const receipts = new Map<string, Receipt[]>();
     for (const name of names) {
       const matched = /^([A-Za-z0-9_-]{1,91})\.(subagent_start|subagent_stop)\.json$/.exec(name);
       if (!matched) continue;
       let receipt: Receipt;
       try {
-        receipt = this.#receipt(join(agentsDir, name));
+        receipt = this.#receipt(join(this.#options.receiptDir, 'sessions', native, 'agents', name));
       } catch {
         gaps.push('child_receipt_invalid');
         continue;
@@ -940,13 +1274,12 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
       }
       receipts.set(receipt.agent_id, [...(receipts.get(receipt.agent_id) ?? []), receipt]);
     }
-    const files = (() => {
-      try {
-        return readdirSync(join(dirname(parent.sourceRef), native, 'subagents'));
-      } catch {
-        return [];
-      }
-    })();
+    let files: string[];
+    try {
+      files = readdirSync(join(dirname(parent.sourceRef), native, 'subagents'));
+    } catch {
+      files = [];
+    }
     const members = new Set(receipts.keys());
     for (const file of files) {
       const matched = /^agent-([A-Za-z0-9_-]{1,91})\.jsonl$/.exec(file);
@@ -1105,10 +1438,9 @@ export class ClaudeSessionBindingProvider implements SessionBindingProvider {
       }
     }
     if (excludedMembers.size) gaps.push('binding_unobserved_context');
-    const result = familyDiscovery({ children, gaps: shared(gaps) }, gaps);
     return pending.length && pending.length === gaps.filter(gap => gap !== 'binding_unobserved_context').length
-      ? pendingChildReadiness(result, Math.min(...pending), pendingStarts)
-      : result;
+      ? pendingChildReadiness(familyDiscovery({ children, gaps: shared(gaps) }, gaps), Math.min(...pending), pendingStarts)
+      : familyDiscovery({ children, gaps: shared(gaps) }, gaps);
   }
 
   #usage(

@@ -35,7 +35,7 @@ test('snapshot exposes only the two finite root-policy operation sets and refuse
       .sort((a, b) => laneKey(a).localeCompare(laneKey(b), 'en'))
   );
   expect(snapshot.value.refused).toEqual(Array(10).fill(null));
-  expect(snapshot.source_paths).toHaveLength(87);
+  expect(snapshot.source_paths).toHaveLength(88);
 });
 
 test.each([
@@ -62,8 +62,8 @@ test.each([
 
   const result = await assessCandidate(ordinaryAssessmentFixture(product, target, true));
 
-  expect(result.schema_version).toBe(10);
-  if (result.schema_version !== 10) {
+  expect(result.schema_version).toBe(11);
+  if (result.schema_version !== 11) {
     throw new Error('current_assessment_required');
   }
   const lanes = result.lanes.filter(row => row.profile_id === profile);
@@ -150,8 +150,8 @@ test.each(
       lanes: [{ ...row, ...changes }]
     });
 
-  expect(result.schema_version).toBe(writer === 'v3' ? (reviewed ? 6 : 5) : 10);
-  expect(result.rule_revision).toBe(writer === 'v3' ? 'static-assessment-v3' : 'static-assessment-v6');
+  expect(result.schema_version).toBe(writer === 'v3' ? (reviewed ? 6 : 5) : 11);
+  expect(result.rule_revision).toBe(writer === 'v3' ? 'static-assessment-v3' : 'static-assessment-v7');
   expect(assessmentSchema.parse(result)).toEqual(result);
   expect(row.rule_revision).toBe(revision);
   for (const rule_revision of ['static-assessment-v1', 'static-assessment-v2', writer === 'v3' ? 'static-assessment-v4' : 'static-assessment-v3']) {
@@ -209,7 +209,7 @@ test.each(
 
 test('0.166.0 keeps exact assigned-family selection distinct from inherited root policy', async () => {
   const result = await assessCandidate(ordinaryAssessmentFixture('codex', '0.166.0', true));
-  if (result.schema_version !== 10 || result.review_ids === undefined || result.judgment_ids !== undefined) {
+  if (result.schema_version !== 11 || result.review_ids === undefined || result.judgment_ids !== undefined) {
     throw new Error('current_manual_assessment_required');
   }
 

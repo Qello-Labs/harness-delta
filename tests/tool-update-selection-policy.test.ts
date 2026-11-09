@@ -71,7 +71,7 @@ async function reviewed(input = fixture(), baseline?: Baseline) {
     reviews: [unusedReview()],
     ...(baseline ? { baseline } : {})
   });
-  if (result.schema_version !== 10 || result.review_ids === undefined || result.judgment_ids !== undefined) throw new Error('reviewed_schema_10_required');
+  if (result.schema_version !== 11 || result.review_ids === undefined || result.judgment_ids !== undefined) throw new Error('reviewed_schema_11_required');
   return result;
 }
 function syntheticRegistry(base?: string): SourceRegistry {
@@ -156,8 +156,8 @@ test('reviewed schema 8 preserves every schema 3 lane field when selection polic
   });
 
   // Then
-  expect(result.schema_version).toBe(10);
-  if (result.schema_version !== 10 || result.review_ids === undefined || result.judgment_ids !== undefined) throw new Error('reviewed_schema_10_required');
+  expect(result.schema_version).toBe(11);
+  if (result.schema_version !== 11 || result.review_ids === undefined || result.judgment_ids !== undefined) throw new Error('reviewed_schema_11_required');
   expect(result.lanes).toHaveLength(39);
   const previousLanes = result.lanes
     .filter(row => !['codex-binding-01660-direct-family-v1', 'codex-binding-root-window-v1'].includes(row.profile_id))
@@ -172,7 +172,7 @@ test('reviewed schema 8 preserves every schema 3 lane field when selection polic
   expect(digest(plain.lanes.filter(row => !['codex-binding-01660-direct-family-v1', 'codex-binding-root-window-v1'].includes(row.profile_id)))).toBe(
     '356ee379727d6dcdfd211428b62ea7ef21151134075979bf40a7a71c8271d228'
   );
-  expect(plain.schema_version).toBe(10);
+  expect(plain.schema_version).toBe(11);
   expect(plain.lanes.every(row => !('selection_policy' in row))).toBe(true);
 });
 

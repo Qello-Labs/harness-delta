@@ -18,6 +18,9 @@ import type { LocalWebDomainOptions } from './local-web-domain.js';
 import type { createLocalWebMetadata, PrivateTask } from './local-web-metadata-store.js';
 import type { LocalWebProfile } from './local-web-profile.js';
 import { assertOrdinaryWindowSurfaceClosed } from '../core/ordinary-window-store.js';
+import { issuePromotionBindingAuthority } from '../binding/session-binding-promotion.js';
+import { verifyCodexPromotedConnectContract } from '../connect/codex-connect-installation.js';
+import { verifyClaudePromotedConnectContract } from '../connect/claude-connect-installation.js';
 
 interface ProviderDependencies {
   readonly options: LocalWebDomainOptions;
@@ -45,10 +48,31 @@ function codexProvider(
   const { options, setupFor } = dependencies;
   const { id, record, projectRoot } = task;
   const { config, ordinaryAdmission } = configuration;
+  const promotionAuthority =
+    ordinaryAdmission?.kind === 'promoted'
+      ? issuePromotionBindingAuthority(options.store, {
+          taskId: id,
+          product: 'codex',
+          productVersion: ordinaryAdmission.productVersion,
+          topology: ordinaryAdmission.maxFamilyMembers === 1 ? 'root' : 'bounded_family',
+          bundleContract: 'codex-promoted-bundle-v1',
+          assertProducerContract: () => {
+            const contract = verifyCodexPromotedConnectContract(projectRoot, {
+              productVersion: ordinaryAdmission.productVersion,
+              sourceRoots: config.source_roots,
+              bundleMode: 'promoted'
+            });
+            if (config.receipt_directory !== contract.receiptDirectory) {
+              throw new Error('promoted_producer_contract_unverified');
+            }
+          }
+        })
+      : undefined;
   return new CodexSessionBindingProvider({
     receiptDirectory: config.receipt_directory,
     sourceRoots: config.source_roots,
     projectRoot,
+    ...(promotionAuthority ? { promotionAuthority } : {}),
     ...(setupFor(record).workflow.assignment.metadata.product === 'synthetic' ? {} : { productVersion: setupFor(record).workflow.product_version }),
     ...(options.qualificationLease
       ? {
@@ -82,12 +106,25 @@ function ordinaryClaudeProvider(dependencies: ProviderDependencies, task: Provid
   const config = ordinaryTask(options.store, id) ? ordinaryTaskSettings(options.store, id) : OrdinaryProjectSettingsSchema.parse(JSON.parse(record.setup));
   const admission = getEffectiveClaudeBindingAdmission(config.product_version);
   if (!admission?.admitted) throw new Error('binding_source_unqualified');
-  if (admission.kind === 'promoted') {
-    const compatibility = resolveSourceCompatibility('claude_code', config.product_version, 'claude_binding', admission.profileId);
-    if (!compatibility) throw new Error('binding_source_unqualified');
-    assertCompatibilityAllowed(options.store, compatibility);
-    throw new Error('promoted_provider_unavailable');
-  }
+  const promotionAuthority =
+    admission.kind === 'promoted'
+      ? issuePromotionBindingAuthority(options.store, {
+          taskId: id,
+          product: 'claude_code',
+          productVersion: config.product_version,
+          topology: admission.maxFamilyMembers === 1 ? 'root' : 'bounded_family',
+          bundleContract: 'claude-promoted-bundle-v1',
+          assertProducerContract: () => {
+            const contract = verifyClaudePromotedConnectContract(projectRoot, {
+              bundleMode: 'promoted',
+              productVersion: config.product_version
+            });
+            if (config.receipt_directory !== contract.receiptDirectory) {
+              throw new Error('promoted_producer_contract_unverified');
+            }
+          }
+        })
+      : undefined;
   return new ClaudeSessionBindingProvider({
     receiptDir: config.receipt_directory,
     claudeProjectsDir: config.claude_projects_directory,
@@ -95,6 +132,7 @@ function ordinaryClaudeProvider(dependencies: ProviderDependencies, task: Provid
     ordinaryAdmission: true,
     productVersion: config.product_version,
     maxFamilyMembers: admission.maxFamilyMembers,
+    ...(promotionAuthority ? { promotionAuthority } : {}),
     authorizeSource: source => ordinaryBindings().assertSource(id, source),
     memberEligible: member => ordinaryBindings().memberEligible(id, member)
   });
@@ -112,7 +150,6 @@ function profileConfiguration(dependencies: ProviderDependencies, task: Provider
     const compatibility = resolveSourceCompatibility('codex', workflow.product_version, 'codex_binding', ordinaryAdmission.profileId);
     if (!compatibility) throw new Error('binding_source_unqualified');
     assertCompatibilityAllowed(store, compatibility);
-    throw new Error('promoted_provider_unavailable');
   }
   const savedProjectConfig =
     workflow.assignment.metadata.product === 'codex' && !options.qualificationLease && !options.nativePilot
@@ -187,12 +224,16 @@ export function createLocalWebBindingProviders(dependencies: ProviderDependencie
         !lookupToolVersionProfile(compatibility.product, compatibility.product_version)
       ) {
         assertCompatibilityAllowed(options.store, compatibility);
-        throw new Error('promoted_provider_unavailable');
       }
     }
     if (options.bindingProviders) return options.bindingProviders;
     const cached = providers.get(id);
-    if (cached) return cached;
+    if (cached) {
+      for (const provider of cached) {
+        provider.promotionAuthority?.assertAuthorized();
+      }
+      return cached;
+    }
     const projectRoot = deletedProjectRoot ?? effectiveTaskWorkspace(options.store, id);
     if (!projectRoot) throw new Error('binding_scope_mismatch');
     if (options.bindingProviderFactory) {

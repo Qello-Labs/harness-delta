@@ -1,12 +1,14 @@
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, linkSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { afterEach, expect, test } from 'vitest';
+import { afterEach, expect, test, vi } from 'vitest';
 import { z } from 'zod';
+import * as repositoryFiles from '../../src/core/repository-files.js';
 import {
   installCodexConnectInstallation as install,
   previewCodexConnectInstallation as preview,
-  statusCodexConnectInstallation as status
+  statusCodexConnectInstallation as status,
+  verifyCodexPromotedConnectContract
 } from '../../src/connect/codex-connect-installation.js';
 
 const roots: string[] = [];
@@ -78,7 +80,160 @@ function hookDocument(root: string) {
     })
     .parse(JSON.parse(readFileSync(join(root, hooksPath), 'utf8')));
 }
+test('live promoted contract verification is read-only and does not require installation quiescence', () => {
+  const f = fixture();
+  install(f.project, reviewed(f.project, f.promoted));
+  const before = readFileSync(join(f.project, hooksPath));
+  expect(
+    verifyCodexPromotedConnectContract(f.project, {
+      ...f.promoted,
+      promotedInUse: true
+    })
+  ).toEqual({
+    bundleContract: 'codex-promoted-bundle-v1',
+    producerContract: 'promoted-payload-v1',
+    receiptDirectory: join(f.project, '.harness-delta/codex-promoted-receipts')
+  });
+  expect(readFileSync(join(f.project, hooksPath))).toEqual(before);
+  expect(() =>
+    verifyCodexPromotedConnectContract(f.project, {
+      ...f.promoted,
+      productVersion: '0.168.0'
+    })
+  ).toThrow();
+});
+
+test('live promoted contract verification refuses an added read-capable legacy registration', () => {
+  const f = fixture();
+  install(f.project, reviewed(f.project, f.promoted));
+  const document = hookDocument(f.project);
+  document.hooks.Stop?.push({
+    hooks: [{ type: 'command', command: `node ${legacyRecorder}` }]
+  });
+  put(f.project, hooksPath, JSON.stringify(document));
+  expect(() => verifyCodexPromotedConnectContract(f.project, f.promoted)).toThrow('hooks_unowned');
+});
+
+test('reuses verified Codex installation bytes and hashes only while inputs are unchanged', () => {
+  const f = fixture();
+  install(f.project, reviewed(f.project, f.promoted));
+  const read = vi.spyOn(repositoryFiles, 'readRepositoryFile');
+  const hash = vi.spyOn(repositoryFiles, 'hashBytes');
+  const contract = verifyCodexPromotedConnectContract(f.project, f.promoted);
+  expect(read).toHaveBeenCalled();
+  expect(hash).toHaveBeenCalled();
+  read.mockClear();
+  hash.mockClear();
+
+  roots.push(realpathSync(mkdtempSync(join(tmpdir(), 'unrelated-installer-'))));
+  for (let i = 0; i < 3; i++) {
+    expect(
+      verifyCodexPromotedConnectContract(f.project, {
+        ...f.promoted,
+        sourceRoots: [...f.promoted.sourceRoots],
+        promotedInUse: true
+      })
+    ).toEqual(contract);
+  }
+  expect(read).not.toHaveBeenCalled();
+  expect(hash).not.toHaveBeenCalled();
+});
+
+test.each(['replacement', 'mode', 'package option'] as const)('rechecks Codex bytes after a safe %s identity change', change => {
+  const f = fixture();
+  install(f.project, reviewed(f.project, f.promoted));
+  verifyCodexPromotedConnectContract(f.project, f.promoted);
+  const read = vi.spyOn(repositoryFiles, 'readRepositoryFile');
+  const path = join(f.project, destination, 'scripts/connect-promoted.mjs');
+  if (change === 'replacement') {
+    writeFileSync(`${path}.replacement`, readFileSync(path), {
+      mode: 0o600
+    });
+    renameSync(`${path}.replacement`, path);
+  }
+  if (change === 'mode') chmodSync(path, 0o400);
+  const options = change === 'package option' ? { ...f.promoted, sourceRoots: [f.project] } : f.promoted;
+  expect(verifyCodexPromotedConnectContract(f.project, options).producerContract).toBe('promoted-payload-v1');
+  expect(read).toHaveBeenCalled();
+});
+
+test.each([
+  'installed content',
+  'installed replacement',
+  'installed entry',
+  'installed ancestor',
+  'installed link count',
+  'manifest',
+  'registration',
+  'receipt directory',
+  'shipped content',
+  'shipped entry',
+  'shipped ancestor',
+  'hook source',
+  'version',
+  'package selection'
+] as const)('refuses Codex verification after cached %s changes', change => {
+  const f = fixture();
+  install(f.project, reviewed(f.project, f.promoted));
+  const path = join(f.project, destination, 'scripts/connect-promoted.mjs');
+  const contentPath = change === 'shipped content' ? join(f.promoted.promotedPackageRoot, 'scripts/connect.mjs') : path;
+  if (change === 'installed content' || change === 'shipped content') {
+    utimesSync(contentPath, 1, 1);
+  }
+  verifyCodexPromotedConnectContract(f.project, f.promoted);
+  if (change === 'installed content' || change === 'shipped content') {
+    writeFileSync(
+      contentPath,
+      readFileSync(contentPath).map(byte => (byte === 116 ? 102 : byte))
+    );
+    utimesSync(contentPath, 1, 1);
+  }
+  if (change === 'installed replacement') {
+    writeFileSync(`${path}.replacement`, 'synthetic replacement', {
+      mode: 0o600
+    });
+    renameSync(`${path}.replacement`, path);
+  }
+  if (change === 'installed entry') {
+    put(f.project, `${destination}/unexpected`, 'synthetic');
+  }
+  if (change === 'installed ancestor') {
+    chmodSync(join(f.project, '.agents'), 0o777);
+  }
+  if (change === 'installed link count') {
+    linkSync(path, join(f.root, 'linked-helper'));
+  }
+  if (change === 'manifest') {
+    put(f.project, `${metadata}/installation.json`, '{}');
+  }
+  if (change === 'registration') put(f.project, hooksPath, '{}');
+  if (change === 'receipt directory') {
+    renameSync(join(f.project, '.harness-delta/codex-promoted-receipts'), join(f.root, 'previous-receipts'));
+    put(f.project, '.harness-delta/codex-promoted-receipts', 'synthetic');
+  }
+  if (change === 'shipped entry') {
+    put(f.promoted.promotedPackageRoot, 'unexpected', 'synthetic');
+  }
+  if (change === 'shipped ancestor') {
+    chmodSync(join(f.promoted.promotedPackageRoot, 'scripts'), 0o777);
+  }
+  if (change === 'hook source') {
+    put(f.root, 'promoted-hook.mjs', 'synthetic changed hook');
+  }
+  const options =
+    change === 'version'
+      ? { ...f.promoted, productVersion: '0.168.0' }
+      : change === 'package selection'
+        ? {
+            ...f.promoted,
+            promotedPackageRoot: join(f.root, 'missing-package')
+          }
+        : f.promoted;
+  expect(() => verifyCodexPromotedConnectContract(f.project, options)).toThrow();
+});
+
 afterEach(() => {
+  vi.restoreAllMocks();
   for (const root of roots.splice(0)) {
     rmSync(root, { recursive: true, force: true });
   }

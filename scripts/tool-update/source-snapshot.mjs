@@ -12,7 +12,9 @@ export const expandedAssessmentRuleRevision = 'static-assessment-v2';
 export const policyAssessmentRuleRevision = 'static-assessment-v3';
 export const projectionAssessmentRuleRevision = 'static-assessment-v4';
 export const producerAssessmentRuleRevision = 'static-assessment-v5';
-export const assessmentRuleRevision = 'static-assessment-v6';
+export const denialAssessmentRuleRevision = 'static-assessment-v6';
+export const assessmentRuleRevision = 'static-assessment-v7';
+export const denialAssessmentSourcePathLimit = 87;
 export const producerAssessmentSourcePathLimit = 82;
 export const projectionAssessmentSourcePathLimit = 55;
 export const policyAssessmentSourcePathLimit = 52;
@@ -132,7 +134,8 @@ const denialHashOnlyPaths = [
   'src/web/local-web-binding-providers.ts',
   'src/web/local-web-support.ts'
 ];
-const hashOnlyPaths = [...policyHashOnlyPaths, ...promotedHashOnlyPaths, ...denialHashOnlyPaths];
+const authorityHashOnlyPaths = ['src/binding/session-binding-promotion.ts'];
+const hashOnlyPaths = [...policyHashOnlyPaths, ...promotedHashOnlyPaths, ...denialHashOnlyPaths, ...authorityHashOnlyPaths];
 export const expandedSourcePathAllowlist = Object.freeze(
   [
     ...new Set([
@@ -158,8 +161,11 @@ export const projectionSourcePathAllowlist = Object.freeze(
   ].sort()
 );
 export const producerSourcePathAllowlist = Object.freeze([...projectionSourcePathAllowlist, ...promotedHashOnlyPaths].sort());
-export const sourcePathAllowlist = Object.freeze([...producerSourcePathAllowlist, ...denialHashOnlyPaths, 'src/core/tool-version-promotion-store.ts'].sort());
-export const assessmentSourcePathLimit = 87;
+export const denialSourcePathAllowlist = Object.freeze(
+  [...producerSourcePathAllowlist, ...denialHashOnlyPaths, 'src/core/tool-version-promotion-store.ts'].sort()
+);
+export const sourcePathAllowlist = Object.freeze([...denialSourcePathAllowlist, ...authorityHashOnlyPaths].sort());
+export const assessmentSourcePathLimit = 88;
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 
 function snapshotImports(ts, path, output) {

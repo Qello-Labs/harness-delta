@@ -1,13 +1,28 @@
-import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  linkSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  renameSync,
+  rmSync,
+  utimesSync,
+  writeFileSync
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { afterEach, expect, test } from 'vitest';
+import { afterEach, expect, test, vi } from 'vitest';
+import * as repositoryFiles from '../../src/core/repository-files.js';
 import {
   installClaudeConnectInstallation as install,
   previewClaudeConnectInstallation as preview,
   removeClaudeConnectInstallation as remove,
-  statusClaudeConnectInstallation as status
+  statusClaudeConnectInstallation as status,
+  verifyClaudePromotedConnectContract
 } from '../../src/connect/claude-connect-installation.js';
 import type { ClaudePromotedConnectInstallationOptions } from '../../src/connect/claude-connect-installation.js';
 
@@ -71,6 +86,160 @@ function reviewed(project: string, options: NonNullable<Parameters<typeof previe
     expectedInstalledHash: result.installedHash
   };
 }
+test('live promoted contract verification accepts an active installation without changing its files', () => {
+  const f = fixture();
+  install(f.project, reviewed(f.project, f.options));
+  const before = readFileSync(join(f.project, target, 'scripts/claude-promoted-connect-config.mjs'));
+  expect(
+    verifyClaudePromotedConnectContract(f.project, {
+      ...f.options,
+      promotedInUse: true
+    })
+  ).toEqual({
+    bundleContract: 'claude-promoted-bundle-v1',
+    producerContract: 'promoted-payload-v1',
+    receiptDirectory: join(f.project, '.harness-delta/claude-promoted-receipts')
+  });
+  expect(readFileSync(join(f.project, target, 'scripts/claude-promoted-connect-config.mjs'))).toEqual(before);
+  expect(() =>
+    verifyClaudePromotedConnectContract(f.project, {
+      ...f.options,
+      productVersion: '2.1.320'
+    })
+  ).toThrow('package_drift');
+});
+
+test('live promoted contract verification rejects a reintroduced legacy registration', () => {
+  const f = fixture();
+  install(f.project, reviewed(f.project, f.options));
+  put(f.project, '.claude/settings.local.json', JSON.stringify({ hooks: { Stop: [{ command: legacyHook }] } }));
+  expect(() => verifyClaudePromotedConnectContract(f.project, f.options)).toThrow('promoted_registration_conflict');
+});
+
+test('reuses verified Claude installation bytes and hashes only while inputs are unchanged', () => {
+  const f = fixture();
+  install(f.project, reviewed(f.project, f.options));
+  const read = vi.spyOn(repositoryFiles, 'readRepositoryFile');
+  const hash = vi.spyOn(repositoryFiles, 'hashBytes');
+  const contract = verifyClaudePromotedConnectContract(f.project, f.options);
+  expect(read).toHaveBeenCalled();
+  expect(hash).toHaveBeenCalled();
+  read.mockClear();
+  hash.mockClear();
+
+  roots.push(realpathSync(mkdtempSync(join(tmpdir(), 'unrelated-installer-'))));
+  for (let i = 0; i < 3; i++) {
+    expect(
+      verifyClaudePromotedConnectContract(f.project, {
+        ...f.options,
+        promotedInUse: true
+      })
+    ).toEqual(contract);
+  }
+  expect(read).not.toHaveBeenCalled();
+  expect(hash).not.toHaveBeenCalled();
+});
+
+test.each(['replacement', 'mode', 'package option'] as const)('rechecks Claude bytes after a safe %s identity change', change => {
+  const f = fixture();
+  install(f.project, reviewed(f.project, f.options));
+  verifyClaudePromotedConnectContract(f.project, f.options);
+  const read = vi.spyOn(repositoryFiles, 'readRepositoryFile');
+  const path = join(f.project, target, 'scripts/connect-promoted.mjs');
+  if (change === 'replacement') {
+    writeFileSync(`${path}.replacement`, readFileSync(path), {
+      mode: 0o600
+    });
+    renameSync(`${path}.replacement`, path);
+  }
+  if (change === 'mode') chmodSync(path, 0o400);
+  const options = change === 'package option' ? { ...f.options, packageRoot: join(f.project, 'unused-package') } : f.options;
+  expect(verifyClaudePromotedConnectContract(f.project, options).producerContract).toBe('promoted-payload-v1');
+  expect(read).toHaveBeenCalled();
+});
+
+test.each([
+  'installed content',
+  'installed replacement',
+  'installed entry',
+  'installed ancestor',
+  'installed link count',
+  'manifest',
+  'settings',
+  'local settings',
+  'config',
+  'receipt directory',
+  'shipped content',
+  'shipped entry',
+  'shipped ancestor',
+  'version',
+  'package selection'
+] as const)('refuses Claude verification after cached %s changes', change => {
+  const f = fixture();
+  install(f.project, reviewed(f.project, f.options));
+  const path = join(f.project, target, 'scripts/connect-promoted.mjs');
+  const contentPath = change === 'shipped content' ? join(f.promotedPackageRoot, 'scripts/connect.mjs') : path;
+  if (change === 'installed content' || change === 'shipped content') {
+    utimesSync(contentPath, 1, 1);
+  }
+  verifyClaudePromotedConnectContract(f.project, f.options);
+  if (change === 'installed content' || change === 'shipped content') {
+    writeFileSync(
+      contentPath,
+      readFileSync(contentPath).map(byte => (byte === 116 ? 102 : byte))
+    );
+    utimesSync(contentPath, 1, 1);
+  }
+  if (change === 'installed replacement') {
+    writeFileSync(`${path}.replacement`, 'synthetic replacement', {
+      mode: 0o600
+    });
+    renameSync(`${path}.replacement`, path);
+  }
+  if (change === 'installed entry') {
+    put(f.project, `${target}/unexpected`, 'synthetic');
+  }
+  if (change === 'installed ancestor') {
+    chmodSync(join(f.project, '.claude'), 0o777);
+  }
+  if (change === 'installed link count') {
+    linkSync(path, join(f.packageRoot, 'linked-helper'));
+  }
+  if (change === 'manifest') {
+    put(f.project, '.harness-delta/claude-connect/installation.json', '{}');
+  }
+  if (change === 'settings' || change === 'local settings') {
+    put(
+      f.project,
+      change === 'settings' ? '.claude/settings.json' : '.claude/settings.local.json',
+      JSON.stringify({ hooks: { Stop: [{ command: legacyHook }] } })
+    );
+  }
+  if (change === 'config') {
+    put(f.project, `${target}/scripts/claude-promoted-connect-config.mjs`, 'synthetic changed config');
+  }
+  if (change === 'receipt directory') {
+    renameSync(join(f.project, '.harness-delta/claude-promoted-receipts'), join(f.packageRoot, 'previous-receipts'));
+    put(f.project, '.harness-delta/claude-promoted-receipts', 'synthetic');
+  }
+  if (change === 'shipped entry') {
+    put(f.promotedPackageRoot, 'unexpected', 'synthetic');
+  }
+  if (change === 'shipped ancestor') {
+    chmodSync(join(f.promotedPackageRoot, 'scripts'), 0o777);
+  }
+  const options =
+    change === 'version'
+      ? { ...f.options, productVersion: '2.1.320' }
+      : change === 'package selection'
+        ? {
+            ...f.options,
+            promotedPackageRoot: join(f.project, 'missing-package')
+          }
+        : f.options;
+  expect(() => verifyClaudePromotedConnectContract(f.project, options)).toThrow();
+});
+
 test('promoted installation creates private pending receipt storage', () => {
   const f = fixture(false);
   const planned = preview(f.project, f.options);
@@ -89,6 +258,7 @@ test('promoted receipt storage changes invalidate a reviewed installation', () =
   expect(() => install(f.project, accepted)).toThrow('installation_preview_changed');
 });
 afterEach(() => {
+  vi.restoreAllMocks();
   for (const root of roots.splice(0)) {
     rmSync(root, { recursive: true, force: true });
   }

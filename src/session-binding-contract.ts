@@ -3,11 +3,39 @@ import { AgentMetadataSchema } from './sources/agent-metadata.js';
 import { IdSchema, ProductVersionSchema, TimestampSchema, UsageV2Schema } from './contracts.js';
 import type { CandidateScope } from './nested-candidate.js';
 import type { OrdinaryWindowCoverage } from './core/ordinary-window-policy.js';
+import type { ToolVersionPromotionAuthority, ToolVersionPromotionKey } from './core/tool-version-promotion-store.js';
 
 export const BindingProductSchema = z.enum(['codex', 'claude_code']);
 export type BindingProduct = z.infer<typeof BindingProductSchema>;
 export const CurrentIdentityRequestSchema = z.strictObject({ receipt: z.uuid() });
 export type CurrentIdentityRequest = z.infer<typeof CurrentIdentityRequestSchema>;
+export const PromotionPendingReceiptSchema = z.strictObject({
+  schemaVersion: z.literal(3),
+  kind: z.literal('promotion_pending'),
+  producerContract: z.literal('promoted-payload-v1'),
+  receipt: z.uuid(),
+  product: BindingProductSchema,
+  productVersion: ProductVersionSchema,
+  event: z.enum(['connect', 'subagent_start', 'subagent_stop']),
+  nativeSessionId: IdSchema,
+  nativeRootSessionId: IdSchema,
+  agentId: IdSchema.nullable(),
+  sourceRef: z.string().min(1).max(4096).nullable(),
+  cwd: z.string().min(1).max(4096),
+  processIdHint: z.number().int().positive().max(Number.MAX_SAFE_INTEGER).nullable(),
+  recordedAt: TimestampSchema
+});
+export type PromotionPendingReceipt = z.infer<typeof PromotionPendingReceiptSchema>;
+export interface PromotionBindingAuthority {
+  readonly key: ToolVersionPromotionKey;
+  readonly producerContract: 'promoted-payload-v1';
+  readonly grants: readonly ('admission' | 'children' | 'qualification')[];
+  readonly assertAuthorized: (nativeRootId?: string, operation?: 'link' | 'collect' | 'restart') => ToolVersionPromotionAuthority;
+}
+export interface PromotionBindingProof {
+  readonly identity: VerifiedSessionIdentity;
+  readonly proof: NativeConnectionProof;
+}
 export interface NativeConnectionProof {
   readonly receipt: string;
   readonly recordedAt: string;
@@ -98,6 +126,9 @@ export interface OrdinaryWindowUsageBatch extends UsageBatch {
  * consume native metadata receipts; user/model supplied identity is never proof. */
 export interface SessionBindingProvider {
   product: BindingProduct;
+  readonly promotionAuthority?: PromotionBindingAuthority;
+  pendingPromotionReceipt?(input: CurrentIdentityRequest): PromotionPendingReceipt;
+  receivePending?(input: PromotionPendingReceipt): Promise<PromotionBindingProof>;
   capabilities(): BindingCapabilities;
   /** Receipt, process and source-file metadata only; never opens a transcript body. */
   inspectCurrent?(input: CurrentIdentityRequest): Promise<NativeConnectionProof>;

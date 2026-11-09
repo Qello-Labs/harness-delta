@@ -5,6 +5,9 @@ import { laneKey, laneSchema, sourceLanes } from './lanes.mjs';
 import {
   assessmentRuleRevision,
   assessmentSourcePathLimit,
+  denialAssessmentRuleRevision,
+  denialAssessmentSourcePathLimit,
+  denialSourcePathAllowlist,
   expandedAssessmentRuleRevision,
   expandedAssessmentSourcePathLimit,
   expandedSourcePathAllowlist,
@@ -300,9 +303,15 @@ const producerAssessmentFields = {
   source_paths: z.array(z.enum(producerSourcePathAllowlist)).min(1).max(producerAssessmentSourcePathLimit),
   rule_revision: z.literal(producerAssessmentRuleRevision)
 };
-const currentAssessmentFields = {
+const denialAssessmentFields = {
   ...producerAssessmentFields,
   schema_version: z.literal(10),
+  source_paths: z.array(z.enum(denialSourcePathAllowlist)).min(1).max(denialAssessmentSourcePathLimit),
+  rule_revision: z.literal(denialAssessmentRuleRevision)
+};
+const currentAssessmentFields = {
+  ...denialAssessmentFields,
+  schema_version: z.literal(11),
   source_paths: z.array(z.enum(sourcePathAllowlist)).min(1).max(assessmentSourcePathLimit),
   rule_revision: z.literal(assessmentRuleRevision)
 };
@@ -400,7 +409,7 @@ export const assessmentSchema = z
         .min(1)
         .max(128)
     }),
-    ...[projectionAssessmentFields, producerAssessmentFields, currentAssessmentFields].map(fields =>
+    ...[projectionAssessmentFields, producerAssessmentFields, denialAssessmentFields, currentAssessmentFields].map(fields =>
       z.strictObject({
         ...fields,
         review_ids: z.array(shaSchema).max(256).optional(),
@@ -420,8 +429,15 @@ export const assessmentSchema = z
     )
   ])
   .superRefine((value, context) => {
-    if (value.schema_version === 8 || value.schema_version === 9 || value.schema_version === 10) {
-      const fields = value.schema_version === 8 ? projectionAssessmentFields : value.schema_version === 9 ? producerAssessmentFields : currentAssessmentFields;
+    if (value.schema_version >= 8) {
+      const fields =
+        value.schema_version === 8
+          ? projectionAssessmentFields
+          : value.schema_version === 9
+            ? producerAssessmentFields
+            : value.schema_version === 10
+              ? denialAssessmentFields
+              : currentAssessmentFields;
       const parsed = z.union(currentAssessmentVariants(fields)).safeParse(value);
       if (!parsed.success) {
         for (const issue of parsed.error.issues) context.addIssue(issue);
@@ -481,13 +497,15 @@ export const assessmentSchema = z
       return (
         value.schema_version < 5 ||
         value.rule_revision !==
-          (value.schema_version === 10
+          (value.schema_version === 11
             ? assessmentRuleRevision
-            : value.schema_version === 9
-              ? producerAssessmentRuleRevision
-              : value.schema_version === 8
-                ? projectionAssessmentRuleRevision
-                : policyAssessmentRuleRevision) ||
+            : value.schema_version === 10
+              ? denialAssessmentRuleRevision
+              : value.schema_version === 9
+                ? producerAssessmentRuleRevision
+                : value.schema_version === 8
+                  ? projectionAssessmentRuleRevision
+                  : policyAssessmentRuleRevision) ||
         row.product !== policy.product ||
         row.route !== policy.route ||
         row.rule_revision !== policy.revision ||
@@ -1001,7 +1019,7 @@ export async function assessCandidate({
     lane.reasons.sort();
   }
   const assessment = {
-    schema_version: 10,
+    schema_version: 11,
     kind: 'assessment',
     inventory_scope: observation.schema_version === 2 ? observation.inventory_scope : 'legacy_full_inventory',
     candidate_id: digest(candidate),

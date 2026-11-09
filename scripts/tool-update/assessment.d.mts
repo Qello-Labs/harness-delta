@@ -178,6 +178,7 @@ type CurrentAssessment = AssessmentFields &
     | { readonly schema_version: 8; readonly rule_revision: 'static-assessment-v4' }
     | { readonly schema_version: 9; readonly rule_revision: 'static-assessment-v5' }
     | { readonly schema_version: 10; readonly rule_revision: 'static-assessment-v6' }
+    | { readonly schema_version: 11; readonly rule_revision: 'static-assessment-v7' }
   ) & {
     readonly inventory_scope: 'legacy_full_inventory' | 'latest_and_npm_review_range';
   } & (

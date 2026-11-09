@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { lstatSync, mkdirSync, readdirSync, realpathSync, renameSync, rmdirSync, rmSync, unlinkSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import type { BigIntStats } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { z } from 'zod';
 
 import { durablePrivateBytes, hashBytes, readRepositoryFile, readStrictJson, safeRelativePath } from '../core/repository-files.js';
@@ -577,6 +578,97 @@ function plan(projectRoot: string, options: ClaudeConnectInstallationPreviewOpti
 export function previewClaudeConnectInstallation(projectRoot: string, options: ClaudeConnectInstallationPreviewOptions = {}): ClaudeConnectInstallationPreview {
   return plan(projectRoot, options).preview;
 }
+let verifiedPromotedInstallation: string | undefined;
+function promotedInstallationInputs(projectRoot: string, options: ClaudePromotedConnectInstallationOptions): string | undefined {
+  try {
+    const entries = new Map<string, BigIntStats | undefined>();
+    let cacheable = true;
+    const pin = (path: string): BigIntStats | undefined => {
+      if (entries.has(path)) return entries.get(path);
+      const parent = dirname(path);
+      if (!anchors.has(path) && parent !== path && !pin(parent)?.isDirectory()) {
+        entries.set(path, undefined);
+        return undefined;
+      }
+      const stat = lstatSync(path, {
+        bigint: true,
+        throwIfNoEntry: false
+      });
+      entries.set(path, stat);
+      if (stat?.isSymbolicLink()) cacheable = false;
+      return stat;
+    };
+    let count = 0;
+    const visit = (path: string, depth = 0): void => {
+      if (++count > 2048 || depth > 16) {
+        cacheable = false;
+        return;
+      }
+      const stat = pin(path);
+      if (stat?.isDirectory()) {
+        for (const name of readdirSync(path).sort()) {
+          visit(join(path, name), depth + 1);
+        }
+      }
+    };
+    const promotedPackageRoot = options.promotedPackageRoot ?? packagedSkillPath('harness-connect-promoted-claude');
+    const anchors = new Set([resolve(projectRoot), resolve(promotedPackageRoot)]);
+    // External parent contents are unrelated, but their canonical path safety stays live.
+    for (const path of anchors) {
+      if (realpathSync(path) !== path) return undefined;
+    }
+    for (const path of [join(projectRoot, destination), promotedPackageRoot]) {
+      visit(resolve(path));
+    }
+    // Receipt entries are not installer-owned; only their directory identity is relevant.
+    for (const path of [manifestPath, '.claude/settings.json', '.claude/settings.local.json', promotedReceiptDirectory]) pin(resolve(projectRoot, path));
+    return cacheable
+      ? JSON.stringify([
+          projectRoot,
+          options.productVersion,
+          options.bundleMode,
+          options.packageRoot,
+          promotedPackageRoot,
+          [...entries].map(([path, stat]) => [
+            path,
+            stat
+              ? `${stat.dev}:${stat.ino}:${stat.size}:${stat.mtimeNs}:${stat.ctimeNs}:${stat.birthtimeNs}:${stat.mode}:${stat.uid}:${stat.gid}:${stat.nlink}`
+              : null
+          ])
+        ])
+      : undefined;
+  } catch (error) {
+    if (!(error instanceof Error) || !('code' in error)) throw error;
+    // Sampling failures must leave refusal semantics to the original verifier.
+    return undefined;
+  }
+}
+export function verifyClaudePromotedConnectContract(projectRoot: string, options: ClaudePromotedConnectInstallationOptions) {
+  const inputs = promotedInstallationInputs(projectRoot, options);
+  if (inputs === undefined || inputs !== verifiedPromotedInstallation) {
+    verifiedPromotedInstallation = undefined;
+    const owned = inspectOwned(projectRoot);
+    if (owned.manifest?.schema_version !== 3) {
+      fail('promoted_producer_contract_unverified');
+    }
+    promotedSettingsHash(projectRoot);
+    if (promotedReceiptIdentity(projectRoot) === null) {
+      fail('metadata_unsafe');
+    }
+    const source = promotedSource(options, owned);
+    if (source.files.size !== owned.files.size) fail('package_drift');
+    for (const [path, bytes] of source.files) {
+      if (!owned.files.get(path)?.equals(bytes)) fail('package_drift');
+    }
+    if (inputs !== undefined && inputs === promotedInstallationInputs(projectRoot, options)) verifiedPromotedInstallation = inputs;
+  }
+  return {
+    bundleContract: 'claude-promoted-bundle-v1' as const,
+    producerContract: 'promoted-payload-v1' as const,
+    receiptDirectory: join(projectRoot, promotedReceiptDirectory)
+  };
+}
+
 export function statusClaudeConnectInstallation(
   projectRoot: string,
   options?: ClaudeConnectInstallationOptions
