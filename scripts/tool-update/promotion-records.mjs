@@ -10,6 +10,11 @@ import { reducePromotionGates } from './promotion-gates.mjs';
 export const promotionEngineRevision = 'promotion-engine-v1';
 export const promotionEngineDigestScheme = 'promotion-engine-files-sha256-v1';
 export const promotionEngineFiles = Object.freeze([
+  'scripts/tool-update.mjs',
+  'scripts/tool-update/promotion.mjs',
+  'src/core/tool-version-promotion.ts',
+  'scripts/tool-update/difference-records.mjs',
+  'scripts/tool-update/difference-judgment.mjs',
   'scripts/tool-update/promotion-records.mjs',
   'scripts/tool-update/promotion-gates.mjs',
   'scripts/tool-update/manifest.mjs',
@@ -181,8 +186,9 @@ export const promotionGateInputSchema = z
 function validGateInput(value) {
   const scopeDigest = digest(value.scope);
   if (value.requested_grants.includes('children') && value.scope.lane.topology === 'root') return false;
-  if (!value.gate_matrix.every((row, index) => row.gate_id === promotionGateIds[index] && row.evidence.every(proof => proof.scope_digest === scopeDigest)))
+  if (!value.gate_matrix.every((row, index) => row.gate_id === promotionGateIds[index] && row.evidence.every(proof => proof.scope_digest === scopeDigest))) {
     return false;
+  }
   return value.contracts.every((group, index) => {
     const required = requiredFacets(group.contract_id, value.scope.lane);
     return (

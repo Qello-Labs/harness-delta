@@ -64,6 +64,8 @@ export const promotionImplementationFiles = Object.freeze([
 	"scripts/tool-update/promotion-implementation.mjs",
 	"scripts/tool-update/promotion-records.d.mts",
 	"scripts/tool-update/promotion-records.mjs",
+	"scripts/tool-update/promotion.d.mts",
+	"scripts/tool-update/promotion.mjs",
 	"scripts/tool-update/source-snapshot.mjs",
 	"skills/harness-apply/SKILL.md",
 	"skills/harness-connect/SKILL.md",
