@@ -16,7 +16,9 @@ import { toolVersionIdentity, toolVersionRecipe } from '../core/tool-version-pro
 
 const instrumented = (() => {
   const recipe = toolVersionRecipe('codex-instrumented-01621');
-  if (recipe.kind !== 'codex_instrumented') throw new Error('instrumented_recipe_invalid');
+  if (recipe.kind !== 'codex_instrumented') {
+    throw new Error('instrumented_recipe_invalid');
+  }
   return recipe;
 })();
 
@@ -80,7 +82,8 @@ const ownModules = [
   'source-compatibility',
   'core/ordinary-window-policy',
   'core/tool-version-profiles',
-  'core/tool-version-promotion'
+  'core/tool-version-promotion',
+  'core/tool-version-promotion-store'
 ];
 // Cached modules must never be fingerprinted as a package update that occurs during Cargo.
 const loadedReceiverDigests = ownModules.map(name => ({
@@ -94,7 +97,8 @@ for (const name of [
   'core/tool-version-promotions.json',
   'core/tool-version-promotion-result.json',
   'migrations/036_ordinary_window_observation.sql',
-  'migrations/037_ordinary_window_decisions.sql'
+  'migrations/037_ordinary_window_decisions.sql',
+  'migrations/038_tool_version_promotion_denials.sql'
 ]) {
   loadedReceiverDigests.push({
     name,

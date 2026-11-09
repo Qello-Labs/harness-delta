@@ -154,8 +154,8 @@ test('assessment CLI writes a source-fresh static result without granting suppor
   const raw: unknown = JSON.parse(await readFile(join(root, 'assessments', `${result.output.assessment_id}.json`), 'utf8'));
   const record = assessmentSchema.parse(raw);
   expect(record).toMatchObject({
-    schema_version: 9,
-    rule_revision: 'static-assessment-v5',
+    schema_version: 10,
+    rule_revision: 'static-assessment-v6',
     inventory_scope: 'latest_and_npm_review_range'
   });
   expect(record.baseline_digest).toBeNull();

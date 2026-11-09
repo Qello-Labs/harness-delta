@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { IdSchema, TimestampSchema } from '../contracts.js';
 import type { Store } from '../store.js';
+import { assertCompatibilityAllowed } from '../source-compatibility.js';
 import {
   assertOrdinaryWindowDecision,
   matchingOrdinaryWindowRevocation,
@@ -77,22 +78,26 @@ export function assertOrdinaryWindowAuthority(store: Store, scope: OrdinaryWindo
   if (!task || task.state !== 'active' || (scope.generation !== undefined && task.generation !== scope.generation)) {
     throw new Error('binding_scope_revoked');
   }
-  if (
-    store.get('SELECT 1 FROM source_compatibility_blocks WHERE product=? AND product_version=? AND source=?', [
-      selection.policy.product,
-      selection.declaredVersion,
-      selection.policy.source
-    ])
-  ) {
-    throw new Error('compatibility_invalidated');
-  }
+  assertCompatibilityAllowed(store, {
+    state: selection.policy.trust,
+    product: selection.policy.product,
+    product_version: selection.declaredVersion,
+    source: selection.policy.source,
+    parser_version: selection.policy.baseVersion,
+    parser_revision: selection.policy.parserRevision,
+    profile_id: selection.policy.policyId,
+    rule_revision: selection.policy.ruleRevision
+  });
   const nativeRootId =
     scope.nativeRootId ??
     (scope.rootSessionId === undefined
       ? undefined
       : store.get<{ native_root_id: string }>('SELECT native_root_id FROM binding_root_segments WHERE root_session_id=?', [scope.rootSessionId])
           ?.native_root_id);
-  assertOrdinaryWindowDecision(store, selection, { ...scope, ...(nativeRootId === undefined ? {} : { nativeRootId }) });
+  assertOrdinaryWindowDecision(store, selection, {
+    ...scope,
+    ...(nativeRootId === undefined ? {} : { nativeRootId })
+  });
   if (scope.rootSessionId !== undefined) {
     assertOrdinaryWindowSegment(store, scope, selection);
   }

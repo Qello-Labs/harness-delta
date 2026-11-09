@@ -70,7 +70,7 @@ test('migration 037 preserves a v36 decision byte-for-byte but does not manufact
   const f = fixture();
   const store = new Store(f.file);
   try {
-    expect(store.get<{ user_version: number }>('PRAGMA user_version')?.user_version).toBe(37);
+    expect(store.get<{ user_version: number }>('PRAGMA user_version')?.user_version).toBe(38);
     const row = store.get<Record<string, unknown>>('SELECT * FROM ordinary_window_activations');
     if (!row) throw new Error('migrated_activation_missing');
     expect(JSON.stringify(Object.fromEntries(Object.keys(f.before).map(key => [key, row[key]])))).toBe(JSON.stringify(f.before));

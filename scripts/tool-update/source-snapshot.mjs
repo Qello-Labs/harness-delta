@@ -11,7 +11,9 @@ export const legacyAssessmentRuleRevision = 'static-assessment-v1';
 export const expandedAssessmentRuleRevision = 'static-assessment-v2';
 export const policyAssessmentRuleRevision = 'static-assessment-v3';
 export const projectionAssessmentRuleRevision = 'static-assessment-v4';
-export const assessmentRuleRevision = 'static-assessment-v5';
+export const producerAssessmentRuleRevision = 'static-assessment-v5';
+export const assessmentRuleRevision = 'static-assessment-v6';
+export const producerAssessmentSourcePathLimit = 82;
 export const projectionAssessmentSourcePathLimit = 55;
 export const policyAssessmentSourcePathLimit = 52;
 export const expandedAssessmentSourcePathLimit = 48;
@@ -124,7 +126,13 @@ const promotedHashOnlyPaths = [
   'src/core/repository-files.ts',
   'src/package-paths.ts'
 ];
-const hashOnlyPaths = [...policyHashOnlyPaths, ...promotedHashOnlyPaths];
+const denialHashOnlyPaths = [
+  'src/deletion.ts',
+  'src/migrations/038_tool_version_promotion_denials.sql',
+  'src/web/local-web-binding-providers.ts',
+  'src/web/local-web-support.ts'
+];
+const hashOnlyPaths = [...policyHashOnlyPaths, ...promotedHashOnlyPaths, ...denialHashOnlyPaths];
 export const expandedSourcePathAllowlist = Object.freeze(
   [
     ...new Set([
@@ -149,8 +157,9 @@ export const projectionSourcePathAllowlist = Object.freeze(
     'src/core/tool-version-promotion-result.json'
   ].sort()
 );
-export const sourcePathAllowlist = Object.freeze([...projectionSourcePathAllowlist, ...promotedHashOnlyPaths].sort());
-export const assessmentSourcePathLimit = 82;
+export const producerSourcePathAllowlist = Object.freeze([...projectionSourcePathAllowlist, ...promotedHashOnlyPaths].sort());
+export const sourcePathAllowlist = Object.freeze([...producerSourcePathAllowlist, ...denialHashOnlyPaths, 'src/core/tool-version-promotion-store.ts'].sort());
+export const assessmentSourcePathLimit = 87;
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 
 function snapshotImports(ts, path, output) {

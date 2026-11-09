@@ -5,6 +5,8 @@ import type { Store } from './store.js';
 import { getEffectiveCodexBindingAdmission } from './codex-binding-admission.js';
 import { getEffectiveClaudeBindingAdmission } from './claude-binding-admission.js';
 import { OrdinaryWindowSelectionSchema, resolveOrdinaryWindow } from './core/ordinary-window-policy.js';
+import { lookupToolVersionProfile, promotedToolVersionDescriptors, toolVersionPromotionProjection } from './core/tool-version-profiles.js';
+import { readToolVersionPromotionAuthority, toolVersionPromotionKey } from './core/tool-version-promotion-store.js';
 
 export type CompatibilitySource = SourceCompatibility['source'];
 export type CompatibilityBlockReason = 'contract_failed' | 'semantic_incompatibility';
@@ -139,13 +141,59 @@ export function lookupCompatibleFileProfile(product: string, version: string, pi
 
 export function effectiveSourceCompatibility(store: Store, input: SourceCompatibility): SourceCompatibility {
   const compatibility = SourceCompatibilitySchema.parse(input);
-  return store.get('SELECT 1 FROM source_compatibility_blocks WHERE product=? AND product_version=? AND source=?', [
+  const blocked = store.get('SELECT 1 FROM source_compatibility_blocks WHERE product=? AND product_version=? AND source=?', [
     compatibility.product,
     compatibility.product_version,
     compatibility.source
-  ])
-    ? { ...compatibility, state: 'invalidated' }
-    : compatibility;
+  ]);
+  if (blocked || !promotionCompatibilityAllowed(store, compatibility)) {
+    return { ...compatibility, state: 'invalidated' };
+  }
+  return compatibility;
+}
+function promotionCompatibilityAllowed(store: Store, compatibility: SourceCompatibility): boolean {
+  if (compatibility.source !== 'codex_binding' && compatibility.source !== 'claude_binding') return true;
+  if (resolveOrdinaryWindow(compatibility.product, compatibility.product_version, compatibility.profile_id)) return true;
+  const legacy = lookupToolVersionProfile(compatibility.product, compatibility.product_version)?.ordinaryBinding;
+  if (legacy?.profileId === compatibility.profile_id) return true;
+  if (
+    store.get(
+      `SELECT 1 FROM tool_version_promotion_denials WHERE json_extract(key_json,'$.product')=?
+      AND json_extract(key_json,'$.product_version')=? AND json_extract(key_json,'$.source')=?
+      AND json_extract(key_json,'$.profile_id')=?`,
+      [compatibility.product, compatibility.product_version, compatibility.source, compatibility.profile_id]
+    )
+  )
+    return false;
+  const facets = [...toolVersionPromotionProjection.facets, ...toolVersionPromotionProjection.denials].filter(
+    facet =>
+      facet.descriptor.product === compatibility.product &&
+      facet.descriptor.version === compatibility.product_version &&
+      facet.descriptor.route === compatibility.source &&
+      facet.descriptor.profileId === compatibility.profile_id &&
+      facet.decision.scope.lane.operation === 'collect' &&
+      facet.decision.scope.platform === `${process.platform}_${process.arch}` &&
+      facet.decision.scope.runtime === `node${process.versions.node.split('.')[0]}`
+  );
+  const declared = promotedToolVersionDescriptors.some(
+    descriptor =>
+      descriptor.product === compatibility.product &&
+      descriptor.version === compatibility.product_version &&
+      descriptor.route === compatibility.source &&
+      descriptor.profileId === compatibility.profile_id
+  );
+  if (!declared && facets.length === 0) return true;
+  // Historical compatibility pins lack a topology identity, so no overlapping denied scope may lend them authority.
+  return (
+    facets.length > 0 &&
+    facets.every(
+      facet =>
+        readToolVersionPromotionAuthority(store, {
+          key: toolVersionPromotionKey(facet),
+          requiredGrants: compatibility.state === 'verified' ? ['admission', 'qualification'] : ['admission']
+        }).state === 'allowed'
+    )
+  );
 }
 export function assertCompatibilityAllowed(store: Store, compatibility: SourceCompatibility): void {
   if (effectiveSourceCompatibility(store, compatibility).state === 'invalidated') throw new Error('compatibility_invalidated');

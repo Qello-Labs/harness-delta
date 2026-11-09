@@ -1,7 +1,9 @@
 import { comparisonProtocol, protocolRow } from '../core/protocol-store.js';
 import { lookupToolVersionProfile } from '../core/tool-version-profiles.js';
-import { getClaudeBindingAdmission } from '../claude-binding-admission.js';
-import { getCodexBindingAdmission, isAdmittedCodexBindingProtocol } from '../codex-binding-admission.js';
+import { getEffectiveClaudeBindingAdmission } from '../claude-binding-admission.js';
+import { getEffectiveCodexBindingAdmission, isAdmittedCodexBindingProtocol } from '../codex-binding-admission.js';
+import { assertCompatibilityAllowed, resolveSourceCompatibility } from '../source-compatibility.js';
+import { SourceCompatibilitySchema } from '../contracts.js';
 import type { ExternalTaskSetup } from '../workflow/external-session-service.js';
 import { applicationRequired, effectiveTaskWorkspace } from '../harness/harness-application.js';
 import { ordinaryTask, ordinaryTaskSettings, OrdinaryProjectSettingsSchema } from '../ordinary-observation.js';
@@ -37,7 +39,7 @@ function codexProvider(
   task: ProviderTask,
   configuration: {
     readonly config: Extract<NonNullable<LocalWebProfile['session_binding']>, { product: 'codex' }>;
-    readonly ordinaryAdmission: ReturnType<typeof getCodexBindingAdmission>;
+    readonly ordinaryAdmission: ReturnType<typeof getEffectiveCodexBindingAdmission>;
   }
 ) {
   const { options, setupFor } = dependencies;
@@ -57,7 +59,10 @@ function codexProvider(
             : {})
         }
       : options.nativePilot
-        ? { maxDepth: 1, maxFamilyMembers: codexRootPilotVersions.some(version => version === setupFor(record).workflow.product_version) ? 1 : 3 }
+        ? {
+            maxDepth: 1,
+            maxFamilyMembers: codexRootPilotVersions.some(version => version === setupFor(record).workflow.product_version) ? 1 : 3
+          }
         : {}),
     ...(ordinaryAdmission
       ? {
@@ -78,8 +83,14 @@ function ordinaryClaudeProvider(dependencies: ProviderDependencies, task: Provid
   const { id, record, projectRoot } = task;
   const { options, ordinaryBindings } = dependencies;
   const config = ordinaryTask(options.store, id) ? ordinaryTaskSettings(options.store, id) : OrdinaryProjectSettingsSchema.parse(JSON.parse(record.setup));
-  const admission = getClaudeBindingAdmission(config.product_version);
+  const admission = getEffectiveClaudeBindingAdmission(config.product_version);
   if (!admission?.admitted) throw new Error('binding_source_unqualified');
+  if (admission.kind === 'promoted') {
+    const compatibility = resolveSourceCompatibility('claude_code', config.product_version, 'claude_binding', admission.profileId);
+    if (!compatibility) throw new Error('binding_source_unqualified');
+    assertCompatibilityAllowed(options.store, compatibility);
+    throw new Error('promoted_provider_unavailable');
+  }
   return new ClaudeSessionBindingProvider({
     receiptDir: config.receipt_directory,
     claudeProjectsDir: config.claude_projects_directory,
@@ -99,7 +110,13 @@ function profileConfiguration(dependencies: ProviderDependencies, task: Provider
   const protocol = comparisonProtocol(store, protocolRow(store, setupFor(record).workflow.assignment.protocol_id));
   const ordinaryFamily = !options.qualificationLease && !options.nativePilot && protocol.schema_version === 2 && isAdmittedCodexBindingProtocol(protocol);
   const workflow = setupFor(record).workflow;
-  const ordinaryAdmission = ordinaryFamily ? getCodexBindingAdmission(workflow.product_version) : undefined;
+  const ordinaryAdmission = ordinaryFamily ? getEffectiveCodexBindingAdmission(workflow.product_version) : undefined;
+  if (ordinaryAdmission?.kind === 'promoted') {
+    const compatibility = resolveSourceCompatibility('codex', workflow.product_version, 'codex_binding', ordinaryAdmission.profileId);
+    if (!compatibility) throw new Error('binding_source_unqualified');
+    assertCompatibilityAllowed(store, compatibility);
+    throw new Error('promoted_provider_unavailable');
+  }
   const savedProjectConfig =
     workflow.assignment.metadata.product === 'codex' && !options.qualificationLease && !options.nativePilot
       ? codexProjects.configuration(workflow.assignment.project_id)
@@ -110,7 +127,9 @@ function profileConfiguration(dependencies: ProviderDependencies, task: Provider
   if (config.product === 'codex' && !applicationRequired(store, id) && config.project_root !== projectRoot) throw new Error('binding_scope_mismatch');
   if (projectConfig) {
     const receiptState = codexReceiptDirectoryState(config.receipt_directory);
-    if (receiptState !== 'ready') throw new Error(receiptState === 'missing' ? 'receipt_directory_missing' : 'receipt_directory_unsafe');
+    if (receiptState !== 'ready') {
+      throw new Error(receiptState === 'missing' ? 'receipt_directory_missing' : 'receipt_directory_unsafe');
+    }
   }
   return { config, ordinaryAdmission };
 }
@@ -163,6 +182,19 @@ export function createLocalWebBindingProviders(dependencies: ProviderDependencie
   const providers = new Map<string, SessionBindingProvider[]>();
   const providersForTask = (id: string, deletedProjectRoot?: string): SessionBindingProvider[] => {
     assertOrdinaryWindowSurfaceClosed(options.store, id);
+    for (const row of options.store.all<{ payload: string }>(
+      'SELECT c.payload FROM session_source_compatibility c JOIN sessions s ON s.id=c.session_id WHERE s.task_id=?',
+      [id]
+    )) {
+      const compatibility = SourceCompatibilitySchema.parse(JSON.parse(row.payload));
+      if (
+        (compatibility.source === 'codex_binding' || compatibility.source === 'claude_binding') &&
+        !lookupToolVersionProfile(compatibility.product, compatibility.product_version)
+      ) {
+        assertCompatibilityAllowed(options.store, compatibility);
+        throw new Error('promoted_provider_unavailable');
+      }
+    }
     if (options.bindingProviders) return options.bindingProviders;
     const cached = providers.get(id);
     if (cached) return cached;
@@ -182,11 +214,21 @@ export function createLocalWebBindingProviders(dependencies: ProviderDependencie
     const record = recordFor(id);
     if (!record) return [];
     if (record.profile_id === 'ordinary-claude') {
-      const result = [ordinaryClaudeProvider(dependencies, { id, record, projectRoot })];
+      const result = [
+        ordinaryClaudeProvider(dependencies, {
+          id,
+          record,
+          projectRoot
+        })
+      ];
       providers.set(id, result);
       return result;
     }
-    const result = profileProviders(dependencies, { id, record, projectRoot });
+    const result = profileProviders(dependencies, {
+      id,
+      record,
+      projectRoot
+    });
     if (result.length) providers.set(id, result);
     return result;
   };

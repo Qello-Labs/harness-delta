@@ -6,7 +6,7 @@ import { resolveSourceCompatibility, effectiveSourceCompatibility } from '../sou
 import { functionalWorkflowEligible, comparisonReadiness } from '../readiness-store.js';
 import { parseProtocol } from '../flexible-contracts.js';
 import { isHumanPilotProtocol, codexRootHumanPilotProfileId } from '../binding/session-binding-human-pilot.js';
-import { getCodexBindingAdmission, isAdmittedCodexBindingProtocol } from '../codex-binding-admission.js';
+import { getEffectiveCodexBindingAdmission, isAdmittedCodexBindingProtocol } from '../codex-binding-admission.js';
 export function localWebSupport(store: Store, profile: LocalWebProfile) {
   const workflow = profile.setup.workflow;
   const protocolRecord = protocolRow(store, workflow.assignment.protocol_id);
@@ -16,7 +16,7 @@ export function localWebSupport(store: Store, profile: LocalWebProfile) {
   const rootPilot = familyPilot && protocol.schema_version === 2 && protocol.source_profiles[0]?.profile_id === codexRootHumanPilotProfileId;
   const ordinaryFamily = protocol.schema_version === 2 && isAdmittedCodexBindingProtocol(protocol);
   const parserCompatibility = ordinaryFamily
-    ? resolveSourceCompatibility('codex', workflow.product_version, 'codex_binding', getCodexBindingAdmission(workflow.product_version)?.profileId)
+    ? resolveSourceCompatibility('codex', workflow.product_version, 'codex_binding', getEffectiveCodexBindingAdmission(workflow.product_version)?.profileId)
     : rootPilot
       ? resolveSourceCompatibility('codex', workflow.product_version, 'codex_workflow', 'codex-workflow-own-response-v1')
       : null;

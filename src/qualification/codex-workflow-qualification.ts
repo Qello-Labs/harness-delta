@@ -64,10 +64,24 @@ const intentSchema = z.strictObject({
   fixture_sha256: sha.nullable(),
   duration_ms: z.number().int().min(1000).max(180000),
   selected_variant: z.enum(['a', 'b']),
-  artifacts: z.array(z.strictObject({ variant: z.enum(['a', 'b']), path, manifest_hash: sha })).length(2),
+  artifacts: z
+    .array(
+      z.strictObject({
+        variant: z.enum(['a', 'b']),
+        path,
+        manifest_hash: sha
+      })
+    )
+    .length(2),
   runtime: z.tuple([
-    z.strictObject({ model: z.literal('gpt-6-astra'), effort: z.literal('high') }),
-    z.strictObject({ model: z.literal('gpt-6.1-sol'), effort: z.literal('high') })
+    z.strictObject({
+      model: z.literal('gpt-6-astra'),
+      effort: z.literal('high')
+    }),
+    z.strictObject({
+      model: z.literal('gpt-6.1-sol'),
+      effort: z.literal('high')
+    })
   ]),
   sandbox: z.literal('read-only'),
   approval_policy: z.literal('on-request'),
@@ -144,7 +158,8 @@ function implementationDigest() {
     'comparison/config-confirmation-write',
     'package-paths',
     'core/tool-version-profiles',
-    'core/tool-version-promotion'
+    'core/tool-version-promotion',
+    'core/tool-version-promotion-store'
   ];
   return hash(
     JSON.stringify(
@@ -185,6 +200,10 @@ function implementationDigest() {
           {
             name: 'migration037',
             sha256: hash(readFileSync(implementationPath('migrations', '037_ordinary_window_decisions.sql')))
+          },
+          {
+            name: 'migration038',
+            sha256: hash(readFileSync(implementationPath('migrations', '038_tool_version_promotion_denials.sql')))
           }
         ])
     )
@@ -381,9 +400,18 @@ export interface CodexWorkflowQualificationEvidence {
   marker_verified: boolean[];
   own_responses: number;
   replay_insertions: number | null;
-  runtime: { model: string | null; effort: string | null; request_id: string | null; session_id: string }[];
+  runtime: {
+    model: string | null;
+    effort: string | null;
+    request_id: string | null;
+    session_id: string;
+  }[];
   phases: WorkflowAdapterResult[];
-  observed_usage: { event_id: string; session_id: string; payload: z.infer<typeof UsageV2Schema> }[];
+  observed_usage: {
+    event_id: string;
+    session_id: string;
+    payload: z.infer<typeof UsageV2Schema>;
+  }[];
   product_gate_delta: false;
   complete_cost: null;
   hard_billing_bound: null;
