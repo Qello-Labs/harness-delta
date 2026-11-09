@@ -49,7 +49,7 @@ test('source registration and export requests reject promotion authority before 
     assignAndSnapshot(store);
     dataPackage(store);
     const before = store.get('SELECT total_changes() AS changes');
-    for (const field of ['promotion_authority', 'promotion_decision', 'promotion_grants', 'promotion_denials']) {
+    for (const field of ['promotion_authority', 'promotion_decision', 'promotion_grants', 'promotion_denials', 'promotion_origins']) {
       const injection = {
         [field]: { decision: 'approve', prior_deny_ids: [] }
       };

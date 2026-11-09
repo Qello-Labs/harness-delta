@@ -29,3 +29,20 @@ BEGIN
   UPDATE tool_version_promotion_generation SET generation=generation+1 WHERE singleton=1;
   SELECT CASE WHEN changes()!=1 THEN RAISE(ABORT,'promotion_generation_missing') END;
 END;
+
+CREATE TABLE tool_version_promotion_origins (
+  product TEXT NOT NULL CHECK(product IN ('codex','claude_code')),
+  product_version TEXT NOT NULL,
+  source TEXT NOT NULL CHECK(source IN ('codex_binding','claude_binding')),
+  profile_id TEXT NOT NULL,
+  scope_key TEXT NOT NULL,
+  key_json TEXT NOT NULL CHECK(json_valid(key_json)),
+  recorded_at TEXT NOT NULL,
+  PRIMARY KEY(product,product_version,source,profile_id,scope_key)
+);
+CREATE TRIGGER immutable_tool_version_promotion_origin_update
+BEFORE UPDATE ON tool_version_promotion_origins
+BEGIN SELECT RAISE(ABORT,'promotion_origin_immutable'); END;
+CREATE TRIGGER immutable_tool_version_promotion_origin_delete
+BEFORE DELETE ON tool_version_promotion_origins
+BEGIN SELECT RAISE(ABORT,'promotion_origin_immutable'); END;

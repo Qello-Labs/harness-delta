@@ -5,8 +5,13 @@ import type { Store } from './store.js';
 import { getEffectiveCodexBindingAdmission } from './codex-binding-admission.js';
 import { getEffectiveClaudeBindingAdmission } from './claude-binding-admission.js';
 import { OrdinaryWindowSelectionSchema, resolveOrdinaryWindow } from './core/ordinary-window-policy.js';
-import { lookupToolVersionProfile, promotedToolVersionDescriptors, toolVersionPromotionProjection } from './core/tool-version-profiles.js';
-import { readToolVersionPromotionAuthority, toolVersionPromotionKey } from './core/tool-version-promotion-store.js';
+import {
+  lookupEffectiveToolVersionFacet,
+  lookupToolVersionProfile,
+  promotedToolVersionDescriptors,
+  toolVersionPromotionProjection
+} from './core/tool-version-profiles.js';
+import { readToolVersionPromotionAuthority, recordToolVersionPromotionOrigin, toolVersionPromotionKey } from './core/tool-version-promotion-store.js';
 
 export type CompatibilitySource = SourceCompatibility['source'];
 export type CompatibilityBlockReason = 'contract_failed' | 'semantic_incompatibility';
@@ -182,9 +187,16 @@ function promotionCompatibilityAllowed(store: Store, compatibility: SourceCompat
       descriptor.route === compatibility.source &&
       descriptor.profileId === compatibility.profile_id
   );
-  if (!declared && facets.length === 0) return true;
+  const origin = store.get('SELECT 1 FROM tool_version_promotion_origins WHERE product=? AND product_version=? AND source=? AND profile_id=?', [
+    compatibility.product,
+    compatibility.product_version,
+    compatibility.source,
+    compatibility.profile_id
+  ]);
+  if (!declared && facets.length === 0) return !origin;
   // Historical compatibility pins lack a topology identity, so no overlapping denied scope may lend them authority.
   return (
+    (!origin || declared) &&
     facets.length > 0 &&
     facets.every(
       facet =>
@@ -208,6 +220,13 @@ export function pinSessionCompatibility(store: Store, sessionId: string, input: 
   const selected =
     window?.compatibility ?? resolveSourceCompatibility(compatibility.product, compatibility.product_version, compatibility.source, compatibility.profile_id);
   if (!selected || JSON.stringify(selected) !== JSON.stringify(compatibility)) throw new Error('compatibility_scope_mismatch');
+  const admission = window
+    ? undefined
+    : compatibility.source === 'codex_binding'
+      ? getEffectiveCodexBindingAdmission(compatibility.product_version)
+      : compatibility.source === 'claude_binding'
+        ? getEffectiveClaudeBindingAdmission(compatibility.product_version)
+        : undefined;
   store.immediateTransaction(() => {
     assertCompatibilityAllowed(store, compatibility);
     if (window) {
@@ -238,6 +257,18 @@ export function pinSessionCompatibility(store: Store, sessionId: string, input: 
     const existing = sessionCompatibility(store, sessionId);
     if (existing && JSON.stringify(existing) !== JSON.stringify(compatibility)) throw new Error('compatibility_conflict');
     if (!existing) store.execute('INSERT INTO session_source_compatibility(session_id,payload) VALUES (?,?)', [sessionId, JSON.stringify(compatibility)]);
+    if (admission?.kind === 'promoted') {
+      const facet = lookupEffectiveToolVersionFacet(
+        compatibility.product,
+        compatibility.product_version,
+        'collect',
+        'root',
+        process.platform + '_' + process.arch,
+        'node' + process.versions.node.split('.')[0]
+      );
+      if (!facet) throw new Error('compatibility_scope_mismatch');
+      recordToolVersionPromotionOrigin(store, { key: toolVersionPromotionKey(facet), recordedAt: new Date().toISOString() });
+    }
   });
 }
 export function invalidateCompatibility(store: Store, input: SourceCompatibility, reason: CompatibilityBlockReason): void {

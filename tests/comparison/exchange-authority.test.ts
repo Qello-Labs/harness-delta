@@ -98,6 +98,7 @@ test.each(['replay', 'stale-new-id', 'next-revision'])('promotion injection is r
         promotion_grants: [{ operation: 'collect' }]
       },
       { ...candidate, promotion_denials: [] },
+      { ...candidate, promotion_origins: [] },
       {
         ...candidate,
         authority: candidate.authority.map(a => ({

@@ -76,6 +76,8 @@ test('upgrade from populated v37 preserves every old table row and frozen pin wi
       expect(store.all(`SELECT * FROM "${name}" ORDER BY rowid`)).toEqual(rows);
     }
     expect(store.all('SELECT * FROM tool_version_promotion_denials')).toEqual([]);
+    expect(store.all('SELECT * FROM tool_version_promotion_origins')).toEqual([]);
+    expect(store.all('PRAGMA foreign_key_list(tool_version_promotion_origins)')).toEqual([]);
     expect(store.all('SELECT * FROM tool_version_promotion_generation')).toEqual([{ singleton: 1, generation: 0 }]);
     expect(store.all('PRAGMA foreign_key_check')).toEqual([]);
     expect(store.get<{ integrity_check: string }>('PRAGMA integrity_check')?.integrity_check).toBe('ok');
@@ -90,7 +92,7 @@ test('failure after migration 038 executes rolls back every schema change, old r
   if (typeof exec !== 'function') throw new Error('fixture_exec_missing');
   const injected = vi.spyOn(Database.prototype, 'exec').mockImplementation(function (this: Database.Database, sql: string) {
     Reflect.apply(exec, this, [sql]);
-    if (sql.includes('CREATE TABLE tool_version_promotion_denials')) {
+    if (sql.includes('CREATE TABLE tool_version_promotion_origins')) {
       throw new Error('fixture_migration_failed');
     }
     return this;

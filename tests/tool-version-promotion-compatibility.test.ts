@@ -8,6 +8,7 @@ import {
   assertCompatibilityAllowed,
   effectiveSourceCompatibility,
   overlayEventCompatibility,
+  pinSessionCompatibility,
   resolveSourceCompatibility
 } from '../src/source-compatibility.js';
 import { appendPromotionDecision, promotionFixture } from './helpers/tool-version-promotion.js';
@@ -176,6 +177,15 @@ test.each(['local', 'shipped'] as const)('stale or new-ID exchange imports canno
   const f = fixture();
   const exchange = paired();
   stores.push(exchange.source, exchange.dest);
+  exchange.dest.execute("INSERT INTO projects(id) VALUES ('origin-project')", []);
+  exchange.dest.execute("INSERT INTO tasks(id,project_id) VALUES ('origin-task','origin-project')", []);
+  exchange.dest.execute(
+    "INSERT INTO sessions(id,project_id,task_id,product,product_version) VALUES ('origin-session','origin-project','origin-task','codex',?)",
+    [f.key.productVersion]
+  );
+  pinSessionCompatibility(exchange.dest, 'origin-session', f.compatibility);
+  const origins = exchange.dest.all('SELECT * FROM tool_version_promotion_origins');
+  expect(origins).toHaveLength(1);
   if (kind === 'local') {
     recordToolVersionPromotionDenial(exchange.dest, {
       key: f.key,
@@ -196,8 +206,12 @@ test.each(['local', 'shipped'] as const)('stale or new-ID exchange imports canno
     expect(() => importExchangePackage(exchange.dest, { ...candidate, promotion_denials: [] }, 'destination', () => receivedAt)).toThrow(
       'invalid_exchange_package'
     );
+    expect(() => importExchangePackage(exchange.dest, { ...candidate, promotion_origins: [] }, 'destination', () => receivedAt)).toThrow(
+      'invalid_exchange_package'
+    );
   }
   expect(importExchangePackage(exchange.dest, exchange.pkg, 'destination', () => receivedAt).status).toBe('imported');
   expect(exchange.dest.all('SELECT * FROM tool_version_promotion_denials')).toEqual(before);
+  expect(exchange.dest.all('SELECT * FROM tool_version_promotion_origins')).toEqual(origins);
   expect(effectiveSourceCompatibility(exchange.dest, f.compatibility).state).toBe('invalidated');
 });

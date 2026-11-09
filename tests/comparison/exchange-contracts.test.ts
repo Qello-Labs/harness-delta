@@ -125,6 +125,7 @@ test.each([1, 2])('schema %i rejects promotion authority at root and nested pack
       },
       { ...pkg, promotion_grants: [{ operation: 'collect' }] },
       { ...pkg, promotion_denials: [] },
+      { ...pkg, promotion_origins: [] },
       {
         ...pkg,
         authority: pkg.authority.map(a => ({

@@ -35,6 +35,7 @@ const denialSchema = z.strictObject({
   reason: reasonSchema,
   recordedAt: TimestampSchema
 });
+const originSchema = z.strictObject({ key: keySchema, recordedAt: TimestampSchema });
 const grantSchema = z.enum(['admission', 'children', 'qualification']);
 const querySchema = z.strictObject({
   key: keySchema,
@@ -92,6 +93,13 @@ export function recordToolVersionPromotionDenial(store: Store, input: z.input<ty
     ]);
   });
   return id;
+}
+export function recordToolVersionPromotionOrigin(store: Store, input: z.input<typeof originSchema>): void {
+  const { key, recordedAt } = originSchema.parse(input);
+  store.execute(
+    'INSERT OR IGNORE INTO tool_version_promotion_origins(product,product_version,source,profile_id,scope_key,key_json,recorded_at) VALUES (?,?,?,?,?,?,?)',
+    [key.product, key.productVersion, key.source, key.profileId, promotionRegistryDigest(key), JSON.stringify(storedKey(key)), recordedAt]
+  );
 }
 export interface ToolVersionPromotionAuthority {
   readonly state: 'allowed' | 'denied' | 'missing_grant';
