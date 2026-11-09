@@ -111,6 +111,7 @@
 - Codex ordinary family는 등록된 고정 `functional_pilot`, 새 CLI root와 제한된 새 직접 자식을 요구합니다. assignment-free Claude 모드나 qualification lease가 권한을 부여하지 않습니다. `maxFamilyMembers`는 root를 포함하고 `rootOnlyOverride: true`는 family 검증을 뜻하지 않습니다. [연결 절차](runbooks/harness-connect.ko.md)를 따르세요.
 - Codex child workflow는 read-only이며 family resume과 더 넓은 descendant 수집을 허용하지 않습니다. Claude child workflow도 새 read-only 직접 자식 하나로 제한하고 child resume, 더 깊거나 추가된 자식을 지원하지 않습니다. [native workflow](runbooks/task-native-workflow.md)에 작업별 경계를 유지합니다.
 - 비교/pilot provider는 transcript-qualified profile에도 `allowCandidateProfiles: true`와 별도 로컬 pilot 권한을 요구하며 기본 거부는 닫혀 있습니다. `native_unverified_pilot`, `legacy_unverified`, `candidate_pilot` 표시는 유지되고 일반 관측 권한을 부여하지 않습니다. [pilot 절차](runbooks/harness-connect.ko.md#claude-사용자-조작-ui-pilot)를 참고하세요.
+- 승격 경로는 오프라인 인프라뿐입니다. 실제 승격 descriptor나 grant가 없으므로 사용할 수 없고 출시 전 게이트 R0~R7은 보류 상태입니다. 오프라인 완료는 운영 지원이 아닙니다. [승격 지원 상태](development/tool-update-pipeline.ko.md#승격-지원-상태)를 참고하세요.
 - 관측하지 않은 연결 전·일시정지·오프라인 구간은 backfill하지 않습니다. 누락 사용량이나 가격은 0이 아니라 unknown입니다. complete request-universe와 terminal accounting은 일반 관측으로 검증되지 않습니다.
 
 ## Ordinary window

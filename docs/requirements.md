@@ -73,7 +73,11 @@ Keep unverified estimates separate from verified aggregates and cost claims;
 missing or invalidated data must not become zero. A later incompatibility must
 invalidate the affected version/parser cohort unless a narrower reliable boundary
 can be established. New qualification is prospective, with no silent promotion
-of historical observations or backfill. Frozen experiments keep R09's exact
+of historical observations or backfill. Selective promotion exists only as
+offline infrastructure: grants are prospective and exact-scoped, children need
+separate grants, and no real grant exists, so promoted routes stay unavailable
+until the pending pre-release gates and a separately authorized decision. See
+[promotion support status](development/tool-update-pipeline.md#promotion-support-status). Frozen experiments keep R09's exact
 versions and deviation policy; fallback does not authorize inference under R10.
 
 Acceptance: in-window parser reuse, out-of-window/blocked-version rejection,

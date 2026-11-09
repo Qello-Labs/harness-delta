@@ -1,8 +1,9 @@
 import { readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { afterEach, beforeAll, expect, test } from 'vitest';
+import { afterAll, afterEach, beforeAll, expect, test } from 'vitest';
+import { z } from 'zod';
 import { assessCandidate } from '../scripts/tool-update/assessment.mjs';
-import { judgmentEngineDigest } from '../scripts/tool-update/difference-judgment.mjs';
+import { judgeDifferences, judgmentEngineDigest } from '../scripts/tool-update/difference-judgment.mjs';
 import { consumedContracts, mapRevision, requiredFacets } from '../scripts/tool-update/difference-contracts.mjs';
 import { canonical, digest, loadRecord } from '../scripts/tool-update/manifest.mjs';
 import { runToolUpdate } from '../scripts/tool-update.mjs';
@@ -20,6 +21,7 @@ import { auditedCli, cliFixture, judgmentFor, projectRoot, publishJudgment, scra
 import type { CurrentIdentities } from '../scripts/tool-update/difference-judgment.mjs';
 import type { DifferenceJudgment } from '../scripts/tool-update/difference-records.mjs';
 import type { PromotionProposal } from '../scripts/tool-update/promotion-records.mjs';
+import { mutationCli, populateOfflineStore } from './helpers/tool-update-promotion-offline-cli.js';
 
 const roots: string[] = [];
 let identities: CurrentIdentities;
@@ -1028,3 +1030,526 @@ test.each(['different_record', 'noncanonical_record'])('reconcile preflights eve
   expect(await tree(join(input.root, 'promotion-proposals'))).toEqual(before);
   expect(await readFile(destination, 'utf8')).toBe(conflictingBytes);
 });
+
+const reconciliationOutput = z.object({
+  status: z.literal('promotion_reconciled'),
+  proposal_ids: z.array(z.string()),
+  input_ids: z.array(z.string()),
+  unused_ids: z.array(z.string())
+});
+const negativeDecisions = {
+  demote: 'qualification_withdrawn',
+  retire: 'maintenance_ended',
+  revoke: 'authority_withdrawn',
+  invalidate: 'confirmed_incompatibility',
+  delete: 'authority_deleted'
+} as const;
+
+let seed: Awaited<ReturnType<typeof reconciliation>>;
+let databaseTemplate: Buffer;
+beforeAll(async () => {
+  seed = await reconciliation();
+  populateOfflineStore(seed.root);
+  databaseTemplate = await readFile(join(seed.root, 'synthetic.db'));
+  // Only case-local copies belong in the repeatedly hashed input inventories.
+  await rm(join(seed.root, 'synthetic.db'));
+  roots.splice(roots.indexOf(seed.root), 1);
+});
+afterAll(async () => {
+  await rm(seed.root, { recursive: true, force: true });
+});
+
+async function isolatedInput() {
+  const root = await scratch();
+  roots.push(root);
+  await writeFile(join(root, 'synthetic.db'), databaseTemplate);
+  return {
+    ...structuredClone(seed),
+    root,
+    path: join(root, 'reconcile.json')
+  };
+}
+
+async function commandInput(command: 'prepare-promotion' | 'reconcile-promotion' | 'assess') {
+  const input = await isolatedInput();
+  await writeFile(input.path, canonical(input.packet));
+  const args =
+    command === 'assess'
+      ? ['assess', ...seed.input.inputArgs, '--out', input.root]
+      : [command, '--input', command === 'prepare-promotion' ? join(seed.root, 'prepare.json') : input.path, '--out', input.root];
+  return { ...input, args };
+}
+
+test.each(['prepare-promotion', 'reconcile-promotion', 'assess'] as const)(
+  'real %s CLI has zero database native private and network effects',
+  async command => {
+    const input = await commandInput(command);
+    const before = await tree(input.root);
+    const seedBefore = await tree(seed.root);
+    const result = await auditedCli(input.root, join(projectRoot, 'scripts/tool-update.mjs'), input.args);
+    expect(result.exitCode, JSON.stringify(result.output)).toBe(0);
+    expect(result.ledger).toMatchObject({
+      network: 0,
+      processes: 0,
+      modules: 0,
+      privateReads: 0
+    });
+    expect(result.output).toMatchObject({
+      status: command === 'assess' ? 'assessment_created' : command === 'prepare-promotion' ? 'promotion_prepared' : 'promotion_reconciled'
+    });
+    const after = new Map(await tree(input.root));
+    for (const [path, bytes] of before) {
+      expect(after.get(path), path).toBe(bytes);
+    }
+    expect(await tree(seed.root)).toEqual(seedBefore);
+    expect(await readdir(input.root)).not.toContain('promotion-decisions');
+  }
+);
+
+test.each(
+  (['prepare-promotion', 'reconcile-promotion', 'assess'] as const).flatMap(command =>
+    (['database', 'native', 'private', 'network'] as const).map(access => ({ command, access }))
+  )
+)('real $command CLI trips the calibrated $access access mutation', async ({ command, access }) => {
+  const input = await commandInput(command);
+  const result = await mutationCli(input.root, input.args, access);
+  expect(result.exitCode, JSON.stringify(result.output)).toBe(2);
+  expect(result.output).toEqual({ status: 'internal_error' });
+  expect(result.ledger).toMatchObject({
+    network: access === 'network' ? 1 : 0,
+    processes: access === 'native' ? 1 : 0,
+    modules: access === 'database' ? 1 : 0,
+    privateReads: access === 'private' ? 1 : 0
+  });
+  const published = await readdir(input.root);
+  expect(published).not.toContain('promotion-proposals');
+  expect(published).not.toContain('assessments');
+  expect(published).not.toContain('promotion-decisions');
+});
+
+test.each(
+  (['prepare-promotion', 'reconcile-promotion', 'assess'] as const).flatMap(command =>
+    (['callbackReadFile', 'callbackReaddir', 'callbackOpen'] as const).map(access => ({ command, access }))
+  )
+)('real $command CLI trips the calibrated $access private access mutation', async ({ command, access }) => {
+  const input = await commandInput(command);
+
+  const result = await mutationCli(input.root, input.args, access);
+
+  expect(result.exitCode, JSON.stringify(result.output)).toBe(2);
+  expect(result.output).toEqual({ status: 'internal_error' });
+  expect(result.ledger).toMatchObject({
+    network: 0,
+    processes: 0,
+    modules: 0,
+    privateReads: 1
+  });
+  const published = await readdir(input.root);
+  expect(published).not.toContain('promotion-proposals');
+  expect(published).not.toContain('assessments');
+  expect(published).not.toContain('promotion-decisions');
+});
+
+test.each([
+  'original_window',
+  'reviewed_successor',
+  'unreviewed_successor',
+  'successor_cycle',
+  'missing_predecessor',
+  'missing_mapping',
+  'conflicting_mapping',
+  'partial_overlap',
+  'unrelated_version',
+  'unrelated_source',
+  'unrelated_lane',
+  'unmapped_profile',
+  'stale',
+  'unknown',
+  'later_unaffected',
+  'demote',
+  'retire',
+  'revoke',
+  'invalidate',
+  'delete',
+  'deterministic_replay'
+] as const)('real reconcile-promotion CLI preserves bounded lineage for %s', async scenario => {
+  const input = await isolatedInput();
+  let descriptorId = seed.origin.descriptor_digest;
+  let mappingIds = [...seed.origin.coverage_mapping_ids];
+  let predecessorId = seed.originRef.id;
+  let currentGrantId = seed.decisionRef.id;
+  let retained: NonNullable<PromotionProposal['reconciliation']>['unresolved_findings'] = [];
+  if (['reviewed_successor', 'unreviewed_successor', 'successor_cycle', 'missing_predecessor'].includes(scenario)) {
+    const next = await reviewedDescriptorSuccessor(input);
+    descriptorId = next.descriptorRef.id;
+    mappingIds = [next.mappingRef.id];
+    predecessorId = next.nextRef.id;
+    if (scenario === 'reviewed_successor') {
+      const priorInput = await isolatedInput();
+      const first = (await successors(priorInput))[0];
+      if (!first?.reconciliation) {
+        throw new Error('review_successor_required');
+      }
+      retained = first.reconciliation.unresolved_findings;
+      const previous = await reference(input.root, first);
+      input.packet.proposals.push(previous);
+      input.packet.successors = [
+        await reference(input.root, {
+          ...next.successor,
+          predecessor_proposal_id: previous.id
+        })
+      ];
+    }
+    if (scenario === 'unreviewed_successor') {
+      input.packet.successors = [
+        await reference(input.root, {
+          ...next.successor,
+          review_reference: null
+        })
+      ];
+    } else if (scenario === 'missing_predecessor') {
+      input.packet.proposals = input.packet.proposals.filter(row => row.id !== seed.originRef.id);
+    } else if (scenario === 'successor_cycle') {
+      input.packet.successors.push(
+        await reference(input.root, {
+          ...next.successor,
+          predecessor_descriptor_digest: next.descriptorRef.id,
+          successor_descriptor_digest: seed.origin.descriptor_digest,
+          predecessor_proposal_id: next.nextRef.id,
+          successor_proposal_id: seed.originRef.id,
+          coverage_mapping_ids: seed.origin.coverage_mapping_ids
+        })
+      );
+    }
+  }
+  if (scenario === 'missing_mapping') input.packet.mappings = [];
+  if (scenario === 'deterministic_replay') {
+    const lane = {
+      ...input.judgment.lane,
+      operation: 'restart' as const
+    };
+    input.packet.judgments.push(
+      await reference(input.root, {
+        ...input.judgment,
+        lane,
+        baseline_row: {
+          ...input.judgment.baseline_row,
+          ...lane
+        }
+      })
+    );
+  }
+  if (scenario === 'conflicting_mapping') {
+    input.packet.mappings.push(
+      await reference(input.root, {
+        ...input.mapping,
+        review_reference: '7'.repeat(64)
+      })
+    );
+  }
+  if (scenario === 'partial_overlap') {
+    const mapping = await reference(input.root, {
+      ...input.mapping,
+      contracts: ['fields_types_enums'],
+      facets: ['serialized_shape']
+    });
+    const origin = await reference(input.root, {
+      ...input.origin,
+      coverage_mapping_ids: [mapping.id]
+    });
+    const decision = await reference(input.root, {
+      ...input.decision,
+      proposal_id: origin.id
+    });
+    input.packet.mappings = [mapping];
+    input.packet.proposals = [origin];
+    input.packet.decisions = [decision];
+    mappingIds = [mapping.id];
+    predecessorId = origin.id;
+    currentGrantId = decision.id;
+    await addUnmatchedScopes(input);
+  }
+  if (scenario.startsWith('unrelated_') || scenario === 'unmapped_profile') await setUnrelatedJudgment(input, scenario);
+  if (scenario === 'stale' || scenario === 'unknown' || scenario === 'later_unaffected') {
+    const first = (await successors(input))[0];
+    if (!first?.reconciliation) {
+      throw new Error('review_successor_required');
+    }
+    retained = first.reconciliation.unresolved_findings;
+    const previous = await reference(input.root, first);
+    predecessorId = previous.id;
+    input.packet.proposals.push(previous);
+    const later =
+      scenario === 'unknown'
+        ? judgeDifferences(input.input.job, [], identities)
+        : {
+            ...judgmentFor(input.input),
+            ...(scenario === 'stale' ? { engine_digest: '9'.repeat(64) } : {})
+          };
+    input.packet.judgments = [await reference(input.root, later)];
+  }
+  if (scenario in negativeDecisions) {
+    const decision = z.enum(['demote', 'retire', 'revoke', 'invalidate', 'delete']).parse(scenario);
+    const negative = await reference(input.root, {
+      ...input.decision,
+      decision,
+      reason: negativeDecisions[decision],
+      grants: [],
+      sequence: 2,
+      predecessor: {
+        id: seed.decisionRef.id,
+        sequence: 1,
+        decision: 'approve'
+      }
+    });
+    input.packet.decisions.push(negative);
+    currentGrantId = negative.id;
+  }
+  await assertCliReconciliation(input, {
+    scenario,
+    descriptorId,
+    mappingIds,
+    predecessorId,
+    currentGrantId,
+    retained
+  });
+});
+
+async function setUnrelatedJudgment(input: Awaited<ReturnType<typeof reconciliation>>, scenario: string) {
+  const target = {
+    ...input.judgment.target,
+    ...(scenario === 'unrelated_version' ? { version: '0.166.0' } : {}),
+    ...(scenario === 'unrelated_source' ? { commit: '8'.repeat(40) } : {})
+  };
+  const lane = {
+    ...input.judgment.lane,
+    ...(scenario === 'unrelated_lane' ? { operation: 'restart' as const } : {}),
+    ...(scenario === 'unmapped_profile' ? { profile_id: 'codex-binding-01640-direct-family-v1' } : {})
+  };
+  input.packet.judgments = [
+    await reference(input.root, {
+      ...input.judgment,
+      target,
+      lane,
+      baseline_row: {
+        ...input.judgment.baseline_row,
+        ...lane
+      },
+      parser_base: {
+        ...input.judgment.parser_base,
+        profile_id: lane.profile_id
+      },
+      inventory: {
+        ...input.judgment.inventory,
+        releases: input.judgment.inventory.releases.map(row => (row.version === input.judgment.target.version ? target : row))
+      },
+      comparisons: input.judgment.comparisons.map(row => ({
+        ...row,
+        to: row.to.version === input.judgment.target.version ? target : row.to
+      })),
+      comparison: input.judgment.comparison ? { ...input.judgment.comparison, to: target } : null
+    })
+  ];
+}
+
+async function addUnmatchedScopes(input: Awaited<ReturnType<typeof reconciliation>>) {
+  for (const lane of [
+    { ...input.origin.scope.lane, operation: 'restart' as const },
+    { ...input.origin.scope.lane, topology: 'bounded_family' as const }
+  ]) {
+    const scope = { ...input.origin.scope, lane };
+    const mapping = await reference(input.root, {
+      ...input.mapping,
+      original_lane: lane,
+      scope
+    });
+    const origin = {
+      ...input.origin,
+      scope,
+      original_lanes: [lane],
+      coverage_mapping_ids: [mapping.id],
+      contracts: consumedContracts.map(contract_id => ({
+        contract_id,
+        facets: requiredFacets(contract_id, lane).map(facet => ({
+          facet,
+          result: 'unaffected',
+          required_classes: []
+        }))
+      })),
+      gate_matrix: input.origin.gate_matrix.map(row => ({
+        ...row,
+        evidence: row.evidence.map(proof => ({
+          ...proof,
+          scope_digest: digest(scope)
+        }))
+      }))
+    };
+    const ref = await reference(input.root, origin);
+    const decision = await reference(input.root, {
+      ...input.decision,
+      scope,
+      proposed_scope: scope,
+      proposal_id: ref.id
+    });
+    const job = {
+      ...input.input.job,
+      lane,
+      baseline_row: input.input.job.baseline_row ? { ...input.input.job.baseline_row, ...lane } : null,
+      parser_base: input.input.job.parser_base
+        ? {
+            ...input.input.job.parser_base,
+            profile_id: lane.profile_id
+          }
+        : null
+    };
+    const judgment = await reference(input.root, judgeDifferences(job, [], identities));
+    const previous = (
+      await successors({
+        ...input,
+        packet: {
+          ...input.packet,
+          proposals: [ref],
+          decisions: [decision],
+          mappings: [mapping],
+          judgments: [judgment]
+        }
+      })
+    )[0];
+    if (!previous?.reconciliation) {
+      throw new Error('unmatched_review_successor_required');
+    }
+    input.packet.proposals.push(ref, await reference(input.root, previous));
+    input.packet.decisions.push(decision);
+    input.packet.mappings.push(mapping);
+  }
+}
+
+async function assertCliReconciliation(
+  input: Awaited<ReturnType<typeof reconciliation>>,
+  expected: {
+    readonly scenario: string;
+    readonly descriptorId: string;
+    readonly mappingIds: readonly string[];
+    readonly predecessorId: string;
+    readonly currentGrantId: string;
+    readonly retained: NonNullable<PromotionProposal['reconciliation']>['unresolved_findings'];
+  }
+) {
+  const packetBytes = canonical(input.packet);
+  await writeFile(input.path, packetBytes);
+  const before = await tree(input.root);
+  const seedBefore = await tree(seed.root);
+  const result = await auditedCli(input.root, join(projectRoot, 'scripts/tool-update.mjs'), [
+    'reconcile-promotion',
+    '--input',
+    input.path,
+    '--out',
+    input.root
+  ]);
+  expect(result.ledger).toMatchObject({
+    network: 0,
+    processes: 0,
+    modules: 0,
+    privateReads: 0
+  });
+  const refused = ['unreviewed_successor', 'successor_cycle', 'missing_predecessor', 'missing_mapping', 'conflicting_mapping'].includes(expected.scenario);
+  expect(result.exitCode, JSON.stringify(result.output)).toBe(refused ? 2 : 0);
+  if (refused) {
+    expect(result.output).toEqual({
+      status:
+        expected.scenario === 'conflicting_mapping'
+          ? 'promotion_mapping_conflict'
+          : expected.scenario === 'unreviewed_successor'
+            ? 'invalid_record'
+            : 'promotion_lineage_invalid'
+    });
+    expect(await readdir(input.root)).not.toContain('promotion-proposals');
+  } else {
+    const output = reconciliationOutput.parse(result.output);
+    const inputIds = [...new Set(Object.values(input.packet).flatMap(value => (Array.isArray(value) ? value.map(row => row.id) : [])))].sort();
+    expect(output.input_ids).toEqual(inputIds);
+    const unrelated = expected.scenario.startsWith('unrelated_') || expected.scenario === 'unmapped_profile';
+    if (unrelated) {
+      expect(output.proposal_ids).toEqual([]);
+      expect(output.unused_ids).toEqual(inputIds);
+    } else {
+      expect(output.proposal_ids).toHaveLength(1);
+      const row = await proposal(input.root, output.proposal_ids[0]);
+      expect(row).toMatchObject({
+        authority: 'none',
+        state: 'review_needed',
+        scope: seed.origin.scope,
+        descriptor_digest: expected.descriptorId,
+        original_lanes: [seed.input.job.lane],
+        reconciliation: {
+          predecessor_proposal_ids: [expected.predecessorId],
+          current_grant_ids: [expected.currentGrantId],
+          coverage_mapping_ids: expected.mappingIds,
+          triggering_judgment_ids: (expected.scenario === 'deterministic_replay' ? seed.packet.judgments : input.packet.judgments).map(ref => ref.id).sort()
+        }
+      });
+      expect(row.reconciliation?.unresolved_findings).toEqual(expect.arrayContaining([...expected.retained]));
+      if (expected.scenario === 'partial_overlap') {
+        expect(row.reconciliation).toMatchObject({
+          matched_contracts: ['fields_types_enums'],
+          matched_facets: ['serialized_shape']
+        });
+        expect(row.reconciliation?.unresolved_findings.map(finding => finding.reason)).toEqual(['affected_contract']);
+        expect(output.unused_ids).toEqual(
+          [...input.packet.proposals.slice(1), ...input.packet.decisions.slice(1), ...input.packet.mappings.slice(1)].map(ref => ref.id).sort()
+        );
+      } else {
+        expect(output.unused_ids).toEqual(
+          expected.scenario === 'reviewed_successor'
+            ? seed.origin.coverage_mapping_ids
+            : expected.scenario === 'deterministic_replay'
+              ? input.packet.judgments
+                  .slice(1)
+                  .map(ref => ref.id)
+                  .sort()
+              : []
+        );
+        expect(row.reconciliation?.originating_grant_ids).toEqual([seed.decisionRef.id]);
+      }
+      if (expected.scenario === 'stale' || expected.scenario === 'unknown') {
+        expect(
+          row.reconciliation?.unresolved_findings.some(
+            finding =>
+              finding.reason === (expected.scenario === 'stale' ? 'stale_evidence' : 'unknown_contract') &&
+              finding.judgment_id === input.packet.judgments[0]?.id
+          )
+        ).toBe(true);
+      }
+      if (expected.scenario === 'reviewed_successor') {
+        expect(row.reconciliation?.descriptor_lineage_ids).toEqual(
+          [seed.origin.descriptor_digest, expected.descriptorId, ...input.packet.successors.map(ref => ref.id)].sort()
+        );
+      }
+      if (expected.scenario === 'deterministic_replay') {
+        const published = await tree(join(input.root, 'promotion-proposals'));
+        for (const value of Object.values(input.packet)) {
+          if (Array.isArray(value)) value.reverse();
+        }
+        input.packet.judgments.push(...input.packet.judgments);
+        await writeFile(input.path, canonical(input.packet));
+        const replay = await auditedCli(input.root, join(projectRoot, 'scripts/tool-update.mjs'), [
+          'reconcile-promotion',
+          '--input',
+          input.path,
+          '--out',
+          input.root
+        ]);
+        expect(replay.exitCode).toBe(0);
+        expect(replay.output).toEqual(output);
+        expect(await tree(join(input.root, 'promotion-proposals'))).toEqual(published);
+        await writeFile(input.path, packetBytes);
+      }
+    }
+  }
+  expect(await tree(seed.root)).toEqual(seedBefore);
+  const after = new Map(await tree(input.root));
+  for (const [path, bytes] of before) {
+    expect(after.get(path), path).toBe(bytes);
+  }
+  expect(await readdir(input.root)).not.toContain('promotion-decisions');
+}

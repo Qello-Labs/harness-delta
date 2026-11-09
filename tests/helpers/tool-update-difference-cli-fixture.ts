@@ -262,7 +262,7 @@ registerHooks({resolve(specifier,context,next){
 }});
 const pathOf=value=>value instanceof URL?fileURLToPath(value):typeof value==='string'?resolve(value):null;
 const within=(base,path)=>{const rel=relative(base,path);return rel===''||!rel.startsWith('..')&&!isAbsolute(rel);};
-for(const [object,names] of [[fsp,['readFile','readdir','open']],[fs,['readFileSync','readdirSync','openSync']]]){
+for(const [object,names] of [[fsp,['readFile','readdir','open']],[fs,['readFile','readdir','open','readFileSync','readdirSync','openSync']]]){
  for(const name of names){const original=object[name];object[name]=function(path,...args){
   const target=pathOf(path);
   if(target&&(within(home,target)||/\\.(?:jsonl|sqlite|db)$/.test(target))) denied('privateReads');

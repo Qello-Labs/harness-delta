@@ -1,11 +1,18 @@
 import { randomUUID } from 'node:crypto';
-import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { afterEach, expect, test } from 'vitest';
+import { afterEach, expect, test, vi } from 'vitest';
+import { z } from 'zod';
 import { issuePromotionBindingAuthority } from '../src/binding/session-binding-promotion.js';
+import {
+  installCodexConnectInstallation,
+  previewCodexConnectInstallation,
+  verifyCodexPromotedConnectContract
+} from '../src/connect/codex-connect-installation.js';
 import { Lifecycle } from '../src/core/lifecycle.js';
 import * as profiles from '../src/core/tool-version-profiles.js';
 import { projectToolVersionPromotions } from '../src/core/tool-version-promotion.js';
+import { recordToolVersionPromotionDenial } from '../src/core/tool-version-promotion-store.js';
 import { CodexSessionBindingProvider } from '../src/session-binding-codex.js';
 import type { PromotionPendingReceipt } from '../src/session-binding-contract.js';
 import { createSessionBindingService } from '../src/session-binding-service.js';
@@ -20,9 +27,10 @@ afterEach(() => {
   for (const cleanup of cleanups.splice(0)) cleanup();
   Object.assign(profiles.toolVersionPromotionProjection, originalProjection);
   Object.assign(profiles.promotedToolVersionDescriptors, { length: 0 }, originalDescriptors);
+  vi.restoreAllMocks();
 });
 
-function fixture() {
+function fixture(installed = true) {
   const synthetic = promotionFixture('codex');
   for (const operation of ['collect', 'link', 'restart'] as const) {
     appendPromotionDecision(synthetic, {
@@ -64,8 +72,25 @@ function fixture() {
   const taskId = setup.workflow.assignment.task_id;
   const life = new Lifecycle(f.store, clock);
   expect(life.state(taskId)).toBe('registered');
-  const receipts = join(f.root, 'promoted-receipts');
-  mkdirSync(receipts, { mode: 0o700 });
+  const installation = {
+    bundleMode: 'promoted' as const,
+    productVersion: '0.169.0',
+    sourceRoots: [join(f.home, 'sessions')],
+    promotedInUse: false,
+    quiescentBoundaryConfirmed: true
+  };
+  const receipts = installed ? join(f.project, '.harness-delta/codex-promoted-receipts') : join(f.root, 'promoted-receipts');
+  if (installed) {
+    const preview = previewCodexConnectInstallation(f.project, installation);
+    expect(preview.blockers).toEqual([]);
+    installCodexConnectInstallation(f.project, {
+      ...installation,
+      expectedPackageHash: preview.packageHash,
+      expectedInstalledHash: preview.installedHash
+    });
+  } else {
+    mkdirSync(receipts, { mode: 0o700 });
+  }
   const source = f.newRoot();
   writeFileSync(
     source.path,
@@ -103,7 +128,14 @@ function fixture() {
     product: 'codex',
     productVersion: '0.169.0',
     topology: 'root',
-    bundleContract: 'codex-promoted-bundle-v1'
+    bundleContract: 'codex-promoted-bundle-v1',
+    ...(installed
+      ? {
+          assertProducerContract: () => {
+            verifyCodexPromotedConnectContract(f.project, installation);
+          }
+        }
+      : {})
   });
   const provider = new CodexSessionBindingProvider({
     receiptDirectory: receipts,
@@ -130,6 +162,10 @@ function fixture() {
     service,
     pending,
     source,
+    synthetic,
+    authority,
+    receipts,
+    installation,
     clock,
     advance: () => {
       now = new Date(Date.parse(now) + 1).toISOString();
@@ -138,7 +174,7 @@ function fixture() {
 }
 
 test('qualified promoted Codex connects through production admission and observes only prospective usage', async () => {
-  const f = fixture();
+  const f = fixture(false);
   const { taskId, life, provider, service, pending, source } = f;
   const usage = () => {
     f.advance();
@@ -238,4 +274,114 @@ test('qualified promoted Codex connects through production admission and observe
     requests: 1
   });
   expect(f.store.eventCount()).toBe(1);
+});
+
+test.each(['pending', 'revoked', 'retired', 'stale-copy', 'legacy-registration'] as const)(
+  'selected promoted root refuses %s through installed production authority before native receipt proof',
+  async state => {
+    const f = fixture();
+    const receive = vi.spyOn(f.provider, 'receivePending');
+    const assignments = f.store.all('SELECT * FROM comparison_assignments');
+    const protocols = f.store.all('SELECT * FROM comparison_protocols');
+    const sourceBytes = readFileSync(f.source.path);
+    if (state === 'pending') {
+      Object.assign(
+        profiles.toolVersionPromotionProjection,
+        projectToolVersionPromotions({
+          ...f.synthetic,
+          ledger: { schema_version: 1, records: [] }
+        })
+      );
+    } else if (state === 'revoked') {
+      recordToolVersionPromotionDenial(f.store, {
+        key: f.authority.key,
+        reason: 'revoke',
+        recordedAt: f.clock()
+      });
+    } else if (state === 'retired') {
+      const collect = f.synthetic.ledger.records.find(record => record.decision.scope.lane.operation === 'collect');
+      if (!collect) throw new Error('synthetic_collect_grant_required');
+      appendPromotionDecision(f.synthetic, {
+        scope: collect.decision.scope,
+        decision: 'retire',
+        reason: 'maintenance_ended',
+        grants: []
+      });
+      Object.assign(profiles.toolVersionPromotionProjection, projectToolVersionPromotions(f.synthetic));
+    } else if (state === 'stale-copy') {
+      writeFileSync(join(f.project, '.harness-delta/codex-connect/session-binding-codex-promoted-hook.mjs'), 'throw new Error("stale_producer");\n');
+    } else {
+      const hooksPath = join(f.project, '.codex/hooks.json');
+      const hooks = z
+        .object({
+          hooks: z.record(z.string(), z.array(z.unknown()))
+        })
+        .passthrough()
+        .parse(JSON.parse(readFileSync(hooksPath, 'utf8')));
+      hooks.hooks.Stop ??= [];
+      hooks.hooks.Stop.push({
+        hooks: [
+          {
+            type: 'command',
+            command: 'node .harness-delta/codex-connect/session-binding-codex-hook.mjs'
+          }
+        ]
+      });
+      writeFileSync(hooksPath, JSON.stringify(hooks));
+    }
+
+    await expect(
+      f.service.connect(f.taskId, 'codex', {
+        receipt: f.pending.receipt
+      })
+    ).rejects.toThrow();
+
+    expect(receive).not.toHaveBeenCalled();
+    expect(readFileSync(f.source.path)).toEqual(sourceBytes);
+    expect(f.store.all('SELECT * FROM sessions')).toEqual([]);
+    expect(f.store.all('SELECT * FROM binding_requests')).toEqual([]);
+    expect(f.store.all('SELECT * FROM comparison_assignments')).toEqual(assignments);
+    expect(f.store.all('SELECT * FROM comparison_protocols')).toEqual(protocols);
+  }
+);
+
+test('an installed selected root grant cannot enroll or read a child without its own exact grant', async () => {
+  const f = fixture();
+  await f.service.connect(f.taskId, 'codex', { receipt: f.pending.receipt });
+  const sessions = f.store.all('SELECT * FROM sessions');
+  const child = {
+    ...f.pending,
+    receipt: randomUUID(),
+    event: 'subagent_start' as const,
+    nativeSessionId: 'synthetic-child',
+    agentId: 'synthetic-child',
+    sourceRef: join(f.home, 'sessions', 'unreadable-child.jsonl')
+  };
+  writeFileSync(join(f.receipts, `${child.receipt}.json`), JSON.stringify(child), { mode: 0o600 });
+
+  await expect(f.provider.receivePending(child)).rejects.toThrow('binding_source_unqualified');
+
+  expect(
+    await f.provider.discoverChildren({
+      product: 'codex',
+      productVersion: f.pending.productVersion,
+      sessionId: f.pending.nativeSessionId,
+      parentSessionId: null,
+      sourceRef: f.source.path,
+      sourceIdentity: 'synthetic-root',
+      cwd: f.project,
+      identityEvidenceId: f.pending.receipt,
+      createdAt: f.clock()
+    })
+  ).toEqual({ children: [], gaps: [] });
+  expect(() =>
+    issuePromotionBindingAuthority(f.store, {
+      taskId: f.taskId,
+      product: 'codex',
+      productVersion: f.pending.productVersion,
+      topology: 'bounded_family',
+      bundleContract: 'codex-promoted-bundle-v1'
+    })
+  ).toThrow('promoted_provider_unavailable');
+  expect(f.store.all('SELECT * FROM sessions')).toEqual(sessions);
 });
