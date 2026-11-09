@@ -34,16 +34,18 @@ function denied(name, value) {
 function filesystem(name, value, flags) {
   const path = pathValue(value);
   const descriptor = descriptors.get(path);
-  if (loading && typeof path === 'string' && code.has(pathToFileURL(path).href) && /^(realpathSync|realpathSync.native|readFileSync|openSync)$/.test(name))
+  if (loading && typeof path === 'string' && code.has(pathToFileURL(path).href) && /^(realpathSync|realpathSync.native|readFileSync|openSync)$/.test(name)) {
     return 'code';
+  }
   if (loading && descriptor === 'code' && /^(readSync|fstatSync|closeSync)$/.test(name)) return 'code';
   if (name === 'lstatSync' && ancestors.has(path)) return 'ancestor';
   if (
     name === 'openSync' &&
     path === join(config.directory, 'promotion-control.json') &&
     flags === (fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK)
-  )
+  ) {
     return 'control';
+  }
   if (name === 'opendirSync' && path === config.directory) return 'directory';
   if (
     name === 'openSync' &&
@@ -51,8 +53,9 @@ function filesystem(name, value, flags) {
     dirname(path) === config.directory &&
     /^[a-f0-9-]{36}\.json$/.test(path.slice(config.directory.length + 1)) &&
     flags === (fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_NOFOLLOW)
-  )
+  ) {
     return 'receipt';
+  }
   if (descriptor === 'control' && /^(readSync|fstatSync|closeSync)$/.test(name)) return 'control';
   if (descriptor === 'receipt' && /^(writeFileSync|writeSync|closeSync)$/.test(name)) {
     if (name === 'writeFileSync') effects.metadataWrites += 1;
@@ -73,6 +76,7 @@ function install() {
     'readdir',
     'opendir',
     'open',
+    'openAsBlob',
     'read',
     'readv',
     'readFile',

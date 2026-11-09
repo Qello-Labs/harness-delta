@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import * as nativeFs from 'node:fs';
 import { copyFileSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -302,6 +303,59 @@ test.each(
   expect(() => requireNoAccess(result)).toThrow();
   expect(result.effects.nativeCalls).toBe(1);
   expect(result.effects.operations).toEqual([operation]);
+});
+
+test.each(
+  products.flatMap(product =>
+    [
+      {
+        module: 'node:fs',
+        call: '(await nativeFs.openAsBlob(nativePath)).text()',
+        operation: 'openAsBlob'
+      },
+      {
+        module: 'fs',
+        call: 'nativeFs.openAsBlobSync(nativePath).text()',
+        operation: 'openAsBlobSync'
+      },
+      {
+        module: 'node:fs',
+        call: 'nativeFs.promises.readFile(nativePath)',
+        operation: 'promises.readFile'
+      },
+      {
+        module: 'fs/promises',
+        call: 'nativeFs.readFile(nativePath)',
+        operation: 'promises.readFile'
+      },
+      {
+        module: 'node:fs/promises',
+        call: 'nativeFs.readFile(nativePath)',
+        operation: 'promises.readFile'
+      }
+    ]
+      .filter(({ operation }) => operation !== 'openAsBlobSync' || 'openAsBlobSync' in nativeFs)
+      .map(mutation => ({ product, ...mutation }))
+  )
+)('$product whole-file access oracle rejects $module $operation', async ({ product, module, call, operation }) => {
+  const f = fixture(product);
+  control(f);
+  const mutated = join(f.root, 'mutated.mjs');
+  writeFileSync(
+    mutated,
+    `import * as nativeFs from '${module}';\nconst nativePath = ${JSON.stringify(f.input.transcript_path)};\nawait ${call};\n` +
+      readFileSync(f.script, 'utf8').replace(/^#![^\n]*\n/, '')
+  );
+  const result = await invoke(f, { script: mutated });
+  expect(result.effects).toEqual({
+    unauthorizedCalls: 1,
+    nativeCalls: 1,
+    processCalls: 0,
+    metadataWrites: 0,
+    operations: [operation]
+  });
+  expect(result.code).toBe(1);
+  expect(receipts(f)).toEqual([]);
 });
 
 test('Claude installed configuration supplies only explicit producer arguments', async () => {
