@@ -701,13 +701,53 @@ function prepareWindowPackage(root: string, owned: ReturnType<typeof inspectOwne
 }
 function referencesOwnedHook(value: unknown): boolean {
   if (typeof value === 'string') {
-    const lexical = value.replace(/\\\r?\n/g, '').replace(/['"\\]/g, '');
-    const paths = lexical.split(/[\s;&|<>()`$]+/).map(path => posix.normalize(path));
+    const command = value.replace(/\\\r?\n/g, '');
+    const words: string[] = [];
+    const closers: string[] = [];
+    let start = 0;
+    for (let offset = 0; offset < command.length; offset++) {
+      const character = command.charAt(offset);
+      const closer = closers.at(-1);
+      if (character === '\\' && closer !== "'") {
+        offset++;
+        continue;
+      }
+      if (closer === "'" || closer === '`') {
+        if (character === closer) closers.pop();
+        continue;
+      }
+      if (character === closer) {
+        closers.pop();
+        continue;
+      }
+      if (character === '$' && command.charAt(offset + 1) === '(') {
+        closers.push(')');
+        offset++;
+        continue;
+      }
+      if (((character === "'" || character === '"') && closer !== '"') || character === '`') {
+        closers.push(character);
+        continue;
+      }
+      if (character === '(' && closer === ')') {
+        closers.push(')');
+        continue;
+      }
+      if (!closers.length && /[\s;&|<>()]/.test(character)) {
+        if (offset > start) words.push(command.slice(start, offset));
+        start = offset + 1;
+      }
+    }
+    if (start < command.length) words.push(command.slice(start));
     const helpers = [recorder, windowRecorder, promotedRecorder];
-    return (
-      paths.some(path => helpers.some(helper => path === helper || path.endsWith(`/${helper}`)) || /(?:^|\/)harness-connect\/scripts(?:\/|$)/.test(path)) ||
-      (helpers.some(helper => lexical.includes(basename(helper))) && paths.some(path => /(?:^|\/)\.harness-delta\/codex-connect(?:\/|$)/.test(path)))
-    );
+    return words.some(word => {
+      const lexical = word.replace(/['"\\]/g, '');
+      const paths = lexical.split(/[\s;&|<>()`$]+/).map(path => posix.normalize(path));
+      return (
+        paths.some(path => helpers.some(helper => path === helper || path.endsWith(`/${helper}`)) || /(?:^|\/)harness-connect\/scripts(?:\/|$)/.test(path)) ||
+        (helpers.some(helper => lexical.includes(basename(helper))) && paths.some(path => /(?:^|\/)\.harness-delta\/codex-connect(?:\/|$)/.test(path)))
+      );
+    });
   }
   if (Array.isArray(value)) return value.some(referencesOwnedHook);
   return value !== null && typeof value === 'object' && Object.values(value).some(referencesOwnedHook);

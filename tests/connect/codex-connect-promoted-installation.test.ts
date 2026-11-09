@@ -191,7 +191,10 @@ test.each([
   ['double-quoted', (path: string) => `"${path}"`],
   ['split-quoted', (path: string) => path.replace('session-binding-codex-hook.mjs', "session-'binding'-codex-hook.mjs")],
   ['unclosed-quote', (path: string) => `'${path}`],
-  ['shell-substitution', (path: string) => `'${dirname(path)}'/"$(printf %s session-binding-codex-hook.mjs)"`]
+  ['shell-substitution', (path: string) => `'${dirname(path)}'/"$(printf %s session-binding-codex-hook.mjs)"`],
+  ['line-continuation', (path: string) => path.replace('session-binding', 'session-\\' + '\nbinding')],
+  ['unquoted-shell-substitution', (path: string) => `'${dirname(path)}'/$(printf %s session-binding-codex-hook.mjs)`],
+  ['nested-shell-substitution', (path: string) => `'${dirname(path)}'/$(printf %s "$(printf %s session-binding-codex-hook.mjs)")`]
 ] as const)('refuses %s owned helper references without changing hooks or historical bytes', (_name, spelling) => {
   const f = fixture();
   install(f.project, reviewed(f.project, f.legacy));
@@ -245,6 +248,48 @@ test('preserves unrelated helpers with matching basenames or an owned directory 
   expect(hookDocument(f.project).hooks.Stop).toEqual(retained);
   expect(hookDocument(f.project).hooks.SessionStart?.[0]).toEqual(unrelated);
   expect(readFileSync(join(f.project, legacyRecorder))).toEqual(beforeHelper);
+});
+
+test.each([
+  ['compound &&', ' && node '],
+  ['compound ;', '; node '],
+  ['compound ||', ' || node '],
+  ['compound pipe', ' | node '],
+  ['separate arguments', ' ']
+] as const)('preserves unrelated references across %s during cutover', (_name, separator) => {
+  const f = fixture();
+  install(f.project, reviewed(f.project, f.legacy));
+  const document = hookDocument(f.project);
+  const command = `node '${join(f.project, 'unrelated/session-binding-codex-hook.mjs')}'` + separator + `'${join(f.project, metadata, 'unrelated.mjs')}'`;
+  const retained = [unrelated, { hooks: [{ type: 'command', command }] }];
+  document.hooks.Stop = retained;
+  put(f.project, hooksPath, JSON.stringify(document));
+  const helpers = [legacyRecorder, `${destination}/scripts/connect.mjs`].map(path => [path, readFileSync(join(f.project, path))] as const);
+
+  expect(install(f.project, reviewed(f.project, f.promoted)).state).toBe('installed');
+  expect(hookDocument(f.project).hooks.Stop).toEqual(retained);
+  expect(hookDocument(f.project).hooks.SessionStart?.[0]).toEqual(unrelated);
+  for (const [path, bytes] of helpers) {
+    expect(readFileSync(join(f.project, path))).toEqual(bytes);
+  }
+});
+
+test.each(['&&', ';', '||', '|'])('refuses a compound owned-helper alias joined with %s without changing registrations', separator => {
+  const f = fixture();
+  install(f.project, reviewed(f.project, f.legacy));
+  const document = hookDocument(f.project);
+  const command =
+    `node '${join(f.project, 'unrelated/session-binding-codex-hook.mjs')}' ${separator} ` +
+    `node '${join(f.project, metadata)}/./session-binding-codex-hook.mjs'`;
+  document.hooks.Stop = [{ hooks: [{ type: 'command', command }] }];
+  put(f.project, hooksPath, JSON.stringify(document));
+  const before = readFileSync(join(f.project, hooksPath));
+  const helper = readFileSync(join(f.project, legacyRecorder));
+
+  expect(preview(f.project, f.promoted).blockers).toEqual(['codex_connect_hooks_unowned']);
+  expect(install(f.project, f.promoted).state).toBe('blocked');
+  expect(readFileSync(join(f.project, hooksPath))).toEqual(before);
+  expect(readFileSync(join(f.project, legacyRecorder))).toEqual(helper);
 });
 
 test('refuses an unowned skill rather than overwriting its registration', () => {
