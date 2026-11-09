@@ -67,3 +67,81 @@ test('a pinned digest cannot admit configurations that could not freeze as a syn
     f.dest.close();
   }
 });
+
+test.each(['replay', 'stale-new-id', 'next-revision'])('promotion injection is refused before %s import can change local state', mode => {
+  const { source, dest, pkg } = paired();
+  try {
+    expect(importExchangePackage(dest, pkg, 'destination', () => receivedAt).status).toBe('imported');
+    const before = dest.get('SELECT total_changes() AS changes');
+    const candidate = {
+      ...pkg,
+      package_id: mode === 'replay' ? pkg.package_id : '66666666-6666-4666-8666-666666666666',
+      export_revision: mode === 'next-revision' ? pkg.export_revision + 1 : pkg.export_revision
+    };
+    const promotion = {
+      promotion_authority: {
+        decision: 'approve',
+        prior_deny_ids: []
+      }
+    };
+    for (const injected of [
+      { ...candidate, ...promotion },
+      {
+        ...candidate,
+        promotion_decision: {
+          kind: 'promotion_decision',
+          decision: 'approve'
+        }
+      },
+      {
+        ...candidate,
+        promotion_grants: [{ operation: 'collect' }]
+      },
+      { ...candidate, promotion_denials: [] },
+      { ...candidate, promotion_origins: [] },
+      {
+        ...candidate,
+        authority: candidate.authority.map(a => ({
+          ...a,
+          ...promotion
+        }))
+      },
+      {
+        ...candidate,
+        protocol: {
+          ...candidate.protocol,
+          settings: {
+            ...candidate.protocol.settings,
+            ...promotion
+          }
+        }
+      },
+      {
+        ...candidate,
+        assignments: candidate.assignments.map(a => ({
+          ...a,
+          evidence: { ...a.evidence, ...promotion }
+        }))
+      },
+      {
+        ...candidate,
+        ...promotion,
+        tombstones: [
+          {
+            kind: 'project',
+            target_id: pkg.shared_project_id,
+            reason: 'deletion',
+            invalidated_at: pkg.produced_at
+          }
+        ]
+      }
+    ]) {
+      expect(() => importExchangePackage(dest, injected, 'destination', () => receivedAt)).toThrow('invalid_exchange_package');
+    }
+    expect(dest.get('SELECT total_changes() AS changes')).toEqual(before);
+    expect(importExchangePackage(dest, pkg, 'destination', () => receivedAt).status).toBe('replayed');
+  } finally {
+    source.close();
+    dest.close();
+  }
+});

@@ -72,8 +72,8 @@ test.each([1, 2])('preserves observation scope from schema %i in static assessme
   });
 
   expect(assessment).toMatchObject({
-    schema_version: 9,
-    rule_revision: 'static-assessment-v5',
+    schema_version: 10,
+    rule_revision: 'static-assessment-v6',
     inventory_scope: schema === 1 ? 'legacy_full_inventory' : 'latest_and_npm_review_range'
   });
   expect(assessmentSchema.safeParse(frozenAssessmentFixture('codex')).success).toBe(true);

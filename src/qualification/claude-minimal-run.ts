@@ -52,7 +52,8 @@ function implementationDigest(): string {
     'core/ordinary-window-policy',
     'package-paths',
     'core/tool-version-profiles',
-    'core/tool-version-promotion'
+    'core/tool-version-promotion',
+    'core/tool-version-promotion-store'
   ];
   const files = names.map(name => ({
     name,

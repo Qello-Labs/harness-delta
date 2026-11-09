@@ -69,8 +69,8 @@ async function assess(input: CliFixture, paths: readonly string[], extra: readon
   return readAssessment(input.root, result.output.assessment_id);
 }
 function automated(record: Awaited<ReturnType<typeof readAssessment>>['record']) {
-  if (record.schema_version !== 9 || record.judgment_ids === undefined) {
-    throw new Error('machine_schema_9_required');
+  if (record.schema_version !== 10 || record.judgment_ids === undefined) {
+    throw new Error('machine_schema_10_required');
   }
   const selected = record.lanes.find(row => row.profile_id === laneKey.profile_id && row.operation === laneKey.operation);
   if (!selected) throw new Error('fixture_lane_required');
@@ -307,8 +307,8 @@ test('known machine claims preserve every static gate including the outside-wind
   });
   const judgment = await publishJudgment(input);
   const { record } = await assess(input, [judgment.path, judgment.path]);
-  if (record.schema_version !== 9 || record.judgment_ids === undefined) {
-    throw new Error('machine_schema_9_required');
+  if (record.schema_version !== 10 || record.judgment_ids === undefined) {
+    throw new Error('machine_schema_10_required');
   }
   expect(record.judgment_ids).toEqual([judgment.id]);
   expect(record.unused_judgment_ids).toEqual([]);
@@ -336,7 +336,7 @@ test.each(['missing', 'equal', 'incomplete'] as const)('%s coverage keeps judgme
   const input = await setup(mode);
   const judgment = await publishJudgment(input);
   const { record } = await assess(input, [judgment.path]);
-  if (record.schema_version !== 9 || record.judgment_ids === undefined) throw new Error('machine_schema_9_required');
+  if (record.schema_version !== 10 || record.judgment_ids === undefined) throw new Error('machine_schema_10_required');
   expect(record.unused_judgment_ids).toEqual([judgment.id]);
   expect(automated(record).judgment_ids).toEqual([judgment.id]);
   expect(automated(record).pending_reasons).toContain(
@@ -368,8 +368,8 @@ test('multiple lanes sort supplied and unused judgment IDs while retaining missi
   await publishRecord(input.root, job, differenceJobSchema);
   const second = await publishJudgment(input, judgmentFor({ ...input, job }));
   const { record } = await assess(input, [second.path, first.path, second.path]);
-  if (record.schema_version !== 9 || record.judgment_ids === undefined) {
-    throw new Error('machine_schema_9_required');
+  if (record.schema_version !== 10 || record.judgment_ids === undefined) {
+    throw new Error('machine_schema_10_required');
   }
   expect(record.judgment_ids).toEqual([first.id, second.id].sort());
   expect(record.unused_judgment_ids).toEqual([second.id]);
@@ -393,8 +393,8 @@ test.each(['unaffected', 'unknown'] as const)('manual %s claims remain separate 
     root: projectRoot
   });
   const { record } = await assess(input, [judgment.path], reviews.args);
-  if (record.schema_version !== 9 || record.judgment_ids === undefined) {
-    throw new Error('machine_schema_9_required');
+  if (record.schema_version !== 10 || record.judgment_ids === undefined) {
+    throw new Error('machine_schema_10_required');
   }
   expect(record.review_ids).toEqual(reviews.ids);
   expect(
@@ -477,7 +477,7 @@ test.each([false, true])('without judgments manual=%s replay retains canonical c
     root: projectRoot
   });
   const { bytes, record } = await assess(input, [], reviews?.args ?? []);
-  expect(record.schema_version).toBe(9);
+  expect(record.schema_version).toBe(10);
   expect(bytes).toBe(canonical(legacy));
   const judgment = await publishJudgment(input);
   await assess(input, [judgment.path], reviews?.args ?? []);

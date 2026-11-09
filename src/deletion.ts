@@ -7,6 +7,7 @@ import { IdSchema, TimestampSchema } from './contracts.js';
 import { utcNow, type Clock } from './core/lifecycle.js';
 import type { Store } from './store.js';
 import { assertWebMetadataCleanupDone, flushWebMetadataCleanup, queueWebMetadataCleanup } from './core/store-metadata-cleanup.js';
+import { recordToolVersionPromotionDenial, type ToolVersionPromotionKey } from './core/tool-version-promotion-store.js';
 
 export class Deletion {
   private deletionDepth = 0;
@@ -18,6 +19,14 @@ export class Deletion {
 
   isDeleted(kind: 'task' | 'project' | 'session', id: string): boolean {
     return Boolean(this.store.get('SELECT id FROM tombstones WHERE kind = ? AND id = ?', [kind, id]));
+  }
+
+  deletePromotionGrant(key: ToolVersionPromotionKey): void {
+    recordToolVersionPromotionDenial(this.store, {
+      key,
+      reason: 'delete',
+      recordedAt: TimestampSchema.parse(this.clock())
+    });
   }
 
   deleteTask(taskId: string): void {

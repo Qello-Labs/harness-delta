@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
-import { realpathSync } from 'node:fs';
+import { readdirSync, readFileSync, realpathSync } from 'node:fs';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { afterEach, expect, test } from 'vitest';
 import {
   promotionImplementationDigest,
@@ -10,6 +10,39 @@ import {
   promotionImplementationFiles,
   promotionImplementationScheme
 } from '../scripts/tool-update/promotion-implementation.mjs';
+import { buildImportGraph } from './helpers/architecture-graph.js';
+
+test('promotion identity includes the transitive value-import closure of denial consumers', () => {
+  const root = realpathSync(new URL('../', import.meta.url));
+  const files = readdirSync(join(root, 'src'), {
+    recursive: true,
+    withFileTypes: true
+  })
+    .filter(entry => entry.isFile())
+    .map(entry => join(entry.parentPath, entry.name));
+  const modules = files
+    .filter(path => path.endsWith('.ts'))
+    .map(path => ({
+      path: relative(root, path),
+      text: readFileSync(path, 'utf8')
+    }));
+  const assets = files.filter(path => !path.endsWith('.ts')).map(path => relative(root, path));
+  assets.push(
+    ...readdirSync(join(root, 'scripts/tool-update'))
+      .filter(path => path.endsWith('.d.mts'))
+      .map(path => `scripts/tool-update/${path}`)
+  );
+  const edges = buildImportGraph(modules, assets).filter(edge => !edge.typeOnly);
+  const pending = ['src/core/tool-version-promotion-store.ts', 'src/deletion.ts', 'src/web/local-web-binding-providers.ts', 'src/web/local-web-support.ts'];
+  const visited = new Set<string>();
+  while (pending.length) {
+    const path = pending.pop();
+    if (path === undefined || visited.has(path)) continue;
+    visited.add(path);
+    pending.push(...edges.filter(edge => edge.from === path).map(edge => edge.to));
+  }
+  expect([...visited].filter(path => !promotionImplementationFiles.includes(path)).sort()).toEqual([]);
+});
 
 const roots: string[] = [];
 afterEach(async () => {

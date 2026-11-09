@@ -144,7 +144,8 @@ function implementationDigest() {
     'comparison/config-confirmation-write',
     'package-paths',
     'core/tool-version-profiles',
-    'core/tool-version-promotion'
+    'core/tool-version-promotion',
+    'core/tool-version-promotion-store'
   ];
   return hash(
     JSON.stringify(
@@ -185,6 +186,10 @@ function implementationDigest() {
           {
             name: 'migration037',
             sha256: hash(readFileSync(implementationPath('migrations', '037_ordinary_window_decisions.sql')))
+          },
+          {
+            name: 'migration038',
+            sha256: hash(readFileSync(implementationPath('migrations', '038_tool_version_promotion_denials.sql')))
           }
         ])
     )

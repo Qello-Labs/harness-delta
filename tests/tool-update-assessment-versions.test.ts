@@ -7,12 +7,43 @@ import {
   legacySourcePathAllowlist,
   policyAssessmentSourcePathLimit,
   policySourcePathAllowlist,
+  producerAssessmentSourcePathLimit,
+  producerSourcePathAllowlist,
   projectionAssessmentSourcePathLimit,
   projectionSourcePathAllowlist,
   sourcePathAllowlist
 } from '../scripts/tool-update/source-snapshot.mjs';
 
 const versions = [1, 2, 3, 4, 5, 6, 7] as const;
+test.each([
+  [false, false],
+  [true, false],
+  [false, true],
+  [true, true]
+])('schema10 captures denial infrastructure without widening schema9 manual=%s machine=%s', (reviewed, machine) => {
+  const input = {
+    ...currentRecord(reviewed, machine),
+    schema_version: 10,
+    rule_revision: 'static-assessment-v6',
+    source_paths: ['src/core/tool-version-promotion-store.ts', 'src/deletion.ts', 'src/migrations/038_tool_version_promotion_denials.sql']
+  };
+  expect(assessmentSchema.parse(input)).toEqual(input);
+  expect(
+    assessmentSchema.safeParse({
+      ...input,
+      schema_version: 9,
+      rule_revision: 'static-assessment-v5'
+    }).success
+  ).toBe(false);
+  expect(assessmentSourcePathLimit).toBe(87);
+  expect(sourcePathAllowlist).toHaveLength(87);
+  expect(
+    assessmentSchema.safeParse({
+      ...input,
+      source_paths: Array<string>(88).fill('src/source-compatibility.ts')
+    }).success
+  ).toBe(false);
+});
 const policy = {
   parser_base_transition: 'none',
   baseline_transition: null,
@@ -523,14 +554,14 @@ test.each([
     source_paths: ['scripts/session-binding-codex-promoted-hook.template.mjs']
   };
   expect(assessmentSchema.parse(input)).toEqual(input);
-  expect(assessmentSourcePathLimit).toBe(82);
-  expect(sourcePathAllowlist).toHaveLength(82);
+  expect(producerAssessmentSourcePathLimit).toBe(82);
+  expect(producerSourcePathAllowlist).toHaveLength(82);
   expect(
     assessmentSchema.parse({
       ...input,
-      source_paths: sourcePathAllowlist
+      source_paths: producerSourcePathAllowlist
     }).source_paths
-  ).toEqual(sourcePathAllowlist);
+  ).toEqual(producerSourcePathAllowlist);
   const overflow = assessmentSchema.safeParse({
     ...input,
     source_paths: Array<string>(83).fill('src/source-compatibility.ts')
