@@ -336,13 +336,7 @@ function assertPromotedIdle(options: InstallationOptions): void {
   if (inUse === undefined) fail('promoted_in_use_unverified');
   if (inUse !== false) fail('promoted_installation_in_use');
 }
-function promotedSettingsHash(projectRoot: string): string | null {
-  const path = '.claude/settings.json';
-  const stat = entry(projectRoot, path);
-  if (!stat) return null;
-  if (!stat.isFile() || stat.nlink !== 1) return fail('unsafe_path');
-  const bytes = readRepositoryFile(projectRoot, path);
-  const settings = z.object({ hooks: z.unknown().optional() }).parse(readStrictJson(bytes));
+function promotedSettingsHash(projectRoot: string): string {
   const conflicting = (value: unknown): boolean => {
     if (typeof value === 'string') {
       return /harness-connect|claude-(?:window-)?session-hook\.mjs/.test(value);
@@ -350,8 +344,23 @@ function promotedSettingsHash(projectRoot: string): string | null {
     if (Array.isArray(value)) return value.some(conflicting);
     return value !== null && typeof value === 'object' && Object.values(value).some(conflicting);
   };
-  if (conflicting(settings.hooks)) fail('promoted_registration_conflict');
-  return hashBytes(bytes);
+  return hashBytes(
+    JSON.stringify(
+      ['.claude/settings.json', '.claude/settings.local.json'].map(path => {
+        const stat = entry(projectRoot, path);
+        if (!stat) return [path, null];
+        if (!stat.isFile() || stat.nlink !== 1) {
+          return fail('unsafe_path');
+        }
+        const bytes = readRepositoryFile(projectRoot, path);
+        const settings = z.object({ hooks: z.unknown().optional() }).parse(readStrictJson(bytes));
+        if (conflicting(settings.hooks)) {
+          fail('promoted_registration_conflict');
+        }
+        return [path, hashBytes(bytes)];
+      })
+    )
+  );
 }
 function promotedSource(options: InstallationOptions, owned: ReturnType<typeof inspectOwned>) {
   if (!options.productVersion || !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(options.productVersion)) {

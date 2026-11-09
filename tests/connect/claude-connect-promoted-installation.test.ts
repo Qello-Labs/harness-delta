@@ -224,6 +224,71 @@ test('rechecks trusted activity before replacing the registration', () => {
   expect(readFileSync(join(f.project, target, 'SKILL.md'))).toEqual(readFileSync(join(f.packageRoot, 'SKILL.md')));
 });
 
+test('refuses historical hooks in project-local settings without modifying them', () => {
+  const f = fixture();
+  const local = JSON.stringify({
+    hooks: {
+      SessionStart: [
+        {
+          hooks: [{ type: 'command', command: legacyHook }]
+        }
+      ]
+    }
+  });
+  put(f.project, '.claude/settings.local.json', local);
+  const helper = readFileSync(join(f.project, target, 'scripts/claude-session-hook.mjs'));
+
+  expect(preview(f.project, f.options).blockers).toContain('promoted_registration_conflict');
+  expect(install(f.project, f.options).state).toBe('blocked');
+  expect(readFileSync(join(f.project, '.claude/settings.local.json'), 'utf8')).toBe(local);
+  expect(readFileSync(join(f.project, target, 'scripts/claude-session-hook.mjs'))).toEqual(helper);
+});
+
+test.each(['created', 'changed'] as const)('refuses project-local settings %s after preview', mutation => {
+  const f = fixture();
+  if (mutation === 'changed') {
+    put(f.project, '.claude/settings.local.json', '{"env":{"SYNTHETIC":"before"}}');
+  }
+  const accepted = reviewed(f.project, f.options);
+  const local = '{"env":{"SYNTHETIC":"after"}}';
+  put(f.project, '.claude/settings.local.json', local);
+
+  expect(() => install(f.project, accepted)).toThrow('installation_preview_changed');
+  expect(readFileSync(join(f.project, '.claude/settings.local.json'), 'utf8')).toBe(local);
+  expect(readFileSync(join(f.project, target, 'SKILL.md'))).toEqual(readFileSync(join(f.packageRoot, 'SKILL.md')));
+});
+
+test.each(['created', 'changed'] as const)('rechecks project-local settings %s immediately before cutover', mutation => {
+  const f = fixture();
+  if (mutation === 'changed') {
+    put(f.project, '.claude/settings.local.json', '{"env":{"SYNTHETIC":"before"}}');
+  }
+  const accepted = reviewed(f.project, f.options);
+  const local = '{"env":{"SYNTHETIC":"after"}}';
+  let calls = 0;
+  const promotedInUse = () => {
+    if (++calls === 2) {
+      put(f.project, '.claude/settings.local.json', local);
+    }
+    return false;
+  };
+
+  expect(() => install(f.project, { ...accepted, promotedInUse })).toThrow('installation_preview_changed');
+  expect(calls).toBe(2);
+  expect(readFileSync(join(f.project, '.claude/settings.local.json'), 'utf8')).toBe(local);
+  expect(readFileSync(join(f.project, target, 'SKILL.md'))).toEqual(readFileSync(join(f.packageRoot, 'SKILL.md')));
+});
+
+test('preserves unrelated project-local settings byte-for-byte during promoted cutover', () => {
+  const f = fixture();
+  const local = '{\n  "env": {"SYNTHETIC": "local"},\n  "hooks": {"Stop": [{"hooks": [{"type": "command", "command": "echo local"}]}]}\n}\n';
+  put(f.project, '.claude/settings.local.json', local);
+
+  expect(install(f.project, reviewed(f.project, f.options)).state).toBe('installed');
+  expect(readFileSync(join(f.project, '.claude/settings.local.json'), 'utf8')).toBe(local);
+  expect(readFileSync(join(f.project, '.claude/settings.json'), 'utf8')).toBe(f.settings);
+});
+
 test('promoted removal and switching modes refuse rather than restoring legacy hooks', () => {
   const f = fixture();
   install(f.project, reviewed(f.project, f.options));
