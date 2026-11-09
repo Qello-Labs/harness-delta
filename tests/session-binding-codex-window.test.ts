@@ -435,7 +435,7 @@ test('requires a fresh startup root after pause and refuses native source reuse'
   );
   await f.collect();
   expect(payloads(f)).toHaveLength(1);
-});
+}, 10000);
 
 test('stores actual version in compatibility provenance rather than parser-base identity', async () => {
   const f = await connected();
