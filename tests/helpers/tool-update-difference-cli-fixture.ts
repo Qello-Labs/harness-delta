@@ -230,6 +230,18 @@ const root=${JSON.stringify(root)},home=${JSON.stringify(home)};
 const ledger={network:0,processes:0,modules:0,privateReads:0,writes:[]};
 const save=fs.writeFileSync;
 const denied=key=>{ledger[key]++;throw new Error('forbidden_'+key);};
+const moduleEffect=specifier=>{
+ const name=specifier.replace(/^node:/,'');
+ if(name==='sqlite'||/better-sqlite3|\\/(?:store|session-binding-(?:codex|claude|service)|ordinary-session-binding|conformance|claude-localhost)\\.(?:m?js|ts)$/.test(specifier)) return 'modules';
+ if(['net','http','https','http2','dgram','tls','dns','dns/promises'].includes(name)) return 'network';
+ if(['child_process','worker_threads'].includes(name)) return 'processes';
+};
+const getBuiltinModule=process.getBuiltinModule;
+process.getBuiltinModule=specifier=>{
+ const effect=moduleEffect(specifier);
+ if(effect) denied(effect);
+ return getBuiltinModule(specifier);
+};
 const transport=${JSON.stringify(transport ?? null)};
 globalThis.fetch=async input=>{
  if(!transport)return denied('network');
@@ -243,9 +255,9 @@ for(const object of [http,https]) for(const name of ['get','request']) object[na
 for(const object of [net,tls]) for(const name of ['connect','createConnection']) if(name in object) object[name]=()=>denied('network');
 for(const name of ['spawn','spawnSync','exec','execSync','execFile','execFileSync','fork']) cp[name]=()=>denied('processes');
 registerHooks({resolve(specifier,context,next){
- if(/^(?:node:)?sqlite$/.test(specifier)) denied('modules');
+ if(moduleEffect(specifier)==='modules') denied('modules');
  const result=next(specifier,context);
- if(/better-sqlite3|\\/(?:store|session-binding-(?:codex|claude|service)|ordinary-session-binding|conformance|claude-localhost)\\.(?:m?js|ts)$/.test(result.url)) denied('modules');
+ if(moduleEffect(result.url)==='modules') denied('modules');
  return result;
 }});
 const pathOf=value=>value instanceof URL?fileURLToPath(value):typeof value==='string'?resolve(value):null;

@@ -572,6 +572,63 @@ test.each([
     reason: 'forbidden_modules'
   });
 });
+test.each(
+  (
+    [
+      ['sqlite', 'modules'],
+      ['net', 'network'],
+      ['http', 'network'],
+      ['https', 'network'],
+      ['http2', 'network'],
+      ['dgram', 'network'],
+      ['tls', 'network'],
+      ['dns', 'network'],
+      ['dns/promises', 'network'],
+      ['child_process', 'processes'],
+      ['worker_threads', 'processes']
+    ] as const
+  ).flatMap(([name, effect]) => ['', 'node:'].map(prefix => [prefix + name, effect] as const))
+)('the effect ledger denies direct builtin %s retrieval with %s accounting', async (specifier, effect) => {
+  const root = await scratch();
+  roots.push(root);
+  const control = await auditedCli(root, '-e', [
+    `
+let retrieved=false;
+try {
+ const specifier=process.argv[1];
+ const builtin=process.getBuiltinModule(specifier);
+ retrieved=true;
+ const name=specifier.replace(/^node:/,'');
+ if(name==='sqlite'){
+  const database=new builtin.DatabaseSync(':memory:');
+  database.exec('CREATE TABLE synthetic_probe (value INTEGER)');
+  database.close();
+ } else if(name==='net') {
+  builtin.connect({host:'127.0.0.1',port:1});
+ } else if(name==='child_process') {
+  builtin.execFileSync(process.execPath,['-e','']);
+ }
+ process.stdout.write(JSON.stringify({status:'mutation_completed',retrieved})+'\\n');
+} catch(error) {
+ process.stdout.write(JSON.stringify({status:'mutation_denied',reason:error.message,retrieved})+'\\n');
+}
+`,
+    specifier
+  ]);
+  expect(control.exitCode, control.stdout + control.stderr).toBe(0);
+  expect(control.ledger, JSON.stringify(control.output)).toEqual({
+    network: effect === 'network' ? 1 : 0,
+    processes: effect === 'processes' ? 1 : 0,
+    modules: effect === 'modules' ? 1 : 0,
+    privateReads: 0,
+    writes: []
+  });
+  expect(control.output).toEqual({
+    status: 'mutation_denied',
+    reason: `forbidden_${effect}`,
+    retrieved: false
+  });
+});
 test('the real source CLI in a built checkout publishes only records without Store, vendor, sessions, network or block writes', async () => {
   await access(join(projectRoot, 'dist', 'index.js'));
   const script = 'scripts/tool-update.mjs';
