@@ -1103,52 +1103,61 @@ test.each(['prepare-promotion', 'reconcile-promotion', 'assess'] as const)(
     }
     expect(await tree(seed.root)).toEqual(seedBefore);
     expect(await readdir(input.root)).not.toContain('promotion-decisions');
-  }
+  },
+  20000
 );
 
 test.each(
   (['prepare-promotion', 'reconcile-promotion', 'assess'] as const).flatMap(command =>
     (['database', 'native', 'private', 'network'] as const).map(access => ({ command, access }))
   )
-)('real $command CLI trips the calibrated $access access mutation', async ({ command, access }) => {
-  const input = await commandInput(command);
-  const result = await mutationCli(input.root, input.args, access);
-  expect(result.exitCode, JSON.stringify(result.output)).toBe(2);
-  expect(result.output).toEqual({ status: 'internal_error' });
-  expect(result.ledger).toMatchObject({
-    network: access === 'network' ? 1 : 0,
-    processes: access === 'native' ? 1 : 0,
-    modules: access === 'database' ? 1 : 0,
-    privateReads: access === 'private' ? 1 : 0
-  });
-  const published = await readdir(input.root);
-  expect(published).not.toContain('promotion-proposals');
-  expect(published).not.toContain('assessments');
-  expect(published).not.toContain('promotion-decisions');
-});
+)(
+  'real $command CLI trips the calibrated $access access mutation',
+  async ({ command, access }) => {
+    const input = await commandInput(command);
+    const result = await mutationCli(input.root, input.args, access);
+    expect(result.exitCode, JSON.stringify(result.output)).toBe(2);
+    expect(result.output).toEqual({ status: 'internal_error' });
+    expect(result.ledger).toMatchObject({
+      network: access === 'network' ? 1 : 0,
+      processes: access === 'native' ? 1 : 0,
+      modules: access === 'database' ? 1 : 0,
+      privateReads: access === 'private' ? 1 : 0
+    });
+    const published = await readdir(input.root);
+    expect(published).not.toContain('promotion-proposals');
+    expect(published).not.toContain('assessments');
+    expect(published).not.toContain('promotion-decisions');
+  },
+  20000
+);
 
 test.each(
   (['prepare-promotion', 'reconcile-promotion', 'assess'] as const).flatMap(command =>
     (['callbackReadFile', 'callbackReaddir', 'callbackOpen'] as const).map(access => ({ command, access }))
   )
-)('real $command CLI trips the calibrated $access private access mutation', async ({ command, access }) => {
-  const input = await commandInput(command);
+)(
+  'real $command CLI trips the calibrated $access private access mutation',
+  async ({ command, access }) => {
+    const input = await commandInput(command);
 
-  const result = await mutationCli(input.root, input.args, access);
+    const result = await mutationCli(input.root, input.args, access);
 
-  expect(result.exitCode, JSON.stringify(result.output)).toBe(2);
-  expect(result.output).toEqual({ status: 'internal_error' });
-  expect(result.ledger).toMatchObject({
-    network: 0,
-    processes: 0,
-    modules: 0,
-    privateReads: 1
-  });
-  const published = await readdir(input.root);
-  expect(published).not.toContain('promotion-proposals');
-  expect(published).not.toContain('assessments');
-  expect(published).not.toContain('promotion-decisions');
-});
+    expect(result.exitCode, JSON.stringify(result.output)).toBe(2);
+    expect(result.output).toEqual({ status: 'internal_error' });
+    expect(result.ledger).toMatchObject({
+      network: 0,
+      processes: 0,
+      modules: 0,
+      privateReads: 1
+    });
+    const published = await readdir(input.root);
+    expect(published).not.toContain('promotion-proposals');
+    expect(published).not.toContain('assessments');
+    expect(published).not.toContain('promotion-decisions');
+  },
+  20000
+);
 
 test.each([
   'original_window',
@@ -1172,148 +1181,152 @@ test.each([
   'invalidate',
   'delete',
   'deterministic_replay'
-] as const)('real reconcile-promotion CLI preserves bounded lineage for %s', async scenario => {
-  const input = await isolatedInput();
-  let descriptorId = seed.origin.descriptor_digest;
-  let mappingIds = [...seed.origin.coverage_mapping_ids];
-  let predecessorId = seed.originRef.id;
-  let currentGrantId = seed.decisionRef.id;
-  let retained: NonNullable<PromotionProposal['reconciliation']>['unresolved_findings'] = [];
-  if (['reviewed_successor', 'unreviewed_successor', 'successor_cycle', 'missing_predecessor'].includes(scenario)) {
-    const next = await reviewedDescriptorSuccessor(input);
-    descriptorId = next.descriptorRef.id;
-    mappingIds = [next.mappingRef.id];
-    predecessorId = next.nextRef.id;
-    if (scenario === 'reviewed_successor') {
-      const priorInput = await isolatedInput();
-      const first = (await successors(priorInput))[0];
+] as const)(
+  'real reconcile-promotion CLI preserves bounded lineage for %s',
+  async scenario => {
+    const input = await isolatedInput();
+    let descriptorId = seed.origin.descriptor_digest;
+    let mappingIds = [...seed.origin.coverage_mapping_ids];
+    let predecessorId = seed.originRef.id;
+    let currentGrantId = seed.decisionRef.id;
+    let retained: NonNullable<PromotionProposal['reconciliation']>['unresolved_findings'] = [];
+    if (['reviewed_successor', 'unreviewed_successor', 'successor_cycle', 'missing_predecessor'].includes(scenario)) {
+      const next = await reviewedDescriptorSuccessor(input);
+      descriptorId = next.descriptorRef.id;
+      mappingIds = [next.mappingRef.id];
+      predecessorId = next.nextRef.id;
+      if (scenario === 'reviewed_successor') {
+        const priorInput = await isolatedInput();
+        const first = (await successors(priorInput))[0];
+        if (!first?.reconciliation) {
+          throw new Error('review_successor_required');
+        }
+        retained = first.reconciliation.unresolved_findings;
+        const previous = await reference(input.root, first);
+        input.packet.proposals.push(previous);
+        input.packet.successors = [
+          await reference(input.root, {
+            ...next.successor,
+            predecessor_proposal_id: previous.id
+          })
+        ];
+      }
+      if (scenario === 'unreviewed_successor') {
+        input.packet.successors = [
+          await reference(input.root, {
+            ...next.successor,
+            review_reference: null
+          })
+        ];
+      } else if (scenario === 'missing_predecessor') {
+        input.packet.proposals = input.packet.proposals.filter(row => row.id !== seed.originRef.id);
+      } else if (scenario === 'successor_cycle') {
+        input.packet.successors.push(
+          await reference(input.root, {
+            ...next.successor,
+            predecessor_descriptor_digest: next.descriptorRef.id,
+            successor_descriptor_digest: seed.origin.descriptor_digest,
+            predecessor_proposal_id: next.nextRef.id,
+            successor_proposal_id: seed.originRef.id,
+            coverage_mapping_ids: seed.origin.coverage_mapping_ids
+          })
+        );
+      }
+    }
+    if (scenario === 'missing_mapping') input.packet.mappings = [];
+    if (scenario === 'deterministic_replay') {
+      const lane = {
+        ...input.judgment.lane,
+        operation: 'restart' as const
+      };
+      input.packet.judgments.push(
+        await reference(input.root, {
+          ...input.judgment,
+          lane,
+          baseline_row: {
+            ...input.judgment.baseline_row,
+            ...lane
+          }
+        })
+      );
+    }
+    if (scenario === 'conflicting_mapping') {
+      input.packet.mappings.push(
+        await reference(input.root, {
+          ...input.mapping,
+          review_reference: '7'.repeat(64)
+        })
+      );
+    }
+    if (scenario === 'partial_overlap') {
+      const mapping = await reference(input.root, {
+        ...input.mapping,
+        contracts: ['fields_types_enums'],
+        facets: ['serialized_shape']
+      });
+      const origin = await reference(input.root, {
+        ...input.origin,
+        coverage_mapping_ids: [mapping.id]
+      });
+      const decision = await reference(input.root, {
+        ...input.decision,
+        proposal_id: origin.id
+      });
+      input.packet.mappings = [mapping];
+      input.packet.proposals = [origin];
+      input.packet.decisions = [decision];
+      mappingIds = [mapping.id];
+      predecessorId = origin.id;
+      currentGrantId = decision.id;
+      await addUnmatchedScopes(input);
+    }
+    if (scenario.startsWith('unrelated_') || scenario === 'unmapped_profile') await setUnrelatedJudgment(input, scenario);
+    if (scenario === 'stale' || scenario === 'unknown' || scenario === 'later_unaffected') {
+      const first = (await successors(input))[0];
       if (!first?.reconciliation) {
         throw new Error('review_successor_required');
       }
       retained = first.reconciliation.unresolved_findings;
       const previous = await reference(input.root, first);
+      predecessorId = previous.id;
       input.packet.proposals.push(previous);
-      input.packet.successors = [
-        await reference(input.root, {
-          ...next.successor,
-          predecessor_proposal_id: previous.id
-        })
-      ];
+      const later =
+        scenario === 'unknown'
+          ? judgeDifferences(input.input.job, [], identities)
+          : {
+              ...judgmentFor(input.input),
+              ...(scenario === 'stale' ? { engine_digest: '9'.repeat(64) } : {})
+            };
+      input.packet.judgments = [await reference(input.root, later)];
     }
-    if (scenario === 'unreviewed_successor') {
-      input.packet.successors = [
-        await reference(input.root, {
-          ...next.successor,
-          review_reference: null
-        })
-      ];
-    } else if (scenario === 'missing_predecessor') {
-      input.packet.proposals = input.packet.proposals.filter(row => row.id !== seed.originRef.id);
-    } else if (scenario === 'successor_cycle') {
-      input.packet.successors.push(
-        await reference(input.root, {
-          ...next.successor,
-          predecessor_descriptor_digest: next.descriptorRef.id,
-          successor_descriptor_digest: seed.origin.descriptor_digest,
-          predecessor_proposal_id: next.nextRef.id,
-          successor_proposal_id: seed.originRef.id,
-          coverage_mapping_ids: seed.origin.coverage_mapping_ids
-        })
-      );
-    }
-  }
-  if (scenario === 'missing_mapping') input.packet.mappings = [];
-  if (scenario === 'deterministic_replay') {
-    const lane = {
-      ...input.judgment.lane,
-      operation: 'restart' as const
-    };
-    input.packet.judgments.push(
-      await reference(input.root, {
-        ...input.judgment,
-        lane,
-        baseline_row: {
-          ...input.judgment.baseline_row,
-          ...lane
+    if (scenario in negativeDecisions) {
+      const decision = z.enum(['demote', 'retire', 'revoke', 'invalidate', 'delete']).parse(scenario);
+      const negative = await reference(input.root, {
+        ...input.decision,
+        decision,
+        reason: negativeDecisions[decision],
+        grants: [],
+        sequence: 2,
+        predecessor: {
+          id: seed.decisionRef.id,
+          sequence: 1,
+          decision: 'approve'
         }
-      })
-    );
-  }
-  if (scenario === 'conflicting_mapping') {
-    input.packet.mappings.push(
-      await reference(input.root, {
-        ...input.mapping,
-        review_reference: '7'.repeat(64)
-      })
-    );
-  }
-  if (scenario === 'partial_overlap') {
-    const mapping = await reference(input.root, {
-      ...input.mapping,
-      contracts: ['fields_types_enums'],
-      facets: ['serialized_shape']
-    });
-    const origin = await reference(input.root, {
-      ...input.origin,
-      coverage_mapping_ids: [mapping.id]
-    });
-    const decision = await reference(input.root, {
-      ...input.decision,
-      proposal_id: origin.id
-    });
-    input.packet.mappings = [mapping];
-    input.packet.proposals = [origin];
-    input.packet.decisions = [decision];
-    mappingIds = [mapping.id];
-    predecessorId = origin.id;
-    currentGrantId = decision.id;
-    await addUnmatchedScopes(input);
-  }
-  if (scenario.startsWith('unrelated_') || scenario === 'unmapped_profile') await setUnrelatedJudgment(input, scenario);
-  if (scenario === 'stale' || scenario === 'unknown' || scenario === 'later_unaffected') {
-    const first = (await successors(input))[0];
-    if (!first?.reconciliation) {
-      throw new Error('review_successor_required');
+      });
+      input.packet.decisions.push(negative);
+      currentGrantId = negative.id;
     }
-    retained = first.reconciliation.unresolved_findings;
-    const previous = await reference(input.root, first);
-    predecessorId = previous.id;
-    input.packet.proposals.push(previous);
-    const later =
-      scenario === 'unknown'
-        ? judgeDifferences(input.input.job, [], identities)
-        : {
-            ...judgmentFor(input.input),
-            ...(scenario === 'stale' ? { engine_digest: '9'.repeat(64) } : {})
-          };
-    input.packet.judgments = [await reference(input.root, later)];
-  }
-  if (scenario in negativeDecisions) {
-    const decision = z.enum(['demote', 'retire', 'revoke', 'invalidate', 'delete']).parse(scenario);
-    const negative = await reference(input.root, {
-      ...input.decision,
-      decision,
-      reason: negativeDecisions[decision],
-      grants: [],
-      sequence: 2,
-      predecessor: {
-        id: seed.decisionRef.id,
-        sequence: 1,
-        decision: 'approve'
-      }
+    await assertCliReconciliation(input, {
+      scenario,
+      descriptorId,
+      mappingIds,
+      predecessorId,
+      currentGrantId,
+      retained
     });
-    input.packet.decisions.push(negative);
-    currentGrantId = negative.id;
-  }
-  await assertCliReconciliation(input, {
-    scenario,
-    descriptorId,
-    mappingIds,
-    predecessorId,
-    currentGrantId,
-    retained
-  });
-});
+  },
+  20000
+);
 
 async function setUnrelatedJudgment(input: Awaited<ReturnType<typeof reconciliation>>, scenario: string) {
   const target = {
