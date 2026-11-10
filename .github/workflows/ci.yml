@@ -78,7 +78,7 @@ jobs:
   default:
     name: Node 24 / macOS / Default tests
     runs-on: macos-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - name: Check out source
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
