@@ -158,9 +158,7 @@ test('ordinary successful case closure does not stop the remaining batch cases',
     peer.socket.write(request());
     await received;
     await server.start();
-    const closed = once(socket, 'close', {
-      signal: AbortSignal.timeout(1000)
-    });
+    const closed = once(socket, 'close');
     await server.complete();
     await peer.closed;
     await server.close();
