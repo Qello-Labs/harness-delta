@@ -18,7 +18,7 @@ function fixture() {
   directories.push(root);
   return createSyntheticWindowTui(root);
 }
-const witness = (session: ReturnType<typeof fixture>, event: string) => once(session.events, event, { signal: AbortSignal.timeout(8000) });
+const witness = (session: ReturnType<typeof fixture>, event: string) => once(session.events, event);
 
 test('two fixed inputs cross separate event barriers once even when the writable reports backpressure', async () => {
   const session = fixture();
@@ -120,9 +120,11 @@ for (const point of ['before_start', 'before_signal'] as const) {
 test('exactly one real SIGINT reaches the owned foreground group and produces a separate handler acknowledgement', async () => {
   const session = fixture();
   const ready = witness(session, 'ready');
+  const signalReady = witness(session, 'signal_ready');
   session.start();
   try {
     await ready;
+    await signalReady;
     session.releaseSyntheticBaseline();
     const input = witness(session, 'input');
     await session.submit();
