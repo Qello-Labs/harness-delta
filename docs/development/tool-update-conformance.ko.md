@@ -10,6 +10,162 @@ runner입니다. 코드와 합성 테스트는 준비됐지만 저장소 소유 
 
 ## 실행은 별도 승인 필요
 
+### 실행이 차단된 Codex root-window 준비
+
+`scripts/tool-update/codex-window-conformance.mjs`는 Codex 0.167.0,
+`codex_binding`, collect/root, `codex-binding-root-window-v1`, macOS arm64,
+Node 24용 별도 private 개발 명령입니다. admitted target이나 아래 Claude runner의
+확장이 아닙니다. 실행은 무조건 차단되며 B1 발급자와 vendor spawn을 활성화하지 않습니다.
+
+이는 실행이 차단된 준비 단계이며 B1 준비 완료가 아닙니다. 오프라인 결함을 수정해도
+`--version`을 포함한 어떤 vendor 시도도 허용되지 않습니다.
+
+```sh
+node scripts/tool-update/codex-window-conformance.mjs execute
+```
+
+예상 결과는 exit 2이며 고정 JSON에 `code:b1_execution_disabled`,
+`execution_attempted:false`, `actual_qualification:false`를 담습니다. consent JSON,
+intent, 승인 flag, 만료·재사용 packet으로 해제할 수 없습니다. `verify-cleanup`도 실제
+cleanup consent가 없어 거부합니다.
+
+오프라인 준비는 명시적인 private plan과 기존 빈 case 디렉터리를 정규 절대 경로로
+받습니다. 두 부모 디렉터리는 실행자 소유 0700이어야 하고 plan은 일반 단일 링크 0600
+파일이며 최대 16 KiB입니다. `intent.json`을 배타적으로 작성하며 vendor 이미지나 source를
+검사하지 않습니다.
+
+```sh
+node scripts/tool-update/codex-window-conformance.mjs prepare \
+  --plan "$plan_file" --case normal --out "$owned_case"
+```
+
+엄격한 plan 필드는 `schema_version:1`, `product:codex`, `version:0.167.0`,
+`commit:086ccc833bc9cf01024ad2dd6af7dbd421b6bf9a`, `route:codex_binding`,
+`policy_id:codex-binding-root-window-v1`, `operation:collect`, `topology:root`,
+`runtime:node24`, `platform:darwin_arm64`, `model:gpt-6.1-sol`, `effort:high`,
+`pins`입니다. SHA-256 pin 11개 이름은 `native`, `host`, `source`, `build`,
+`instrument`, `runtime`, `lockfile`, `config`, `environment`, `egress`, `quota`입니다.
+준비는 이 주장을 기록할 뿐 실제 입력 검증, containment qualification, 권한 발급을 하지
+않습니다. 결과는 `prepared_execution_disabled`입니다.
+선택적인 엄격한 `inputs` 객체는 별도 입력 preflight를 위한 `batch_root`, `prefix_root`,
+`native_path`, `host_path`, `config_path`, `environment_path`, `profile_path`,
+`quota_packet_path`를 받습니다. prefix와 case 경로는 각각 `batch_root/prefix`,
+`batch_root/cases/<case_id>`여야 합니다.
+
+별도 verifier는 실행자가 제공한 private packet만 소비하며 consent 발급이나 process 실행을
+하지 않습니다.
+
+```sh
+node scripts/tool-update/codex-window-conformance.mjs verify-consent \
+  --intent "$intent_file" --consent "$consent_file"
+```
+
+엄격한 packet은 UUID와 approval-reference hash를 정확한 intent bytes, case/root,
+11개 pin, collect/root 범위, 최대 1200000 ms 유효기간에 묶습니다. intent와 consent는
+같은 canonical 0700 case 디렉터리의 소유 단일 링크 no-follow 0600 파일이며 각각 최대
+64 KiB입니다. 입력 preflight 전에 case-root 배타적 reservation을 소비하므로 실패 후
+다른 nonce로 재시도할 수 없습니다. 실제 preflight는 vendor를 실행하지 않고 범위가 정해진
+파일과 현재 source/build/runtime/instrument closure를 hash합니다. 사용 시 만료, 파일
+identity, packet/reservation bytes와 pin을 다시 확인합니다. 실행자 소유 packet이 승인
+신뢰 경계이며 사람의 identity를 암호학적으로 증명하지는 않습니다. 실제 B1 packet은
+제공하지 않습니다. 성공 결과도 `reserved_execution_disabled`이며 미완성 runner의 실행
+권한이 아닙니다.
+
+byte oracle은 `127.0.0.1`에만 bind하는 실제 HTTP/1.1/SSE transport도 제공합니다.
+하나의 batch에서 만든 case listener는 counter와 connection admission을 공유합니다.
+예기치 않은 refusal, deadline, protocol 실패는 batch를 terminal stop으로 바꾸고 모든
+관련 listener/socket을 닫으며 이후 case 생성과 작업을 거부합니다. 정상 case 종료는
+나머지 case를 중단하지 않습니다.
+body 할당 전에 Upgrade, CONNECT, HTTP/2, identity 이외 compression, chunked framing을
+거부합니다. header/body/request/response 한도는 16/64/80/256 KiB이며 case당
+connection/request 최대 16개, batch당 112개, response slot 8개, 합성 input+output
+단위 32000개입니다. cache와 reasoning은 부분집합이며 추가 사용량이 아닙니다. 중단된
+terminal usage는 0이 아니라 missing이며 숫자 요약에 wire text를 포함하지 않습니다.
+
+합성 metadata reservation은 opaque 일회성 객체입니다. 새 소유
+`project/.harness-delta/window-receipts` 경로만 쓰며 디렉터리는 0700, control은
+배타적 no-follow 0600, hook의 정확한 7개 key, 최대 4096 bytes입니다. consent-bound
+writer는 이 metadata-only lifecycle을 재사용하며 opaque reservation을 재검증하고
+매 check/close에서 원래 directory와 control의 device/inode, private mode/owner,
+제한된 control의 정확한 bytes/size도 검증합니다. 교체 경로나 symlink는 enumeration
+전에 거부합니다. 중단·만료 시에는 원래 storage임이 증명될 때만 inactive로 바꿉니다.
+교체를 증명할 수 없으면 `receipt_storage_changed` 또는 `control_storage_changed`를
+보고하고 외부 대체 파일을 덮어쓰거나 inactivation 성공을 주장하지 않습니다. 정상 receipt
+추가로 생긴 directory entry 수·size 변화는 directory identity 교체와 구분합니다. receipt admission은
+최대 17개 entry를 확인하고 16개 초과 시 거부하지만, 변경하지 않은 hook의 17번째 파일
+생성을 예방하지는 않습니다. production publisher는 그대로이며 decision 없이는 inactive입니다.
+
+synthetic-only collection bootstrap은 격리된 in-memory Store에서 실제 project/task,
+exact-root trial, connect/baseline, collect API를 사용합니다. 합성 reservation만 받고
+product decision이나 comparison assignment를 만들지 않으며 실제 수집 권한을 부여하지
+못합니다. 변경하지 않은 hook은 합성 native source를 읽지 않고 metadata만 방출합니다.
+exact-root trial과 active task가 생긴 뒤 수집하며 replay는 사용량을 중복 부과하지 않습니다.
+
+script-local TUI adapter는 변경하지 않은 Python PTY owner를 통해 고정된 nonvendor
+테스트 helper만 실행합니다. spawn/input 전에 구독하고 normal quit과 control EOF를
+구분하며 고정 상태만 보존합니다. native TUI 실행은 차단됩니다. nonvendor 경로는 소유
+launch의 PID, parent, foreground group, session, UID, start time을 다시 확인한 뒤
+한 번의 OS SIGINT를 전달하며 불일치는 거부합니다. 별도 prearmed output event로 fixture
+handler의 acknowledgement를 확인합니다. correlation fixture는 별도 barrier에서 두 번째
+고정 입력을 허용합니다. 강제로 `write(false)`를 반환하는 테스트도 실제 PTY와 callback을
+유지하며 입력 재전송이 없음을 확인합니다. owner, adapter, 복사된 fixture, signal helper,
+process 도구의 pin을 사용 전에 확인합니다. vendor에 대한 atomic PID-reuse 예방을
+주장하지 않습니다.
+
+macOS arm64/Node 24의 opt-in 로컬 qualification은 hash한 deny-default 상속
+`sandbox-exec` profile과 소유 4 GiB APFS sparse image를 만듭니다. 쓰기는 image의
+case root로 제한하고 읽기·실행 경로는 allow-list로 제한합니다. 고정된 oracle port의
+outbound IPv4 localhost TCP만 허용하며 DNS와 Mach service는 거부합니다. 소유한 빈
+OpenSSL 설정으로 실행자의 global 설정을 읽지 않도록 합니다. sudo나 global firewall
+규칙을 사용하지 않습니다.
+
+다음 명령은 새로운 canonical 소유 output 경로와 명시적인 로컬 승인이 필요하며 Codex
+이미지가 아닌 nonvendor probe만 실행합니다.
+
+```sh
+node scripts/tool-update/codex-window-qualification.mjs qualify --out "$qualification_out"
+node scripts/tool-update/codex-window-image-owner.mjs qualify-loss --out "$loss_out"
+```
+
+qualification은 직접 실행 및 descendant 경로에서 외부 TCP/DNS, 심어 둔 외부 파일 읽기,
+내용을 읽지 않는 `~/.zshrc` stat, 외부 쓰기, 미승인 exec, quota 초과를 시도하며 oracle
+loopback은 성공해야 합니다. 별도 image owner는 identity-checked attach handshake 후
+정상 close, control EOF, 소유 owner의 SIGKILL에서 detach를 검증합니다. loss 검증 범위는
+attach 이후입니다. 실제 `qualify` entry도 같은 owner를 사용하므로 attach 이후
+coordinator가 SIGKILL돼도 살아 있는 peer가 detach할 수 있습니다. IPC supervision에서는
+`qualification_mounted`를 보고하고 `continue_qualification` 전에는 probe를 시작하지
+않으며 supervisor disconnect 시 작업을 중단합니다. 검증된 mount에서 startup watchdog을
+해제하고 lifetime watchdog은 원래 승인 deadline의 남은 시간만 사용합니다. 초기화 중 모든
+손실이나 전체 cleanup process의 동시 손실을 포괄하지는 않습니다. packet은 제한된 metadata와
+상태만 담고 actual-target qualification은 항상 false입니다. image와 실패 packet은
+private 상태로 남기며 기본 테스트는 fake를 사용해 image를 생성하거나 mount하지 않습니다.
+
+합성 deadline 검사는 불변 `B=T0+1200000`, teardown 5000 ms, audit 10000 ms를
+예약하고 온전한 case만 허용하며 만료 시 작업 시간을 줄입니다. 최종 audit은 기존 예약만
+사용하고 teardown을 다시 예약하지 않습니다. 실제 disappearance, 닫힌 resource, 복원된
+terminal은 KILL 전달과 별개입니다. 오프라인 산술·상태 제어이며 suspend-inclusive host
+clock의 calibration이 아닙니다.
+
+일반 build 뒤 합성 검사를 실행하세요.
+
+```sh
+npm test -- tests/tool-update-codex-window*.test.ts
+```
+
+native acceptance나 B1 준비 완료가 아닙니다. SBPL/APFS는 검증한 filesystem/network
+경계를 강제하지만, 그 자체로 vendor exec 15회·동시 process 16개라는 상태 기반 제한을
+강제하지 못합니다. 예방적 개수 제한 증명, 독립 qualification 검토, suspend-inclusive
+clock calibration, 완전한 vendor TUI/input 순서, 실제 consent-to-source commit 연동은
+검증되지 않았습니다. 실제 실행과 최종 cleanup-audit 명령은 계속 차단됩니다. 기본 테스트는
+합성 입력과 실제 loopback/nonvendor PTY fixture만 사용합니다. 합성·로컬 nonvendor
+결과로 actual-target qualification gate를 닫지 않습니다.
+실제 consent/source 연동, 완전한 input/runtime/system-tool closure, 예방적
+exec/process 및 disk 세부 예산, 실제 clock/admission/dispatch/termination/loss/
+broker/escape 보장 검증, 전체 executor 순서·guard closure, 실제 cleanup
+audit은 `--version`을 포함한 어떤 vendor 시도도 차단하는 미해결 항목입니다.
+consent가 누락된 구현을 대신하지 않습니다. 17번째 receipt 파일의 생성 예방도 검증된
+admission 거부와는 별도로 남아 있습니다.
+
 탐색에서 후보를 찾았다는 이유만으로 실행하지 마세요. 사람이 정확한 이미지, runtime, 범위,
 모델, pin, 종료 예산을 승인해야 합니다. runner는 승인 기록을 만들거나 갱신하지 않습니다.
 `approved: true` 필드는 사람의 결정을 대신하지 않습니다.
