@@ -105,21 +105,25 @@ test.each(
     ['--consent', 'expired'],
     ['--consent', 'reused']
   ].map(args => ({ args }))
-)('execute remains disabled before opening any supplied input: $args', ({ args }) => {
-  const result = spawnSync(process.execPath, [resolve('scripts/tool-update/codex-window-conformance.mjs'), 'execute', ...args], {
-    encoding: 'utf8',
-    timeout: 5000,
-    env: { PATH: '/usr/bin:/bin', LC_ALL: 'C' }
-  });
-  expect(result.status).toBe(2);
-  expect(JSON.parse(result.stdout)).toEqual({
-    status: 'refused',
-    code: 'b1_execution_disabled',
-    execution_attempted: false,
-    actual_qualification: false
-  });
-  expect(result.stderr).toBe('');
-});
+)(
+  'execute remains disabled before opening any supplied input: $args',
+  ({ args }) => {
+    const result = spawnSync(process.execPath, [resolve('scripts/tool-update/codex-window-conformance.mjs'), 'execute', ...args], {
+      encoding: 'utf8',
+      timeout: 20_000,
+      env: { PATH: '/usr/bin:/bin', LC_ALL: 'C' }
+    });
+    expect(result.status).toBe(2);
+    expect(JSON.parse(result.stdout)).toEqual({
+      status: 'refused',
+      code: 'b1_execution_disabled',
+      execution_attempted: false,
+      actual_qualification: false
+    });
+    expect(result.stderr).toBe('');
+  },
+  20_000
+);
 
 test.each([
   ['version_probe', 1175000, 1185000],

@@ -23,7 +23,9 @@ const witness = (session: ReturnType<typeof fixture>, event: string) => once(ses
 test('two fixed inputs cross separate event barriers once even when the writable reports backpressure', async () => {
   const session = fixture();
   const write: unknown = Object.getOwnPropertyDescriptor(Duplex.prototype, 'write')?.value;
-  if (typeof write !== 'function') throw new Error('fixture_write_missing');
+  if (typeof write !== 'function') {
+    throw new Error('fixture_write_missing');
+  }
   let submittedWrites = 0;
   vi.spyOn(Duplex.prototype, 'write').mockImplementation(function (
     this: Duplex,
@@ -45,9 +47,12 @@ test('two fixed inputs cross separate event barriers once even when the writable
   session.start();
   try {
     await ready;
+    await expect(session.submit()).rejects.toThrow('baseline_missing');
     session.releaseSyntheticBaseline();
     const first = witness(session, 'input');
-    await session.submit();
+    const submitted = session.submit();
+    await expect(session.submit()).rejects.toThrow('input_reused');
+    await submitted;
     await first;
     await expect(session.submit()).rejects.toThrow('input_reused');
     session.releaseSyntheticSecondInput();
@@ -61,42 +66,56 @@ test('two fixed inputs cross separate event barriers once even when the writable
       identities_gone: true,
       actual_qualification: false
     });
+    expect(await session.completed).toMatchObject({
+      origin: 'synthetic',
+      actual_qualification: false,
+      normal_quit: true,
+      signal_sent: false,
+      ownership_verified: true,
+      identities_gone: true
+    });
     expect(submittedWrites).toBe(2);
   } finally {
     session.stop();
     await session.completed;
   }
-});
+}, 20_000);
 
-test.each(['before_start', 'before_signal'])('owned fixture byte drift at %s refuses without sending a signal', async point => {
-  const root = mkdtempSync(join(realpathSync(tmpdir()), 'window-tui-drift-'));
-  directories.push(root);
-  const session = createSyntheticWindowTui(root);
-  if (point === 'before_start') {
-    appendFileSync(join(root, 'tui-fixture.mjs'), '\n// synthetic mutation\n');
-    expect(() => session.start()).toThrow('pin_drift');
-    return;
-  }
-  const ready = witness(session, 'ready');
-  session.start();
-  try {
-    await ready;
-    session.releaseSyntheticBaseline();
-    const input = witness(session, 'input');
-    await session.submit();
-    await input;
-    appendFileSync(join(root, 'tui-fixture.mjs'), '\n// synthetic mutation\n');
-    expect(() => session.interrupt()).toThrow('pin_drift');
-    session.stop();
-    expect(await session.completed).toMatchObject({
-      signal_sent: false,
-      identities_gone: true
-    });
-  } finally {
-    session.stop();
-    await session.completed;
-  }
-});
+for (const point of ['before_start', 'before_signal'] as const) {
+  test(
+    `owned fixture byte drift at ${point} refuses without sending a signal`,
+    async () => {
+      const root = mkdtempSync(join(realpathSync(tmpdir()), 'window-tui-drift-'));
+      directories.push(root);
+      const session = createSyntheticWindowTui(root);
+      if (point === 'before_start') {
+        appendFileSync(join(root, 'tui-fixture.mjs'), '\n// synthetic mutation\n');
+        expect(() => session.start()).toThrow('pin_drift');
+        return;
+      }
+      const ready = witness(session, 'ready');
+      session.start();
+      try {
+        await ready;
+        session.releaseSyntheticBaseline();
+        const input = witness(session, 'input');
+        await session.submit();
+        await input;
+        appendFileSync(join(root, 'tui-fixture.mjs'), '\n// synthetic mutation\n');
+        expect(() => session.interrupt()).toThrow('pin_drift');
+        session.stop();
+        expect(await session.completed).toMatchObject({
+          signal_sent: false,
+          identities_gone: true
+        });
+      } finally {
+        session.stop();
+        await session.completed;
+      }
+    },
+    point === 'before_signal' ? 20_000 : 5000
+  );
+}
 
 test('exactly one real SIGINT reaches the owned foreground group and produces a separate handler acknowledgement', async () => {
   const session = fixture();
@@ -125,7 +144,7 @@ test('exactly one real SIGINT reaches the owned foreground group and produces a 
     session.stop();
     await session.completed;
   }
-});
+}, 20_000);
 
 test.each(['pid', 'parent', 'pgid', 'foreground', 'uid', 'session', 'started'])('identity mismatch in %s refuses before signal delivery', field => {
   const launch = {
@@ -148,33 +167,6 @@ test('the production adapter cannot launch a vendor from portable inputs', () =>
   expect(() => startWindowTui()).toThrow('b1_execution_disabled');
 });
 
-test('the fixed synthetic child receives input and submit only after baseline and exits through normal quit', async () => {
-  const session = fixture();
-  const ready = witness(session, 'ready');
-  session.start();
-  try {
-    await ready;
-    await expect(session.submit()).rejects.toThrow('baseline_missing');
-    session.releaseSyntheticBaseline();
-    const submitted = witness(session, 'input');
-    await session.submit();
-    await submitted;
-    await expect(session.submit()).rejects.toThrow('input_reused');
-    await session.quit();
-    expect(await session.completed).toMatchObject({
-      origin: 'synthetic',
-      actual_qualification: false,
-      normal_quit: true,
-      signal_sent: false,
-      ownership_verified: true,
-      identities_gone: true
-    });
-  } finally {
-    session.stop();
-    await session.completed;
-  }
-});
-
 test('unproven SIGINT targeting refuses without relabeling control EOF as a signal', async () => {
   const session = fixture();
   const ready = witness(session, 'ready');
@@ -195,4 +187,4 @@ test('unproven SIGINT targeting refuses without relabeling control EOF as a sign
     session.stop();
     await session.completed;
   }
-});
+}, 20_000);

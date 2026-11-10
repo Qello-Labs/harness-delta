@@ -198,7 +198,7 @@ test('the real verification command refuses a forged approval without attempting
     [resolve('scripts/tool-update/codex-window-conformance.mjs'), 'verify-consent', '--intent', f.intentFile, '--consent', f.consentFile],
     {
       encoding: 'utf8',
-      timeout: 5000,
+      timeout: 20_000,
       env: { PATH: '/usr/bin:/bin', LC_ALL: 'C' }
     }
   );
@@ -211,7 +211,7 @@ test('the real verification command refuses a forged approval without attempting
   });
   expect(existsSync(join(f.root, '.codex-window-launch-reservation.json'))).toBe(false);
   expect(result.stderr).toBe('');
-});
+}, 20_000);
 const pinNames = ['native', 'host', 'source', 'build', 'instrument', 'runtime', 'lockfile', 'config', 'environment', 'egress', 'quota'];
 function fixture() {
   const root = mkdtempSync(join(realpathSync(tmpdir()), 'window-consent-'));

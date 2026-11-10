@@ -1,3 +1,4 @@
+import { channel } from 'node:diagnostics_channel';
 import { once } from 'node:events';
 import { Socket } from 'node:net';
 import { afterEach, expect, test } from 'vitest';
@@ -129,7 +130,7 @@ test.each(['deadline', 'protocol'])('a %s failure stops sibling listeners, accep
   await expect(second.start()).rejects.toThrow();
 });
 
-test('ordinary successful case closure does not stop the remaining batch cases', async () => {
+test('ordinary successful case closure does not stop the remaining batch cases', async ({ onTestFinished }) => {
   const batch = createWindowOracleBatch();
   const vectors = [{ input: 1, output: 1, cached: 0, reasoning: 0 }];
   for (let index = 0; index < 2; index += 1) {
@@ -139,16 +140,32 @@ test('ordinary successful case closure does not stop the remaining batch cases',
     });
     servers.push(server);
     const port = await server.listen();
+    const connections = channel('net.server.socket');
+    const accepted = new Promise<Socket>(resolve => {
+      const observe = (message: unknown) => {
+        if (typeof message === 'object' && message !== null && 'socket' in message && message.socket instanceof Socket && message.socket.localPort === port) {
+          resolve(message.socket);
+        }
+      };
+      connections.subscribe(observe);
+      onTestFinished(() => connections.unsubscribe(observe));
+    });
+    const peer = await client(port);
+    const socket = await accepted;
     const received = once(server.events, 'request', {
       signal: AbortSignal.timeout(1000)
     });
-    const peer = await client(port);
     peer.socket.write(request());
     await received;
     await server.start();
+    const closed = once(socket, 'close', {
+      signal: AbortSignal.timeout(1000)
+    });
     await server.complete();
     await peer.closed;
     await server.close();
+    // Listener closure can precede the socket's batch-admission release.
+    await closed;
     expect(server.summary()).toMatchObject({
       completed: 1,
       stopped: false,
