@@ -23,7 +23,7 @@ test.each([false, true])('quiet pinned documentation authenticates and revalidat
   ]);
   expect(result.evidence.flatMap(record => record.findings).every(row => row.result === 'unknown')).toBe(true);
   expect(judgment.groups.map(group => group.result)).toEqual(Array.from({ length: 8 }, () => 'unknown'));
-  expect([...wire.counts.values()].every(count => count === 2)).toBe(true);
+  expect([...wire.counts].every(([path, count]) => count === (path.includes('/git/ref/') || path.endsWith('/claude-code') ? 2 : 1))).toBe(true);
   expect(new Set(wire.calls.map(url => url.host))).toEqual(new Set(['api.github.com']));
   expect(result.evidence.every(record => parseDifferenceEvidence(record).to_content_hash !== null)).toBe(true);
 });
@@ -160,6 +160,7 @@ test.each([
 ])('%s documentation discards prior success with fixed failure %s', async (state, failure) => {
   const wire = documentationWire({
     rewrite: (url, attempt, response) => {
+      if (state === 'drifted' && url.pathname.endsWith('claude-code') && attempt === 2) return new Response(privateMarker);
       if (state === 'wrong repository' && url.pathname.endsWith('claude-code')) {
         return new Response(
           JSON.stringify({
@@ -200,8 +201,6 @@ test.each([
               }
             })
           );
-        case 'drifted':
-          return attempt === 2 ? new Response(privateMarker) : response;
         case 'oversized':
           return new Response(privateMarker, {
             headers: {

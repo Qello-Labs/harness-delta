@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
-import { canonical, compareVersions, digest, fail, ToolUpdateError, versionSchema } from './manifest.mjs';
+import { canonical, compareVersions, digest, fail, githubAuthorization, immutableGithubPath, ToolUpdateError, versionSchema } from './manifest.mjs';
 import {
   claudeDocumentationPaths,
   claudeDocumentationRules,
@@ -189,7 +189,8 @@ function sourceTransport(fetchImpl, signal, ledger, repository = { path: reposit
       signal.throwIfAborted();
       const headers = {
         accept: path.startsWith('/git/blobs/') || path.startsWith('/contents/') ? 'application/vnd.github.raw+json' : 'application/vnd.github+json',
-        'user-agent': 'harness-delta-tool-update'
+        'user-agent': 'harness-delta-tool-update',
+        ...githubAuthorization(current.href, 'source_identity_invalid')
       };
       if (validator !== null) headers['if-none-match'] = validator;
       ledger.responses++;
@@ -255,6 +256,7 @@ function sourceTransport(fetchImpl, signal, ledger, repository = { path: reposit
     },
     async revalidate() {
       for (const [path, snapshot] of snapshots) {
+        if (immutableGithubPath(path)) continue;
         const response = await request(path, snapshot.etag);
         if (response !== null && hash(response.bytes) !== snapshot.digest) fail('source_identity_drift');
       }

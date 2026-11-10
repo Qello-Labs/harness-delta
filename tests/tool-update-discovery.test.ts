@@ -154,7 +154,7 @@ test('resolves annotated tags to exact commits and revalidates every peel', asyn
   });
   const result = await discover('codex', { fetchImpl: wire.fetchImpl, now });
   expect(result.candidate?.commit).toBe(commit);
-  expect(wire.calls.filter(row => row.url.includes('/git/tags/'))).toHaveLength(2);
+  expect(wire.calls.filter(row => row.url.includes('/git/tags/'))).toHaveLength(1);
   expect(result.observation.checks.filter(row => row.source === 'github_tag')).toHaveLength(1);
 });
 

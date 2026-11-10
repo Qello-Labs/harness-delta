@@ -16,6 +16,17 @@ export class ToolUpdateError extends Error {
   }
 }
 export function fail(code) { throw new ToolUpdateError(code); }
+export function githubAuthorization(url, invalidCode) {
+  const token = process.env.HARNESS_DELTA_GITHUB_TOKEN;
+  if (token && !/^[A-Za-z0-9._~+/-]+=*(?![\s\S])/.test(token)) fail(invalidCode);
+  return token && new URL(url).origin === 'https://api.github.com' ? { authorization: `Bearer ${token}` } : {};
+}
+export function immutableGithubPath(path) {
+  return !/[\r\n]/.test(path) && (
+    /^\/git\/(?:trees|blobs|tags)\/[a-fA-F0-9]{40}$/.test(path) ||
+    /^\/contents\/[^/?#]+(?:\/[^/?#]+)*\?ref=[a-fA-F0-9]{40}$/.test(path)
+  );
+}
 export function compareVersions(a, b) {
   const left = versionSchema.parse(a).split('.').map(Number);
   const right = versionSchema.parse(b).split('.').map(Number);

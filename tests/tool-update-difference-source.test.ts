@@ -49,7 +49,7 @@ test.each([false, true])('identical complete closures establish only client face
       .filter(facet => ['native_execution', 'backend_counter_meaning'].includes(facet.facet))
       .every(facet => facet.result === 'unknown')
   ).toBe(true);
-  expect([...wire.counts.values()].every(count => count === 2)).toBe(true);
+  expect([...wire.counts].every(([path, count]) => count === (path.includes('/git/ref/') || path.endsWith('/codex') ? 2 : 1))).toBe(true);
   expect(new Set(wire.calls.map(call => call.url.host))).toEqual(new Set(['api.github.com']));
   expect(wire.calls.every(call => call.init.redirect === 'manual' && call.init.signal instanceof AbortSignal)).toBe(true);
 });
@@ -457,7 +457,7 @@ test.each([
 test.each([
   ['tag drift', '/git/ref/tags/', 'source_identity_drift'],
   ['repository drift', '/repos/openai/codex', 'source_identity_drift'],
-  ['tree drift', '/git/trees/', 'source_identity_drift']
+  ['late tag drift', '/git/ref/tags/rust-v0.165.0', 'source_identity_drift']
 ] as const)('%s during revalidation discards all earlier successes', async (_name, path, failure) => {
   const wire = sourceFixture({
     rewrite: async (url, attempt, response) => (url.pathname.includes(path) && attempt === 2 ? new Response(`${await response.text()} `) : response)
@@ -541,7 +541,7 @@ test('decoded job bytes include revalidation and stop at the fixed cumulative li
     rewrite: async (url, _attempt, response) => {
       if (response.status !== 200 || url.pathname.includes('/git/blobs/')) return response;
       const text = await response.text();
-      return new Response(`${text}${' '.repeat(512 * 1024 - text.length)}`);
+      return new Response(`${text}${' '.repeat(800 * 1024 - text.length)}`);
     }
   });
   const result = await collectCodexSourceEvidence(wire.job, {
