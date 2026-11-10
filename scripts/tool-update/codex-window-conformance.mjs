@@ -229,6 +229,11 @@ export const planSchema = z.strictObject({
 		environment_path: z.string().max(4096),
 		profile_path: z.string().max(4096),
 		quota_packet_path: z.string().max(4096),
+		native_manifest_path: z.string().max(4096),
+		native_manifest_sha256: sha,
+		native_manifest_identity: z.string().max(128).regex(
+			/^\d+:\d+:\d+:\d+$/,
+		),
 	}).optional(),
 });
 

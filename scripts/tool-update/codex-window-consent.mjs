@@ -12,6 +12,7 @@ import {
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { z } from "zod";
 import { hashFile, snapshotWindowPins } from "./fixtures.mjs";
+import { revalidateNativeWindowInputs } from "./codex-window-native.mjs";
 import {
 	ownedWindowDirectory,
 	planSchema,
@@ -186,6 +187,7 @@ export function snapshotWindowExecutorPins(intent) {
 		);
 	}
 	windowRequire(lstatSync(inputs.host_path).size <= 134217728, "pin_drift");
+	revalidateNativeWindowInputs(inputs, intent.case_root);
 	const windowPins = snapshotWindowPins({
 		product: "codex",
 		executionMode: "source",

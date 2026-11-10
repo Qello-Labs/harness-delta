@@ -1,9 +1,25 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  renameSync,
+  rmSync,
+  symlinkSync,
+  truncateSync,
+  writeFileSync
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterEach, expect, test, vi } from 'vitest';
+import { z } from 'zod';
+import { deriveWindowNativeRecipe } from '../scripts/tool-update/codex-window-native-recipe.mjs';
 import {
   reserveWindowConsent,
   revalidateWindowConsent,
@@ -126,6 +142,7 @@ test('a consent-bound synthetic case uses genuine exact-root trial and collectio
 });
 afterEach(() => {
   vi.useRealTimers();
+  vi.restoreAllMocks();
   for (const root of roots.splice(0)) {
     rmSync(root, { recursive: true, force: true });
   }
@@ -280,24 +297,9 @@ function fixture() {
 
 test('real file preflight rehashes every scoped executor input instead of trusting a cached caller pin', () => {
   const f = fixture();
-  const prefix = join(f.root, 'prefix');
   const caseRoot = join(f.root, 'cases/normal');
-  mkdirSync(prefix, { mode: 0o700 });
-  mkdirSync(caseRoot, { mode: 0o700, recursive: true });
-  const inputs = {
-    batch_root: f.root,
-    prefix_root: prefix,
-    native_path: join(prefix, 'synthetic-native'),
-    host_path: join(prefix, 'synthetic-host'),
-    config_path: join(caseRoot, 'config.json'),
-    environment_path: join(caseRoot, 'environment.json'),
-    profile_path: join(f.root, 'profile.sb'),
-    quota_packet_path: join(f.root, 'quota.json')
-  };
+  const { inputs } = nativeFixture(f.root);
   const files = [inputs.native_path, inputs.host_path, inputs.config_path, inputs.environment_path, inputs.profile_path, inputs.quota_packet_path];
-  for (const path of files) {
-    writeFileSync(path, 'synthetic-only', { mode: 0o600 });
-  }
   const scopedIntent = {
     ...f.intent,
     case_root: caseRoot,
@@ -331,10 +333,453 @@ test('real file preflight rehashes every scoped executor input instead of trusti
   });
   expect(() => createSyntheticWindowCollection(capability, pins)).toThrow('b1_execution_disabled');
   for (const path of files) {
+    const original = readFileSync(path);
     appendFileSync(path, '-changed');
     expect(() => revalidateWindowConsent(capability, pins)).toThrow('pin_drift');
-    writeFileSync(path, 'synthetic-only');
+    writeFileSync(path, original);
   }
+});
+
+test.each(['launcher', 'tool', 'interpreter', 'process', 'runtime_data', 'host_root', 'node_root', 'environment_markers'])(
+  'native preflight refuses omitted or extra %s closure',
+  variant => {
+    const f = fixture();
+    const n = nativeFixture(f.root);
+    const intent = {
+      ...f.intent,
+      case_root: join(f.root, 'cases/normal'),
+      plan: { ...f.intent.plan, inputs: n.inputs }
+    };
+    if (variant === 'launcher') {
+      n.manifest.files = n.manifest.files.filter(row => row.role !== 'launcher');
+    }
+    if (variant === 'tool') {
+      const tool = n.manifest.files.find(row => row.role === 'system_tool');
+      if (!tool) throw new Error('fixture_tool_missing');
+      tool.path = n.toolPath;
+    }
+    if (variant === 'interpreter') {
+      n.manifest.process_paths.push(realpathSync(process.execPath));
+    }
+    if (variant === 'process') {
+      n.manifest.process_paths.push(n.denied[0] ?? '');
+    }
+    if (variant === 'runtime_data') {
+      n.manifest.runtime_paths = n.manifest.runtime_paths.filter(path => path !== n.toolPath);
+    }
+    if (variant === 'host_root') {
+      n.manifest.argv = [n.inputs.host_path];
+      writeFileSync(n.argvPath, JSON.stringify(n.manifest.argv));
+      const argv = n.manifest.files.find(row => row.role === 'argv');
+      if (!argv) throw new Error('fixture_argv_missing');
+      argv.size = lstatSync(n.argvPath).size;
+      argv.sha256 = sha256(n.argvPath);
+    }
+    if (variant === 'node_root') {
+      n.manifest.argv = [realpathSync(process.execPath), join(n.inputs.prefix_root, 'node_modules/@openai/codex/bin/codex.js'), '--version'];
+      writeFileSync(n.argvPath, JSON.stringify(n.manifest.argv));
+      const argv = n.manifest.files.find(row => row.role === 'argv');
+      if (!argv) throw new Error('fixture_argv_missing');
+      argv.size = lstatSync(n.argvPath).size;
+      argv.sha256 = sha256(n.argvPath);
+    }
+    if (variant === 'environment_markers') {
+      writeFileSync(
+        n.inputs.environment_path,
+        JSON.stringify({
+          CODEX_MANAGED_BY_NPM: '0',
+          CODEX_MANAGED_BY_BUN: '1'
+        })
+      );
+      const environment = n.manifest.files.find(row => row.role === 'environment');
+      if (!environment) throw new Error('fixture_environment_missing');
+      environment.size = lstatSync(n.inputs.environment_path).size;
+      environment.sha256 = sha256(n.inputs.environment_path);
+    }
+    n.freezeManifest();
+    expect(() => snapshotWindowExecutorPins(intent)).toThrow('pin_drift');
+  }
+);
+
+test('native preflight refuses an omitted loaded Node interpreter dependency', () => {
+  const f = fixture();
+  const dependency = join(f.root, 'synthetic-loaded-dependency.dylib');
+  writeFileSync(dependency, 'synthetic-runtime-dependency', { mode: 0o600 });
+  vi.spyOn(process.report, 'getReport').mockReturnValue({
+    ...process.report.getReport(),
+    sharedObjects: [dependency]
+  });
+  const n = nativeFixture(f.root);
+  const intent = {
+    ...f.intent,
+    case_root: join(f.root, 'cases/normal'),
+    plan: { ...f.intent.plan, inputs: n.inputs }
+  };
+  expect(() => snapshotWindowExecutorPins(intent)).not.toThrow();
+  n.manifest.files = n.manifest.files.filter(row => row.path !== dependency);
+  n.manifest.runtime_paths = n.manifest.runtime_paths.filter(path => path !== dependency);
+  n.freezeManifest();
+  expect(() => snapshotWindowExecutorPins(intent)).toThrow('pin_drift');
+});
+
+test.each(['inode', 'target'])('native preflight binds runtime alias %s identity', variant => {
+  const f = fixture();
+  const n = nativeFixture(f.root);
+  const alias = join(f.root, 'runtime-alias');
+  symlinkSync(n.toolPath, alias);
+  const stat = lstatSync(alias, { bigint: true });
+  const row = {
+    path: alias,
+    mode: Number(stat.mode & 0o7777n),
+    dev: stat.dev.toString(),
+    ino: stat.ino.toString(),
+    target: n.toolPath
+  };
+  n.manifest.runtime_links.push(row);
+  n.freezeManifest();
+  const intent = {
+    ...f.intent,
+    case_root: join(f.root, 'cases/normal'),
+    plan: { ...f.intent.plan, inputs: n.inputs }
+  };
+  expect(() => snapshotWindowExecutorPins(intent)).not.toThrow();
+  if (variant === 'inode') {
+    renameSync(alias, alias + '.old');
+    symlinkSync(n.toolPath, alias);
+  } else {
+    row.target = n.inputs.native_path;
+    n.freezeManifest();
+  }
+  expect(() => snapshotWindowExecutorPins(intent)).toThrow('pin_drift');
+});
+
+function runtimeFixturePaths() {
+  return z
+    .object({ sharedObjects: z.array(z.string()) })
+    .parse(process.report.getReport())
+    .sharedObjects.filter(path => !path.startsWith('/usr/lib/') && !path.startsWith('/System/'))
+    .map(path => realpathSync(path));
+}
+
+const sha256 = (path: string) => createHash('sha256').update(readFileSync(path)).digest('hex');
+
+function nativeFixture(root: string) {
+  const prefix = join(root, 'prefix');
+  const caseRoot = join(root, 'cases/normal');
+  const bin = join(prefix, 'node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin');
+  const launcher = join(prefix, 'node_modules/@openai/codex/bin/codex.js');
+  mkdirSync(join(prefix, 'node_modules/@openai/codex/bin'), {
+    recursive: true,
+    mode: 0o700
+  });
+  mkdirSync(bin, { recursive: true, mode: 0o700 });
+  mkdirSync(caseRoot, { recursive: true, mode: 0o700 });
+  const inputs = {
+    batch_root: root,
+    prefix_root: prefix,
+    native_path: join(bin, 'codex'),
+    host_path: join(bin, 'codex-code-mode-host'),
+    config_path: join(caseRoot, 'config.json'),
+    environment_path: join(caseRoot, 'environment.json'),
+    profile_path: join(root, 'profile.sb'),
+    quota_packet_path: join(root, 'quota.json'),
+    native_manifest_path: join(root, 'native-manifest.json'),
+    native_manifest_sha256: '',
+    native_manifest_identity: ''
+  };
+  const denied = ['rg', 'voice-host', 'libvoice.dylib', 'resource.json'].map(name => join(prefix, name));
+  const argvPath = join(caseRoot, 'argv.json');
+  const toolPath = join(root, 'synthetic-system-tool');
+  const runtime = realpathSync(process.execPath);
+  const dependencies = [...new Set(runtimeFixturePaths())].filter(path => path !== runtime);
+  const launcherInput = {
+    argv_tail: ['--version'],
+    environment: { PATH: '/usr/bin:/bin' }
+  };
+  const recipe = deriveWindowNativeRecipe(prefix, launcherInput);
+  const argv = [...recipe.argv];
+  const roles = [
+    [inputs.native_path, 'native'],
+    [inputs.host_path, 'host'],
+    [inputs.config_path, 'config'],
+    [inputs.environment_path, 'environment'],
+    [argvPath, 'argv'],
+    [toolPath, 'runtime_data'],
+    [launcher, 'launcher'],
+    [inputs.profile_path, 'profile'],
+    [inputs.quota_packet_path, 'quota'],
+    [recipe.resolution.platform_package_json, 'denied'],
+    ...denied.map(path => [path, 'denied'])
+  ];
+  for (const [path, role] of roles) {
+    if (path) {
+      writeFileSync(path, role === 'argv' ? JSON.stringify(argv) : role === 'environment' ? JSON.stringify(recipe.environment) : 'synthetic-only', {
+        mode: 0o600
+      });
+    }
+  }
+  const files = [...roles, ...dependencies.map(path => [path, 'runtime_data']), [runtime, 'runtime'], [realpathSync('/bin/ps'), 'system_tool']].map(
+    ([path, role]) => {
+      if (!path || !role) throw new Error('fixture_role_missing');
+      const stat = lstatSync(path, { bigint: true });
+      return {
+        path,
+        role,
+        size: Number(stat.size),
+        mode: Number(stat.mode & 0o7777n),
+        dev: stat.dev.toString(),
+        ino: stat.ino.toString(),
+        sha256: sha256(path),
+        ...(role === 'system_tool' ? { tool: 'ps' } : {})
+      };
+    }
+  );
+  const directories = nativeDirectoryFixture(prefix);
+  const inventoryPath = join(root, 'b0-inventory.json');
+  const inventory = {
+    files: files
+      .filter(row => row.path.startsWith(prefix + '/'))
+      .map(row => ({
+        path: row.path,
+        size: row.size,
+        mode: '0' + row.mode.toString(8),
+        sha256: row.sha256,
+        mach_o: {
+          signing: {
+            cdhash: 'a'.repeat(40),
+            identifier: 'synthetic-only',
+            verification: 'synthetic'
+          }
+        }
+      }))
+  };
+  writeFileSync(inventoryPath, JSON.stringify(inventory), { mode: 0o600 });
+  const runtimeLinks: {
+    path: string;
+    mode: number;
+    dev: string;
+    ino: string;
+    target: string;
+  }[] = [];
+  const manifest = {
+    schema_version: 1,
+    prefix_root: prefix,
+    b0_inventory: {
+      path: inventoryPath,
+      sha256: sha256(inventoryPath),
+      mode: lstatSync(inventoryPath).mode & 0o7777,
+      size: lstatSync(inventoryPath).size,
+      dev: lstatSync(inventoryPath, { bigint: true }).dev.toString(),
+      ino: lstatSync(inventoryPath, { bigint: true }).ino.toString()
+    },
+    argv,
+    launcher_input: launcherInput,
+    process_paths: [inputs.native_path, inputs.host_path],
+    runtime_paths: [runtime, toolPath, ...dependencies],
+    runtime_links: runtimeLinks,
+    system_tools: ['ps'],
+    files,
+    directories
+  };
+  function freezeManifest() {
+    writeFileSync(inputs.native_manifest_path, JSON.stringify(manifest), {
+      mode: 0o600
+    });
+    inputs.native_manifest_sha256 = sha256(inputs.native_manifest_path);
+    const stat = lstatSync(inputs.native_manifest_path, { bigint: true });
+    inputs.native_manifest_identity = [stat.dev, stat.ino, stat.size, stat.mode & 0o7777n].join(':');
+  }
+  freezeManifest();
+  return {
+    inputs,
+    manifest,
+    denied,
+    argvPath,
+    toolPath,
+    inventoryPath,
+    freezeManifest
+  };
+}
+
+function nativeDirectoryFixture(prefix: string) {
+  const directories: {
+    path: string;
+    mode: number;
+    dev: string;
+    ino: string;
+    entries: string[];
+  }[] = [];
+  function visit(path: string) {
+    const stat = lstatSync(path, { bigint: true });
+    const entries = readdirSync(path).sort();
+    directories.push({
+      path,
+      mode: Number(stat.mode & 0o7777n),
+      dev: stat.dev.toString(),
+      ino: stat.ino.toString(),
+      entries
+    });
+    for (const name of entries) {
+      if (lstatSync(join(path, name)).isDirectory()) {
+        visit(join(path, name));
+      }
+    }
+  }
+  visit(prefix);
+  return directories;
+}
+
+test.each([
+  'same_bytes_inode',
+  'mode',
+  'device',
+  'inode',
+  'size',
+  'hash',
+  'extra_resource',
+  'empty_directory',
+  'denied_bytes',
+  'runtime',
+  'system_tool',
+  'argv',
+  'manifest_bytes',
+  'inventory_bytes',
+  'missing_manifest',
+  'missing_file',
+  'symlink',
+  'host_sibling',
+  'native_limit',
+  'host_limit',
+  'unlisted_directory',
+  'omitted_denied',
+  'argv_binding',
+  'manifest_replacement',
+  'inventory_replacement',
+  'profile_replacement',
+  'quota_replacement'
+])('frozen native preflight refuses %s without executing any inventoried file', variant => {
+  const f = fixture();
+  const n = nativeFixture(f.root);
+  const intent = {
+    ...f.intent,
+    case_root: join(f.root, 'cases/normal'),
+    plan: { ...f.intent.plan, inputs: n.inputs }
+  };
+  expect(() => snapshotWindowExecutorPins(intent)).not.toThrow();
+  const native = n.manifest.files.find(row => row.role === 'native');
+  if (!native) throw new Error('fixture_native_missing');
+  if (variant.endsWith('_replacement')) {
+    const paths = new Map([
+      ['manifest_replacement', n.inputs.native_manifest_path],
+      ['inventory_replacement', n.inventoryPath],
+      ['profile_replacement', n.inputs.profile_path],
+      ['quota_replacement', n.inputs.quota_packet_path]
+    ]);
+    const path = paths.get(variant);
+    if (!path) throw new Error('fixture_replacement_missing');
+    const replacement = join(f.root, 'replacement');
+    writeFileSync(replacement, readFileSync(path), { mode: 0o600 });
+    renameSync(replacement, path);
+  } else if (variant === 'same_bytes_inode') {
+    const replacement = join(f.root, 'replacement');
+    writeFileSync(replacement, readFileSync(n.inputs.native_path), {
+      mode: 0o600
+    });
+    renameSync(replacement, n.inputs.native_path);
+  } else if (variant === 'mode') chmodSync(n.inputs.native_path, 0o644);
+  else if (['device', 'inode', 'size', 'hash'].includes(variant)) {
+    if (variant === 'device') {
+      native.dev = (BigInt(native.dev) + 1n).toString();
+    }
+    if (variant === 'inode') {
+      native.ino = (BigInt(native.ino) + 1n).toString();
+    }
+    if (variant === 'size') native.size += 1;
+    if (variant === 'hash') native.sha256 = 'f'.repeat(64);
+    n.freezeManifest();
+  } else if (variant === 'extra_resource') {
+    writeFileSync(join(n.inputs.prefix_root, 'extra-resource'), 'extra');
+  } else if (variant === 'empty_directory') {
+    mkdirSync(join(n.inputs.prefix_root, 'extra-directory'));
+  } else if (variant === 'denied_bytes') {
+    appendFileSync(n.denied[2] ?? '', 'changed');
+  } else if (['runtime', 'system_tool'].includes(variant)) {
+    const row = n.manifest.files.find(row => row.role === variant);
+    if (!row) throw new Error('fixture_role_missing');
+    row.sha256 = 'f'.repeat(64);
+    n.freezeManifest();
+  } else if (variant === 'argv') appendFileSync(n.argvPath, '\n');
+  else if (variant === 'manifest_bytes') {
+    appendFileSync(n.inputs.native_manifest_path, '\n');
+  } else if (variant === 'inventory_bytes') {
+    appendFileSync(n.inventoryPath, '\n');
+  } else if (variant === 'missing_manifest') {
+    renameSync(n.inputs.native_manifest_path, join(f.root, 'removed'));
+  } else if (variant === 'missing_file') {
+    renameSync(n.toolPath, join(f.root, 'removed'));
+  } else if (variant === 'symlink') {
+    renameSync(n.toolPath, join(f.root, 'tool-target'));
+    symlinkSync(join(f.root, 'tool-target'), n.toolPath);
+  } else if (variant === 'host_sibling') {
+    n.inputs.host_path = n.inputs.native_path;
+  } else if (variant === 'native_limit') {
+    truncateSync(n.inputs.native_path, 300 * 1048576 + 1);
+  } else if (variant === 'host_limit') {
+    truncateSync(n.inputs.host_path, 128 * 1048576 + 1);
+  } else if (variant === 'unlisted_directory') {
+    n.manifest.directories.pop();
+    n.freezeManifest();
+  } else if (variant === 'omitted_denied') {
+    n.manifest.files = n.manifest.files.filter(row => row.path !== n.denied[0]);
+    n.freezeManifest();
+  } else if (variant === 'argv_binding') {
+    n.manifest.argv = ['exec'];
+    n.freezeManifest();
+  }
+  expect(() => snapshotWindowExecutorPins(intent)).toThrow('pin_drift');
+});
+
+test.each(['same_bytes_inode', 'extra_resource'])('local verified consent rechecks %s even when supplied cached pins', variant => {
+  const f = fixture();
+  const n = nativeFixture(f.root);
+  const caseRoot = join(f.root, 'cases/normal');
+  const intent = {
+    ...f.intent,
+    case_root: caseRoot,
+    plan: { ...f.intent.plan, inputs: n.inputs }
+  };
+  const pins = snapshotWindowExecutorPins(intent);
+  const bytes = JSON.stringify({
+    ...intent,
+    plan: { ...intent.plan, pins }
+  });
+  const intentFile = join(caseRoot, 'intent.json');
+  const consentFile = join(caseRoot, 'consent.json');
+  writeFileSync(intentFile, bytes, { mode: 0o600 });
+  writeFileSync(
+    consentFile,
+    JSON.stringify({
+      ...f.consent,
+      case_root: caseRoot,
+      pins,
+      intent_sha256: createHash('sha256').update(bytes).digest('hex')
+    }),
+    { mode: 0o600 }
+  );
+  vi.useFakeTimers();
+  vi.setSystemTime(2000);
+  const capability = reserveWindowConsent({ intentFile, consentFile });
+  if (variant === 'same_bytes_inode') {
+    const path = n.denied[2];
+    if (!path) throw new Error('fixture_denied_missing');
+    const replacement = join(f.root, 'replacement');
+    writeFileSync(replacement, readFileSync(path), { mode: 0o600 });
+    renameSync(replacement, path);
+  } else {
+    writeFileSync(join(n.inputs.prefix_root, 'extra-resource'), 'synthetic-only');
+  }
+  expect(() => revalidateWindowConsent(capability, pins)).toThrow('pin_drift');
+  expect(existsSync(join(caseRoot, 'project'))).toBe(false);
 });
 
 test('an external packet is accepted only for its exact frozen intent and pin binding', () => {
