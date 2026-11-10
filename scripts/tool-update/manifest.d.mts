@@ -5,6 +5,8 @@ export const shaSchema: z.ZodString;
 export const maxRecordBytes: number;
 export class ToolUpdateError extends Error { readonly code: string; constructor(code: string); }
 export function fail(code: string): never;
+export function githubAuthorization(url: string, invalidCode: string): { readonly authorization: string } | { readonly authorization?: never };
+export function immutableGithubPath(path: string): boolean;
 export function compareVersions(a: string, b: string): number;
 export function canonical(value: unknown): string;
 export function digest(value: unknown): string;

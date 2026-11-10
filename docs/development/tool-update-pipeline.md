@@ -28,8 +28,9 @@ these records changes a default.
 It won't install anything or run a vendor binary. It also doesn't read sessions,
 the user database, or tool configuration, and it never changes admission, defaults,
 CI, or tracked files. Only `discover` and `collect-difference-evidence` make network
-requests. Both send fixed read requests to official endpoints, with no secrets and no
-caller-supplied URL parameters.
+requests. Both send fixed read requests to official endpoints, with no
+caller-supplied URL parameters. An explicitly supplied GitHub token is used only
+in request headers and is never retained in records.
 
 The tool never performs a contract review. It only records and reads a maintainer's
 manual judgments. Conformance, regression, admission, and default promotion are
@@ -119,8 +120,12 @@ Tag lookups use the same prefix spelling as the current GitHub latest tag.
 Alternate tag spellings are neither queried nor checked for conflicts.
 GitHub-only intermediate releases and full historical GitHub coverage are not
 verified. Historical release pagination is not requested or followed.
-It revalidates every queried resource with ETags or repeated digests before
-finishing. Drift or an exhausted budget is `discovery_incomplete`,
+It revalidates mutable resources with ETags or repeated digests before finishing.
+Full 40-hex SHA-addressed annotated tag objects are not revalidated; repository
+metadata, release metadata, tag refs and npm metadata still are.
+Repeated reads of the same resource must agree on their digest within the job,
+including SHA-addressed objects.
+Drift or an exhausted budget is `discovery_incomplete`,
 not success. That check gives bounded retrieval consistency. It isn't an atomic
 snapshot across GitHub and npm, so don't describe it as one.
 
@@ -128,11 +133,23 @@ A failed discovery still writes a sanitized observation when storage works. In t
 case `candidate_id` is `null` and the exit code is 2. An earlier successful
 observation never stands in for a failed one.
 
-This increment uses unauthenticated public requests. GitHub's primary limit is
+Without an explicit token, this increment uses unauthenticated public requests.
+GitHub's unauthenticated primary limit is
 [60 requests per hour per originating IP](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api).
 Revalidation and tag resolution also consume requests. The local 512-response
 ceiling does not grant that much upstream quota; `rate_limited` leaves discovery incomplete.
-There is no automatic retry or token loading.
+There is no automatic retry or credential discovery. Both network commands read
+only the optional `HARNESS_DELTA_GITHUB_TOKEN` environment variable. A non-empty
+value opts in to a Bearer authorization header on `https://api.github.com` only;
+npm and refused cross-origin redirects never receive it. `GITHUB_TOKEN`, `gh`
+configuration and keychains are not read. Non-empty values must use RFC 6750 ASCII
+`b64token` characters with optional trailing `=` padding. Whitespace (including
+tabs), controls, DEL and non-ASCII values cause a fixed failure before any fetch.
+A 401 uses the existing `http_error` discovery
+reason or `source_http_error` collector failure. The credential is never included
+in records, IDs or diagnostics; identical responses produce identical records
+with or without authentication. Authentication does not raise local limits or
+guarantee upstream quota.
 Each reviewed version needs multiple GitHub requests, including revalidation.
 An old baseline can exhaust upstream quota far below the local ceiling. Advance
 a baseline only after actual contract review, not to bypass the limit.
@@ -449,12 +466,20 @@ Only `api.github.com` is contacted, with same-origin/resource manual redirects.
 Limits are 4 MiB decoded per document, 16 MiB per job including identity
 revalidation, 128 responses, five redirects and 120 seconds. Failed, truncated,
 drifted or exhausted reads produce unavailable evidence, never partial success.
+Revalidation skips only exact `/git/trees/<sha>`, `/git/blobs/<sha>` and
+`/git/tags/<sha>` paths with full 40-hex SHAs, and `/contents/<path>` with exactly
+a full-SHA `ref` query. Repository metadata, tag refs, named refs and unclassified
+paths remain revalidated. Repeated gets still detect in-job byte drift, including
+for immutable resources. A synthetic five-version job uses 76 initial requests
+plus six mutable-resource revalidations, 82 total; actual jobs may differ.
 Bodies are transient; records retain hashes and finite findings only. Client-source
 identity does not establish packaging, native execution, delivery or backend meaning.
 
 The Claude documentation library uses the same bounds and host, authenticates
 `anthropics/claude-code`, resolves exact `v<version>` tags to the job commits and
-revalidates `CHANGELOG.md` blobs. Only exact version sections in the comparison
+reads pinned `CHANGELOG.md` blobs without redundant SHA-object revalidation.
+Mutable repository metadata, tag refs and unversioned contents remain revalidated.
+Only exact version sections in the comparison
 interval are inspected. A finite keyword table requests scoped checks; only a
 complete mapped statement contradicting a consumed guarantee can mark it affected.
 Quiet, absent or unsupported documentation never establishes `unaffected`.

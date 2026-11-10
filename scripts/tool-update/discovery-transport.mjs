@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { digest, fail } from './manifest.mjs';
+import { digest, fail, githubAuthorization, immutableGithubPath } from './manifest.mjs';
 import { instant, checkOrder } from './discovery-records.mjs';
 
 const hashBytes = value => createHash('sha256').update(value).digest('hex');
@@ -9,6 +9,7 @@ const redirects = new Set([301, 302, 303, 307, 308]);
 export function transport(fetchImpl, now, signal) {
   let total = 0;
   const snapshots = [];
+  const observed = new Map();
   const groups = new Map();
   let repositoryIdentity;
   function stamp() {
@@ -39,6 +40,7 @@ export function transport(fetchImpl, now, signal) {
         accept: 'application/vnd.github+json',
         'user-agent': 'harness-delta-tool-update',
       };
+      Object.assign(headers, githubAuthorization(current, 'metadata_invalid'));
       if (etag !== null) headers['if-none-match'] = etag;
       const response = await bounded(fetchImpl(current, { redirect: 'manual', signal, headers }));
       if (response.redirected || (response.url && response.url !== current)) fail('redirect_invalid');
@@ -104,6 +106,9 @@ export function transport(fetchImpl, now, signal) {
     async get(url, source, key) {
       if (snapshots.length >= 512) fail('reference_limit');
       const response = await request(url, source);
+      const previous = observed.get(url);
+      if (previous !== undefined && previous !== response.rawDigest) fail('metadata_drift');
+      observed.set(url, response.rawDigest);
       snapshots.push({ url, source, key, ...response });
       let body;
       try { body = JSON.parse(response.bytes.toString('utf8')); }
@@ -120,6 +125,8 @@ export function transport(fetchImpl, now, signal) {
     },
     async revalidate() {
       for (const entry of snapshots) {
+        const url = new URL(entry.url);
+        if (url.origin === 'https://api.github.com' && immutableGithubPath(url.pathname.replace(/^\/repos\/[^/]+\/[^/]+/, '') + url.search)) continue;
         const response = await request(entry.url, entry.source, entry.etag);
         if (!response.unchanged && (response.rawDigest !== entry.rawDigest || response.link !== entry.link)) fail('metadata_drift');
         groups.get(`${entry.source}:${entry.key}`).checked_at = response.checkedAt;
