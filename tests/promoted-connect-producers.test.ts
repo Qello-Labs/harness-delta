@@ -7,6 +7,7 @@ import { dirname, join, resolve } from 'node:path';
 import { afterEach, expect, test } from 'vitest';
 import { z } from 'zod';
 import { installClaudeConnectInstallation, previewClaudeConnectInstallation } from '../src/connect/claude-connect-installation.js';
+import { installCodexConnectInstallation, previewCodexConnectInstallation } from '../src/connect/codex-connect-installation.js';
 
 const roots: string[] = [];
 const contract = 'promoted-payload-v1';
@@ -85,6 +86,59 @@ function fixture(product: Product) {
   };
 }
 type Fixture = ReturnType<typeof fixture>;
+test.each(products)('%s owned installed root-only producer remains native-free after control closure and reopening', async product => {
+  const f = fixture(product);
+  const options = {
+    bundleMode: 'promoted' as const,
+    productVersion: f.productVersion,
+    promotedInUse: false,
+    quiescentBoundaryConfirmed: true,
+    sourceRoots: [f.native]
+  };
+  const preview = product === 'codex' ? previewCodexConnectInstallation(f.root, options) : previewClaudeConnectInstallation(f.root, options);
+  expect(preview.blockers).toEqual([]);
+  const installOptions = {
+    ...options,
+    expectedPackageHash: preview.packageHash,
+    expectedInstalledHash: preview.installedHash
+  };
+  const installed = product === 'codex' ? installCodexConnectInstallation(f.root, installOptions) : installClaudeConnectInstallation(f.root, installOptions);
+  expect(installed.state).toBe('installed');
+  const script =
+    product === 'codex'
+      ? join(f.root, '.harness-delta/codex-connect/session-binding-codex-promoted-hook.mjs')
+      : join(f.root, '.claude/skills/harness-connect/scripts/claude-promoted-session-hook.mjs');
+  const config = join(f.root, '.claude/skills/harness-connect/scripts/claude-promoted-connect-config.mjs');
+  const invocation = {
+    script,
+    args: product === 'codex' ? f.args : [],
+    codeFiles: product === 'codex' ? [] : [config],
+    input: {
+      ...f.input,
+      hook_event_name: 'SubagentStart',
+      agent_id: 'synthetic-denied-child',
+      transcript_path: join(f.native, 'unreadable-child.jsonl')
+    }
+  };
+  control(f, { ...f.control, state: 'closed' });
+  const closed = await invoke(f, invocation);
+  requireNoAccess(closed);
+  expect(closed.code).toBe(0);
+  expect(receipts(f)).toEqual([]);
+  control(f);
+
+  const stale = await invoke(f, invocation);
+
+  requireNoAccess(stale);
+  expect(stale.code).toBe(0);
+  expect(receipts(f)).toEqual([
+    expect.objectContaining({
+      event: 'subagent_start',
+      agentId: 'synthetic-denied-child',
+      sourceRef: invocation.input.transcript_path
+    })
+  ]);
+});
 test('installed Claude producer loads only its promoted configuration', async () => {
   const f = fixture('claude_code');
   const options = {

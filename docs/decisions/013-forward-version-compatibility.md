@@ -324,6 +324,14 @@ admission lanes; a policy lane doesn't read activation state, doesn't clear
 order is: registry, closed windows, difference judgment, then selective
 promotion. Native acceptance, promotion and publication gates stay in force.
 
+Selective promotion is implemented as offline infrastructure only. A grant is
+prospective, scoped to one exact product/version/source/route/operation/topology,
+and never requalifies history or changes defaults, saved selections, settings or
+prices. Child scopes need separate grants. No real grant exists, so promoted routes
+remain unavailable and pre-release gates R0 to R7 are pending. Later judgments
+yield only non-authorizing `review_needed` proposals. See
+[promotion support status](../development/tool-update-pipeline.md#promotion-support-status).
+
 ## Explicit ordinary-root Codex pilot parser reuse
 
 The exact `codex-01620-ordinary-root-human-pilot` profile grants no permission by

@@ -1058,6 +1058,12 @@ export function statusCodexConnectInstallation(root: string, options: CodexConne
 function assertInstallationUnchanged(root: string, owned: ReturnType<typeof inspectOwned>, options: CodexConnectInstallationPreviewOptions): void {
   if (options.bundleMode === 'promoted') assertPromotedBoundary(options);
   const current = inspectOwned(root);
+  for (const path of owned.pins.keys()) {
+    if (!current.pins.has(path)) {
+      const stat = entry(root, path);
+      current.pins.set(path, stat ? identity(stat) : null);
+    }
+  }
   if (
     current.rootId !== owned.rootId ||
     bundleHash(current.files, current.manifest?.hooks ?? null, manifestWindowHooks(current.manifest)) !==

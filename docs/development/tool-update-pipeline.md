@@ -385,6 +385,35 @@ Preparation returns `promotion_prepared` and `proposal_id`. Reconciliation retur
 `promotion_identity_mismatch`, `promotion_mapping_conflict` or
 `promotion_lineage_invalid` with exit 2; invalid schemas use `invalid_record`.
 
+## Promotion support status
+
+Promotion records, commands, the effective projection, the denial Store and the
+promoted payload-only bundles are offline infrastructure. Offline completion is not
+operational support.
+
+- No real promoted descriptor or grant exists. `src/core/tool-version-promotions.json`
+  holds no authorizing decision, and the generated support matrix lists no promoted
+  descriptor. Every promoted route stays unavailable until a real grant exists.
+- Pre-release gates R0 to R7 are pending: selection, actual-binary conformance,
+  native and backend trials, real-session review, the concrete decision, product
+  activation and delivery. None has run or been approved.
+- A grant is prospective and scoped to its exact product, version, source, route,
+  operation, topology, platform and runtime. It doesn't requalify history, backfill
+  unobserved intervals or change the trust of earlier observations.
+- A root grant can't read or enroll children. Each exact child scope needs its own grant.
+- Grants leave historical event and snapshot bytes, the Codex 0.163.0 and Claude
+  2.1.306 defaults, saved selections, settings hashes, assignments, protocols and
+  prices unchanged. A retired or revoked saved exact selection is refused, never
+  replaced by the default.
+- An installed promoted copy stays payload-only and makes no native access without a
+  current grant. A stale read-capable legacy registration makes the promoted flow
+  refuse before launch.
+- `reconcile-promotion` publishes only non-authorizing `review_needed` successors.
+  It never approves, revokes or restores authority, and it doesn't edit the
+  registry, ledger or Store.
+- Caps, the Codex 0.166.0 exception, workflow version selection, prices and
+  activation are unchanged. This infrastructure claims no new version support.
+
 ## Machine difference records
 
 Three separate schema-1 kinds describe machine claims: `difference_job` binds the

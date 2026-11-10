@@ -351,6 +351,31 @@ identity 불일치, mapping 충돌, 잘못된 lineage는 각각 `promotion_ident
 `promotion_mapping_conflict`, `promotion_lineage_invalid`로 exit 2를 반환하며,
 잘못된 schema는 `invalid_record`를 사용합니다.
 
+## 승격 지원 상태
+
+승격 레코드, 명령, effective projection, denial Store, 승격 payload-only 번들은 오프라인
+인프라입니다. 오프라인 완료는 운영 지원이 아닙니다.
+
+- 실제 승격 descriptor나 grant는 없습니다. `src/core/tool-version-promotions.json`에는
+  권한을 주는 decision이 없고, 생성된 support matrix에도 승격 descriptor가 없습니다. 실제
+  grant가 생기기 전까지 모든 승격 경로는 사용할 수 없습니다.
+- 출시 전 게이트 R0~R7은 보류 상태입니다. 선택, 실제 바이너리 적합성, native와 backend
+  시험, 실제 세션 검토, 구체적 decision, 제품 활성화, 배포가 여기에 속합니다. 어느 것도
+  실행되거나 승인되지 않았습니다.
+- grant는 앞으로만 적용되며 정확한 product, version, source, route, operation,
+  topology, platform, runtime 범위에 묶입니다. 과거를 재qualification하거나, 관측하지
+  않은 구간을 backfill하거나, 이전 관측의 trust를 바꾸지 않습니다.
+- root grant는 자식을 읽거나 등록할 수 없습니다. 정확한 자식 범위마다 별도 grant가 필요합니다.
+- grant는 과거 이벤트와 snapshot 바이트, Codex 0.163.0과 Claude 2.1.306 기본값, 저장된
+  선택, settings hash, assignment, protocol, 가격을 바꾸지 않습니다. 은퇴하거나 철회된
+  저장 정확 선택은 거부되며 기본값으로 대체되지 않습니다.
+- 설치된 승격 사본은 payload-only로 남고 현재 grant 없이는 native 접근을 하지 않습니다.
+  stale 상태의 read-capable legacy 등록이 있으면 승격 흐름은 실행 전에 거부합니다.
+- `reconcile-promotion`은 권한이 없는 `review_needed` 후속만 게시합니다. 권한을 승인,
+  철회, 복원하지 않으며 registry, ledger, Store를 수정하지 않습니다.
+- cap, Codex 0.166.0 예외, workflow 버전 선택, 가격, 활성화는 그대로입니다. 이 인프라는
+  새 버전 지원을 주장하지 않습니다.
+
 ## 기계 차이 판단 레코드
 
 별도 schema-1 kind 세 가지로 기계의 주장을 표현합니다. `difference_job`은 후보, 관측,
