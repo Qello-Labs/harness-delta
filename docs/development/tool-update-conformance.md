@@ -51,7 +51,8 @@ Preparation records these claims; it does not validate actual inputs, qualify
 containment or issue authority. It returns `prepared_execution_disabled`.
 An optional strict `inputs` object supplies `batch_root`, `prefix_root`,
 `native_path`, `host_path`, `config_path`, `environment_path`, `profile_path` and
-`quota_packet_path` for separate input preflight. Prefix and case paths must be
+`quota_packet_path`, `native_manifest_path`, `native_manifest_sha256` and
+`native_manifest_identity` for separate input preflight. Prefix and case paths must be
 `batch_root/prefix` and `batch_root/cases/<case_id>`.
 
 The separate verifier consumes an operator-supplied private packet; it never
@@ -73,6 +74,26 @@ Capabilities recheck expiry, file identity, unchanged packet/reservation bytes
 and pins at use. The operator-owned packet is the approval trust boundary, not a
 cryptographic human-identity assertion. No real B1 packet is shipped. Success is
 `reserved_execution_disabled`, never permission to run this incomplete runner.
+
+The private native manifest binds the full prefix inventory, the launcher and
+sibling CLI/host, explicit process/runtime/system-tool sets, argv, configuration,
+environment, profile and quota files. Revalidation checks bounded regular-file
+bytes, hashes, modes, device/inode identities and directory entries, including
+unselected resources. The pinned B0 inventory retains the recorded CDHashes and
+signing metadata without executing a component or proving source attestation.
+Runtime link records also bind declared dependency symlink identities and targets;
+they do not make the host namespace immutable or replace independent closure review.
+The sandbox process set contains only the native `codex` and
+`codex-code-mode-host`; controller runtimes and system tools are separate
+out-of-sandbox identities. The frozen entry argv starts with native `codex`,
+not Node or `bin/codex.js`. A strict `launcher_input` freezes `argv_tail` and the
+base environment. The static recipe preserves argument boundaries, resolves the
+inventoried macOS arm64 platform package, replaces the four inherited package
+manager markers and sets `CODEX_MANAGED_PACKAGE_ROOT`; its result must match the
+frozen argv and environment file. The launcher is read and hashed, never run.
+Ambient package-manager ownership heuristics, alternative vendor roots and the
+required default `SIGXFSZ` handoff are explicit unqualified residuals, not reasons
+to permit an interpreter. No live launch or launcher equivalence is authorized.
 
 The byte oracle also has a real HTTP/1.1/SSE transport bound only to `127.0.0.1`.
 Case listeners created from one batch share its counters and connection admission.
@@ -119,35 +140,71 @@ forced `write(false)` tests retain the real PTY and callbacks and verify no rese
 Owner, adapter, copied fixture, signal helper and process-tool pins are checked
 before use. These checks do not claim atomic PID-reuse protection for a vendor.
 
-Opt-in local qualification on macOS arm64/Node 24 generates a hashed deny-default
-inherited `sandbox-exec` profile and an owned 4 GiB APFS sparse image. Writes stay
-inside image case roots; reads and executable paths are allow-listed; only
+Opt-in native exec/mapping qualification on macOS arm64/Node 24 is image-free
+and generates a hashed deny-default inherited `sandbox-exec` profile. Writes stay
+inside owned case roots; reads and executable paths are allow-listed; only
 outbound IPv4 localhost TCP to the frozen oracle port is allowed; DNS and Mach
 services are denied. An owned empty OpenSSL configuration avoids reading the
 operator's global configuration. No sudo or global firewall rule is used.
+Runtime files and dependency links receive literal permissions rather than
+runtime-directory subtrees. Vendor execution is restricted to native
+`codex` and `codex-code-mode-host`; Node, Python, other interpreters and the JS
+launcher cannot execute inside this profile. All other vendor executable mappings are
+denied, including `rg` and the voice components. Writable case roots cannot
+supply executable mappings. Nonvendor copies qualify these denial paths.
+
+The separate case-state quota qualifier creates a quota-bearing APFS volume
+inside an owned image, reattaches only below an owned mount root, and uses a
+private case directory on the exact 67108864-byte quota. It exercises direct and
+descendant overflow, then positively detaches and deletes its owned image:
+
+```sh
+node scripts/tool-update/codex-window-quota-qualification.mjs --local-nonvendor --out "$quota_out"
+```
+
+An independent owner retains the live quota object. Before attachment, the
+coordinator validates the exact root/image identity and acknowledges ownership;
+later writable-path checks use the same owner over IPC. Coordinator loss leaves
+that owner alive to verify exact volume/device membership, detach positively and
+delete only its owned image. Private mounted/cleanup receipts record the result.
+Under IPC supervision, `quota-mounted` is emitted only after attachment and path
+verification; `quota-continue` releases the prearmed barrier. Local qualification
+witnesses cleanup before terminating only the owned coordinator with SIGKILL.
+This covers the finite post-attach path, not every interrupted initialization,
+owner-SIGKILL takeover or simultaneous loss of all cleanup processes.
+
+Its default tests use fakes and never mount images. This finite quota result
+does not prove the separate evidence/overhead budgets, preventive process or
+exec counts, receipt-creation count, or universal loss cleanup.
 
 The following commands require a new canonical owned output path and explicit
 local authorization. They execute only nonvendor probes, not a Codex image:
 
 ```sh
-node scripts/tool-update/codex-window-qualification.mjs qualify --out "$qualification_out"
+node scripts/tool-update/codex-window-qualification.mjs qualify-native --out "$qualification_out"
 node scripts/tool-update/codex-window-image-owner.mjs qualify-loss --out "$loss_out"
 ```
 
-Qualification attempts external TCP/DNS, a planted outside read, a stat of
-`~/.zshrc` without reading contents, outside writes, unapproved exec and quota
-overflow, directly and through descendants; oracle loopback must succeed.
+Native qualification compiles owned C probes at the two selected native paths.
+It checks native positive controls and direct/descendant Node, Python, writable
+Node-script, Node-spawn, unselected vendor exec and native mapping denials.
+It makes no network or oracle request and deletes its owned probe binaries.
+Its `native_exec_mapping_verified` result is distinct from
+`containment_verified`, which remains false: the historical sixteen Node-based
+network/filesystem/quota controls do not qualify the tightened native profile.
+The old `qualify` command is not an interpreter-allowing compatibility path.
+
+The separate image-loss qualifier creates an owned 4 GiB APFS image.
 The independent image owner uses an identity-checked attach handshake and verifies
 detachment after normal close, control EOF and owned-owner SIGKILL. The actual
-`qualify` entry uses that owner too, so a surviving peer can detach after its
-coordinator is SIGKILLed following attachment. Under IPC supervision the qualifier
-reports `qualification_mounted` and waits for `continue_qualification` before any
-probe; supervisor disconnect aborts work. Verified mounting clears the startup
-watchdog; lifetime watchdogs use the original remaining authorized deadline.
+quota qualification entry uses its independent quota owner, so a surviving peer
+can detach and delete after post-attach coordinator SIGKILL. Image mounting clears
+the image owner's startup watchdog; its lifetime watchdog uses the original
+remaining authorized deadline.
 Loss qualification covers those post-attach paths, not every interrupted
 initialization or simultaneous loss of all cleanup processes.
 Packets contain bounded metadata/statuses and always set actual-target
-qualification false. Images and failed packets remain private for inspection;
+qualification false. Image-loss artifacts and failed packets remain private for inspection;
 default tests use fakes and do not create or mount images.
 
 Synthetic deadline checks use immutable `B=T0+1200000`, reserve 5000 ms teardown
@@ -170,8 +227,8 @@ vendor TUI/input sequence or real consent-to-source commit integration is claime
 The real execution and final cleanup-audit commands remain disabled. Default tests
 use synthetic inputs and real loopback/nonvendor PTY fixtures only. Synthetic or
 local nonvendor results never close actual-target qualification gates.
-Real consent/source integration, complete input/runtime/system-tool closure,
-preventive exec/process and disk sub-budgets, calibrated live
+Real consent/source integration, independent input/runtime/system-tool closure review,
+preventive exec/process and remaining evidence/overhead budgets, calibrated live
 clock/admission/dispatch/termination/loss/broker/escape guarantees, full
 executor sequence/guard closure, and real cleanup audit remain blockers
 to any vendor attempt, including `--version`. Consent does not implement those

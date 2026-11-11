@@ -49,7 +49,8 @@ node scripts/tool-update/codex-window-conformance.mjs prepare \
 않습니다. 결과는 `prepared_execution_disabled`입니다.
 선택적인 엄격한 `inputs` 객체는 별도 입력 preflight를 위한 `batch_root`, `prefix_root`,
 `native_path`, `host_path`, `config_path`, `environment_path`, `profile_path`,
-`quota_packet_path`를 받습니다. prefix와 case 경로는 각각 `batch_root/prefix`,
+`quota_packet_path`, `native_manifest_path`, `native_manifest_sha256`,
+`native_manifest_identity`를 받습니다. prefix와 case 경로는 각각 `batch_root/prefix`,
 `batch_root/cases/<case_id>`여야 합니다.
 
 별도 verifier는 실행자가 제공한 private packet만 소비하며 consent 발급이나 process 실행을
@@ -70,6 +71,24 @@ identity, packet/reservation bytes와 pin을 다시 확인합니다. 실행자 �
 신뢰 경계이며 사람의 identity를 암호학적으로 증명하지는 않습니다. 실제 B1 packet은
 제공하지 않습니다. 성공 결과도 `reserved_execution_disabled`이며 미완성 runner의 실행
 권한이 아닙니다.
+
+private native manifest는 전체 prefix inventory, launcher와 같은 디렉터리의 CLI/host,
+명시적인 process/runtime/system-tool 집합, argv, configuration, environment, profile,
+quota 파일을 묶습니다. 제한된 일반 파일 bytes/hash/mode, device/inode identity,
+directory entry를 재검증하며 선택하지 않은 resource도 포함합니다. 고정된 B0 inventory로
+기록된 CDHash와 signing metadata를 유지하지만 component를 실행하거나 source 대응 관계를
+증명하지 않습니다. runtime link record는 선언한 dependency symlink의 identity와 target도
+묶지만 host namespace 불변성이나 독립 closure 검토를 대신하지 않습니다.
+sandbox process 집합에는 native `codex`와 `codex-code-mode-host`만 포함하며
+controller runtime과 system 도구는 sandbox 밖의 별도 identity입니다. 고정 entry argv는
+Node나 `bin/codex.js`가 아니라 native `codex`로 시작합니다. 엄격한 `launcher_input`은
+`argv_tail`과 base environment를 고정합니다. static recipe는 argument 경계를 보존하고,
+inventory의 macOS arm64 platform package를 선택하며, 상속된 package manager marker
+네 개를 교체하고 `CODEX_MANAGED_PACKAGE_ROOT`를 설정합니다. 결과는 고정 argv 및
+environment 파일과 일치해야 합니다. launcher는 읽고 hash할 뿐 실행하지 않습니다.
+ambient package-manager ownership heuristic, 다른 vendor root, 필요한 기본
+`SIGXFSZ` 전달은 명시적인 미검증 잔여 항목이며 interpreter 허용 사유가 아닙니다.
+실제 실행이나 launcher 동등성을 승인하지 않습니다.
 
 byte oracle은 `127.0.0.1`에만 bind하는 실제 HTTP/1.1/SSE transport도 제공합니다.
 하나의 batch에서 만든 case listener는 counter와 connection admission을 공유합니다.
@@ -112,32 +131,65 @@ handler의 acknowledgement를 확인합니다. correlation fixture는 별도 bar
 process 도구의 pin을 사용 전에 확인합니다. vendor에 대한 atomic PID-reuse 예방을
 주장하지 않습니다.
 
-macOS arm64/Node 24의 opt-in 로컬 qualification은 hash한 deny-default 상속
-`sandbox-exec` profile과 소유 4 GiB APFS sparse image를 만듭니다. 쓰기는 image의
+macOS arm64/Node 24의 opt-in native exec/mapping qualification은 image 없이
+hash한 deny-default 상속 `sandbox-exec` profile을 만듭니다. 쓰기는 소유
 case root로 제한하고 읽기·실행 경로는 allow-list로 제한합니다. 고정된 oracle port의
 outbound IPv4 localhost TCP만 허용하며 DNS와 Mach service는 거부합니다. 소유한 빈
 OpenSSL 설정으로 실행자의 global 설정을 읽지 않도록 합니다. sudo나 global firewall
 규칙을 사용하지 않습니다.
+runtime 파일과 dependency link는 runtime 디렉터리 subtree 대신 literal 권한을
+받습니다. vendor 실행은 native `codex`, `codex-code-mode-host`로 제한하며 Node,
+Python, 다른 interpreter와 JS launcher는 이 profile 안에서 실행할 수 없습니다. `rg`와
+voice component를 포함한 나머지 vendor executable mapping도 거부합니다. 쓰기 가능한
+case root에서도 executable mapping을 허용하지 않으며 nonvendor 복사본으로 거부를 검증합니다.
+
+별도 case-state quota qualifier는 소유 image 안에 quota가 있는 APFS volume을 만들고
+소유 mount root 아래로만 다시 attach한 뒤 정확한 67108864-byte quota 위의 private
+case 디렉터리를 사용합니다. 직접·descendant 쓰기의 초과 거부를 확인한 후 소유 image를
+확실하게 detach하고 삭제합니다.
+
+```sh
+node scripts/tool-update/codex-window-quota-qualification.mjs --local-nonvendor --out "$quota_out"
+```
+
+독립 owner가 실제 quota 객체를 유지합니다. attach 전에 coordinator가 정확한 root/image
+identity를 검증하고 소유를 확인하며, 이후 writable-path 검증도 같은 owner에 IPC로
+요청합니다. coordinator가 사라져도 owner는 살아서 정확한 volume/device 소속을 확인하고,
+detach를 확실히 검증한 뒤 소유 image만 삭제합니다. private mounted/cleanup receipt가
+결과를 기록합니다. IPC supervision에서는 attach와 path 검증 후 `quota-mounted`를
+보내고, prearmed barrier는 `quota-continue`에서 해제합니다. 로컬 검증은 cleanup witness를
+먼저 준비한 뒤 소유 coordinator에만 SIGKILL을 전달합니다. 이는 attach 후의 제한된 경로를
+검증하며 초기화 중 모든 손실, owner SIGKILL 시 takeover, 전체 cleanup process의 동시
+손실을 포괄하지 않습니다.
+
+기본 테스트는 fake를 사용하며 image를 mount하지 않습니다. 이 제한된 quota 결과는
+별도 evidence/overhead 예산, 예방적 process/exec 개수, receipt 생성 개수, 모든 loss의
+cleanup을 증명하지 않습니다.
 
 다음 명령은 새로운 canonical 소유 output 경로와 명시적인 로컬 승인이 필요하며 Codex
 이미지가 아닌 nonvendor probe만 실행합니다.
 
 ```sh
-node scripts/tool-update/codex-window-qualification.mjs qualify --out "$qualification_out"
+node scripts/tool-update/codex-window-qualification.mjs qualify-native --out "$qualification_out"
 node scripts/tool-update/codex-window-image-owner.mjs qualify-loss --out "$loss_out"
 ```
 
-qualification은 직접 실행 및 descendant 경로에서 외부 TCP/DNS, 심어 둔 외부 파일 읽기,
-내용을 읽지 않는 `~/.zshrc` stat, 외부 쓰기, 미승인 exec, quota 초과를 시도하며 oracle
-loopback은 성공해야 합니다. 별도 image owner는 identity-checked attach handshake 후
-정상 close, control EOF, 소유 owner의 SIGKILL에서 detach를 검증합니다. loss 검증 범위는
-attach 이후입니다. 실제 `qualify` entry도 같은 owner를 사용하므로 attach 이후
-coordinator가 SIGKILL돼도 살아 있는 peer가 detach할 수 있습니다. IPC supervision에서는
-`qualification_mounted`를 보고하고 `continue_qualification` 전에는 probe를 시작하지
-않으며 supervisor disconnect 시 작업을 중단합니다. 검증된 mount에서 startup watchdog을
-해제하고 lifetime watchdog은 원래 승인 deadline의 남은 시간만 사용합니다. 초기화 중 모든
+native qualification은 선택된 native 경로 두 곳에 소유 C probe를 compile합니다. native
+positive control과 직접·descendant Node, Python, writable Node script, Node spawn,
+미선택 vendor exec 및 native mapping 거부를 확인합니다. network나 oracle 요청을
+보내지 않고 소유 probe binary를 삭제합니다. `native_exec_mapping_verified` 결과는
+`containment_verified`와 구분하며 후자는 false로 유지합니다. 과거 Node 기반 network/
+filesystem/quota 제어 16개가 강화된 native profile을 검증한 것은 아닙니다.
+이전 `qualify` 명령은 interpreter를 허용하는 compatibility 경로가 아닙니다.
+
+별도 image-loss qualifier는 소유 4 GiB APFS image를 만듭니다. 독립 image owner는
+identity-checked attach handshake 후 정상 close, control EOF, 소유 owner SIGKILL에서
+detach를 검증합니다. 실제 quota qualification entry는 독립 quota owner를 사용하므로
+attach 이후 coordinator가 SIGKILL돼도 살아 있는 peer가 detach와 삭제를 수행할 수 있습니다.
+검증된 image mount에서 image owner의 startup watchdog을 해제하고 lifetime watchdog은
+원래 승인 deadline의 남은 시간만 사용합니다. loss 검증 범위는 attach 이후이며 초기화 중 모든
 손실이나 전체 cleanup process의 동시 손실을 포괄하지는 않습니다. packet은 제한된 metadata와
-상태만 담고 actual-target qualification은 항상 false입니다. image와 실패 packet은
+상태만 담고 actual-target qualification은 항상 false입니다. image-loss artifact와 실패 packet은
 private 상태로 남기며 기본 테스트는 fake를 사용해 image를 생성하거나 mount하지 않습니다.
 
 합성 deadline 검사는 불변 `B=T0+1200000`, teardown 5000 ms, audit 10000 ms를
@@ -159,8 +211,8 @@ clock calibration, 완전한 vendor TUI/input 순서, 실제 consent-to-source c
 검증되지 않았습니다. 실제 실행과 최종 cleanup-audit 명령은 계속 차단됩니다. 기본 테스트는
 합성 입력과 실제 loopback/nonvendor PTY fixture만 사용합니다. 합성·로컬 nonvendor
 결과로 actual-target qualification gate를 닫지 않습니다.
-실제 consent/source 연동, 완전한 input/runtime/system-tool closure, 예방적
-exec/process 및 disk 세부 예산, 실제 clock/admission/dispatch/termination/loss/
+실제 consent/source 연동, 독립 input/runtime/system-tool closure 검토, 예방적
+exec/process 및 나머지 evidence/overhead 예산, 실제 clock/admission/dispatch/termination/loss/
 broker/escape 보장 검증, 전체 executor 순서·guard closure, 실제 cleanup
 audit은 `--version`을 포함한 어떤 vendor 시도도 차단하는 미해결 항목입니다.
 consent가 누락된 구현을 대신하지 않습니다. 17번째 receipt 파일의 생성 예방도 검증된
