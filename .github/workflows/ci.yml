@@ -76,9 +76,13 @@ jobs:
           if-no-files-found: warn
 
   default:
-    name: Node 24 / macOS / Default tests
+    name: Node 24 / macOS / Default tests (${{ matrix.shard }}/2)
     runs-on: macos-latest
     timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     steps:
       - name: Check out source
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -94,12 +98,12 @@ jobs:
       - name: Build fresh package and UI
         run: node scripts/ci-phase.mjs default build npm run build
       - name: Run tests
-        run: node scripts/ci-phase.mjs default tests npm test -- --project default --reporter ./scripts/ci-reporter.mjs
+        run: node scripts/ci-phase.mjs default tests npm test -- --project default --shard ${{ matrix.shard }}/2 --reporter ./scripts/ci-reporter.mjs
       - name: Upload sanitized CI evidence
         if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: ci-default
+          name: ci-default-${{ matrix.shard }}
           path: |
             .harness-delta/ci-results/default/phases.jsonl
             .harness-delta/ci-results/default/tests.jsonl
