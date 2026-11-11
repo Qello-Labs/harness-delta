@@ -7,6 +7,40 @@ import { afterEach, expect, test } from 'vitest';
 import { buildWindowSandboxProfile, createOwnedWindowImage } from '../scripts/tool-update/codex-window-containment.mjs';
 
 const roots: string[] = [];
+
+test.each(['/runtime/node', '/usr/bin/python3', '/bin/sh', '/unreviewed/tool', 'launcher'])(
+  'rejects interpreter or nonnative vendor execution at %s',
+  executable => {
+    const root = directory();
+    const prefix = join(root, 'prefix');
+    expect(() =>
+      buildWindowSandboxProfile({
+        caseRoots: [join(root, 'case')],
+        vendorPrefix: prefix,
+        runtimePaths: ['/runtime/lib/libnode.dylib'],
+        executables: [executable === 'launcher' ? join(prefix, 'node_modules/@openai/codex/bin/codex.js') : executable],
+        port: 43123,
+        home: '/Users/synthetic'
+      })
+    ).toThrow('containment_exec_unapproved');
+  }
+);
+
+test('runtime alias links are readable without granting a directory subtree', () => {
+  const root = directory();
+  const profile = buildWindowSandboxProfile({
+    caseRoots: [join(root, 'case')],
+    vendorPrefix: join(root, 'prefix'),
+    runtimePaths: ['/runtime/lib/libnode.dylib'],
+    runtimeLinks: ['/runtime/alias'],
+    executables: [nativePath(join(root, 'prefix'))],
+    port: 43123,
+    home: '/Users/synthetic'
+  });
+  expect(profile.bytes).toContain('(literal "/runtime/alias")');
+  expect(profile.bytes).not.toContain('(subpath "/runtime/alias")');
+});
+
 afterEach(() => {
   for (const root of roots.splice(0)) {
     rmSync(root, { recursive: true, force: true });
@@ -18,13 +52,17 @@ function directory() {
   return root;
 }
 
+function nativePath(prefix: string, name = 'codex') {
+  return join(prefix, 'node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin', name);
+}
+
 test('the pinned SBPL is deny-default with one exact outbound endpoint and explicit file and exec paths', () => {
   const root = directory();
   const profile = buildWindowSandboxProfile({
     caseRoots: [join(root, 'mount/cases/normal')],
     vendorPrefix: join(root, 'mount/prefix'),
     runtimePaths: ['/runtime/node'],
-    executables: ['/runtime/node', '/bin/cat'],
+    executables: [nativePath(join(root, 'mount/prefix')), nativePath(join(root, 'mount/prefix'), 'codex-code-mode-host')],
     port: 43123,
     home: '/Users/synthetic-user'
   });
@@ -46,11 +84,50 @@ test.each([0, 65536, -1, 1.5])('refuses an unfrozen or invalid oracle port %s', 
       caseRoots: [join(root, 'case')],
       vendorPrefix: join(root, 'prefix'),
       runtimePaths: ['/runtime/node'],
-      executables: ['/runtime/node'],
+      executables: [nativePath(join(root, 'prefix'))],
       port,
       home: '/Users/synthetic'
     })
   ).toThrow('containment_input_invalid');
+});
+
+test.each([
+  'vendor/aarch64-apple-darwin/codex-path/rg',
+  'vendor/aarch64-apple-darwin/codex-resources/voice/bin/codex-voice-host',
+  'vendor/aarch64-apple-darwin/codex-resources/voice/lib/libffi.8.dylib'
+])('refuses unselected vendor execution at %s', relativePath => {
+  const root = directory();
+  const prefix = join(root, 'prefix');
+  expect(() =>
+    buildWindowSandboxProfile({
+      caseRoots: [join(root, 'case')],
+      vendorPrefix: prefix,
+      runtimePaths: ['/runtime/node'],
+      executables: [join(prefix, 'node_modules/@openai/codex-darwin-arm64', relativePath)],
+      port: 43123,
+      home: '/Users/synthetic'
+    })
+  ).toThrow('containment_exec_unapproved');
+});
+
+test('runtime reads are literal and vendor executable mappings exclude readable resources', () => {
+  const root = directory();
+  const prefix = join(root, 'prefix');
+  const cli = join(prefix, 'node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex');
+  const profile = buildWindowSandboxProfile({
+    caseRoots: [join(root, 'case')],
+    vendorPrefix: prefix,
+    runtimePaths: ['/runtime/node', '/runtime/libnode.dylib'],
+    executables: [cli],
+    port: 43123,
+    home: '/Users/synthetic'
+  });
+  expect(profile.bytes).toContain('(literal "/runtime/libnode.dylib")');
+  expect(profile.bytes).not.toContain('(subpath "/runtime/libnode.dylib")');
+  expect(profile.bytes).toContain(`(deny file-map-executable (subpath ${JSON.stringify(join(root, 'case'))}))`);
+  expect(profile.bytes).toContain(
+    `(deny file-map-executable (require-all (subpath ${JSON.stringify(prefix)}) (require-not (require-any (literal ${JSON.stringify(cli)})))))`
+  );
 });
 
 function imageFixture(failure: 'none' | 'attach' | 'detach' | 'foreign' | 'oversized' = 'none') {

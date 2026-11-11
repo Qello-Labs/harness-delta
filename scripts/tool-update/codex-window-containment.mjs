@@ -25,7 +25,8 @@ const profileInput = z.strictObject({
 	caseRoots: z.array(absolutePath).min(1).max(8),
 	vendorPrefix: absolutePath,
 	runtimePaths: z.array(absolutePath).min(1).max(64),
-	executables: z.array(absolutePath).min(1).max(32),
+	runtimeLinks: z.array(absolutePath).max(128).default([]),
+	executables: z.array(absolutePath).min(1).max(2),
 	port: z.number().int().min(1).max(65535),
 	home: absolutePath,
 });
@@ -34,6 +35,17 @@ export function buildWindowSandboxProfile(input) {
 	const parsed = profileInput.safeParse(input);
 	windowRequire(parsed.success, "containment_input_invalid");
 	const policy = parsed.data;
+	const vendorExecutables = ["codex", "codex-code-mode-host"].map((name) =>
+		join(
+			policy.vendorPrefix,
+			"node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin",
+			name,
+		)
+	);
+	windowRequire(
+		policy.executables.every((path) => vendorExecutables.includes(path)),
+		"containment_exec_unapproved",
+	);
 	const systemReads = [
 		"/System/Library",
 		"/System/Volumes/Preboot/Cryptexes/OS",
@@ -44,13 +56,19 @@ export function buildWindowSandboxProfile(input) {
 		...new Set([
 			...policy.caseRoots,
 			policy.vendorPrefix,
-			...policy.runtimePaths,
-			...policy.executables,
 			...systemReads,
 		]),
 	].sort();
+	const literalReads = [
+		...new Set([
+			...policy.runtimePaths,
+			...policy.executables,
+		]),
+	].sort();
 	const ancestors = new Set();
-	for (const path of readPaths) {
+	for (
+		const path of [...readPaths, ...literalReads, ...policy.runtimeLinks]
+	) {
 		for (let parent = dirname(path);; parent = dirname(parent)) {
 			ancestors.add(parent);
 			if (parent === dirname(parent)) break;
@@ -58,17 +76,34 @@ export function buildWindowSandboxProfile(input) {
 	}
 	const literal = (path) => `(literal ${JSON.stringify(path)})`;
 	const subpath = (path) => `(subpath ${JSON.stringify(path)})`;
+	const denyUnselected = (operation, allowed) => {
+		const filter = allowed.length
+			? `(require-all ${
+				subpath(policy.vendorPrefix)
+			} (require-not (require-any ${allowed.map(literal).join(" ")})))`
+			: subpath(policy.vendorPrefix);
+		return `(deny ${operation} ${filter})`;
+	};
+	const selectedVendor = policy.executables;
 	const bytes = [
 		"(version 1)",
 		"(deny default)",
 		"(allow process-fork)",
 		`(allow process-exec ${policy.executables.map(literal).join(" ")})`,
+		denyUnselected("process-exec", selectedVendor),
 		"(allow sysctl-read)",
 		"(allow process-info* (target self))",
 		`(allow file-read-metadata ${
 			[...ancestors].sort().map(literal).join(" ")
 		})`,
-		`(allow file-read* ${readPaths.map(subpath).join(" ")})`,
+		`(allow file-read* ${readPaths.map(subpath).join(" ")} ${
+			[...literalReads, ...policy.runtimeLinks].map(literal).join(" ")
+		})`,
+		`(allow file-map-executable ${systemReads.map(subpath).join(" ")} ${
+			literalReads.map(literal).join(" ")
+		})`,
+		denyUnselected("file-map-executable", selectedVendor),
+		`(deny file-map-executable ${policy.caseRoots.map(subpath).join(" ")})`,
 		'(allow file-read-data (literal "/") (literal "/dev/urandom") (literal "/dev/random"))',
 		`(allow file-write* ${policy.caseRoots.map(subpath).join(" ")})`,
 		`(allow network-outbound (remote tcp4 "localhost:${policy.port}"))`,

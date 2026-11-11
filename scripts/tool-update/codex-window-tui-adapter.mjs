@@ -246,7 +246,7 @@ export function createSyntheticWindowTui(root) {
         command: process.execPath,
         args: [copiedHelper],
         cwd: root,
-        durationMs: 10000,
+        durationMs: 14000,
         terminationMs: 5000,
         termGraceMs: 2000,
         rows: 24,
@@ -264,10 +264,13 @@ export function createSyntheticWindowTui(root) {
         stdio: ['pipe', 'pipe', 'pipe', 'pipe']
       });
       observeOwner(child, state, events, finish);
-      timer = setTimeout(() => {
-        stop();
-        finish(new WindowConformanceError('cleanup_unverified'));
-      }, 15500);
+      timer = setTimeout(
+        () => {
+          stop();
+          finish(new WindowConformanceError('cleanup_unverified'));
+        },
+        config.durationMs + config.terminationMs + 500
+      );
     },
     releaseSyntheticBaseline() {
       live();
