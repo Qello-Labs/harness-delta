@@ -25,8 +25,10 @@ const boundary = vi.hoisted(
     afterStaging: undefined
   })
 );
+// The script loads the built session binding, which imports this dist sibling.
+// Type the factory from source so lint does not require a build.
 vi.mock('../dist/ordinary-window-binding.js', async importOriginal => {
-  const actual = await importOriginal<typeof import('../dist/ordinary-window-binding.js')>();
+  const actual = await importOriginal<typeof import('../src/ordinary-window-binding.js')>();
   return {
     ...actual,
     readOrdinaryWindowBatch: (options: Parameters<typeof actual.readOrdinaryWindowBatch>[0]) =>
