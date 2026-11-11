@@ -29,7 +29,8 @@ node scripts/tool-update/codex-window-conformance.mjs execute
 Expected: exit 2 and a fixed JSON refusal with `code:b1_execution_disabled`,
 `execution_attempted:false` and `actual_qualification:false`. Supplying consent
 JSON, an intent, an approval flag or an expired/reused packet cannot unlock it.
-`verify-cleanup` also refuses because no actual cleanup consent is available.
+`verify-cleanup` is only the read-only registry audit described below; it never
+launches a vendor process.
 
 Offline preparation accepts an explicit private plan and an existing empty case
 directory, using canonical absolute paths. Both parent directories must be owned
@@ -201,17 +202,98 @@ quota qualification entry uses its independent quota owner, so a surviving peer
 can detach and delete after post-attach coordinator SIGKILL. Image mounting clears
 the image owner's startup watchdog; its lifetime watchdog uses the original
 remaining authorized deadline.
-Loss qualification covers those post-attach paths, not every interrupted
-initialization or simultaneous loss of all cleanup processes.
+The legacy image-loss qualification covers those post-attach paths. The separate
+guardian-first startup qualifier below covers finite initialization phases;
+neither proves every interleaving or simultaneous loss of all cleanup processes.
 Packets contain bounded metadata/statuses and always set actual-target
 qualification false. Image-loss artifacts and failed packets remain private for inspection;
 default tests use fakes and do not create or mount images.
+
+The G1-G6 detect-and-stop guard modules below keep every preventive control above
+and add no vendor execution path. `codex-window-case-guards.mjs` composes them for
+one fixed synthetic `normal`/`hold` case: reserve the existing batch budget without
+resetting its start, carry the observed exec total, durably register resources,
+use genuine trial/source authorization, arm the watcher before fixture release,
+then verify cleanup against the sealed registry. This pipe fixture does not
+qualify vendor containment, PTY or native recipe composition, and issues no grant.
+
+- G1 counts: `codex-window-watch.mjs` arms a native kqueue watcher before the
+  owned launch and drains it in a dedicated native process that runs at
+  `QOS_CLASS_USER_INTERACTIVE`. It counts execs, forks/live processes (with
+  owned-tree reconciliation) and created receipts (vnode watch plus directory
+  reconciliation). Every count is an observed lower bound (`lower_bound:true`):
+  `NOTE_EXEC` can coalesce (a nonvendor probe saw 17 execs, one notification), so
+  there is no at-most-one-extra guarantee. The first observed overrun triggers an
+  identity-checked teardown of the owned tree, fails the case and stops the batch;
+  the observed overshoot is recorded (`exec_overshoot`, `live_overshoot`,
+  `receipt_overshoot`) and is a lower bound on the true overshoot. Any overrun
+  fails the case. Watcher loss is guard loss and stops the batch.
+  Spawned descendants are charged one exec when first seen (the kernel's
+  has-exec'd flag, read after the watch is armed), in addition to later
+  `NOTE_EXEC` notifications, so the 15-exec budget counts the first exec of every
+  discovered child; a child that ended before it could be inspected is charged
+  conservatively. A charge can therefore exceed the true exec count (a forked child
+  that then execs in place is charged twice), while coalescing and undiscovered
+  processes make it smaller; the figure is an estimate, not an exact count. The
+  target runs in its own session and process group. Besides parentage
+  reconciliation the guard sweeps that group and session every cycle, and sweeps
+  the user's recently started processes that carry a per-run environment marker
+  (`HARNESS_DELTA_WINDOW_OWNER`, injected into the target environment) about once a
+  second and again before it declares cleanup. A live process whose ancestry does
+  not reach the owned tree (for example one reparented to launchd before it was
+  listed) is killed, counted as `unaccounted`, fails the case and denies
+  `cleanup_verified`. A process that scrubs its environment, leaves the session and
+  is reparented before discovery, or a platform binary that hides its environment,
+  is not covered. The only permitted preexisting entry is `ordinary-window-control.json`, bound
+  explicitly by device, inode, UID and birth time. It is not counted as a receipt;
+  a missing or replaced control identity is guard loss.
+- G2 timing: coordinator deadlines read a native `mach_continuous_time` clock
+  (`codex-window-clock.mjs`). TERM/KILL dispatch latency and time to verified
+  disappearance are measured; a measurement over its bound is a failed case, not a
+  real-time guarantee. The protected PTY owner keeps its own local clocks, which
+  this change does not replace.
+- G3 consent fence: consent and trial authority are revalidated through the
+  existing public seams before each source read and before commit. These checks
+  are not atomic with the read or the protected Store transaction.
+- G4 startup loss: the quota guardian starts before image creation and writes a
+  hashed, append-only startup journal of create/attach phases, so loss in a
+  journaled phase detaches and deletes by recorded identity. Recovery does not
+  depend on the guardian: when the guardian exits without a receipt, the
+  coordinator reads the journal and the pinned root, refuses an edited, moved or
+  missing journal or an image whose identity differs, detaches only the whole disk
+  whose mounts are all under the owned mount root (forcing only if a plain detach
+  fails), and deletes the image. The same logic is the standalone entry
+  `node scripts/tool-update/codex-window-quota-recovery.mjs recover ABS_ROOT`, for
+  when the coordinator is gone too; run it only after the guardian and coordinator
+  have exited. Guardian loss still fails the case. Local nonvendor qualification
+  covers a finite set of coordinator kill points, a guardian kill with a live
+  coordinator, and a double kill followed by `recover`, not every interleaving. The synthetic coordinator also waits for owner registration before
+  image creation, image registration before attach, and device/path registration
+  before admitting work.
+- G5 overhead: evidence and case state use distinct 67108864-byte APFS quota
+  volumes. Overhead accounting conservatively sums every explicit guard root and
+  the whole allocated image, payload included, against a 134217728-byte hard stop,
+  so a case that fills both quotas stops. Local nonvendor qualification checks both.
+  Register every additional guard root explicitly; quota-root accounting alone
+  does not prove total coverage. Closing the image deletes its evidence volume, so
+  when an export root is supplied the executor first copies the bounded evidence
+  out (`codex-window-evidence-export.mjs`): only plain, single-link JSON-object
+  files of at most 65536 bytes with safe names, at most 67108864 bytes in total,
+  into an empty private directory outside the image, with a manifest of sizes and
+  hashes. Anything else refuses the whole export and fails the case. No export
+  happens unless a destination is supplied.
+- G6 cleanup audit: `codex-window-registry.mjs` keeps a hashed per-case registry
+  of owned PIDs, images and paths. `verify-cleanup --batch <root> --consent <file>`
+  checks positive closure read-only against it and refuses an edited or missing
+  registry. It needs a separate external cleanup consent and a frozen native
+  clock identity; no such packet is shipped.
 
 Synthetic deadline checks use immutable `B=T0+1200000`, reserve 5000 ms teardown
 and 10000 ms audit, admit only full cases, and shorten work on expiry. Final audit
 uses its existing reserve without a second teardown window. Positive disappearance,
 closed resources and restored terminal are separate from KILL delivery. These are
-offline arithmetic/state controls, not a calibrated suspend-inclusive host clock.
+arithmetic/state checks; native clock semantics and measured dispatch require
+separate nonvendor qualification.
 
 Run the synthetic checks after the normal build:
 
@@ -219,21 +301,63 @@ Run the synthetic checks after the normal build:
 npm test -- tests/tool-update-codex-window*.test.ts
 ```
 
+For this work the local gate runs these focused suites on Node 24 and the full
+`npm run check` on Node 26. The remote CI Node 24 full run is separate evidence.
+
+The integrated local qualifier compiles only repository fixtures and creates an
+owned APFS image. Run it only on macOS arm64 with Node 24 and a fresh owned
+directory after the primitive prerequisites have been checked:
+
+```sh
+node scripts/tool-update/codex-window-case-guards-qualify.mjs --qualify-nonvendor --prerequisites-ready ABS_FRESH_OWNED_DIRECTORY
+```
+
+The guardian-loss recovery qualifier (a guardian kill with a live coordinator, and a
+double kill followed by the standalone `recover`) uses the same preconditions and a
+directory that does not exist yet:
+
+```sh
+node scripts/tool-update/codex-window-recovery-qualification.mjs qualify ABS_NEW_DIRECTORY
+```
+
+The readiness flag is a development precondition, not B1 consent. Default tests
+use fakes and never mount an image or invoke `sandbox-exec`.
+
 This is not native acceptance or B1 readiness. SBPL/APFS enforces the tested
-filesystem/network boundaries, but cannot by itself enforce stateful limits of
-fifteen vendor execs or sixteen concurrent processes. No preventive count proof,
-independent qualification review, suspend-inclusive clock calibration, complete
-vendor TUI/input sequence or real consent-to-source commit integration is claimed.
-The real execution and final cleanup-audit commands remain disabled. Default tests
+filesystem/network boundaries. The fifteen-exec, sixteen-process and
+sixteen-receipt budgets are detect-and-stop limits, not preventive ones. No
+independent qualification review, complete vendor TUI/input sequence or
+real consent-to-source commit integration is claimed.
+The real execution command remains disabled, and no issuer or B1 approval exists. Default tests
 use synthetic inputs and real loopback/nonvendor PTY fixtures only. Synthetic or
 local nonvendor results never close actual-target qualification gates.
 Real consent/source integration, independent input/runtime/system-tool closure review,
-preventive exec/process and remaining evidence/overhead budgets, calibrated live
-clock/admission/dispatch/termination/loss/broker/escape guarantees, full
-executor sequence/guard closure, and real cleanup audit remain blockers
+live admission/dispatch/termination/loss/broker/escape qualification against a
+vendor, actual vendor executor/guard composition, and an externally authorized
+real-batch cleanup audit remain prerequisites
 to any vendor attempt, including `--version`. Consent does not implement those
 missing guarantees. Preventing a seventeenth receipt from being created also
 remains distinct from the tested admission refusal.
+
+Known residuals of the guard modules, stated so they are not read as closed:
+
+- The native qualifier is credit-paced for the exec, fork and receipt scenarios, so
+  its small overshoot is produced by construction. The escape and spawn scenarios
+  (reparent, setsid, posix_spawn and fork plus exec) run free, but no scenario
+  proves free-running overshoot or coalescing under every load.
+- `createWindowWatch` and the native `LAUNCH` start any absolute executable with
+  the guard's own environment (plus the owned marker) and working directory, and
+  need no consent capability. Only the synthetic case calls them, with its compiled
+  fixture. A vendor composition must pin the executable to a registered identity
+  and set its environment and directory independently. The development consent
+  writer used by the synthetic qualifier unlocks nothing: non-synthetic origins and
+  every scenario other than `hold` are refused.
+- The native guard is compiled and exercised only by the Node 24 local qualifiers,
+  not by default tests, so a regression in the C file is not caught by CI.
+- The image owner now reports a positive detach by recorded identity even when the
+  mount was never acknowledged (`image-owner`: `detached` without `mounted`). A
+  loss before the mount still deletes nothing it did not verify, and `ready` still
+  rejects.
 
 Do not execute the runner merely because discovery found a candidate. A human
 must approve the exact image, runtime, scope, model, pins and stopping budgets.
