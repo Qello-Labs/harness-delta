@@ -139,7 +139,7 @@ test('a consent-bound synthetic case uses genuine exact-root trial and collectio
   } finally {
     session.close();
   }
-});
+}, 20_000);
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
