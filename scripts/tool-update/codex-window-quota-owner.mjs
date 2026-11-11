@@ -12,7 +12,10 @@ import {
 import {
 	createOwnedWindowQuota,
 	windowCaseQuotaBytes,
+	windowOverheadBytes,
 } from "./codex-window-quota.mjs";
+import { createWindowStartupJournal } from "./codex-window-startup-journal.mjs";
+import { recoverWindowQuota } from "./codex-window-quota-recovery.mjs";
 
 const script = fileURLToPath(import.meta.url);
 const identitySchema = z.strictObject({
@@ -39,7 +42,7 @@ const evidenceSchema = z.object({
 			APFSVolumeUUID: z.string(),
 			CapacityQuota: z.number().int(),
 			DeviceIdentifier: z.string().regex(/^disk[0-9]+(?:s[0-9]+)*$/),
-		})).length(2),
+		})).length(3),
 	}),
 	capacityBytes: z.number().int().positive().max(4294967296),
 	entities: z.array(z.object({
@@ -53,9 +56,28 @@ const cleanupSchema = z.strictObject({
 	ownedImageDeleted: z.literal(true),
 	identity: identitySchema,
 });
+const journalSchema = z.strictObject({
+	path: z.string(),
+	head: z.string().regex(/^[a-f0-9]{64}$/),
+	entries: z.number().int().positive(),
+});
+const overheadSchema = z.strictObject({
+	limitBytes: z.literal(windowOverheadBytes),
+	chargedBytes: z.number().int().nonnegative().max(windowOverheadBytes),
+	guardBytes: z.number().int().nonnegative(),
+	imageAllocatedBytes: z.number().int().nonnegative(),
+	mountMetadataBytes: z.number().int().nonnegative(),
+	accounting: z.literal("allocated_guard_and_whole_image_upper_bound"),
+});
 const responseSchema = z.discriminatedUnion("kind", [
+	z.strictObject({ kind: z.literal("owner-ready") }),
+	z.strictObject({ kind: z.literal("loss"), code: z.string().max(128) }),
 	z.strictObject({ kind: z.literal("created"), record: identitySchema }),
-	z.strictObject({ kind: z.literal("mounted"), evidence: evidenceSchema }),
+	z.strictObject({
+		kind: z.literal("mounted"),
+		evidence: evidenceSchema,
+		journal: journalSchema,
+	}),
 	z.strictObject({
 		kind: z.literal("verified"),
 		id: z.number().int(),
@@ -65,15 +87,42 @@ const responseSchema = z.discriminatedUnion("kind", [
 		kind: z.literal("closed"),
 		cleanup: cleanupSchema.nullable(),
 		failure: z.string().nullable(),
+		journal: journalSchema,
+	}),
+	z.strictObject({
+		kind: z.literal("evidence-written"),
+		id: z.number().int(),
+		result: z.strictObject({
+			quotaBytes: z.literal(windowCaseQuotaBytes),
+			bytes: z.number().int().nonnegative().max(65536),
+			overhead: overheadSchema,
+		}),
+	}),
+	z.strictObject({
+		kind: z.literal("overhead"),
+		id: z.number().int(),
+		result: overheadSchema,
 	}),
 ]);
 const requestSchema = z.discriminatedUnion("kind", [
+	z.strictObject({ kind: z.literal("authorize-create") }),
 	z.strictObject({ kind: z.literal("authorize-attach") }),
 	z.strictObject({ kind: z.literal("stop") }),
 	z.strictObject({
 		kind: z.literal("verify"),
 		id: z.number().int(),
 		paths: z.array(z.string()).min(1).max(64),
+	}),
+	z.strictObject({
+		kind: z.literal("write-evidence"),
+		id: z.number().int(),
+		name: z.string().max(128),
+		bytes: z.string().max(87384),
+	}),
+	z.strictObject({
+		kind: z.literal("measure-overhead"),
+		id: z.number().int(),
+		paths: z.array(z.string()).max(64),
 	}),
 ]);
 const sameIdentity = (a, b) => Object.keys(a).every((key) => a[key] === b[key]);
@@ -96,27 +145,111 @@ function send(port, message) {
 	);
 }
 
+async function answerQuotaRequest(quota, port, request) {
+	switch (request.kind) {
+		case "verify": {
+			await quota.measureOverhead();
+			const evidence = await quota.verifyWritablePaths(request.paths);
+			await send(port, { kind: "verified", id: request.id, evidence });
+			break;
+		}
+		case "write-evidence": {
+			const bytes = Buffer.from(request.bytes, "base64");
+			windowRequire(
+				bytes.length <= 65536 &&
+					bytes.toString("base64") === request.bytes,
+				"evidence_bytes_invalid",
+			);
+			const result = await quota.writeEvidence(request.name, bytes);
+			await send(port, {
+				kind: "evidence-written",
+				id: request.id,
+				result,
+			});
+			break;
+		}
+		case "measure-overhead": {
+			const result = await quota.measureOverhead(request.paths);
+			await send(port, { kind: "overhead", id: request.id, result });
+			break;
+		}
+	}
+}
+
+function watchQuotaOverhead(current, isStopping, fail) {
+	let sampling = false;
+	return setInterval(() => {
+		const quota = current();
+		if (!quota || isStopping() || sampling) return;
+		sampling = true;
+		void quota.measureOverhead().catch(fail).finally(() => {
+			sampling = false;
+		});
+	}, 25);
+}
+
+function reportQuotaLoss(port, code) {
+	void send(port, { kind: "loss", code }).catch(() => {
+		if (port.connected) port.disconnect();
+	});
+}
+
+function quotaJournalHooks(journal, options, isStopping, port, onFailure) {
+	return {
+		async onPhase(phase, identity) {
+			try {
+				journal.append(phase, identity);
+			} catch (error) {
+				if (!phase.startsWith("cleanup-")) throw error;
+				onFailure(error);
+			}
+			await options.onPhase?.(phase, identity);
+			if (phase.endsWith("-begin") && phase !== "cleanup-begin") {
+				windowRequire(
+					!isStopping() && port.connected,
+					"quota_owner_lost",
+				);
+			}
+		},
+	};
+}
+
 // The owner holds the quota object: coordinator EOF never discards the detach authority.
 export async function ownWindowQuota(root, port = process, options = {}) {
 	ownedWindowDirectory(root);
+	const creation = Promise.withResolvers();
+	if (!options.waitForRegistration) creation.resolve();
 	const attach = Promise.withResolvers();
 	const stop = Promise.withResolvers();
 	let stopping = false, quota, mounted, cleanup = null, failure = null;
 	let work = Promise.resolve();
+	const journal = createWindowStartupJournal(root);
 	const lost = () => {
 		stopping = true;
+		creation.resolve();
 		attach.resolve();
 		stop.resolve();
+	};
+	const fail = (error) => {
+		failure ??= failureCode(error);
+		reportQuotaLoss(port, failure);
+		lost();
+	};
+	const interrupted = () => {
+		reportQuotaLoss(port, "quota_owner_lost");
+		lost();
 	};
 	const message = (input) => {
 		const parsed = requestSchema.safeParse(input);
 		if (!parsed.success) {
-			failure = "quota_owner_protocol";
-			lost();
+			fail(new WindowConformanceError("quota_owner_protocol"));
 			return;
 		}
 		const request = parsed.data;
 		switch (request.kind) {
+			case "authorize-create":
+				creation.resolve();
+				break;
 			case "authorize-attach":
 				attach.resolve();
 				break;
@@ -124,34 +257,45 @@ export async function ownWindowQuota(root, port = process, options = {}) {
 				lost();
 				break;
 			case "verify":
+			case "write-evidence":
+			case "measure-overhead":
 				work = work.then(async () => {
 					windowRequire(
 						quota && !stopping,
 						"quota_owner_unavailable",
 					);
-					const evidence = await quota.verifyWritablePaths(
-						request.paths,
-					);
-					await send(port, {
-						kind: "verified",
-						id: request.id,
-						evidence,
-					});
-				}).catch((error) => {
-					failure = failureCode(error);
-					lost();
-				});
+					await answerQuotaRequest(quota, port, request);
+				}).catch(fail);
 				break;
 		}
 	};
 	port.once("disconnect", lost);
-	port.once("SIGTERM", lost);
-	port.once("SIGINT", lost);
+	port.once("SIGTERM", interrupted);
+	port.once("SIGINT", interrupted);
 	port.on("message", message);
-	const timer = setTimeout(lost, 180000);
+	const timer = setTimeout(interrupted, 180000);
+	const overheadTimer = watchQuotaOverhead(() => quota, () => stopping, fail);
 	try {
+		journal.append("guardian-ready");
+		if (options.waitForRegistration) {
+			await send(port, { kind: "owner-ready" });
+		}
+		await creation.promise;
+		windowRequire(port.connected && !stopping, "quota_owner_lost");
 		quota = await createOwnedWindowQuota(root, {
 			...options,
+			...quotaJournalHooks(
+				journal,
+				options,
+				() => stopping,
+				port,
+				(error) => {
+					failure ??= failureCode(error);
+				},
+			),
+			async onCleanup(result) {
+				cleanup = result;
+			},
 			async onCreated(record) {
 				await send(port, { kind: "created", record });
 				await attach.promise;
@@ -160,6 +304,7 @@ export async function ownWindowQuota(root, port = process, options = {}) {
 		});
 		windowRequire(!stopping, "quota_owner_lost");
 		mounted = await quota.verifyWritablePaths([quota.caseRoot]);
+		await quota.measureOverhead();
 		saveReceipt(root, "quota-owner-mounted", {
 			owner_pid: process.pid,
 			coordinator_pid: process.ppid,
@@ -167,13 +312,19 @@ export async function ownWindowQuota(root, port = process, options = {}) {
 			case_root: quota.caseRoot,
 			evidence: mounted,
 			actual_target_qualified: false,
+			startup_journal: journal.summary(),
 		});
-		await send(port, { kind: "mounted", evidence: mounted });
+		await send(port, {
+			kind: "mounted",
+			evidence: mounted,
+			journal: journal.summary(),
+		});
 		await stop.promise;
 	} catch (error) {
-		failure ??= failureCode(error);
+		fail(error);
 	} finally {
 		clearTimeout(timer);
+		clearInterval(overheadTimer);
 		await work;
 		try {
 			if (quota) cleanup = await quota.close();
@@ -185,19 +336,25 @@ export async function ownWindowQuota(root, port = process, options = {}) {
 			cleanup,
 			failure,
 			mounted: mounted ?? null,
+			startup_journal: journal.summary(),
 			actual_target_qualified: false,
 			limitations: [
-				"interrupted_initialization_not_universally_covered",
 				"loss_of_all_cleanup_owners_not_covered",
 			],
 		};
 		try {
 			saveReceipt(root, "quota-owner-cleanup", receipt);
-			await send(port, { kind: "closed", cleanup, failure });
+			await send(port, {
+				kind: "closed",
+				cleanup,
+				failure,
+				journal: journal.summary(),
+			});
 		} finally {
+			journal.close();
 			port.removeListener("disconnect", lost);
-			port.removeListener("SIGTERM", lost);
-			port.removeListener("SIGINT", lost);
+			port.removeListener("SIGTERM", interrupted);
+			port.removeListener("SIGINT", interrupted);
 			port.removeListener("message", message);
 			if (port.connected) port.disconnect();
 		}
@@ -205,10 +362,14 @@ export async function ownWindowQuota(root, port = process, options = {}) {
 	return { cleanup, failure };
 }
 
-function launchQuotaOwner(root, launch) {
+function launchQuotaOwner(root, launch, registeredStart) {
 	const opensslConf = join(root, "quota-owner-openssl.cnf");
 	writeFileSync(opensslConf, "", { flag: "wx", mode: 0o600 });
-	return launch ? launch(root) : fork(script, ["own-quota", root], {
+	return launch ? launch(root) : fork(script, [
+		"own-quota",
+		root,
+		...(registeredStart ? ["--registered-start"] : []),
+	], {
 		cwd: root,
 		execPath: realpathSync(process.execPath),
 		execArgv: [],
@@ -224,153 +385,319 @@ function launchQuotaOwner(root, launch) {
 	});
 }
 
-export function createWindowQuotaGuardian(root, options = {}) {
-	ownedWindowDirectory(root);
-	const ready = Promise.withResolvers();
-	const closed = Promise.withResolvers();
-	const pending = new Map();
-	let child,
-		identity,
-		mounted,
-		receipt,
-		failure,
-		timer,
-		closing = false,
-		sequence = 0;
-	const fail = (code) => {
-		failure ??= code;
-		ready.reject(new WindowConformanceError(code));
-		for (const request of pending.values()) {
+function quotaHandle(root, startupJournal, requestOwner, close) {
+	return {
+		imagePath: join(root, "volume.sparseimage"),
+		caseRoot: join(root, "mounts", "HarnessQuotaState", "private"),
+		evidenceRoot: join(root, "mounts", "HarnessQuotaEvidence", "private"),
+		startupJournal,
+		verifyWritablePaths: (paths) => requestOwner("verify", { paths }),
+		writeEvidence: (name, bytes) => {
+			windowRequire(
+				Buffer.isBuffer(bytes) && bytes.length <= 65536,
+				"evidence_bytes_invalid",
+			);
+			return requestOwner("write-evidence", {
+				name,
+				bytes: bytes.toString("base64"),
+			});
+		},
+		measureOverhead: (paths = []) =>
+			requestOwner("measure-overhead", { paths }),
+		close,
+	};
+}
+
+function verifyQuotaCleanup(root, identity, cleanup) {
+	windowRequire(
+		identity && cleanup && sameIdentity(identity, cleanup.identity),
+		"quota_cleanup_unverified",
+	);
+	windowRequire(
+		!existsSync(join(root, "volume.sparseimage")),
+		"quota_cleanup_unverified",
+	);
+}
+
+class WindowQuotaGuardian {
+	stopSent = false;
+	ownerReady = false;
+	registered = false;
+	createAuthorized = false;
+	ready = Promise.withResolvers();
+	completion = Promise.withResolvers();
+	pending = new Map();
+	child;
+	identity;
+	mounted;
+	receipt;
+	startupJournal;
+	failure;
+	timer;
+	closing = false;
+	sequence = 0;
+
+	constructor(root, options) {
+		ownedWindowDirectory(root);
+		this.root = root;
+		this.options = options;
+		void this.ready.promise.catch(() => this.completion.promise);
+	}
+
+	fail(code) {
+		const first = this.failure === undefined;
+		this.failure ??= code;
+		this.ready.reject(new WindowConformanceError(code));
+		for (const request of this.pending.values()) {
 			request.reject(new WindowConformanceError(code));
 		}
-		pending.clear();
-		if (child?.connected) child.send({ kind: "stop" });
-	};
-	const onMessage = (input) => {
+		this.pending.clear();
+		try {
+			if (first) this.options.onLoss?.(this.failure);
+		} finally {
+			this.sendStop();
+		}
+	}
+
+	send(input) {
+		this.child.send(input, (error) => {
+			if (error) this.fail("quota_owner_unavailable");
+		});
+	}
+
+	sendStop() {
+		if (!this.stopSent && this.child?.connected) {
+			this.stopSent = true;
+			this.send({ kind: "stop" });
+		}
+	}
+
+	acknowledge(callback, release) {
+		void Promise.resolve().then(callback).then(() => {
+			if (!this.failure && !this.closing) release();
+		}).catch((error) => this.fail(failureCode(error)));
+	}
+
+	releaseCreation() {
+		if (
+			this.ownerReady && this.registered && !this.createAuthorized &&
+			!this.failure && !this.closing && this.child.connected
+		) {
+			this.createAuthorized = true;
+			this.send({ kind: "authorize-create" });
+		}
+	}
+
+	created(message) {
+		windowRequire(!this.identity && !this.closing, "quota_owner_protocol");
+		this.identity = windowImageIdentity(this.root);
+		windowRequire(
+			sameIdentity(this.identity, message.record),
+			"quota_ownership_unverified",
+		);
+		const release = () => this.send({ kind: "authorize-attach" });
+		if (this.options.onCreated) {
+			this.acknowledge(
+				() =>
+					this.options.onCreated(
+						join(this.root, "volume.sparseimage"),
+						this.identity,
+					),
+				release,
+			);
+		} else release();
+	}
+
+	mount(message) {
+		windowRequire(
+			this.identity && !this.mounted && !this.closing,
+			"quota_owner_protocol",
+		);
+		windowRequire(
+			sameIdentity(this.identity, message.evidence.identity),
+			"quota_ownership_unverified",
+		);
+		this.mounted = message.evidence;
+		this.startupJournal = message.journal;
+		if (this.options.onMounted) {
+			this.acknowledge(
+				() => this.options.onMounted(this.mounted),
+				() => this.ready.resolve(),
+			);
+		} else this.ready.resolve();
+	}
+
+	answer(id, value) {
+		const request = this.pending.get(id);
+		windowRequire(request, "quota_owner_protocol");
+		this.pending.delete(id);
+		request.resolve(value);
+	}
+
+	message(input) {
 		const parsed = responseSchema.safeParse(input);
-		if (!parsed.success) return fail("quota_owner_protocol");
+		if (!parsed.success) return this.fail("quota_owner_protocol");
 		const message = parsed.data;
 		try {
 			switch (message.kind) {
+				case "owner-ready":
+					windowRequire(
+						!this.ownerReady && Boolean(this.options.onOwner),
+						"quota_owner_protocol",
+					);
+					this.ownerReady = true;
+					return this.releaseCreation();
+				case "loss":
+					return this.fail(message.code);
 				case "created":
-					windowRequire(
-						!identity && !closing,
-						"quota_owner_protocol",
-					);
-					identity = windowImageIdentity(root);
-					windowRequire(
-						sameIdentity(identity, message.record),
-						"quota_ownership_unverified",
-					);
-					child.send({ kind: "authorize-attach" });
-					break;
+					return this.created(message);
 				case "mounted":
+					return this.mount(message);
+				case "verified":
 					windowRequire(
-						identity && !mounted && !closing,
-						"quota_owner_protocol",
-					);
-					windowRequire(
-						sameIdentity(identity, message.evidence.identity),
+						this.identity &&
+							sameIdentity(
+								this.identity,
+								message.evidence.identity,
+							),
 						"quota_ownership_unverified",
 					);
-					mounted = message.evidence;
-					ready.resolve();
-					break;
-				case "verified": {
-					windowRequire(
-						identity &&
-							sameIdentity(identity, message.evidence.identity),
-						"quota_ownership_unverified",
-					);
-					const request = pending.get(message.id);
-					windowRequire(request, "quota_owner_protocol");
-					pending.delete(message.id);
-					request.resolve(message.evidence);
-					break;
-				}
+					return this.answer(message.id, message.evidence);
+				case "evidence-written":
+				case "overhead":
+					return this.answer(message.id, message.result);
 				case "closed":
-					windowRequire(
-						identity && message.cleanup &&
-							sameIdentity(identity, message.cleanup.identity),
-						"quota_cleanup_unverified",
+					verifyQuotaCleanup(
+						this.root,
+						this.identity,
+						message.cleanup,
 					);
-					windowRequire(
-						!existsSync(join(root, "volume.sparseimage")),
-						"quota_cleanup_unverified",
-					);
-					receipt = message.cleanup;
-					failure ??= message.failure;
-					break;
+					this.receipt = message.cleanup;
+					this.startupJournal = message.journal;
+					if (message.failure) this.fail(message.failure);
 			}
 		} catch (error) {
-			fail(failureCode(error));
+			this.fail(failureCode(error));
 		}
-	};
-	const close = async () => {
-		if (!child) return null;
-		closing = true;
-		if (child.connected) child.send({ kind: "stop" });
-		const result = await closed.promise;
+	}
+
+	// The guardian is gone without a receipt: only the journal and the pinned
+	// root remain, and they are enough to detach and delete what was recorded.
+	async recoverFromJournal() {
+		try {
+			return await (this.options.recover ?? recoverWindowQuota)(
+				this.root,
+				{ run: this.options.run, fs: this.options.fs },
+			);
+		} catch (error) {
+			return { recovered: false, code: failureCode(error) };
+		}
+	}
+
+	exit() {
+		clearTimeout(this.timer);
+		if (!this.receipt) this.fail("quota_cleanup_unverified");
+		if (!this.mounted) {
+			this.ready.reject(
+				new WindowConformanceError(
+					this.failure ?? "quota_owner_unavailable",
+				),
+			);
+		}
+		for (const request of this.pending.values()) {
+			request.reject(
+				new WindowConformanceError("quota_owner_unavailable"),
+			);
+		}
+		this.pending.clear();
+		const settle = (recovery) =>
+			this.completion.resolve({
+				cleanup: this.receipt ??
+					(recovery?.recovered && recovery.identity
+						? {
+							detached: true,
+							ownedImageDeleted: true,
+							identity: recovery.identity,
+						}
+						: null),
+				failure: this.failure ?? null,
+				startupJournal: this.startupJournal ?? null,
+				...(recovery ? { recovery } : {}),
+			});
+		if (this.receipt) settle(null);
+		else void this.recoverFromJournal().then(settle);
+	}
+
+	async close() {
+		if (!this.child) return null;
+		this.closing = true;
+		this.sendStop();
+		const result = await this.completion.promise;
 		windowRequire(
 			result.cleanup && !result.failure,
 			result.failure ?? "quota_cleanup_unverified",
 		);
 		return result.cleanup;
-	};
+	}
+
+	request(kind, fields = {}) {
+		windowRequire(
+			!this.closing && this.child?.connected && this.mounted,
+			"quota_owner_unavailable",
+		);
+		const id = ++this.sequence;
+		const request = Promise.withResolvers();
+		this.pending.set(id, request);
+		this.send({ kind, id, ...fields });
+		return request.promise;
+	}
+
+	async start() {
+		windowRequire(!this.child, "reservation_reused");
+		this.child = launchQuotaOwner(
+			this.root,
+			this.options.launch,
+			Boolean(this.options.onOwner),
+		);
+		this.child.on("message", (input) => this.message(input));
+		this.child.once("error", () => this.fail("quota_owner_unavailable"));
+		this.child.once("exit", () => this.exit());
+		this.timer = setTimeout(() => {
+			this.fail("quota_owner_deadline");
+			this.completion.resolve({ cleanup: null, failure: this.failure });
+		}, 210000);
+		if (this.options.onOwner) {
+			try {
+				windowRequire(
+					Number.isSafeInteger(this.child.pid) && this.child.pid > 1,
+					"quota_owner_unavailable",
+				);
+				await this.options.onOwner(this.child.pid);
+				this.registered = true;
+				this.releaseCreation();
+			} catch (error) {
+				this.fail(failureCode(error));
+			}
+		}
+		await this.ready.promise;
+		return quotaHandle(
+			this.root,
+			this.startupJournal,
+			(kind, fields) => this.request(kind, fields),
+			() => this.close(),
+		);
+	}
+}
+
+export function createWindowQuotaGuardian(root, options = {}) {
+	const guardian = new WindowQuotaGuardian(root, options);
 	return Object.freeze({
 		get owner() {
-			return child;
+			return guardian.child;
 		},
-		closed: closed.promise,
-		async start() {
-			windowRequire(!child, "reservation_reused");
-			child = launchQuotaOwner(root, options.launch);
-			child.on("message", onMessage);
-			child.once("error", () => fail("quota_owner_unavailable"));
-			child.once("exit", () => {
-				clearTimeout(timer);
-				if (!receipt) fail("quota_cleanup_unverified");
-				if (!mounted) {
-					ready.reject(
-						new WindowConformanceError(
-							failure ?? "quota_owner_unavailable",
-						),
-					);
-				}
-				for (const request of pending.values()) {
-					request.reject(
-						new WindowConformanceError("quota_owner_unavailable"),
-					);
-				}
-				pending.clear();
-				closed.resolve({
-					cleanup: receipt ?? null,
-					failure: failure ?? null,
-				});
-			});
-			timer = setTimeout(() => {
-				fail("quota_owner_deadline");
-				closed.resolve({ cleanup: null, failure });
-			}, 210000);
-			await ready.promise;
-			return {
-				imagePath: join(root, "volume.sparseimage"),
-				caseRoot: join(root, "mounts", "HarnessQuotaState", "private"),
-				verifyWritablePaths: async (paths) => {
-					windowRequire(
-						!closing && child.connected,
-						"quota_owner_unavailable",
-					);
-					const id = ++sequence;
-					const request = Promise.withResolvers();
-					pending.set(id, request);
-					child.send({ kind: "verify", id, paths });
-					return request.promise;
-				},
-				close,
-			};
-		},
-		close,
+		closed: guardian.completion.promise,
+		start: () => guardian.start(),
+		close: () => guardian.close(),
 	});
 }
 
@@ -379,11 +706,16 @@ if (
 	import.meta.url === pathToFileURL(resolve(process.argv[1])).href
 ) {
 	if (
-		process.argv.length === 4 && process.argv[2] === "own-quota" &&
+		(process.argv.length === 4 ||
+			process.argv.length === 5 &&
+				process.argv[4] === "--registered-start") &&
+		process.argv[2] === "own-quota" &&
 		process.send
 	) {
 		try {
-			const result = await ownWindowQuota(process.argv[3]);
+			const result = await ownWindowQuota(process.argv[3], process, {
+				waitForRegistration: process.argv.length === 5,
+			});
 			if (result.failure || !result.cleanup) process.exitCode = 2;
 		} catch {
 			process.exitCode = 2;

@@ -26,8 +26,8 @@ node scripts/tool-update/codex-window-conformance.mjs execute
 
 예상 결과는 exit 2이며 고정 JSON에 `code:b1_execution_disabled`,
 `execution_attempted:false`, `actual_qualification:false`를 담습니다. consent JSON,
-intent, 승인 flag, 만료·재사용 packet으로 해제할 수 없습니다. `verify-cleanup`도 실제
-cleanup consent가 없어 거부합니다.
+intent, 승인 flag, 만료·재사용 packet으로 해제할 수 없습니다. `verify-cleanup`은
+아래에 설명한 읽기 전용 registry audit일 뿐이며 vendor process를 실행하지 않습니다.
 
 오프라인 준비는 명시적인 private plan과 기존 빈 case 디렉터리를 정규 절대 경로로
 받습니다. 두 부모 디렉터리는 실행자 소유 0700이어야 하고 plan은 일반 단일 링크 0600
@@ -187,16 +187,79 @@ identity-checked attach handshake 후 정상 close, control EOF, 소유 owner SI
 detach를 검증합니다. 실제 quota qualification entry는 독립 quota owner를 사용하므로
 attach 이후 coordinator가 SIGKILL돼도 살아 있는 peer가 detach와 삭제를 수행할 수 있습니다.
 검증된 image mount에서 image owner의 startup watchdog을 해제하고 lifetime watchdog은
-원래 승인 deadline의 남은 시간만 사용합니다. loss 검증 범위는 attach 이후이며 초기화 중 모든
-손실이나 전체 cleanup process의 동시 손실을 포괄하지는 않습니다. packet은 제한된 metadata와
+원래 승인 deadline의 남은 시간만 사용합니다. 기존 image-loss 검증 범위는 attach 이후입니다.
+아래 guardian-first startup qualifier는 유한한 초기화 단계를 별도로 검증하며, 어느 쪽도 모든
+interleaving이나 전체 cleanup process의 동시 손실을 증명하지 않습니다. packet은 제한된 metadata와
 상태만 담고 actual-target qualification은 항상 false입니다. image-loss artifact와 실패 packet은
 private 상태로 남기며 기본 테스트는 fake를 사용해 image를 생성하거나 mount하지 않습니다.
+
+아래 G1-G6 detect-and-stop guard 모듈은 위의 예방적 제어를 모두 유지하며 vendor 실행
+경로를 추가하지 않습니다. `codex-window-case-guards.mjs`는 고정된 합성 `normal`/`hold`
+case 하나에서 시작 시간을 재설정하지 않고 기존 batch 예산을 예약하고, 관측 exec 합계를
+이어받고, resource를 durable하게 등록하고, genuine trial/source 권한을 사용하고,
+fixture release 전에 watcher를 arm한 뒤 sealed registry로 cleanup을 검증합니다.
+이 pipe fixture는 vendor containment, PTY, native recipe 조합을 검증하거나 grant를 발급하지 않습니다.
+
+- G1 개수: `codex-window-watch.mjs`는 소유 launch 전에 native kqueue watcher를 arm하고
+  `QOS_CLASS_USER_INTERACTIVE`로 실행되는 전용 native process에서 drain합니다. exec,
+  fork/live process(소유 tree reconciliation 포함), 생성된 receipt(vnode watch와
+  directory reconciliation)를 셉니다. 모든 개수는 관측된 하한(`lower_bound:true`)입니다.
+  `NOTE_EXEC`가 병합될 수 있으므로(nonvendor probe에서 exec 17회에 알림 1회) 최대 1회
+  초과 보장은 없습니다. 처음 관측된 초과에서 소유 tree를 identity-checked teardown하고
+  case를 실패 처리하며 batch를 중단합니다. 관측된 초과량은 `exec_overshoot`,
+  `live_overshoot`, `receipt_overshoot`로 기록하며 실제 초과량의 하한입니다. 어떤 초과도
+  case 실패이며 watcher 손실은 guard 손실로 batch를 중단합니다.
+  생성된 하위 process는 처음 발견될 때 exec 1회로 계산합니다(watch를 arm한 뒤 읽은 커널의
+  has-exec 플래그). 이후 `NOTE_EXEC` 알림은 추가로 셉니다. 따라서 15회 exec 예산은 발견된 모든
+  자식의 첫 exec을 포함하며, 검사 전에 끝난 자식은 보수적으로 계산합니다. fork한 자식이 제자리에서
+  exec하면 두 번 계산될 수 있고, 병합과 미발견 process는 값을 줄이므로 이 값은 정확한 개수가 아닌
+  추정치입니다. target은 자체 session과 process group에서 실행됩니다. guard는 부모 관계 조정 외에
+  그 group과 session을 매 주기마다, 실행별 환경 marker(`HARNESS_DELTA_WINDOW_OWNER`, target
+  환경에 주입)를 가진 사용자의 최근 시작 process를 약 1초마다 그리고 cleanup 선언 전에 다시
+  sweep합니다. 조상 관계가 소유 tree에 닿지 않는 live process(예: 목록에 오르기 전에 launchd로
+  reparent된 경우)는 종료하고 `unaccounted`로 세며 case를 실패시키고 `cleanup_verified`를
+  거부합니다. 환경을 지우고 session을 벗어난 뒤 발견 전에 reparent되는 process나 환경을 숨기는
+  platform binary는 다루지 못합니다. 미리 존재해도 되는 항목은 device, inode, UID, birth time으로 명시적으로 고정한
+  `ordinary-window-control.json`뿐입니다. receipt로 세지 않으며 control identity가
+  누락되거나 교체되면 guard 손실입니다.
+- G2 시간: coordinator deadline은 native `mach_continuous_time` clock
+  (`codex-window-clock.mjs`)을 읽습니다. TERM/KILL 전달 지연과 검증된 disappearance까지의
+  시간을 측정하며 한도를 넘는 측정값은 case 실패이고 실시간 보장이 아닙니다. 보호된 PTY
+  owner는 자체 local clock을 유지하며 이 변경이 대체하지 않습니다.
+- G3 consent fence: 각 source read 직전과 commit 직전에 기존 public seam으로 consent와
+  trial 권한을 재검증합니다. 이 검사는 read나 보호된 Store transaction과 atomic하지 않습니다.
+- G4 시작 손실: quota guardian은 image 생성 전에 시작하고 create/attach 단계를 hash된
+  append-only startup journal에 기록하므로, journal에 기록된 단계의 손실 시 기록된
+  identity로 detach와 삭제를 수행합니다. 복구는 guardian에만 의존하지 않습니다. guardian이
+  receipt 없이 종료하면 coordinator가 journal과 고정된 root를 읽고, 수정되었거나 옮겨졌거나 없는
+  journal 또는 identity가 다른 image를 거부하며, mount가 모두 소유 mount root 아래인 whole disk만
+  detach하고(일반 detach가 실패할 때만 강제), image를 삭제합니다. 같은 로직이 standalone 진입점
+  `node scripts/tool-update/codex-window-quota-recovery.mjs recover ABS_ROOT`이며, coordinator까지
+  사라졌을 때 guardian과 coordinator가 종료된 뒤에만 실행하세요. guardian 손실도 case를 실패시킵니다.
+  로컬 nonvendor 검증은 유한한 coordinator kill point, coordinator가 살아 있는 상태의 guardian
+  kill, 둘 다 죽인 뒤의 `recover`를 다루며 모든 interleaving을 다루지 않습니다. 합성 coordinator는 image 생성 전
+  owner 등록, attach 전 image 등록, 작업 허용 전 device/path 등록도 기다립니다.
+- G5 overhead: evidence와 case state는 서로 다른 67108864-byte APFS quota volume을
+  사용합니다. overhead 계산은 모든 명시적 guard root와 payload를 포함한 할당된 image 전체를
+  보수적으로 합산해 134217728-byte hard stop과 비교하므로, 두 quota를 모두 채우는 case는
+  중단됩니다. 로컬 nonvendor 검증이 둘 다 확인합니다.
+  추가 guard root를 모두 명시적으로 등록해야 하며 quota root만 계산해서는 전체 범위를
+  증명하지 못합니다. image를 닫으면 evidence volume도 삭제하므로 export root가 주어지면 executor가
+  먼저 한도 내 evidence를 복사해 냅니다(`codex-window-evidence-export.mjs`). 안전한 이름의 일반
+  단일 링크 JSON 객체 파일(각 65536 byte 이하, 합계 67108864 byte 이하)만 image 밖의 비어 있는
+  private directory로 복사하고 크기와 hash manifest를 남깁니다. 그 밖의 것은 export 전체를
+  거부하고 case를 실패시킵니다. 대상이 주어지지 않으면 export하지 않습니다.
+- G6 cleanup audit: `codex-window-registry.mjs`는 소유 PID, image, 경로의 hash된
+  case별 registry를 유지합니다. `verify-cleanup --batch <root> --consent <file>`은 이를
+  기준으로 positive closure를 읽기 전용으로 확인하고 수정·누락된 registry를 거부합니다.
+  별도 외부 cleanup consent와 고정 native clock identity가 필요하며 그런 packet은
+  제공하지 않습니다.
 
 합성 deadline 검사는 불변 `B=T0+1200000`, teardown 5000 ms, audit 10000 ms를
 예약하고 온전한 case만 허용하며 만료 시 작업 시간을 줄입니다. 최종 audit은 기존 예약만
 사용하고 teardown을 다시 예약하지 않습니다. 실제 disappearance, 닫힌 resource, 복원된
-terminal은 KILL 전달과 별개입니다. 오프라인 산술·상태 제어이며 suspend-inclusive host
-clock의 calibration이 아닙니다.
+terminal은 KILL 전달과 별개입니다. 이는 산술·상태 검사이며 native clock 의미와 측정된
+전달 지연은 별도의 nonvendor 검증이 필요합니다.
 
 일반 build 뒤 합성 검사를 실행하세요.
 
@@ -204,19 +267,55 @@ clock의 calibration이 아닙니다.
 npm test -- tests/tool-update-codex-window*.test.ts
 ```
 
+이 작업의 로컬 gate는 이 focused suite를 Node 24에서, 전체 `npm run check`를 Node 26에서
+실행합니다. 원격 CI의 Node 24 전체 실행은 별도 증거입니다.
+
+통합 로컬 qualifier는 저장소 fixture만 컴파일하고 소유 APFS image를 만듭니다.
+primitive prerequisite를 확인한 뒤 macOS arm64와 Node 24에서 새 소유 directory로만 실행하세요.
+
+```sh
+node scripts/tool-update/codex-window-case-guards-qualify.mjs --qualify-nonvendor --prerequisites-ready ABS_FRESH_OWNED_DIRECTORY
+```
+
+guardian 손실 복구 qualifier(coordinator가 살아 있는 상태의 guardian kill, 둘 다 죽인 뒤
+standalone `recover`)는 같은 전제 조건과 아직 없는 directory를 사용합니다.
+
+```sh
+node scripts/tool-update/codex-window-recovery-qualification.mjs qualify ABS_NEW_DIRECTORY
+```
+
+readiness flag는 개발 전제 조건이지 B1 consent가 아닙니다. 기본 테스트는 fake를 사용하며
+image를 mount하거나 `sandbox-exec`를 호출하지 않습니다.
+
 native acceptance나 B1 준비 완료가 아닙니다. SBPL/APFS는 검증한 filesystem/network
-경계를 강제하지만, 그 자체로 vendor exec 15회·동시 process 16개라는 상태 기반 제한을
-강제하지 못합니다. 예방적 개수 제한 증명, 독립 qualification 검토, suspend-inclusive
-clock calibration, 완전한 vendor TUI/input 순서, 실제 consent-to-source commit 연동은
-검증되지 않았습니다. 실제 실행과 최종 cleanup-audit 명령은 계속 차단됩니다. 기본 테스트는
+경계를 강제합니다. exec 15회, process 16개, receipt 16개 예산은 예방이 아닌
+detect-and-stop 한도입니다. 독립 qualification 검토, 완전한 vendor TUI/input 순서,
+실제 consent-to-source commit 연동은 검증되지 않았습니다. 실제 실행 명령은 계속
+차단되며 발급자나 B1 승인은 없습니다. 기본 테스트는
 합성 입력과 실제 loopback/nonvendor PTY fixture만 사용합니다. 합성·로컬 nonvendor
 결과로 actual-target qualification gate를 닫지 않습니다.
-실제 consent/source 연동, 독립 input/runtime/system-tool closure 검토, 예방적
-exec/process 및 나머지 evidence/overhead 예산, 실제 clock/admission/dispatch/termination/loss/
-broker/escape 보장 검증, 전체 executor 순서·guard closure, 실제 cleanup
-audit은 `--version`을 포함한 어떤 vendor 시도도 차단하는 미해결 항목입니다.
+실제 consent/source 연동, 독립 input/runtime/system-tool closure 검토, vendor 대상
+admission/dispatch/termination/loss/broker/escape 검증, 실제 vendor executor/guard 조합,
+외부 승인을 받은 실제 batch cleanup audit은 `--version`을 포함한 어떤 vendor 시도에도 필요한
+미해결 전제 조건입니다.
 consent가 누락된 구현을 대신하지 않습니다. 17번째 receipt 파일의 생성 예방도 검증된
 admission 거부와는 별도로 남아 있습니다.
+
+guard 모듈의 알려진 잔여 한계입니다. 닫힌 것으로 읽히지 않도록 명시합니다.
+
+- native qualifier의 exec, fork, receipt 시나리오는 credit으로 속도를 맞추므로 작은 초과는
+  구성상 나옵니다. escape와 spawn 시나리오(reparent, setsid, posix_spawn, fork+exec)는 자유롭게
+  실행되지만 모든 부하에서의 자유 실행 초과나 병합을 증명하는 시나리오는 없습니다.
+- `createWindowWatch`와 native `LAUNCH`는 guard 자신의 환경(및 소유 marker)과 작업 directory로
+  임의의 절대 경로 executable을 시작하며 consent capability가 필요 없습니다. 호출하는 것은
+  컴파일된 fixture를 쓰는 합성 case뿐입니다. vendor 조합은 executable을 등록된 identity에
+  고정하고 환경과 directory를 독립적으로 정해야 합니다. 합성 qualifier가 쓰는 개발용 consent
+  writer는 아무것도 해제하지 않습니다. 합성이 아닌 origin과 `hold` 외 시나리오는 거부됩니다.
+- native guard는 Node 24 로컬 qualifier에서만 컴파일·실행되며 기본 테스트는 다루지 않으므로 C
+  파일의 회귀는 CI가 잡지 못합니다.
+- image owner는 mount 확인 전이라도 기록된 identity에 의한 positive detach를 보고합니다
+  (`detached`, `mounted` 없이). mount 전 손실도 검증하지 않은 것은 삭제하지 않으며 `ready`는 여전히
+  거부됩니다.
 
 탐색에서 후보를 찾았다는 이유만으로 실행하지 마세요. 사람이 정확한 이미지, runtime, 범위,
 모델, pin, 종료 예산을 승인해야 합니다. runner는 승인 기록을 만들거나 갱신하지 않습니다.

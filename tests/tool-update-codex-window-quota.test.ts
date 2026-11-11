@@ -1,11 +1,13 @@
 import * as fs from 'node:fs';
-import { EventEmitter } from 'node:events';
+import { createHash } from 'node:crypto';
+import { EventEmitter, once } from 'node:events';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, expect, test } from 'vitest';
 import { createOwnedWindowQuota } from '../scripts/tool-update/codex-window-quota.mjs';
 import type { WindowTool } from '../scripts/tool-update/codex-window-containment.mjs';
 import { createWindowQuotaGuardian, ownWindowQuota } from '../scripts/tool-update/codex-window-quota-owner.mjs';
+import { createWindowStartupJournal } from '../scripts/tool-update/codex-window-startup-journal.mjs';
 
 function deferred<T>() {
   let resolve: ((value: T) => void) | undefined;
@@ -19,6 +21,7 @@ function deferred<T>() {
 }
 
 class QuotaPort extends EventEmitter {
+  pid = process.pid;
   connected = true;
   peer?: QuotaPort;
   send(input: unknown, callback?: (error: Error | null) => void) {
@@ -40,16 +43,29 @@ class QuotaPort extends EventEmitter {
   }
 }
 
-function ownedPeer(f: ReturnType<typeof fixture>) {
+function ownedPeer(
+  f: ReturnType<typeof fixture>,
+  callbacks: {
+    readonly onOwner?: (pid: number) => Promise<void>;
+    readonly onCreated?: (path: string) => Promise<void>;
+    readonly onLoss?: (code: string) => void;
+  } = {}
+) {
   const coordinator = new QuotaPort(),
     owner = new QuotaPort();
   coordinator.peer = owner;
   owner.peer = coordinator;
   const completed = deferred<Awaited<ReturnType<typeof ownWindowQuota>>>();
   const guardian = createWindowQuotaGuardian(f.root, {
+    ...callbacks,
+    run: f.run,
+    fs: f.fs,
     launch: () => {
       queueMicrotask(() => {
-        void ownWindowQuota(f.root, owner, f).then(
+        void ownWindowQuota(f.root, owner, {
+          ...f,
+          waitForRegistration: Boolean(callbacks.onOwner)
+        }).then(
           result => {
             completed.resolve(result);
             coordinator.emit('exit', result.failure ? 2 : 0, null);
@@ -73,7 +89,110 @@ afterEach(() => {
   }
 });
 
-const names = ['HarnessQuotaBase', 'HarnessQuotaState'];
+test('guardian waits for owner registration before creating the image', async () => {
+  const f = fixture();
+  const entered = deferred<void>(),
+    release = deferred<void>();
+  const { guardian, coordinator, completed } = ownedPeer(f, {
+    onOwner: () => {
+      entered.resolve();
+      return release.promise;
+    }
+  });
+  const progress = once(coordinator, 'message');
+  const starting = guardian.start();
+  try {
+    await Promise.race([entered.promise, progress]);
+    expect(fs.existsSync(f.image)).toBe(false);
+  } finally {
+    release.resolve();
+    await starting;
+    await guardian.close();
+    await completed;
+  }
+});
+
+test('guardian waits for image registration before authorizing attach', async () => {
+  const f = fixture();
+  const release = deferred<void>();
+  let registered = false;
+  const { guardian, coordinator, completed } = ownedPeer(f, {
+    onCreated: () => {
+      registered = true;
+      return release.promise;
+    }
+  });
+  const created = once(coordinator, 'message');
+  const starting = guardian.start();
+  try {
+    await created;
+    expect(registered).toBe(true);
+    expect(f.state().attached).toBe(false);
+  } finally {
+    release.resolve();
+    await starting;
+    await guardian.close();
+    await completed;
+  }
+});
+
+test('closing-channel write failures do not escape as unhandled errors during cleanup', async () => {
+  const f = fixture();
+  const { guardian, coordinator, completed } = ownedPeer(f);
+  await guardian.start();
+  const originalSend = coordinator.send.bind(coordinator);
+  const orphaned: Error[] = [];
+  const observed: unknown[] = [];
+  coordinator.on('error', error => observed.push(error));
+  coordinator.send = (input, callback) => {
+    if (typeof input !== 'object' || input === null || !('kind' in input) || input.kind !== 'stop') {
+      return originalSend(input, callback);
+    }
+    const sent = originalSend(input);
+    queueMicrotask(() => {
+      const error = Object.assign(new Error('channel_closed'), {
+        code: 'EPIPE'
+      });
+      if (callback) callback(error);
+      else {
+        if (coordinator.listenerCount('error') === 1) {
+          orphaned.push(error);
+        }
+        coordinator.emit('error', error);
+      }
+    });
+    return sent;
+  };
+  await expect(guardian.close()).rejects.toThrow('quota_owner_unavailable');
+  expect(await completed).toMatchObject({
+    cleanup: { detached: true, ownedImageDeleted: true }
+  });
+  expect(f.state()).toMatchObject({ attached: false, deleted: true });
+  expect(orphaned).toEqual([]);
+});
+
+test('guardian reports owner loss before waiting for image cleanup', async () => {
+  const f = fixture();
+  let observed: string | undefined;
+  const { guardian, coordinator, completed } = ownedPeer(f, {
+    onLoss: code => {
+      observed = code;
+    }
+  });
+  await guardian.start();
+  coordinator.emit('message', {
+    kind: 'loss',
+    code: 'quota_overhead_exceeded'
+  });
+  try {
+    expect(observed).toBe('quota_overhead_exceeded');
+  } finally {
+    await guardian.closed;
+    await completed;
+  }
+});
+
+const names = ['HarnessQuotaBase', 'HarnessQuotaState', 'HarnessQuotaEvidence'];
 
 function containerList(
   fault: string,
@@ -81,6 +200,7 @@ function containerList(
     readonly mounted: boolean;
     readonly quota: number;
     readonly capacity: number;
+    readonly volumes: number;
   }
 ) {
   return {
@@ -94,7 +214,7 @@ function containerList(
             DeviceIdentifier: fault === 'store' ? 'disk99s1' : 'disk71s1'
           }
         ],
-        Volumes: names.slice(0, state.quota ? 2 : 1).map((Name, i) => ({
+        Volumes: names.slice(0, state.volumes).map((Name, i) => ({
           Name,
           DeviceIdentifier: `disk72s${i + 1}`,
           APFSVolumeUUID: `volume-${i}`,
@@ -105,12 +225,18 @@ function containerList(
   };
 }
 
-function attachmentEntities(state: { readonly mounted: boolean; readonly quota: number; readonly fault: string; readonly mounts: string }) {
+function attachmentEntities(state: {
+  readonly mounted: boolean;
+  readonly quota: number;
+  readonly fault: string;
+  readonly mounts: string;
+  readonly volumes: number;
+}) {
   return [
     { 'dev-entry': '/dev/disk71', 'content-hint': 'GUID_partition_scheme' },
     { 'dev-entry': '/dev/disk71s1', 'content-hint': 'different_info_hint' },
     { 'dev-entry': '/dev/disk72', 'content-hint': 'container' },
-    ...names.slice(0, state.quota ? 2 : 1).map((name, i) => ({
+    ...names.slice(0, state.volumes).map((name, i) => ({
       'dev-entry': `/dev/disk72s${i + 1}`,
       ...(state.mounted
         ? {
@@ -119,6 +245,21 @@ function attachmentEntities(state: { readonly mounted: boolean; readonly quota: 
         : {})
     }))
   ];
+}
+
+function quotaStat(path: string, fault: string, mounts: string, mounted: boolean, ownersOff: boolean) {
+  const stat = fs.lstatSync(path);
+  if (mounted && path.startsWith(`${mounts}/`)) {
+    stat.dev += fault === 'same_device' ? 0 : 100;
+    if (fault === 'private_device' && path.endsWith('/private')) {
+      stat.dev += 1;
+    }
+    if (!ownersOff && path.endsWith('/private')) stat.uid = 0;
+    if (fault === 'private_mode' && path.endsWith('/private')) {
+      stat.mode = 0o40755;
+    }
+  }
+  return stat;
 }
 
 function fixture(fault = '') {
@@ -131,9 +272,10 @@ function fixture(fault = '') {
     quota = 0,
     capacity = 0,
     ownersOff = false;
+  let volumes = 1;
   let detachments = 0,
     deleted = false;
-  const entities = () => attachmentEntities({ mounted, quota, fault, mounts });
+  const entities = () => attachmentEntities({ mounted, quota, fault, mounts, volumes });
   const run: WindowTool = (command, args, options) => {
     expect(options?.timeoutMs).toBeGreaterThan(0);
     expect(options?.timeoutMs).toBeLessThanOrEqual(45000);
@@ -215,11 +357,17 @@ function fixture(fault = '') {
           throw new Error('global_mount_attempt');
         }
         quota = Number(args[args.indexOf('-quota') + 1]);
+        volumes++;
         if (fault === 'add') {
           return Promise.resolve({ code: 1, stdout: '' });
         }
       } else if (args[1] === 'list') {
-        output = containerList(fault, { mounted, quota, capacity });
+        output = containerList(fault, {
+          mounted,
+          quota,
+          capacity,
+          volumes
+        });
       } else throw new Error('unexpected_diskutil_operation');
     } else throw new Error('unexpected_tool');
     return Promise.resolve({ code: 0, stdout: JSON.stringify(output) });
@@ -227,18 +375,7 @@ function fixture(fault = '') {
   const storage = {
     ...fs,
     lstatSync(path: string) {
-      const stat = fs.lstatSync(path);
-      if (mounted && path.startsWith(`${mounts}/`)) {
-        stat.dev += fault === 'same_device' ? 0 : 100;
-        if (fault === 'private_device' && path.endsWith('/private')) {
-          stat.dev += 1;
-        }
-        if (!ownersOff && path.endsWith('/private')) stat.uid = 0;
-        if (fault === 'private_mode' && path.endsWith('/private')) {
-          stat.mode = 0o40755;
-        }
-      }
-      return stat;
+      return quotaStat(path, fault, mounts, mounted, ownersOff);
     },
     unlinkSync(path: string) {
       expect(attached).toBe(false);
@@ -463,6 +600,249 @@ test('the owner cannot report cleanup or delete bytes after image identity drift
   expect(await peer.completed).toMatchObject({
     cleanup: null,
     failure: 'quota_ownership_unverified'
+  });
+  expect(f.state()).toMatchObject({ attached: true, deleted: false });
+});
+
+test.each(['create', 'attach', 'addVolume', 'mounted'] as const)(
+  'coordinator loss during %s preserves positive initialization cleanup and a hashed journal',
+  async phase => {
+    const f = fixture();
+    const coordinator = new QuotaPort(),
+      owner = new QuotaPort();
+    coordinator.peer = owner;
+    owner.peer = coordinator;
+    let interrupted = false;
+    const run: WindowTool = async (command, args, options) => {
+      const result = await f.run(command, args, options);
+      if (!interrupted && (args[0] === phase || args[1] === phase || (phase === 'mounted' && args[0] === 'attach' && !args.includes('-nomount')))) {
+        interrupted = true;
+        coordinator.disconnect();
+      }
+      return result;
+    };
+    coordinator.on('message', (input: unknown) => {
+      if (typeof input === 'object' && input !== null && 'kind' in input && input.kind === 'created') {
+        coordinator.send({ kind: 'authorize-attach' });
+      }
+    });
+    const result = await ownWindowQuota(f.root, owner, { ...f, run });
+    expect(interrupted).toBe(true);
+    expect(result.cleanup).toMatchObject({
+      detached: true,
+      ownedImageDeleted: true
+    });
+    expect(f.state()).toMatchObject({ attached: false, deleted: true });
+    const journal = fs
+      .readFileSync(join(f.root, 'startup-journal.jsonl'), 'utf8')
+      .trim()
+      .split('\n')
+      .map(line => JSON.parse(line) as unknown);
+    expect(journal[0]).toMatchObject({
+      phase: 'guardian-ready',
+      sequence: 1,
+      previous_hash: '0'.repeat(64)
+    });
+    expect(journal.at(-1)).toMatchObject({
+      phase: 'cleanup-complete',
+      identity: result.cleanup?.identity
+    });
+    let previous = '0'.repeat(64);
+    for (const row of journal) {
+      if (typeof row !== 'object' || row === null || !('hash' in row) || !('previous_hash' in row)) {
+        throw new Error('invalid_journal_fixture');
+      }
+      const { hash, ...entry } = row;
+      expect(row.previous_hash).toBe(previous);
+      expect(hash).toBe(createHash('sha256').update(JSON.stringify(entry)).digest('hex'));
+      if (typeof hash !== 'string') {
+        throw new Error('invalid_journal_hash');
+      }
+      previous = hash;
+    }
+  }
+);
+
+test('evidence has a separate exact quota volume and cannot be written into case state', async () => {
+  const f = fixture();
+  const quota = await createOwnedWindowQuota(f.root, f);
+  try {
+    expect(quota.evidenceRoot).toBe(join(f.mounts, 'HarnessQuotaEvidence/private'));
+    const result = await quota.writeEvidence('case.json', Buffer.from('{"count":1}\n'));
+    expect(fs.readFileSync(join(quota.evidenceRoot, 'case.json'), 'utf8')).toBe('{"count":1}\n');
+    expect(result.quotaBytes).toBe(67108864);
+    await expect(quota.writeEvidence('../escape.json', Buffer.from('{}'))).rejects.toThrow('evidence_path_invalid');
+    await expect(quota.writeEvidence('case.json', Buffer.from('{}'))).rejects.toThrow();
+  } finally {
+    await quota.close();
+  }
+});
+
+test('allocated guard bytes over the overhead ceiling stop the case without raising quotas', async () => {
+  const f = fixture();
+  const storage = {
+    ...f.fs,
+    lstatSync(path: string) {
+      const stat = f.fs.lstatSync(path);
+      if (path === f.image) stat.blocks = 262145;
+      return stat;
+    }
+  };
+  const quota = await createOwnedWindowQuota(f.root, { ...f, fs: storage });
+  try {
+    await expect(quota.measureOverhead()).rejects.toThrow('quota_overhead_exceeded');
+    await expect(quota.writeEvidence('after-stop.json', Buffer.from('{}'))).rejects.toThrow('quota_overhead_exceeded');
+    expect(fs.existsSync(join(quota.evidenceRoot, 'after-stop.json'))).toBe(false);
+    expect(f.state().quota).toBe(67108864);
+  } finally {
+    await quota.close();
+  }
+});
+
+test('a create command rejection after creating owned bytes still deletes exactly that image', async () => {
+  const f = fixture();
+  const coordinator = new QuotaPort(),
+    owner = new QuotaPort();
+  coordinator.peer = owner;
+  owner.peer = coordinator;
+  const run: WindowTool = async (command, args, options) => {
+    const result = await f.run(command, args, options);
+    if (args[0] === 'create') throw new Error('create_completion_lost');
+    return result;
+  };
+  const result = await ownWindowQuota(f.root, owner, { ...f, run });
+  expect(result.cleanup).toMatchObject({
+    detached: true,
+    ownedImageDeleted: true
+  });
+  expect(f.state()).toMatchObject({
+    attached: false,
+    deleted: true,
+    detachments: 0
+  });
+});
+
+test('a changed startup journal stops work but does not prevent positively owned cleanup', async () => {
+  const f = fixture();
+  const coordinator = new QuotaPort(),
+    owner = new QuotaPort();
+  coordinator.peer = owner;
+  owner.peer = coordinator;
+  const completed = ownWindowQuota(f.root, owner, {
+    ...f,
+    onPhase(phase) {
+      if (phase === 'create-complete') {
+        fs.appendFileSync(join(f.root, 'startup-journal.jsonl'), '{}\n');
+        coordinator.disconnect();
+      }
+      return Promise.resolve();
+    }
+  });
+  const result = await completed;
+  expect(result.failure).toBe('startup_journal_changed');
+  expect(result.cleanup).toMatchObject({
+    detached: true,
+    ownedImageDeleted: true
+  });
+  expect(f.state()).toMatchObject({ attached: false, deleted: true });
+});
+
+test('the surviving owner writes evidence through IPC only on the separate quota', async () => {
+  const f = fixture(),
+    peer = ownedPeer(f);
+  const quota = await peer.guardian.start();
+  try {
+    const result = await quota.writeEvidence('owned.json', Buffer.from('{"count":2}\n'));
+    expect(result).toMatchObject({ quotaBytes: 67108864, bytes: 12 });
+    expect(fs.readFileSync(join(quota.evidenceRoot, 'owned.json'), 'utf8')).toBe('{"count":2}\n');
+    expect(await quota.measureOverhead()).toMatchObject({
+      limitBytes: 134217728
+    });
+  } finally {
+    await peer.guardian.close();
+  }
+});
+
+test('registered external guard roots participate in the same overhead stop', async () => {
+  const f = fixture(),
+    guard = fixture();
+  const quota = await createOwnedWindowQuota(f.root, {
+    ...f,
+    fs: {
+      ...f.fs,
+      lstatSync(path: string) {
+        const stat = f.fs.lstatSync(path);
+        if (path === guard.root) stat.blocks = 262145;
+        return stat;
+      }
+    }
+  });
+  try {
+    await expect(quota.measureOverhead([guard.root])).rejects.toThrow('quota_overhead_exceeded');
+  } finally {
+    await quota.close();
+  }
+});
+
+function lostGuardian(f: ReturnType<typeof fixture>) {
+  const child = Object.assign(new EventEmitter(), {
+    pid: process.pid,
+    connected: true,
+    send: (_input: unknown, callback?: (error: Error | null) => void) => {
+      callback?.(null);
+      return true;
+    }
+  });
+  const guardian = createWindowQuotaGuardian(f.root, {
+    run: f.run,
+    fs: f.fs,
+    launch: () => child as never
+  });
+  return { child, guardian };
+}
+
+async function mountedWithJournal(f: ReturnType<typeof fixture>) {
+  const journal = createWindowStartupJournal(f.root);
+  const quota = await createOwnedWindowQuota(f.root, {
+    ...f,
+    onPhase: (phase, identity) => {
+      journal.append(phase, identity);
+      return Promise.resolve();
+    }
+  });
+  journal.close();
+  return quota;
+}
+
+test('a guardian that vanishes without a receipt is recovered from the journal by the coordinator', async () => {
+  const f = fixture();
+  await mountedWithJournal(f);
+  expect(f.state()).toMatchObject({ attached: true, deleted: false });
+  const { child, guardian } = lostGuardian(f);
+  void guardian.start().catch(() => undefined);
+  child.emit('exit', 137, null);
+  const closed = await guardian.closed;
+  expect(closed).toMatchObject({
+    cleanup: { detached: true, ownedImageDeleted: true },
+    failure: 'quota_cleanup_unverified',
+    recovery: { recovered: true, identity_source: 'journal' }
+  });
+  expect(f.state()).toMatchObject({ attached: false, deleted: true });
+  await expect(guardian.close()).rejects.toThrow('quota_cleanup_unverified');
+});
+
+test('an unrecoverable guardian loss keeps the failure and reports no positive cleanup', async () => {
+  const f = fixture();
+  await mountedWithJournal(f);
+  fs.rmSync(join(f.root, 'startup-journal.jsonl'));
+  const { child, guardian } = lostGuardian(f);
+  void guardian.start().catch(() => undefined);
+  child.emit('exit', 137, null);
+  const closed = await guardian.closed;
+  expect(closed).toMatchObject({
+    cleanup: null,
+    failure: 'quota_cleanup_unverified',
+    recovery: { recovered: false, code: 'startup_journal_changed' }
   });
   expect(f.state()).toMatchObject({ attached: true, deleted: false });
 });

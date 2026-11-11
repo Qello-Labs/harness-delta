@@ -14,7 +14,7 @@ afterEach(() => {
     rmSync(root, { recursive: true, force: true });
   }
 });
-function fixture(foreign = false, deadline?: number) {
+function fixture(foreign = false, deadline?: number, loseBeforeMount = false) {
   const root = mkdtempSync(join(realpathSync(tmpdir()), 'image-owner-'));
   roots.push(root);
   const model = { mounted: false, recovered: 0 };
@@ -41,6 +41,10 @@ function fixture(foreign = false, deadline?: number) {
           })
         );
       } else if (message.kind === 'authorize-attach') {
+        if (loseBeforeMount) {
+          queueMicrotask(() => this.emit('exit', null, 'SIGKILL'));
+          return true;
+        }
         model.mounted = true;
         queueMicrotask(() => this.emit('message', { kind: 'mounted' }));
       } else if (message.kind === 'stop') {
@@ -139,4 +143,11 @@ test('an invalid image identity cannot authorize attachment or recovery of a for
   await f.guardian.closed;
   expect(f.model.mounted).toBe(false);
   expect(f.model.recovered).toBe(0);
+});
+
+test('positive recorded-image recovery before mount does not invent mounted state or lose cleanup evidence', async () => {
+  const f = fixture(false, undefined, true);
+  await expect(f.guardian.start()).rejects.toThrow('image_owner_unavailable');
+  expect(await f.guardian.closed).toEqual({ detached: true, code: null });
+  expect(f.model).toEqual({ mounted: false, recovered: 1 });
 });

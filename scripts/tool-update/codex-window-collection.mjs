@@ -83,7 +83,11 @@ export function createSyntheticWindowCollection(capability, observedPins) {
 					reason: "trial_failed",
 				});
 			}
-			if (taskId && lifecycle.state(taskId) === "active") {
+			if (
+				taskId &&
+				store.get("SELECT state FROM tasks WHERE id=?", [taskId])
+						?.state === "active"
+			) {
 				lifecycle.pause(taskId);
 			}
 		} finally {
@@ -112,7 +116,11 @@ export function createSyntheticWindowCollection(capability, observedPins) {
 			taskId,
 			receiptDirectory,
 			sourceRoots: [sourceRoot],
-			clock,
+			clock: () => {
+				// External consent cannot be atomic with the Store transaction.
+				check();
+				return clock();
+			},
 		};
 		return Object.freeze({
 			origin: "synthetic",
