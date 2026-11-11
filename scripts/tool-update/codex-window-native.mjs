@@ -57,6 +57,9 @@ const manifestSchema = z.strictObject({
 		argv_tail: z.array(argument).max(127),
 		environment: environmentSchema,
 	}),
+	controller_runtime: z.strictObject({
+		node_major: integer.positive(),
+	}),
 	process_paths: z.array(pathSchema).length(2),
 	runtime_paths: z.array(pathSchema).min(1).max(64),
 	runtime_links: z.array(z.strictObject({
@@ -345,7 +348,8 @@ function revalidateProcesses(manifest, inputs) {
 	}
 	windowRequire(
 		manifest.files.filter((row) => row.role === "argv").length === 1 &&
-			process.versions.node.startsWith("24.") &&
+			Number(process.versions.node.split(".")[0]) ===
+				manifest.controller_runtime.node_major &&
 			manifest.argv[0] === inputs.native_path &&
 			JSON.stringify(manifest.argv) === JSON.stringify(
 					deriveWindowNativeRecipe(
@@ -421,11 +425,10 @@ function revalidateFiles(manifest, inputs, caseRoot, b0Files, directories) {
 			const actual = environmentSchema.parse(
 				JSON.parse(observed.bytes.toString("utf8")),
 			);
-			const expected =
-				deriveWindowNativeRecipe(
-					inputs.prefix_root,
-					manifest.launcher_input,
-				).environment;
+			const expected = deriveWindowNativeRecipe(
+				inputs.prefix_root,
+				manifest.launcher_input,
+			).environment;
 			windowRequire(
 				JSON.stringify(Object.entries(actual).sort()) ===
 					JSON.stringify(Object.entries(expected).sort()),

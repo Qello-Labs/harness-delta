@@ -401,15 +401,31 @@ test.each(['launcher', 'tool', 'interpreter', 'process', 'runtime_data', 'host_r
   }
 );
 
+test.each(['different_major', 'missing_major', 'missing_controller'])('native preflight refuses a frozen controller runtime with %s', variant => {
+  const f = fixture();
+  const n = nativeFixture(f.root);
+  const intent = {
+    ...f.intent,
+    case_root: join(f.root, 'cases/normal'),
+    plan: { ...f.intent.plan, inputs: n.inputs }
+  };
+  expect(() => snapshotWindowExecutorPins(intent)).not.toThrow();
+  if (variant === 'different_major') {
+    n.manifest.controller_runtime.node_major += 1;
+  } else if (variant === 'missing_major') {
+    Reflect.deleteProperty(n.manifest.controller_runtime, 'node_major');
+  } else {
+    Reflect.deleteProperty(n.manifest, 'controller_runtime');
+  }
+  n.freezeManifest();
+  expect(() => snapshotWindowExecutorPins(intent)).toThrow('pin_drift');
+});
+
 test('native preflight refuses an omitted loaded Node interpreter dependency', () => {
   const f = fixture();
   const dependency = join(f.root, 'synthetic-loaded-dependency.dylib');
   writeFileSync(dependency, 'synthetic-runtime-dependency', { mode: 0o600 });
-  vi.spyOn(process.report, 'getReport').mockReturnValue({
-    ...process.report.getReport(),
-    sharedObjects: [dependency]
-  });
-  const n = nativeFixture(f.root);
+  const n = nativeFixture(f.root, [dependency]);
   const intent = {
     ...f.intent,
     case_root: join(f.root, 'cases/normal'),
@@ -463,7 +479,7 @@ function runtimeFixturePaths() {
 
 const sha256 = (path: string) => createHash('sha256').update(readFileSync(path)).digest('hex');
 
-function nativeFixture(root: string) {
+function nativeFixture(root: string, sharedObjects: readonly string[] = []) {
   const prefix = join(root, 'prefix');
   const caseRoot = join(root, 'cases/normal');
   const bin = join(prefix, 'node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin');
@@ -491,6 +507,11 @@ function nativeFixture(root: string) {
   const argvPath = join(caseRoot, 'argv.json');
   const toolPath = join(root, 'synthetic-system-tool');
   const runtime = realpathSync(process.execPath);
+  // Host dependency counts vary independently of the controller identity.
+  vi.spyOn(process.report, 'getReport').mockReturnValue({
+    ...process.report.getReport(),
+    sharedObjects: [...sharedObjects]
+  });
   const dependencies = [...new Set(runtimeFixturePaths())].filter(path => path !== runtime);
   const launcherInput = {
     argv_tail: ['--version'],
@@ -574,6 +595,9 @@ function nativeFixture(root: string) {
     },
     argv,
     launcher_input: launcherInput,
+    controller_runtime: {
+      node_major: Number(process.versions.node.split('.')[0])
+    },
     process_paths: [inputs.native_path, inputs.host_path],
     runtime_paths: [runtime, toolPath, ...dependencies],
     runtime_links: runtimeLinks,

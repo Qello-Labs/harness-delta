@@ -1,6 +1,16 @@
 import { expect, test } from 'vitest';
 import { deriveWindowNativeRecipe } from '../scripts/tool-update/codex-window-native-recipe.mjs';
 
+test('the real R2 native recipe requires a Node 24 controller', () => {
+  const recipe = deriveWindowNativeRecipe('/synthetic/prefix', {
+    argv_tail: ['--version'],
+    environment: {}
+  });
+  expect(recipe).toMatchObject({
+    controller_runtime: { node_major: 24 }
+  });
+});
+
 test('the frozen native recipe preserves argument boundaries and replaces inherited manager markers', () => {
   const recipe = deriveWindowNativeRecipe('/synthetic/prefix', {
     argv_tail: ['--config', 'value with spaces', '--version'],
@@ -26,14 +36,17 @@ test('the frozen native recipe preserves argument boundaries and replaces inheri
   });
 });
 
-test.each([{ npm_config_user_agent: 'bun/1.4.4' }, { npm_config_user_agent: 'npm/11', npm_execpath: '/synthetic/bun' }])(
-  'the frozen environment models the launcher Bun fallback from explicit inputs %j',
-  environment => {
-    const recipe = deriveWindowNativeRecipe('/synthetic/prefix', {
-      argv_tail: [],
-      environment
-    });
-    expect(recipe.environment.CODEX_MANAGED_BY_BUN).toBe('1');
-    expect(recipe.environment.CODEX_MANAGED_BY_NPM).toBeUndefined();
+test.each([
+  { npm_config_user_agent: 'bun/1.4.4' },
+  {
+    npm_config_user_agent: 'npm/11',
+    npm_execpath: '/synthetic/bun'
   }
-);
+])('the frozen environment models the launcher Bun fallback from explicit inputs %j', environment => {
+  const recipe = deriveWindowNativeRecipe('/synthetic/prefix', {
+    argv_tail: [],
+    environment
+  });
+  expect(recipe.environment.CODEX_MANAGED_BY_BUN).toBe('1');
+  expect(recipe.environment.CODEX_MANAGED_BY_NPM).toBeUndefined();
+});

@@ -3,6 +3,9 @@ export interface WindowNativeLauncherInput {
   readonly environment: Readonly<Record<string, string>>;
 }
 export function deriveWindowNativeRecipe(prefixRoot: string, input: WindowNativeLauncherInput): {
+  readonly controller_runtime: {
+    readonly node_major: 24;
+  };
   readonly argv: readonly string[];
   readonly environment: Readonly<Record<string, string>>;
   readonly resolution: {

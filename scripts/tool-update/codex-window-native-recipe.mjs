@@ -24,6 +24,7 @@ export function deriveWindowNativeRecipe(prefixRoot, input) {
 		entryDirectory.includes(".bun\\install\\global");
 	environment[bun ? "CODEX_MANAGED_BY_BUN" : "CODEX_MANAGED_BY_NPM"] = "1";
 	return Object.freeze({
+		controller_runtime: Object.freeze({ node_major: 24 }),
 		argv: Object.freeze([native, ...input.argv_tail]),
 		environment: Object.freeze(environment),
 		resolution: Object.freeze({
