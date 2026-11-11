@@ -128,8 +128,9 @@ function wireImageOwner(child, root, state, events, ready, closed, recover) {
 					state.record,
 					state.deadline ?? Date.now() + 5000,
 				);
+				// A recorded image can be detached positively before its mount was acknowledged.
 				windowRequire(
-					result.detached && state.mounted,
+					result.detached,
 					"image_cleanup_unverified",
 				);
 				state.detached = true;

@@ -551,12 +551,19 @@ export function prepareWindowCase({ planFile, caseId, out }) {
 }
 
 async function command(args) {
-	// No packet parser or vendor-spawn primitive is reachable from this entry.
 	if (args[0] === "execute") {
 		throw new WindowConformanceError("b1_execution_disabled");
 	}
 	if (args[0] === "verify-cleanup") {
-		throw new WindowConformanceError("cleanup_consent_unavailable");
+		windowRequire(
+			args.length === 5 && args[1] === "--batch" &&
+				args[3] === "--consent",
+			"cleanup_consent_unavailable",
+		);
+		const { cleanupWindowBatch } = await import(
+			"./codex-window-registry.mjs"
+		);
+		return cleanupWindowBatch({ batchRoot: args[2], consentFile: args[4] });
 	}
 	if (args[0] === "verify-consent") {
 		windowRequire(

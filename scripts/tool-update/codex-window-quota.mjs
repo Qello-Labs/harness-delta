@@ -12,7 +12,8 @@ import {
 } from "./codex-window-conformance.mjs";
 
 export const windowCaseQuotaBytes = 67108864;
-const names = ["HarnessQuotaBase", "HarnessQuotaState"];
+export const windowOverheadBytes = 134217728;
+const names = ["HarnessQuotaBase", "HarnessQuotaState", "HarnessQuotaEvidence"];
 const device = z.string().regex(/^\/dev\/disk[0-9]+(?:s[0-9]+)*$/);
 const diskId = z.string().regex(/^disk[0-9]+(?:s[0-9]+)*$/);
 const entity = z.object({
@@ -42,7 +43,7 @@ const listSchema = z.object({
 		PhysicalStores: z.array(z.object({ DeviceIdentifier: diskId })).length(
 			1,
 		),
-		Volumes: z.array(volumeSchema).min(1).max(2),
+		Volumes: z.array(volumeSchema).min(1).max(3),
 	})).length(1),
 });
 const same = (a, b) => Object.keys(a).every((key) => a[key] === b[key]);
@@ -54,9 +55,13 @@ class OwnedQuota {
 		this.fs = options.fs ?? filesystem;
 		this.run = options.run ?? runWindowTool;
 		this.onCreated = options.onCreated;
+		this.onPhase = options.onPhase;
+		this.onCleanup = options.onCleanup;
 		this.imagePath = join(root, "volume.sparseimage");
 		this.mountRoot = join(root, "mounts");
 		this.caseRoot = join(this.mountRoot, names[1], "private");
+		this.evidenceRoot = join(this.mountRoot, names[2], "private");
+		this.guardRoots = new Map();
 		windowRequire(
 			!this.fs.existsSync(this.imagePath) &&
 				!this.fs.existsSync(this.mountRoot),
@@ -65,6 +70,9 @@ class OwnedQuota {
 		this.fs.mkdirSync(this.mountRoot, { mode: 0o700 });
 		this.mountIdentity = this.fs.lstatSync(this.mountRoot);
 		this.deadline = Date.now() + 120000;
+	}
+	async phase(name) {
+		await this.onPhase?.(name, this.identity ?? null);
 	}
 	tool(command, args, settings = {}) {
 		const remaining = this.deadline - Date.now();
@@ -264,19 +272,28 @@ class OwnedQuota {
 	close() {
 		this.closing ??= (async () => {
 			this.deadline = Date.now() + 30000;
+			await this.phase("cleanup-begin");
 			await this.detach();
 			this.checkIdentity();
 			this.fs.unlinkSync(this.imagePath);
-			return {
+			windowRequire(
+				!this.fs.existsSync(this.imagePath),
+				"quota_cleanup_unverified",
+			);
+			const result = {
 				detached: true,
 				ownedImageDeleted: true,
 				identity: this.identity,
 			};
+			await this.phase("cleanup-complete");
+			await this.onCleanup?.(result);
+			return result;
 		})();
 		return this.closing;
 	}
 	async attach(mounted) {
 		this.checkIdentity();
+		await this.phase(mounted ? "mount-begin" : "attach-begin");
 		const result = await this.tool("/usr/bin/hdiutil", [
 			"attach",
 			this.imagePath,
@@ -306,30 +323,37 @@ class OwnedQuota {
 			result.code === 0 && this.physical,
 			"quota_attach_failed",
 		);
+		await this.phase(mounted ? "mount-complete" : "attach-complete");
 	}
 	async create() {
-		const created = await this.tool("/usr/bin/hdiutil", [
-			"create",
-			"-size",
-			"4g",
-			"-fs",
-			"APFS",
-			"-type",
-			"SPARSE",
-			"-volname",
-			names[0],
-			"-nospotlight",
-			this.imagePath,
-		]);
-		if (this.fs.existsSync(this.imagePath)) {
-			const stat = this.fs.lstatSync(this.imagePath);
-			windowRequire(
-				stat.isFile() && !stat.isSymbolicLink() &&
-					stat.uid === process.getuid() && stat.nlink === 1,
-				"quota_ownership_unverified",
-			);
-			this.fs.chmodSync(this.imagePath, 0o600);
-			this.identity = windowImageIdentity(this.root);
+		await this.phase("create-begin");
+		let created;
+		try {
+			created = await this.tool("/usr/bin/hdiutil", [
+				"create",
+				"-size",
+				"4g",
+				"-fs",
+				"APFS",
+				"-type",
+				"SPARSE",
+				"-volname",
+				names[0],
+				"-nospotlight",
+				this.imagePath,
+			]);
+		} finally {
+			if (this.fs.existsSync(this.imagePath)) {
+				const stat = this.fs.lstatSync(this.imagePath);
+				windowRequire(
+					stat.isFile() && !stat.isSymbolicLink() &&
+						stat.uid === process.getuid() && stat.nlink === 1,
+					"quota_ownership_unverified",
+				);
+				this.fs.chmodSync(this.imagePath, 0o600);
+				this.identity = windowImageIdentity(this.root);
+			}
+			await this.phase("create-complete");
 		}
 		windowRequire(
 			created.code === 0 && this.identity,
@@ -338,28 +362,45 @@ class OwnedQuota {
 		await this.onCreated?.(this.identity);
 		await this.attach(false);
 		const initial = await this.inspect(1, false);
-		const added = await this.tool("/usr/sbin/diskutil", [
-			"apfs",
-			"addVolume",
-			initial.container.ContainerReference,
-			"APFS",
-			names[1],
-			"-nomount",
-			"-quota",
-			String(windowCaseQuotaBytes),
-		]);
-		windowRequire(added.code === 0, "quota_create_failed");
-		await this.inspect(2, false);
+		for (const [index, name] of names.slice(1).entries()) {
+			await this.phase(
+				index ? "evidence-volume-begin" : "state-volume-begin",
+			);
+			const added = await this.tool("/usr/sbin/diskutil", [
+				"apfs",
+				"addVolume",
+				initial.container.ContainerReference,
+				"APFS",
+				name,
+				"-nomount",
+				"-quota",
+				String(windowCaseQuotaBytes),
+			]);
+			windowRequire(added.code === 0, "quota_create_failed");
+			await this.phase(
+				index ? "evidence-volume-complete" : "state-volume-complete",
+			);
+			await this.inspect(index + 2, false);
+		}
+		await this.phase("remount-begin");
 		await this.detach();
 		await this.attach(true);
-		await this.inspect(2, true);
+		await this.inspect(3, true);
 		this.fs.mkdirSync(this.caseRoot, { mode: 0o700 });
+		this.fs.mkdirSync(this.evidenceRoot, { mode: 0o700 });
 		this.caseIdentity = this.directory(this.caseRoot);
+		this.evidenceIdentity = this.directory(this.evidenceRoot);
 		windowRequire(
 			this.caseIdentity.dev ===
 				this.fs.lstatSync(join(this.mountRoot, names[1])).dev,
 			"quota_ownership_unverified",
 		);
+		windowRequire(
+			this.evidenceIdentity.dev ===
+				this.fs.lstatSync(join(this.mountRoot, names[2])).dev,
+			"quota_ownership_unverified",
+		);
+		await this.phase("startup-complete");
 	}
 	async verifyWritablePaths(paths) {
 		windowRequire(
@@ -367,7 +408,7 @@ class OwnedQuota {
 				paths.length <= 64,
 			"quota_paths_invalid",
 		);
-		const state = await this.inspect(2, true);
+		const state = await this.inspect(3, true);
 		const current = this.directory(this.caseRoot);
 		windowRequire(
 			current.dev === this.caseIdentity.dev &&
@@ -407,6 +448,118 @@ class OwnedQuota {
 			writablePaths: [...paths],
 		};
 	}
+	async measureOverhead(roots = []) {
+		windowRequire(!this.overheadExceeded, "quota_overhead_exceeded");
+		this.checkIdentity();
+		windowRequire(
+			Array.isArray(roots) && roots.length <= 64,
+			"quota_overhead_unverified",
+		);
+		for (const root of roots) {
+			ownedWindowDirectory(root);
+			if (!this.guardRoots.has(root)) {
+				this.guardRoots.set(root, this.fs.lstatSync(root));
+			}
+		}
+		windowRequire(this.guardRoots.size <= 64, "quota_overhead_unverified");
+		// Charge the entire allocated image, including payload, so shared/compressed
+		// APFS extents can never make subtraction understate metadata overhead.
+		let guardBytes = 0;
+		const visited = new Set();
+		const visit = (path) => {
+			if (visited.has(path)) return;
+			visited.add(path);
+			windowRequire(visited.size <= 65536, "quota_overhead_unverified");
+			const stat = this.fs.lstatSync(path);
+			windowRequire(
+				!stat.isSymbolicLink() && stat.uid === process.getuid(),
+				"quota_overhead_unverified",
+			);
+			windowRequire(
+				Number.isSafeInteger(stat.blocks) && stat.blocks >= 0,
+				"quota_overhead_unverified",
+			);
+			guardBytes += stat.blocks * 512;
+			if (guardBytes > windowOverheadBytes) this.overheadExceeded = true;
+			windowRequire(!this.overheadExceeded, "quota_overhead_exceeded");
+			if (stat.isDirectory()) {
+				for (const name of this.fs.readdirSync(path)) {
+					const child = join(path, name);
+					if (child !== this.mountRoot && child !== this.imagePath) {
+						visit(child);
+					}
+				}
+			}
+		};
+		visit(this.root);
+		for (const [root, identity] of this.guardRoots) {
+			const current = this.directory(root);
+			windowRequire(
+				current.dev === identity.dev && current.ino === identity.ino,
+				"quota_overhead_unverified",
+			);
+			visit(root);
+		}
+		const imageAllocatedBytes = this.fs.lstatSync(this.imagePath).blocks *
+			512;
+		const mountMetadataBytes = this.fs.lstatSync(this.mountRoot).blocks *
+			512;
+		const chargedBytes = guardBytes + imageAllocatedBytes +
+			mountMetadataBytes;
+		windowRequire(
+			Number.isSafeInteger(chargedBytes),
+			"quota_overhead_unverified",
+		);
+		this.overheadExceeded = chargedBytes > windowOverheadBytes;
+		windowRequire(!this.overheadExceeded, "quota_overhead_exceeded");
+		return {
+			limitBytes: windowOverheadBytes,
+			chargedBytes,
+			guardBytes,
+			imageAllocatedBytes,
+			mountMetadataBytes,
+			accounting: "allocated_guard_and_whole_image_upper_bound",
+		};
+	}
+	async writeEvidence(name, bytes) {
+		windowRequire(!this.overheadExceeded, "quota_overhead_exceeded");
+		windowRequire(
+			typeof name === "string" &&
+				/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/.test(name),
+			"evidence_path_invalid",
+		);
+		windowRequire(
+			Buffer.isBuffer(bytes) && bytes.length <= windowCaseQuotaBytes,
+			"evidence_bytes_invalid",
+		);
+		await this.inspect(3, true);
+		const current = this.directory(this.evidenceRoot);
+		windowRequire(
+			current.dev === this.evidenceIdentity.dev &&
+				current.ino === this.evidenceIdentity.ino &&
+				current.dev ===
+					this.fs.lstatSync(join(this.mountRoot, names[2])).dev,
+			"quota_ownership_unverified",
+		);
+		await this.measureOverhead();
+		const fd = this.fs.openSync(
+			join(this.evidenceRoot, name),
+			filesystem.constants.O_WRONLY | filesystem.constants.O_CREAT |
+				filesystem.constants.O_EXCL | filesystem.constants.O_NOFOLLOW,
+			0o600,
+		);
+		try {
+			this.fs.writeFileSync(fd, bytes);
+		} finally {
+			this.fs.closeSync(fd);
+		}
+		const overhead = await this.measureOverhead();
+		return {
+			quotaBytes: windowCaseQuotaBytes,
+			bytes: bytes.length,
+			overhead,
+		};
+	}
 }
 
 export async function createOwnedWindowQuota(root, options = {}) {
@@ -416,7 +569,10 @@ export async function createOwnedWindowQuota(root, options = {}) {
 		return Object.freeze({
 			imagePath: quota.imagePath,
 			caseRoot: quota.caseRoot,
+			evidenceRoot: quota.evidenceRoot,
 			verifyWritablePaths: (paths) => quota.verifyWritablePaths(paths),
+			writeEvidence: (name, bytes) => quota.writeEvidence(name, bytes),
+			measureOverhead: (roots) => quota.measureOverhead(roots),
 			close: () => quota.close(),
 		});
 	} catch (error) {
