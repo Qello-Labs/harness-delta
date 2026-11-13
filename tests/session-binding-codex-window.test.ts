@@ -202,8 +202,7 @@ test.each([
   { cwd: '/synthetic/other-project' },
   { parent_thread_id: 'parent-root' },
   { source: 'exec' },
-  { forked_from_id: 'inherited-root' },
-  { history_mode: 'paginated' }
+  { forked_from_id: 'inherited-root' }
 ])('refuses mismatched or inherited native creation header %j before usage', async mismatch => {
   const f = await fixture();
   writeFileSync(f.sourcePath, codexWindowJsonl([f.header(mismatch), f.context('turn'), f.usage('forbidden', 'turn')]));
@@ -218,6 +217,85 @@ test.each([
   });
 });
 
+const freshPaginatedHeader = (f: Fixture, extras: Readonly<Record<string, unknown>> = {}, ordinal?: number) => ({
+  ...f.header({
+    timestamp: '2026-01-01T00:00:00.000Z',
+    runtime_workspace_roots: [f.projectRoot],
+    originator: 'synthetic',
+    thread_source: 'user',
+    model_provider: 'synthetic',
+    base_instructions: 'synthetic',
+    dynamic_tools: null,
+    history_mode: 'paginated',
+    context_window: 1,
+    ...extras
+  }),
+  ...(ordinal === undefined ? {} : { ordinal })
+});
+
+test('connects and collects a fresh paginated root whose rollout ordinals start at 0', async () => {
+  const f = await fixture();
+  const baselineTurn = 'turn-baseline';
+  writeFileSync(
+    f.sourcePath,
+    codexWindowJsonl([
+      freshPaginatedHeader(f, {}, 0),
+      { ...f.context(baselineTurn), ordinal: 1 },
+      { ...f.usage('baseline-response', baselineTurn), ordinal: 2 }
+    ])
+  );
+  f.lifecycle.start(f.taskId);
+  await expect(f.connect()).resolves.toMatchObject({ automatic_children: false });
+  expect(payloads(f)).toEqual([]);
+  expect(usageState(f).exclusions).toHaveLength(1);
+  f.advance();
+  const observedTurn = 'turn-observed';
+  f.append([
+    { ...f.context(observedTurn), ordinal: 3 },
+    { ...f.usage('observed-response', observedTurn), ordinal: 4 }
+  ]);
+  await f.collect();
+  expect(payloads(f)).toEqual([
+    expect.objectContaining({
+      product_version: '0.167.0',
+      input_total: { status: 'observed', value: 100, reason: null },
+      output_total: { status: 'observed', value: 20, reason: null }
+    })
+  ]);
+});
+
+test('keeps a legacy creation header eligible without an ordinal', async () => {
+  const f = await fixture();
+  writeFileSync(f.sourcePath, codexWindowJsonl([f.header({ history_mode: 'legacy' })]));
+  f.lifecycle.start(f.taskId);
+  await expect(f.connect()).resolves.toMatchObject({ automatic_children: false });
+  f.advance();
+  f.appendResponse('legacy-response');
+  await f.collect();
+  expect(payloads(f)).toHaveLength(1);
+});
+
+test.each([
+  ['first ordinal 1', (f: Fixture) => freshPaginatedHeader(f, {}, 1), 'binding_fresh_root_required'],
+  ['missing ordinal', (f: Fixture) => freshPaginatedHeader(f), 'binding_fresh_root_required'],
+  ['forked_from_id', (f: Fixture) => freshPaginatedHeader(f, { forked_from_id: 'inherited-root' }, 0), 'binding_fresh_root_required'],
+  ['forked_from_ordinal_exclusive', (f: Fixture) => freshPaginatedHeader(f, { forked_from_ordinal_exclusive: 1 }, 0), 'binding_fresh_root_required'],
+  ['history_base', (f: Fixture) => freshPaginatedHeader(f, { history_base: { end_ordinal_exclusive: 0 } }, 0), 'binding_fresh_root_required'],
+  ['subagent_history_start_ordinal', (f: Fixture) => freshPaginatedHeader(f, { subagent_history_start_ordinal: 0 }, 0), 'binding_fresh_root_required'],
+  ['parent_thread_id', (f: Fixture) => freshPaginatedHeader(f, { parent_thread_id: 'parent-root' }, 0), 'binding_scope_mismatch']
+] as const)('refuses a paginated root with %s before usage', async (_label, row, code) => {
+  const f = await fixture();
+  writeFileSync(f.sourcePath, codexWindowJsonl([row(f), f.context('turn'), f.usage('forbidden', 'turn')]));
+  f.lifecycle.start(f.taskId);
+  await expect(f.connect()).rejects.toThrow(code);
+  expect(usageState(f)).toEqual({
+    events: [],
+    requests: [],
+    exclusions: [],
+    pins: [],
+    cursors: []
+  });
+});
 test('refuses receipt project mismatch without reserving a root', async () => {
   const f = await fixture();
   const receipt = await f.emit({ cwd: join(f.directory, 'other-project') });

@@ -18,7 +18,7 @@ import {
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { z } from 'zod';
 import { type AgentMetadata, metadataName } from './sources/agent-metadata.js';
-import { IdSchema, TimestampSchema } from './contracts.js';
+import { IdSchema, TimestampSchema, TokenSchema } from './contracts.js';
 import { type CodexCandidateSnapshot, parseCodexCandidateRollout } from './codex-candidate-rollout.js';
 import { type CandidateScope, checkedCandidateScope } from './nested-candidate.js';
 import { resolveSourceCompatibility } from './source-compatibility.js';
@@ -1290,6 +1290,7 @@ const windowCursorSchema = z.strictObject({
 });
 const windowHeaderSchema = z.object({
   type: z.literal('session_meta'),
+  ordinal: TokenSchema.optional(),
   payload: z.object({
     id: IdSchema,
     session_id: IdSchema,
@@ -1560,7 +1561,7 @@ export class CodexWindowSessionBindingProvider implements SessionBindingProvider
           if (!parsed.success) {
             throw new Error('binding_metadata_unavailable');
           }
-          return parsed.data.payload;
+          return parsed.data;
         }
         if (byte[0] === undefined) {
           throw new Error('binding_metadata_unavailable');
@@ -1578,7 +1579,8 @@ export class CodexWindowSessionBindingProvider implements SessionBindingProvider
       const record = this.rootReceipt(input);
       const context = this.access('source');
       const source = this.sourceMetadata(record, context.sourceIdentity ?? undefined);
-      const header = this.header(record, source);
+      const row = this.header(record, source);
+      const header = row.payload;
       if (
         header.id !== record.nativeSessionId ||
         header.session_id !== record.nativeSessionId ||
@@ -1593,7 +1595,7 @@ export class CodexWindowSessionBindingProvider implements SessionBindingProvider
         header.forked_from_ordinal_exclusive != null ||
         header.history_base != null ||
         header.subagent_history_start_ordinal != null ||
-        header.history_mode === 'paginated'
+        (header.history_mode === 'paginated' && row.ordinal !== 0)
       ) {
         throw new Error('binding_fresh_root_required');
       }

@@ -11,7 +11,7 @@ export const scopeSourceDigests = Object.freeze({
   'src/ordinary-session-binding.ts': '8c617249257ebb584ba359dc812e23475c04f07a4f421a89bf4660ac50f8f12c',
   'src/session-binding-service.ts': '55cad8fa77f8ab59df50cab1458cdbb91ad1189aa9f9d4ac8f464ffe740e5148',
   'src/claude-workflow-versions.ts': '3a85ae4d57edd2897954502420e000d41fedcdf2b475e502c6453a50a8218937',
-  'src/session-binding-codex.ts': '9f919685c6cbc4ad1654aed9e4c730b4109c7f5507b1981e1c564477f0c22d53',
+  'src/session-binding-codex.ts': 'b76ee2a404b76d91aa7b24d3c1b9ce72c131ce397b9fe536fbbbde9febe1558f',
   'src/session-binding-claude.ts': '39470353953fae64ad244f21cf4cc8e82c34b5574e62589ae06c291594a0f1a3',
 });
 export const laneSchema = z.strictObject({

@@ -17,7 +17,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-test('five version collection uses exactly 82 requests including six mutable revalidations', async () => {
+test('five version collection uses exactly 112 requests including six mutable revalidations', async () => {
   const base = differenceJob();
   const releases = Array.from({ length: 5 }, (_, i) => ({
     version: `0.${163 + i}.0`,
@@ -56,8 +56,8 @@ test('five version collection uses exactly 82 requests including six mutable rev
   });
   expect(result.failure).toBeNull();
   expect(result.evidence).toHaveLength(10);
-  expect(wire.calls).toHaveLength(82);
-  expect(result.usage.responses).toBe(82);
+  expect(wire.calls).toHaveLength(112);
+  expect(result.usage.responses).toBe(112);
   expect([...wire.counts].filter(([, count]) => count === 2)).toHaveLength(6);
   expect([...wire.counts].filter(([path]) => /\/git\/(?:trees|blobs|tags)\//.test(path)).every(([, count]) => count === 1)).toBe(true);
 });
