@@ -3,6 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { codexContractDescriptors, codexSourcePaths } from '../scripts/tool-update/difference-contracts.mjs';
 import { codexSourceLimits, collectCodexSourceEvidence } from '../scripts/tool-update/difference-source.mjs';
 import type { CodexSourceResult } from '../scripts/tool-update/difference-source.mjs';
 import { judgeDifferences } from '../scripts/tool-update/difference-judgment.mjs';
@@ -541,7 +542,7 @@ test('decoded job bytes include revalidation and stop at the fixed cumulative li
     rewrite: async (url, _attempt, response) => {
       if (response.status !== 200 || url.pathname.includes('/git/blobs/')) return response;
       const text = await response.text();
-      return new Response(`${text}${' '.repeat(800 * 1024 - text.length)}`);
+      return new Response(`${text}${' '.repeat(680 * 1024 - text.length)}`);
     }
   });
   const result = await collectCodexSourceEvidence(wire.job, {
@@ -804,4 +805,38 @@ test('a pre-aborted caller signal causes no transport effect', async () => {
   expect(fetchImpl).not.toHaveBeenCalled();
   expect(result.failure).toBe('source_deadline');
   noPass(result);
+});
+
+const sourcePath = (pathId: string) => {
+  const descriptor = codexSourcePaths[pathId];
+  if (!descriptor) throw new Error('invalid_synthetic_path');
+  return descriptor;
+};
+
+test('history topology evidence closure includes the TUI thread-start history mode sources', () => {
+  const closure = codexContractDescriptors.history_topology_resume_compaction.pathIds;
+  expect(closure).toEqual(expect.arrayContaining(['tui_app_server_session', 'app_server_thread_history_mode']));
+  expect(sourcePath('tui_app_server_session')).toEqual({
+    path: 'codex-rs/tui/src/app_server_session.rs',
+    type: 'blob'
+  });
+  expect(sourcePath('app_server_thread_history_mode')).toEqual({
+    path: 'codex-rs/app-server-protocol/src/protocol/v2/thread_data.rs',
+    type: 'blob'
+  });
+});
+
+test('a TUI thread-start history-mode change is visible to history topology', async () => {
+  const path = sourcePath('tui_app_server_session').path;
+  const wire = sourceFixture({
+    change: (version, files) => {
+      if (version !== '0.165.0') return;
+      const file = files.get(path);
+      if (!file) throw new Error('invalid_synthetic_path');
+      files.set(path, { ...file, value: 'different-history-mode' });
+    }
+  });
+  const result = await collectCodexSourceEvidence(wire.job, { fetch: wire.fetchImpl });
+  const judgment = judgeDifferences(wire.job, result.evidence, currentIdentities);
+  expect(judgment.groups.find(group => group.contract_id === 'history_topology_resume_compaction')?.result).toBe('unknown');
 });

@@ -153,6 +153,14 @@ export const codexSourcePaths = Object.freeze({
   configuration_schema: Object.freeze({
     path: 'codex-rs/core/config.schema.json',
     type: 'blob'
+  }),
+  tui_app_server_session: Object.freeze({
+    path: 'codex-rs/tui/src/app_server_session.rs',
+    type: 'blob'
+  }),
+  app_server_thread_history_mode: Object.freeze({
+    path: 'codex-rs/app-server-protocol/src/protocol/v2/thread_data.rs',
+    type: 'blob'
   })
 });
 const codexClosure = Object.freeze(Object.keys(codexSourcePaths));
