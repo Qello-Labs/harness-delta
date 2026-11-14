@@ -1,6 +1,7 @@
 import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { afterEach, expect, test } from 'vitest';
 import { codexWindowControl, runCodexWindowHook } from './helpers/codex-window-hook-fixture.js';
 
@@ -172,6 +173,64 @@ test.each(['missing', 'closed', 'malformed', 'projectRoot', 'product', 'policyId
     expect(result.stderr === '' || result.stderr === 'binding_window_hook_metadata_unavailable\n').toBe(true);
   }
 );
+
+test.each(['expired', 'revoked', 'consumed', 'rearmed'] as const)('a receipt-only arming %s while awaiting input cannot emit a stale receipt', async change => {
+  const f = fixture();
+  const control = {
+    ...f.control,
+    state: 'receipt_only',
+    arming: {
+      projectId: 'synthetic-project',
+      taskId: 'synthetic-task',
+      generation: 1,
+      policyDigest: 'a'.repeat(64),
+      armedAt: new Date(Date.now() - 1000).toISOString(),
+      expiresAt: new Date(Date.now() + 60000).toISOString()
+    }
+  };
+  f.setControl(control);
+  const script = join(f.projectRoot, 'arming-await.mjs');
+  const mutation =
+    change === 'expired'
+      ? 'Date.now = () => Date.parse(control.arming.expiresAt);'
+      : change === 'rearmed'
+        ? "control.arming.taskId = 'another-task'; writeFileSync(path, JSON.stringify(control));"
+        : `const { arming, ...base } = control; writeFileSync(path, JSON.stringify({ ...base, state: ${JSON.stringify(
+            change === 'consumed' ? 'active' : 'inactive'
+          )} }));`;
+  writeFileSync(
+    script,
+    `
+      import { readFileSync, writeFileSync } from 'node:fs';
+      const path = ${JSON.stringify(f.controlPath)};
+      const control = JSON.parse(readFileSync(path, 'utf8'));
+      const iterator = process.stdin[Symbol.asyncIterator].bind(process.stdin);
+      process.stdin[Symbol.asyncIterator] = function () {
+        const input = iterator();
+        let changed = false;
+        return {
+          async next() {
+            if (!changed) {
+              changed = true;
+              ${mutation}
+            }
+            return input.next();
+          },
+          [Symbol.asyncIterator]() { return this; }
+        };
+      };
+      await import(${JSON.stringify(pathToFileURL(resolve('scripts/session-binding-codex-window-hook.mjs')).href)});
+    `
+  );
+  const result = await f.run({
+    scriptPath: script,
+    input: { ...f.input, cwd: f.projectRoot }
+  });
+  zeroEffects(result);
+  expect(result.code, result.stderr).toBe(0);
+  expect(result.receipts).toEqual([]);
+  expect(result.stdout).toBe('');
+});
 
 test.each([
   { session_id: 'x'.repeat(129) },

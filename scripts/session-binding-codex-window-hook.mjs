@@ -36,6 +36,28 @@ function configuration() {
   return { directory, projectRoot };
 }
 
+function receiptArmingLive(arming) {
+  if (
+    arming === null ||
+    typeof arming !== 'object' ||
+    Object.keys(arming).length !== 6 ||
+    !id(arming.projectId) ||
+    !id(arming.taskId) ||
+    !Number.isSafeInteger(arming.generation) ||
+    arming.generation < 0 ||
+    typeof arming.policyDigest !== 'string' ||
+    !/^[a-f0-9]{64}$/.test(arming.policyDigest) ||
+    typeof arming.armedAt !== 'string' ||
+    typeof arming.expiresAt !== 'string'
+  ) {
+    return false;
+  }
+  const started = Date.parse(arming.armedAt);
+  const expires = Date.parse(arming.expiresAt);
+  const now = Date.now();
+  return Number.isFinite(started) && Number.isFinite(expires) && expires > started && expires - started <= 2_147_483_647 && now >= started && now < expires;
+}
+
 function activeControl({ directory, projectRoot }) {
   const fd = openSync(join(directory, 'ordinary-window-control.json'), constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   try {
@@ -45,6 +67,8 @@ function activeControl({ directory, projectRoot }) {
     const size = readSync(fd, buffer, 0, buffer.length, 0);
     if (size > 4096) invalid();
     const control = JSON.parse(buffer.subarray(0, size).toString('utf8'));
+    if (control === null || typeof control !== 'object' || !['active', 'receipt_only'].includes(control.state)) return null;
+    if (control.state === 'receipt_only' && !receiptArmingLive(control.arming)) return null;
     const expected = {
       schemaVersion: 1,
       projectRoot,
@@ -52,14 +76,12 @@ function activeControl({ directory, projectRoot }) {
       policyId: 'codex-binding-root-window-v1',
       policyRevision: 'codex-ordinary-root-window-v1',
       evidenceMode: 'source_only',
-      state: 'active'
+      state: control.state,
+      ...(control.state === 'receipt_only' ? { arming: control.arming } : {})
     };
-    return (
-      control !== null &&
-      typeof control === 'object' &&
-      Object.keys(control).length === Object.keys(expected).length &&
-      Object.entries(expected).every(([key, value]) => control[key] === value)
-    );
+    return Object.keys(control).length === Object.keys(expected).length && Object.entries(expected).every(([key, value]) => control[key] === value)
+      ? control
+      : null;
   } finally {
     closeSync(fd);
   }
@@ -136,7 +158,17 @@ function emit(directory, record) {
 
 try {
   const config = configuration();
-  if (activeControl(config)) emit(config.directory, await payload());
+  const control = activeControl(config);
+  if (control) {
+    const record = await payload();
+    if (control.state === 'receipt_only' && record.cwd !== config.projectRoot) {
+      invalid();
+    }
+    const current = activeControl(config);
+    if (current && current.state === control.state && (control.state !== 'receipt_only' || JSON.stringify(current) === JSON.stringify(control))) {
+      emit(config.directory, record);
+    }
+  }
 } catch {
   process.stderr.write('binding_window_hook_metadata_unavailable\n');
   process.exitCode = 1;

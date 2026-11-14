@@ -1,13 +1,14 @@
-import { queueApplicationCleanup, flushApplicationCleanup, assertApplicationCleanupDone } from './harness/harness-application-cleanup.js';
+import { assertApplicationCleanupDone, flushApplicationCleanup, queueApplicationCleanup } from './harness/harness-application-cleanup.js';
 import { deleteMappedProject } from './comparison/exchange/invalidation.js';
-import { recordSourceTaskDeletion, recordSourceProjectDeletion } from './comparison/exchange/deletion.js';
+import { recordSourceProjectDeletion, recordSourceTaskDeletion } from './comparison/exchange/deletion.js';
 import { z } from 'zod';
 import { affectedComparisonProtocols, invalidateComparisonSnapshots } from './comparison/reports/comparison-invalidation.js';
 import { IdSchema, TimestampSchema } from './contracts.js';
-import { utcNow, type Clock } from './core/lifecycle.js';
+import { type Clock, utcNow } from './core/lifecycle.js';
 import type { Store } from './store.js';
 import { assertWebMetadataCleanupDone, flushWebMetadataCleanup, queueWebMetadataCleanup } from './core/store-metadata-cleanup.js';
 import { recordToolVersionPromotionDenial, type ToolVersionPromotionKey } from './core/tool-version-promotion-store.js';
+import { clearTaskOrdinaryWindowArming } from './core/ordinary-window-trial.js';
 
 export class Deletion {
   private deletionDepth = 0;
@@ -40,6 +41,7 @@ export class Deletion {
           [taskId, taskId]
         );
         if (!task) throw new Error('unknown_task');
+        clearTaskOrdinaryWindowArming(this.store, taskId);
         queueWebMetadataCleanup(this.store, 'task', taskId, task.project_id);
         queueApplicationCleanup(this.store, taskId);
         recordSourceTaskDeletion(this.store, taskId, TimestampSchema.parse(this.clock()));
@@ -89,8 +91,9 @@ export class Deletion {
         for (const task of this.store.all<{ id: string }>(
           'SELECT id FROM tasks WHERE project_id=? UNION SELECT task_id AS id FROM shared_configuration_tasks WHERE project_id=?',
           [projectId, projectId]
-        ))
+        )) {
           this.deleteTask(task.id);
+        }
         this.tombstone('project', projectId);
         this.store.execute('DELETE FROM projects WHERE id = ?', [projectId]);
       });
@@ -100,7 +103,9 @@ export class Deletion {
     if (this.deletionDepth === 0) {
       flushApplicationCleanup(this.store);
       flushWebMetadataCleanup(this.store);
-      for (const taskId of cleanupTasks) assertApplicationCleanupDone(this.store, taskId);
+      for (const taskId of cleanupTasks) {
+        assertApplicationCleanupDone(this.store, taskId);
+      }
       assertWebMetadataCleanupDone(this.store, 'project', projectId);
     }
   }
@@ -122,7 +127,9 @@ export class Deletion {
       deleted = this.store.immediateTransaction(() => {
         const project = this.store.get<{ retention_days: number | null }>('SELECT retention_days FROM projects WHERE id = ?', [projectId]);
         if (!project) throw new Error('unknown_project');
-        if (project.retention_days === null) throw new Error('retention_not_configured');
+        if (project.retention_days === null) {
+          throw new Error('retention_not_configured');
+        }
         const cutoff = Date.parse(now) - project.retention_days * 86400000;
         const tasks = this.store
           .all<{ id: string; finalized_at: string }>("SELECT id,finalized_at FROM tasks WHERE project_id = ? AND state = 'finalized'", [projectId])
@@ -138,7 +145,9 @@ export class Deletion {
     }
     flushApplicationCleanup(this.store);
     flushWebMetadataCleanup(this.store);
-    for (const taskId of cleanupTasks) assertApplicationCleanupDone(this.store, taskId);
+    for (const taskId of cleanupTasks) {
+      assertApplicationCleanupDone(this.store, taskId);
+    }
     assertWebMetadataCleanupDone(this.store, 'project', projectId);
     return deleted;
   }

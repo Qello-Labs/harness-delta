@@ -219,6 +219,44 @@ backfill은 하지 않습니다. root-source 관측은 root 소유 사용량이
 `revoke <packet-file>`은 유지보수자의 결정을 기록하며 실행이나 native 증거가 아닙니다.
 제품 활성화에는 별도 승인이 필요하고 이 안내는 그 승인을 부여하지 않습니다.
 
+별도 승인된 Codex 일반 창 trial에서는 준비한 작업을 시작하고, 등록된 프로젝트에
+현재 소유 ordinary-window 패키지를 설치하세요. 새 root를 실행하기 전에 해당 작업의
+receipt 발행을 유한한 시간 동안 arm하세요.
+
+```sh
+hm --db ./local.db compatibility ordinary-window arm <task-id> --duration-ms 60000
+hm --db ./local.db compatibility ordinary-window status <task-id> --arming
+```
+
+예상 상태는 `receipt_only`이며 `expires_at` 시각과 `runtime_authority:false`를
+반환합니다. 비공개 emission control은 arming을 프로젝트 root, 작업 generation,
+policy에 결합하여 영속 보관합니다. 해당 프로젝트/policy 키에 기존 결정이 있으면
+철회된 결정도 arming을 거부합니다. pending receipt 메타데이터만 허용하며 connect,
+collect와 native 원본 접근은 계속 닫혀 있습니다.
+프롬프트 없이 새 root를 실행하세요. 설치된 hook이
+`<project>/.harness-delta/window-receipts`에 쓴 pending receipt에서 receipt id와
+`nativeSessionId`만 읽고 해당 native root를 확인하세요.
+기존 trial packet으로 활성화하세요. `decision_kind:trial`, 해당 `task_id`,
+receipt의 `native_root_id`, 유한한 `duration_ms`, `token_limit`,
+`token_budget_basis:accepted_observed_root_input_plus_output-v1`과 함께
+필수 decision/evidence/review 필드 및 accepted risks를 지정합니다.
+활성화는 arming을 소비하고 `active`를 발행합니다. connect와 collect에는 여전히
+기록된 결정과 일치하는 native root가 필요합니다. 이전 사용량은 backfill하지 않습니다.
+
+활성화 전에 취소하려면 다음을 실행하세요.
+
+```sh
+hm --db ./local.db compatibility ordinary-window disarm <task-id>
+```
+
+disarm, 만료, 작업 일시 정지·종료·삭제, 수집 철회는 receipt-only arming을
+`inactive`로 지웁니다. status 명령을 실행하지 않아도 hook은 입력을 읽은 뒤 만료를
+다시 확인합니다. status는 관측한 만료를 지우면서 `expired`로, 기록된 결정은
+`consumed`로 보고하며 어느 쪽도 수집 권한을 부여하지 않습니다.
+decision/trial 스키마와 제품 활성화 흐름은 바뀌지 않습니다. Claude window hook은
+`receipt_only`를 무시하고 아무것도 발행하지 않습니다.
+이 명령들은 native trial을 승인하거나 검증된 지원 범위를 넓히지 않습니다.
+
 ## 오류 복구와 제한
 
 오류는 고정된 코드로 표시합니다. 원본 파일 식별 변경·잘림, 범위·버전 불일치,

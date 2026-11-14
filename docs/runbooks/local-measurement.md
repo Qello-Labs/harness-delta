@@ -217,6 +217,45 @@ activate <packet-file>` and `revoke <packet-file>` record maintainer decisions,
 not launch or native evidence. Product activation needs its own approval;
 this guide grants none.
 
+For a separately approved Codex ordinary-window trial, start the prepared task
+and install the current owned ordinary-window package in its registered project.
+Before launching a fresh root, arm receipt emission for that task with a finite
+lifetime:
+
+```sh
+hm --db ./local.db compatibility ordinary-window arm <task-id> --duration-ms 60000
+hm --db ./local.db compatibility ordinary-window status <task-id> --arming
+```
+
+The expected state is `receipt_only`, with an `expires_at` timestamp and
+`runtime_authority:false`. The private emission control durably binds the arming
+to the project root, task generation and policy. An existing decision for that
+project/policy key, including a revoked decision, refuses arming. Only pending
+receipt metadata is enabled; connect, collect and native source access remain closed.
+Launch the fresh root without a prompt. Read only the receipt id and
+`nativeSessionId` from the installed hook's pending receipt under
+`<project>/.harness-delta/window-receipts`, then confirm that native root.
+Activate with the existing trial packet: `decision_kind:trial`, this `task_id`,
+the receipt's `native_root_id`, finite `duration_ms`, `token_limit`, and
+`token_budget_basis:accepted_observed_root_input_plus_output-v1`, together with
+the required decision/evidence/review fields and accepted risks. Activation consumes
+the arming and publishes `active`; connect and collect still require that recorded
+decision and its matching native root. No earlier usage is backfilled.
+
+To cancel before activation:
+
+```sh
+hm --db ./local.db compatibility ordinary-window disarm <task-id>
+```
+
+Disarm, expiry, task pause/finalization/deletion and collection revocation clear
+receipt-only arming to `inactive`. The hook checks expiry again after reading its
+input, even if no status command runs. Status reports an observed expiry as
+`expired` while clearing it, and a recorded decision as `consumed`; neither grants
+collection authority. The decision/trial schemas and product activation flow are
+unchanged. The Claude window hook ignores `receipt_only` and emits nothing for it.
+These commands do not approve a native trial or extend qualified support.
+
 ## Recovery and limits
 
 Errors use fixed codes. Source identity changes, truncation, invalid scope/version,

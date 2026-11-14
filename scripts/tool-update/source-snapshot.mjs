@@ -175,8 +175,9 @@ function snapshotImports(ts, path, output) {
     if (
       ts.isCallExpression(node) &&
       (node.expression.kind === ts.SyntaxKind.ImportKeyword || (ts.isIdentifier(node.expression) && node.expression.text === 'require'))
-    )
+    ) {
       fail('source_snapshot_unavailable');
+    }
     if (ts.isImportDeclaration(node) || (ts.isExportDeclaration(node) && node.moduleSpecifier)) {
       if (!ts.isStringLiteral(node.moduleSpecifier)) {
         fail('source_snapshot_unavailable');
@@ -238,8 +239,9 @@ export async function withSourceSnapshot(root, project) {
       ...metadata.devDependencies
     };
     const lockedRoot = lock.packages[''];
-    if (digest(metadata.dependencies) !== digest(lockedRoot.dependencies) || digest(metadata.devDependencies) !== digest(lockedRoot.devDependencies))
+    if (digest(metadata.dependencies) !== digest(lockedRoot.dependencies) || digest(metadata.devDependencies) !== digest(lockedRoot.devDependencies)) {
       fail('source_snapshot_unavailable');
+    }
     const installed = new Map();
     for (const [name, version] of Object.entries(dependencies)) {
       if (!/^(?:@[a-z0-9-]+\/)?[a-z0-9.-]+$/.test(name) || !/^\d+\.\d+\.\d+$/.test(version)) {
@@ -248,8 +250,9 @@ export async function withSourceSnapshot(root, project) {
       const path = join(base, 'node_modules', name, 'package.json');
       const bytes = await readFile(path);
       const packageMetadata = JSON.parse(bytes.toString('utf8'));
-      if (packageMetadata.name !== name || packageMetadata.version !== version || lock.packages[`node_modules/${name}`]?.version !== version)
+      if (packageMetadata.name !== name || packageMetadata.version !== version || lock.packages[`node_modules/${name}`]?.version !== version) {
         fail('source_snapshot_unavailable');
+      }
       installed.set(path, bytes);
     }
     const require = createRequire(join(base, 'package.json'));

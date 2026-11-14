@@ -59,7 +59,15 @@ function fixture() {
     processId: 999,
     proof: 'FORGED'
   };
-  return { projectRoot, directory, native, controlPath, control, setControl, input };
+  return {
+    projectRoot,
+    directory,
+    native,
+    controlPath,
+    control,
+    setControl,
+    input
+  };
 }
 async function invoke(
   f: ReturnType<typeof fixture>,
@@ -70,7 +78,10 @@ async function invoke(
     readonly script?: string;
     readonly bootstrap?: string;
     readonly revoke?: boolean;
-    readonly aliases?: readonly { readonly path: string; readonly target: string }[];
+    readonly aliases?: readonly {
+      readonly path: string;
+      readonly target: string;
+    }[];
   } = {}
 ) {
   const fd = fs.openSync(join(f.native, 'source.jsonl'), 'r');
@@ -108,7 +119,9 @@ async function invoke(
           stderr += chunk.toString();
         });
         child.stdin?.on('error', error => {
-          if (!('code' in error) || error.code !== 'EPIPE') throw error;
+          if (!('code' in error) || error.code !== 'EPIPE') {
+            throw error;
+          }
         });
       });
       child.on('message', (message: unknown) => {
@@ -134,14 +147,21 @@ async function invoke(
     throw error;
   }
   if (!ready || !ledger) {
-    throw new Error('claude_window_missing_effects', { cause: { code, stderr } });
+    throw new Error('claude_window_missing_effects', {
+      cause: { code, stderr }
+    });
   }
   const names = fs.readdirSync(f.directory).filter(name => /^[a-f0-9-]{36}\.json$/.test(name));
   const receipts = names.map(name => ClaudeWindowPendingReceiptSchema.parse(JSON.parse(fs.readFileSync(join(f.directory, name), 'utf8'))));
   return { code, stdout, stderr, effects: ledger.effects, receipts, names };
 }
 function zeroUnauthorized(result: Awaited<ReturnType<typeof invoke>>) {
-  expect(result.effects).toMatchObject({ unauthorizedCalls: 0, nativeCalls: 0, processCalls: 0, operations: [] });
+  expect(result.effects).toMatchObject({
+    unauthorizedCalls: 0,
+    nativeCalls: 0,
+    processCalls: 0,
+    operations: []
+  });
 }
 test.each([true, false])('installed recorder uses its actual bootstrap under active=%s control', async active => {
   const f = fixture();
@@ -169,7 +189,12 @@ test.each(['SessionStart', 'SubagentStart', 'SubagentStop'])('projects %s to exa
   const f = fixture();
   const child = event !== 'SessionStart';
   const result = await invoke(f, {
-    input: { ...f.input, hook_event_name: event, ...(child ? { agent_id: 'synthetic-child' } : {}), agent_transcript_path: join(f.native, 'child.jsonl') }
+    input: {
+      ...f.input,
+      hook_event_name: event,
+      ...(child ? { agent_id: 'synthetic-child' } : {}),
+      agent_transcript_path: join(f.native, 'child.jsonl')
+    }
   });
   zeroUnauthorized(result);
   expect([result.code, result.stderr, result.effects.metadataWrites, result.effects.ownedReads > 0]).toEqual([0, '', 1, true]);
@@ -188,21 +213,30 @@ test.each(['SessionStart', 'SubagentStart', 'SubagentStop'])('projects %s to exa
   expect(JSON.stringify(result.receipts)).not.toMatch(/SYNTHETIC_PRIVATE|FORGED|99\.99\.99|child\.jsonl/);
   expect(result.stdout).not.toContain(f.native);
 });
-test.each(['missing', 'inactive', 'malformed', 'projectRoot', 'product', 'policyId', 'policyRevision', 'evidenceMode', 'schemaVersion', 'extra'])(
-  'emits no metadata for %s control',
-  async kind => {
-    const f = fixture();
-    if (kind === 'missing') fs.rmSync(f.controlPath);
-    else if (kind === 'inactive') {
-      f.setControl({ ...f.control, state: 'inactive' });
-    } else if (kind === 'malformed') {
-      fs.writeFileSync(f.controlPath, '{SYNTHETIC_PRIVATE');
-    } else f.setControl({ ...f.control, [kind]: 'mismatch' });
-    const result = await invoke(f);
-    zeroUnauthorized(result);
-    expect([result.receipts, result.effects.metadataWrites, result.stdout]).toEqual([[], 0, '']);
-  }
-);
+test.each([
+  'missing',
+  'inactive',
+  'receipt_only',
+  'malformed',
+  'projectRoot',
+  'product',
+  'policyId',
+  'policyRevision',
+  'evidenceMode',
+  'schemaVersion',
+  'extra'
+])('emits no metadata for %s control', async kind => {
+  const f = fixture();
+  if (kind === 'missing') fs.rmSync(f.controlPath);
+  else if (kind === 'inactive' || kind === 'receipt_only') {
+    f.setControl({ ...f.control, state: kind });
+  } else if (kind === 'malformed') {
+    fs.writeFileSync(f.controlPath, '{SYNTHETIC_PRIVATE');
+  } else f.setControl({ ...f.control, [kind]: 'mismatch' });
+  const result = await invoke(f);
+  zeroUnauthorized(result);
+  expect([result.receipts, result.effects.metadataWrites, result.stdout]).toEqual([[], 0, '']);
+});
 test('rechecks inactive control after awaited input without further metadata emission', async () => {
   const f = fixture();
   const result = await invoke(f, { revoke: true });
@@ -224,7 +258,9 @@ test.each(['payload', 'control', 'storage', 'directory-mode', 'parent-mode', 'pr
   'bounds private owned storage and input: %s',
   async kind => {
     const f = fixture();
-    if (kind === 'control') fs.writeFileSync(f.controlPath, JSON.stringify(f.control) + ' '.repeat(4097));
+    if (kind === 'control') {
+      fs.writeFileSync(f.controlPath, JSON.stringify(f.control) + ' '.repeat(4097));
+    }
     if (kind === 'storage') {
       for (let n = 0; n < 1023; n++) {
         fs.writeFileSync(join(f.directory, `filler-${n}`), '');
@@ -244,7 +280,17 @@ test.each(['payload', 'control', 'storage', 'directory-mode', 'parent-mode', 'pr
       fs.renameSync(f.directory, f.directory + '-saved');
       fs.symlinkSync(f.directory + '-saved', f.directory);
     }
-    const result = await invoke(f, kind === 'payload' ? { stdin: JSON.stringify({ ...f.input, prompt: 'x'.repeat(65536) }) } : {});
+    const result = await invoke(
+      f,
+      kind === 'payload'
+        ? {
+            stdin: JSON.stringify({
+              ...f.input,
+              prompt: 'x'.repeat(65536)
+            })
+          }
+        : {}
+    );
     zeroUnauthorized(result);
     expect([result.code, result.receipts, result.effects.metadataWrites]).toEqual([1, [], 0]);
   }
@@ -272,7 +318,11 @@ test.each([
   expect(changed).not.toBe(original.toString());
   fs.writeFileSync(script, changed);
   const result = await invoke(f, { script, revoke: true });
-  expect(result.effects).toMatchObject({ nativeCalls, processCalls, metadataWrites: 0 });
+  expect(result.effects).toMatchObject({
+    nativeCalls,
+    processCalls,
+    metadataWrites: 0
+  });
   expect([result.code, result.receipts]).toEqual([1, []]);
   expect(fs.readFileSync(hook)).toEqual(original);
 });
