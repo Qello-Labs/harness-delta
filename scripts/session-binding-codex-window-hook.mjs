@@ -49,8 +49,9 @@ function receiptArmingLive(arming) {
     !/^[a-f0-9]{64}$/.test(arming.policyDigest) ||
     typeof arming.armedAt !== 'string' ||
     typeof arming.expiresAt !== 'string'
-  )
+  ) {
     return false;
+  }
   const started = Date.parse(arming.armedAt);
   const expires = Date.parse(arming.expiresAt);
   const now = Date.now();
@@ -164,7 +165,9 @@ try {
       invalid();
     }
     const current = activeControl(config);
-    if (current && (control.state !== 'receipt_only' || JSON.stringify(current) === JSON.stringify(control))) emit(config.directory, record);
+    if (current && current.state === control.state && (control.state !== 'receipt_only' || JSON.stringify(current) === JSON.stringify(control))) {
+      emit(config.directory, record);
+    }
   }
 } catch {
   process.stderr.write('binding_window_hook_metadata_unavailable\n');

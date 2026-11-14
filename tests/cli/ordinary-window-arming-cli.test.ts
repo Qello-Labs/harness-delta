@@ -1,6 +1,7 @@
 import { appendFileSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { afterEach, expect, test } from 'vitest';
 import { Store } from '../../src/store.js';
 import { Lifecycle } from '../../src/core/lifecycle.js';
@@ -226,6 +227,88 @@ test('the installed hook emits no receipt without arming or outside the armed pr
     processCalls: 0,
     operations: []
   });
+}, 20000);
+
+test('an active hook cannot emit for another project after product APIs publish receipt-only arming while stdin is awaited', async () => {
+  const f = fixture();
+  const activated = await f.run(['compatibility', 'ordinary-window', 'activate', f.packet(windowDecisionPacket(f.selection))]);
+  expect(activated.code, activated.stderr).toBe(0);
+  expect(JSON.parse(readFileSync(f.controlPath, 'utf8')) as unknown).toMatchObject({ state: 'active' });
+  const script = join(f.directory, 'active-to-receipt-only.mjs');
+  writeFileSync(
+    script,
+    `
+      import { Store } from ${JSON.stringify(pathToFileURL(resolve('dist/store.js')).href)};
+      import { Lifecycle } from ${JSON.stringify(pathToFileURL(resolve('dist/core/lifecycle.js')).href)};
+      import { Deletion } from ${JSON.stringify(pathToFileURL(resolve('dist/deletion.js')).href)};
+      import { createOrdinaryWindowTask } from ${JSON.stringify(pathToFileURL(resolve('dist/ordinary-observation.js')).href)};
+      import { armOrdinaryWindowTrial } from ${JSON.stringify(pathToFileURL(resolve('dist/cli/ordinary-window-activation-cli.js')).href)};
+      const iterator = process.stdin[Symbol.asyncIterator].bind(process.stdin);
+      process.stdin[Symbol.asyncIterator] = function () {
+        const input = iterator();
+        let changed = false;
+        return {
+          async next() {
+            if (!changed) {
+              changed = true;
+              const store = new Store(${JSON.stringify(f.database)});
+              try {
+                new Deletion(store).deleteProject(${JSON.stringify(f.selection.projectId)});
+                const life = new Lifecycle(store);
+                life.registerProject('replacement-project', ${JSON.stringify(f.projectRoot)});
+                const taskId = createOrdinaryWindowTask(store, {
+                  schema_version: 2,
+                  mode: 'ordinary_window',
+                  project_id: 'replacement-project',
+                  product: 'codex',
+                  declared_version: ${JSON.stringify(f.selection.declaredVersion)},
+                  policy_id: 'codex-binding-root-window-v1',
+                  criterion_ids: ['accepted']
+                });
+                life.start(taskId);
+                const status = armOrdinaryWindowTrial(store, taskId, 60000, new Date().toISOString());
+                if (status.state !== 'receipt_only') throw new Error('fixture_arming_failed');
+              } finally {
+                store.close();
+              }
+            }
+            return input.next();
+          },
+          [Symbol.asyncIterator]() { return this; }
+        };
+      };
+      await import(${JSON.stringify(pathToFileURL(join(f.projectRoot, '.harness-delta/codex-connect/session-binding-codex-window-hook.mjs')).href)});
+    `
+  );
+  const emitted = await runCodexWindowHook({
+    scriptPath: script,
+    receiptDirectory: f.receiptDirectory,
+    projectRoot: f.projectRoot,
+    nativePrefixes: [f.sourceRoot],
+    input: {
+      hook_event_name: 'SessionStart',
+      source: 'startup',
+      session_id: 'synthetic-other-root',
+      cwd: '/synthetic/unarmed-other-project',
+      transcript_path: null
+    }
+  });
+  expect(emitted.code, emitted.stderr).toBe(0);
+  expect(emitted.effects).toEqual({
+    nativeCalls: 0,
+    processCalls: 0,
+    operations: []
+  });
+  const store = new Store(f.database);
+  try {
+    expect(store.get('SELECT id FROM projects WHERE id=?', [f.selection.projectId])).toBeUndefined();
+    const task = store.get<{ id: string }>('SELECT id FROM tasks WHERE project_id=?', ['replacement-project']);
+    if (!task) throw new Error('fixture_replacement_task_missing');
+    expect(ordinaryWindowArmingStatus(store, task.id, new Date().toISOString()).state).toBe('receipt_only');
+  } finally {
+    store.close();
+  }
+  expect([emitted.receipts, emitted.stdout]).toEqual([[], '']);
 }, 20000);
 
 test.each(['disarm', 'expired', 'pause', 'finalize', 'revoke-collection', 'delete-task', 'delete-project'] as const)(
