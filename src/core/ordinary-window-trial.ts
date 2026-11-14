@@ -1,4 +1,6 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
+import { closeSync, constants, fstatSync, fsyncSync, lstatSync, mkdirSync, openSync, readSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { z } from 'zod';
 import { IdSchema, TimestampSchema } from '../contracts.js';
 import type { BindingUsageRecord } from '../session-binding-contract.js';
@@ -12,6 +14,7 @@ import {
 } from './ordinary-window-policy.js';
 import type { OrdinaryWindowDecision, OrdinaryWindowScope } from './ordinary-window-decision.js';
 import {
+  type OrdinaryWindowDecisionKey,
   ordinaryWindowDecisionKeyForSelection,
   ordinaryWindowDecisionKeyValues,
   ordinaryWindowDecisionWhere,
@@ -295,4 +298,127 @@ export function commitOrdinaryWindowTrialCharge(store: Store, charge: OrdinaryWi
     [charge.nextTokens, ...ordinaryWindowDecisionKeyValues(charge.decision), charge.decision.decision_ref, charge.decision.trial_tokens_consumed]
   );
   return charge.nextTokens === charge.decision.trial_token_limit;
+}
+
+const controlFields = {
+  schemaVersion: z.literal(1),
+  projectRoot: z.string().min(1).max(4096),
+  product: z.enum(['codex', 'claude_code']),
+  policyId: IdSchema,
+  policyRevision: IdSchema,
+  evidenceMode: z.enum(['source_only', 'publisher_verified_local_pin'])
+};
+const ControlSchema = z.discriminatedUnion('state', [
+  z.strictObject({ ...controlFields, state: z.literal('active') }),
+  z.strictObject({ ...controlFields, state: z.literal('inactive') }),
+  z.strictObject({
+    ...controlFields,
+    product: z.literal('codex'),
+    state: z.literal('receipt_only'),
+    arming: z.strictObject({
+      projectId: IdSchema,
+      taskId: IdSchema,
+      generation: z.number().int().nonnegative(),
+      policyDigest: z.string().regex(/^[a-f0-9]{64}$/),
+      armedAt: TimestampSchema,
+      expiresAt: TimestampSchema
+    })
+  })
+]);
+export type OrdinaryWindowEmissionControl = z.infer<typeof ControlSchema>;
+
+function controlDirectory(projectRoot: string, product: OrdinaryWindowDecisionKey['product'], create: boolean): string | null {
+  if (!projectRoot || projectRoot.length > 4096 || resolve(projectRoot) !== projectRoot) throw new Error('binding_window_control_unavailable');
+  const parent = join(projectRoot, '.harness-delta');
+  const directory = join(parent, product === 'codex' ? 'window-receipts' : 'claude-window-receipts');
+  const ancestors: string[] = [];
+  for (let current = directory; ; current = dirname(current)) {
+    ancestors.push(current);
+    if (current === dirname(current)) break;
+  }
+  for (const current of ancestors.reverse()) {
+    let stat = lstatSync(current, { throwIfNoEntry: false });
+    if (!stat && !create) return null;
+    if (!stat && (current === parent || current === directory)) {
+      mkdirSync(current, { mode: 0o700 });
+      stat = lstatSync(current);
+    }
+    if (!stat?.isDirectory() || stat.isSymbolicLink()) {
+      throw new Error('binding_window_control_unavailable');
+    }
+    if (current === directory && (stat.uid !== process.getuid?.() || (stat.mode & 0o077) !== 0)) {
+      throw new Error('binding_window_control_unavailable');
+    }
+  }
+  return directory;
+}
+
+export function readOrdinaryWindowControl(projectRoot: string, product: OrdinaryWindowDecisionKey['product']): OrdinaryWindowEmissionControl | null {
+  const directory = controlDirectory(projectRoot, product, false);
+  if (!directory) return null;
+  const target = join(directory, 'ordinary-window-control.json');
+  if (!lstatSync(target, { throwIfNoEntry: false })) return null;
+  const fd = openSync(target, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+  try {
+    const stat = fstatSync(fd);
+    if (!stat.isFile() || stat.nlink !== 1 || stat.uid !== process.getuid?.() || (stat.mode & 0o077) !== 0 || stat.size > 4096) {
+      throw new Error('binding_window_control_unavailable');
+    }
+    const buffer = Buffer.alloc(4097);
+    const size = readSync(fd, buffer, 0, buffer.length, 0);
+    if (size > 4096) throw new Error('binding_window_control_unavailable');
+    const control = ControlSchema.parse(JSON.parse(buffer.subarray(0, size).toString('utf8')));
+    if (control.projectRoot !== projectRoot || control.product !== product) throw new Error('binding_window_control_unavailable');
+    return control;
+  } finally {
+    closeSync(fd);
+  }
+}
+
+export function writeOrdinaryWindowControl(control: OrdinaryWindowEmissionControl): void {
+  const directory = controlDirectory(control.projectRoot, control.product, true);
+  if (!directory) throw new Error('binding_window_control_unavailable');
+  const payload = JSON.stringify(control);
+  if (Buffer.byteLength(payload) > 4096) {
+    throw new Error('binding_window_control_unavailable');
+  }
+  const target = join(directory, 'ordinary-window-control.json');
+  const current = lstatSync(target, { throwIfNoEntry: false });
+  if (current && (!current.isFile() || current.isSymbolicLink() || current.nlink !== 1 || current.uid !== process.getuid?.() || (current.mode & 0o077) !== 0)) {
+    throw new Error('binding_window_control_unavailable');
+  }
+  const temporary = join(directory, `ordinary-window-control-${randomUUID()}.json`);
+  const fd = openSync(temporary, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
+  try {
+    try {
+      writeFileSync(fd, payload, 'utf8');
+      fsyncSync(fd);
+    } finally {
+      closeSync(fd);
+    }
+    renameSync(temporary, target);
+  } catch (error) {
+    unlinkSync(temporary);
+    throw error;
+  }
+}
+
+export function clearOrdinaryWindowArming(projectRoot: string, taskId?: string): boolean {
+  const control = readOrdinaryWindowControl(projectRoot, 'codex');
+  if (control?.state !== 'receipt_only') return false;
+  const { arming, ...base } = control;
+  if (taskId !== undefined && arming.taskId !== taskId) return false;
+  writeOrdinaryWindowControl({ ...base, state: 'inactive' });
+  return true;
+}
+
+export function clearTaskOrdinaryWindowArming(store: Store, taskId: string): void {
+  const project = store.get<{ local_root: string | null }>(
+    `SELECT p.local_root FROM projects p JOIN tasks t ON t.project_id=p.id
+    JOIN ordinary_window_selections w ON w.task_id=t.id WHERE t.id=? AND json_extract(w.selection,'$.policy.product')='codex'`,
+    [taskId]
+  );
+  if (project?.local_root) {
+    clearOrdinaryWindowArming(project.local_root, taskId);
+  }
 }

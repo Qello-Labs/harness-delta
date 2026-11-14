@@ -122,11 +122,20 @@ native 검증 전까지 비활성 상태입니다. 활성 지원 항목이나 �
 window 작업은 A/B 배정 작업이 아닌 별도
 `POST /api/projects/:id/codex-window-prepare-v1` API로 준비하며 지정 버전, 정책,
 프로젝트 root와 가격표를 고정합니다. 연결에는 명시적으로 활성화된 준비 작업, 별도의 유효한
-제품 활성화, 적격한 새 startup root와 opaque pending receipt가 필요합니다. helper는
+기록된 결정, 적격한 새 startup root와 opaque pending receipt가 필요합니다. helper는
 직접 받은 origin·프로젝트·작업·receipt ID만 사용하며 파일, 환경 힌트나 프로세스 ancestry로
 작업이나 receipt를 찾지 않습니다. 버전이 지정된 작업 화면을 읽고 같은 origin의
 CSRF·version·idempotency 보호 요청을 보낸 뒤 유효한 root 연결을 다시 검사합니다.
 성공 응답은 `automatic_children:false`이며 활성화 route나 암묵적 작업 시작은 추가하지 않았습니다.
+
+별도 승인된 Codex trial에서는 준비한 작업을 시작하고
+`compatibility ordinary-window arm <task-id> --duration-ms 60000`을 사용한 다음,
+프롬프트 없이 새 root를 실행하세요. 설치된 hook의 pending receipt에서 native root를
+확인한 뒤 기존 trial activation packet을 기록하세요. arming은 receipt 메타데이터만
+발행하며 connect나 collect를 허용하지 않습니다. `status <task-id> --arming`으로
+확인하거나 `disarm <task-id>`로 취소하세요. 전체 순서와 만료·철회 제한은
+[로컬 측정](local-measurement.ko.md)을 따르세요.
+Claude window hook은 `receipt_only`를 무시합니다.
 
 `source_only` provider는 지정 버전과 root 생성 header를 비교합니다. 이 header는 현재
 writer, 실행 파일, publisher나 프로세스를 검증하지 않습니다. native asset 검사는 사전 조건이

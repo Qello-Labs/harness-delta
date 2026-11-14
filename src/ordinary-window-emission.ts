@@ -1,68 +1,13 @@
-import { randomUUID } from 'node:crypto';
-import { closeSync, constants, fsyncSync, lstatSync, mkdirSync, openSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
 import type { Store } from './store.js';
-import { type OrdinaryWindowDecisionKey, ordinaryWindowDecisionStatus } from './core/ordinary-window-activation.js';
-
-interface OrdinaryWindowEmissionControl {
-  readonly schemaVersion: 1;
-  readonly projectRoot: string;
-  readonly product: OrdinaryWindowDecisionKey['product'];
-  readonly policyId: OrdinaryWindowDecisionKey['policy_id'];
-  readonly policyRevision: string;
-  readonly evidenceMode: OrdinaryWindowDecisionKey['evidence_mode'];
-  readonly state: 'active' | 'inactive';
-}
-
-function controlDirectory(projectRoot: string, product: OrdinaryWindowDecisionKey['product']): string {
-  if (!projectRoot || projectRoot.length > 4096 || resolve(projectRoot) !== projectRoot) throw new Error('binding_window_control_unavailable');
-  const parent = join(projectRoot, '.harness-delta');
-  const directory = join(parent, product === 'codex' ? 'window-receipts' : 'claude-window-receipts');
-  const ancestors: string[] = [];
-  for (let current = directory; ; current = dirname(current)) {
-    ancestors.push(current);
-    if (current === dirname(current)) break;
-  }
-  for (const current of ancestors.reverse()) {
-    let stat = lstatSync(current, { throwIfNoEntry: false });
-    if (!stat && (current === parent || current === directory)) {
-      mkdirSync(current, { mode: 0o700 });
-      stat = lstatSync(current);
-    }
-    if (!stat?.isDirectory() || stat.isSymbolicLink()) {
-      throw new Error('binding_window_control_unavailable');
-    }
-    if (current === directory && (stat.uid !== process.getuid?.() || (stat.mode & 0o077) !== 0)) {
-      throw new Error('binding_window_control_unavailable');
-    }
-  }
-  return directory;
-}
-function writeControl(directory: string, control: OrdinaryWindowEmissionControl): void {
-  const payload = JSON.stringify(control);
-  if (Buffer.byteLength(payload) > 4096) {
-    throw new Error('binding_window_control_unavailable');
-  }
-  const target = join(directory, 'ordinary-window-control.json');
-  const current = lstatSync(target, { throwIfNoEntry: false });
-  if (current && (!current.isFile() || current.isSymbolicLink() || current.uid !== process.getuid?.() || (current.mode & 0o077) !== 0)) {
-    throw new Error('binding_window_control_unavailable');
-  }
-  const temporary = join(directory, `ordinary-window-control-${randomUUID()}.json`);
-  const fd = openSync(temporary, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
-  try {
-    try {
-      writeFileSync(fd, payload, 'utf8');
-      fsyncSync(fd);
-    } finally {
-      closeSync(fd);
-    }
-    renameSync(temporary, target);
-  } catch (error) {
-    unlinkSync(temporary);
-    throw error;
-  }
-}
+import { TimestampSchema } from './contracts.js';
+import { type OrdinaryWindowDecisionKey, ordinaryWindowDecisionKeyForSelection, ordinaryWindowDecisionStatus } from './core/ordinary-window-activation.js';
+import { assertOrdinaryWindowPrepared, ordinaryWindowSelection } from './core/ordinary-window-store.js';
+import {
+  clearOrdinaryWindowArming,
+  type OrdinaryWindowEmissionControl,
+  readOrdinaryWindowControl,
+  writeOrdinaryWindowControl
+} from './core/ordinary-window-trial.js';
 
 export function publishOrdinaryWindowEmissionControl(store: Store, key: OrdinaryWindowDecisionKey, at: string) {
   const status = ordinaryWindowDecisionStatus(store, key, at);
@@ -84,7 +29,7 @@ export function publishOrdinaryWindowEmissionControl(store: Store, key: Ordinary
     state
   };
   try {
-    writeControl(controlDirectory(project.local_root, key.product), control);
+    writeOrdinaryWindowControl(control);
   } catch (error) {
     if (!(error instanceof Error)) throw error;
     throw new Error('binding_window_control_unavailable', { cause: error });
@@ -97,4 +42,71 @@ export function publishOrdinaryWindowEmissionControl(store: Store, key: Ordinary
     state,
     runtime_authority: false
   };
+}
+
+export function ordinaryWindowArmingStatus(store: Store, taskId: string, at: string) {
+  const selection = ordinaryWindowSelection(store, taskId);
+  if (!selection || selection.policy.product !== 'codex') {
+    throw new Error('binding_scope_mismatch');
+  }
+  const project = store.get<{ local_root: string | null }>('SELECT local_root FROM projects WHERE id=?', [selection.projectId]);
+  if (!project?.local_root) throw new Error('binding_scope_revoked');
+  const control = readOrdinaryWindowControl(project.local_root, 'codex');
+  const timestamp = Date.parse(TimestampSchema.parse(at));
+  let state: 'absent' | 'receipt_only' | 'inactive' | 'expired' | 'consumed' = control ? 'inactive' : 'absent';
+  if (ordinaryWindowDecisionStatus(store, ordinaryWindowDecisionKeyForSelection(selection), at).state !== 'absent') {
+    clearOrdinaryWindowArming(project.local_root);
+    state = 'consumed';
+  } else if (control?.state === 'receipt_only' && control.arming.taskId === taskId) {
+    const task = store.get<{ state: string; generation: number }>('SELECT state,generation FROM tasks WHERE id=?', [taskId]);
+    const expired = timestamp < Date.parse(control.arming.armedAt) || timestamp >= Date.parse(control.arming.expiresAt);
+    let prepared = false;
+    try {
+      assertOrdinaryWindowPrepared(store, taskId);
+      prepared = true;
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
+      if (
+        !['binding_scope_revoked', 'binding_scope_mismatch', 'binding_ordinary_assignment_conflict', 'ordinary_configuration_changed'].includes(error.message)
+      ) {
+        throw error;
+      }
+    }
+    if (
+      expired ||
+      !prepared ||
+      task?.state !== 'active' ||
+      task.generation !== control.arming.generation ||
+      control.arming.projectId !== selection.projectId ||
+      control.arming.policyDigest !== selection.policyDigest ||
+      control.policyId !== selection.policy.policyId ||
+      control.policyRevision !== selection.policy.ruleRevision ||
+      control.evidenceMode !== selection.policy.evidenceMode
+    ) {
+      clearOrdinaryWindowArming(project.local_root, taskId);
+      state = expired ? 'expired' : 'inactive';
+    } else state = 'receipt_only';
+  }
+  return {
+    schema_version: 1,
+    kind: 'ordinary_window_arming_status',
+    project_id: selection.projectId,
+    task_id: taskId,
+    state,
+    expires_at: state === 'receipt_only' && control?.state === 'receipt_only' ? control.arming.expiresAt : null,
+    runtime_authority: false
+  };
+}
+
+export function disarmOrdinaryWindowTrial(store: Store, taskId: string, at: string) {
+  return store.immediateTransaction(() => {
+    const selection = ordinaryWindowSelection(store, taskId);
+    if (!selection || selection.policy.product !== 'codex') {
+      throw new Error('binding_scope_mismatch');
+    }
+    const project = store.get<{ local_root: string | null }>('SELECT local_root FROM projects WHERE id=?', [selection.projectId]);
+    if (!project?.local_root) throw new Error('binding_scope_revoked');
+    clearOrdinaryWindowArming(project.local_root, taskId);
+    return ordinaryWindowArmingStatus(store, taskId, at);
+  });
 }

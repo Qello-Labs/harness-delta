@@ -133,13 +133,22 @@ sources or contain a per-release version literal. Exact schema 1 is unchanged.
 Window task preparation uses the separate
 `POST /api/projects/:id/codex-window-prepare-v1` API, not an assigned A/B task.
 It freezes the declared version, policy, project roots and price table. A connect
-needs that explicitly active prepared task, a separate live product activation,
+needs that explicitly active prepared task, a separate live recorded decision,
 an eligible fresh startup root and the opaque pending receipt. The helper uses
 only explicitly supplied origin, project, task and receipt IDs; it never discovers
 a task or receipt from files, environment hints or process ancestry. It reads the
 versioned task view, sends a same-origin CSRF/version/idempotency-protected request,
 and rechecks live root linkage. A successful response states
 `automatic_children:false`; no activation route or implicit start was added.
+
+For a separately approved Codex trial, start the prepared task, use
+`compatibility ordinary-window arm <task-id> --duration-ms 60000`, then launch a fresh
+root without a prompt. Confirm the native root from the installed hook's pending
+receipt before recording the existing trial activation packet. Arming emits
+receipt metadata only; it never authorizes connect or collect. Check `status
+<task-id> --arming` or cancel with `disarm <task-id>`. Follow
+[local measurement](local-measurement.md) for the full sequence and expiry/revocation
+limits. The Claude window hook ignores `receipt_only`.
 
 The `source_only` provider compares the declared version with the root creation
 header. That header does not verify the current writer, executable, publisher or
