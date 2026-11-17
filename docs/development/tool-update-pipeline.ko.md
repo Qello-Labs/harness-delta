@@ -420,18 +420,31 @@ tree identity를 비교합니다. 변경되거나 불완전한 closure는 unknow
 필드/type/enum 변경을 확인할 수 있지만, rollout, hook, 전체 그룹의 직렬화 계약이
 불변임을 확정할 수는 없습니다. 호스트는 `api.github.com`뿐이며 같은 origin/resource의
 수동 redirect만 허용합니다. 제한은 문서당 decoded 4 MiB, identity 재검증을 포함한
-작업당 16 MiB, 응답 128개, redirect 5회, 120초입니다. 실패, 잘림, drift, 제한 소진은
+작업당 16 MiB, redirect 5회입니다. 서로 다른 필수 version/commit ref가 `n`개이면
+Codex 응답 예산은 `min(8 + 24 * n, 1024)`, 기한은
+`min(7500 + 22500 * n, 900000)`밀리초입니다. ref가 42개를 넘으면 상한 적용 전
+허용량이 고정 응답 상한을 초과하므로 fetch 전에 `source_response_limit`로 실패합니다.
+실패, 잘림, drift, 제한 소진은
 부분 성공이 아닌 사용할 수 없는 증거가 됩니다.
 재검증은 전체 40자리 16진 SHA를 사용하는 정확한 `/git/trees/<sha>`, `/git/blobs/<sha>`,
 `/git/tags/<sha>` 경로와, 전체 SHA인 `ref` 쿼리만 있는 `/contents/<path>`만 건너뜁니다.
 저장소 메타데이터, 태그 ref, 이름으로 지정한 ref와 분류되지 않은 경로는 계속 재검증합니다.
-불변 리소스를 포함해 반복 get의 작업 내 바이트 drift 감지는 유지합니다. 합성 5개 버전 작업은
-최초 요청 76회와 변경 가능한 리소스의 재검증 6회, 총 82회를 사용하며 실제 작업은 다를 수 있습니다.
+불변 리소스를 포함해 반복 get의 작업 내 바이트 drift 감지는 유지합니다.
+공유 tree와 schema blob SHA는 작업 안에서 재사용합니다. 현재의 완전한 합성 closure에서
+ref마다 객체가 다르면 요청 수는 `2 + 22 * n`입니다. ref 5개는 최초 요청 106회와
+변경 가능한 리소스 재검증 6회로 총 112회, ref 9개는 190회와 10회로 총 200회입니다.
+ref 9개의 허용량은 응답 224개와 210초이며 요청 24회의 여유가 있습니다.
+ref 5개는 기존 응답 128개와 120초 허용량을 유지합니다. ref당 허용량은 측정된 증가량보다
+요청 2회, 고정 허용량은 측정된 고정 작업보다 6회를 더 둡니다. 기한은 기존 응답당
+`120000 / 128`밀리초를 유지하되 별도의 15분 상한을 적용합니다. 실제 graph, tag chain,
+redirect가 다르면 제한된 허용량을 소진할 수 있으며, 이 합성 수치는 실제 릴리스의
+업스트림 graph를 측정한 결과가 아닙니다.
 본문은 일시적으로만 보관하고 레코드에는
 해시와 유한한 발견만 남깁니다. client-source identity는 패키징, native 실행, 전달,
 backend 의미를 확정하지 않습니다.
 
-Claude 문서 라이브러리는 같은 제한과 호스트를 사용하며 `anthropics/claude-code`를 인증하고,
+Claude 문서 라이브러리는 같은 바이트/redirect 제한과 호스트를 사용하며 기존의 고정된
+응답 128개, 120초 예산을 유지합니다. `anthropics/claude-code`를 인증하고,
 정확한 `v<version>` 태그를 작업의 commit으로 확인한 뒤 고정된 `CHANGELOG.md` blob을 읽으며,
 SHA 객체의 중복 재검증은 하지 않습니다. 변경 가능한 저장소 메타데이터, 태그 ref와 버전을
 고정하지 않은 contents는 계속 재검증합니다.

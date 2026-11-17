@@ -22,6 +22,16 @@ export const codexSourceLimits = Object.freeze({
   redirects: 5,
   deadlineMs: 120000
 });
+export function codexSourceBudget(refCount) {
+  const base = 8;
+  const perRef = 24;
+  const ceiling = 1024;
+  return {
+    responses: Math.min(base + perRef * refCount, ceiling),
+    deadlineMs: Math.min(7500 + 22500 * refCount, 900000),
+    maxRefs: Math.floor((ceiling - base) / perRef)
+  };
+}
 const origin = 'https://api.github.com';
 const repositoryPath = '/repos/openai/codex';
 const repositoryNumber = 965415649;
@@ -174,7 +184,10 @@ async function readBytes(response, signal, ledger) {
   if (size === 0) fail('source_document_invalid');
   return Buffer.concat(chunks);
 }
-function sourceTransport(fetchImpl, signal, ledger, repository = { path: repositoryPath, number: repositoryNumber }) {
+function sourceTransport(
+  fetchImpl,
+  { signal, ledger, repository = { path: repositoryPath, number: repositoryNumber }, responses = codexSourceLimits.responses }
+) {
   const snapshots = new Map();
   async function request(path, validator = null) {
     const original = new URL(`${origin}${repository.path}${path}`);
@@ -183,7 +196,7 @@ function sourceTransport(fetchImpl, signal, ledger, repository = { path: reposit
     for (let hop = 0; hop <= codexSourceLimits.redirects; hop++) {
       if (visited.has(current.href)) fail('source_redirect_invalid');
       visited.add(current.href);
-      if (ledger.responses >= codexSourceLimits.responses) {
+      if (ledger.responses >= responses) {
         fail('source_response_limit');
       }
       signal.throwIfAborted();
@@ -514,7 +527,8 @@ export async function collectCodexSourceEvidence(jobInput, options) {
   const comparisons = requiredDifferenceCoverage(job).comparisons;
   const refs = [...new Map([...comparisons.flatMap(row => [row.from, row.to]), job.target].map(ref => [`${ref.version}:${ref.commit}`, ref])).values()];
   const ledger = { responses: 0, decodedBytes: 0 };
-  if (refs.length > codexSourceLimits.responses) {
+  const budget = codexSourceBudget(refs.length);
+  if (refs.length > budget.maxRefs) {
     return {
       evidence: [],
       failure: 'source_response_limit',
@@ -522,10 +536,10 @@ export async function collectCodexSourceEvidence(jobInput, options) {
     };
   }
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(new ToolUpdateError('source_deadline')), codexSourceLimits.deadlineMs);
+  const timer = setTimeout(() => controller.abort(new ToolUpdateError('source_deadline')), budget.deadlineMs);
   timer.unref();
   const signal = options.signal ? AbortSignal.any([controller.signal, options.signal]) : controller.signal;
-  const transport = sourceTransport(options.fetch, signal, ledger);
+  const transport = sourceTransport(options.fetch, { signal, ledger, responses: budget.responses });
   const snapshots = new Map();
   let failure = null;
   try {
@@ -708,7 +722,7 @@ export async function collectClaudeDocumentationEvidence(jobInput, options) {
   const timer = setTimeout(() => controller.abort(new ToolUpdateError('source_deadline')), codexSourceLimits.deadlineMs);
   timer.unref();
   const signal = options.signal ? AbortSignal.any([controller.signal, options.signal]) : controller.signal;
-  const transport = sourceTransport(options.fetch, signal, ledger, claudeRepository);
+  const transport = sourceTransport(options.fetch, { signal, ledger, repository: claudeRepository });
   const snapshots = new Map();
   const documents = [];
   let failure = null;
