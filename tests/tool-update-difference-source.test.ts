@@ -554,7 +554,7 @@ test('decoded job bytes include revalidation and stop at the fixed cumulative li
   expect([...wire.counts.values()]).toContain(2);
   noPass(result);
 });
-test.each([40, 128])('128 responses bounds a %s-release job including revalidation', async releaseCount => {
+test.each([40, 128])('scaled response budget bounds a %s-release job including revalidation', async releaseCount => {
   const base = differenceJob();
   const releases = Array.from({ length: releaseCount }, (_, index) => ({
     version: `0.${163 + index}.0`,
@@ -581,11 +581,18 @@ test.each([40, 128])('128 responses bounds a %s-release job including revalidati
   const result = await collectCodexSourceEvidence(job, {
     fetch: wire.fetchImpl
   });
-  expect(result.failure).toBe('source_response_limit');
-  expect(result.usage.responses).toBe(128);
-  expect(wire.calls).toHaveLength(128);
-  if (releaseCount === 40) expect([...wire.counts.values()]).toContain(2);
-  expect(result.evidence.every(record => record.availability === 'failed')).toBe(true);
+  if (releaseCount === 40) {
+    expect(result.failure).toBeNull();
+    expect(result.usage.responses).toBe(140);
+    expect(result.usage.responses).toBeLessThanOrEqual(968);
+    expect(wire.calls).toHaveLength(140);
+    expect([...wire.counts.values()]).toContain(2);
+  } else {
+    expect(result.failure).toBe('source_response_limit');
+    expect(result.evidence).toEqual([]);
+    expect(result.usage).toEqual({ responses: 0, decodedBytes: 0 });
+    expect(wire.calls).toHaveLength(0);
+  }
 });
 test.each([129, 256])(
   'large schema-valid %s-release failures still reduce with every required comparison',

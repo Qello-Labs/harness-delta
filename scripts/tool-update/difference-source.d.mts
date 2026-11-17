@@ -7,6 +7,11 @@ export const codexSourceLimits: Readonly<{
   redirects: number;
   deadlineMs: number;
 }>;
+export function codexSourceBudget(refCount: number): Readonly<{
+  responses: number;
+  deadlineMs: number;
+  maxRefs: number;
+}>;
 export type CodexSourceFailure =
   | 'source_document_invalid'
   | 'source_identity_invalid'

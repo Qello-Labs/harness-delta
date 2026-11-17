@@ -464,18 +464,32 @@ schema can identify known consumed model, effort or sandbox field/type/enum chan
 it cannot establish unchanged rollout, hook or whole-group serialized contracts.
 Only `api.github.com` is contacted, with same-origin/resource manual redirects.
 Limits are 4 MiB decoded per document, 16 MiB per job including identity
-revalidation, 128 responses, five redirects and 120 seconds. Failed, truncated,
+revalidation and five redirects. For `n` distinct required version/commit refs,
+the Codex response budget is `min(8 + 24 * n, 1024)` and its deadline is
+`min(7500 + 22500 * n, 900000)` milliseconds. Jobs above 42 refs fail with
+`source_response_limit` before any fetch because their unbounded allowance
+would exceed the fixed response ceiling. Failed, truncated,
 drifted or exhausted reads produce unavailable evidence, never partial success.
 Revalidation skips only exact `/git/trees/<sha>`, `/git/blobs/<sha>` and
 `/git/tags/<sha>` paths with full 40-hex SHAs, and `/contents/<path>` with exactly
 a full-SHA `ref` query. Repository metadata, tag refs, named refs and unclassified
 paths remain revalidated. Repeated gets still detect in-job byte drift, including
-for immutable resources. A synthetic five-version job uses 76 initial requests
-plus six mutable-resource revalidations, 82 total; actual jobs may differ.
+for immutable resources. Shared tree and schema-blob SHAs are reused within a job.
+With the current complete synthetic closure and distinct objects per ref, the
+count is `2 + 22 * n`: five refs use 106 initial requests plus six mutable
+revalidations, 112 total; nine refs use 190 plus ten, 200 total. The nine-ref
+allowance is 224 responses and 210 seconds, with 24 requests of margin. Five refs
+retain the 128-response, 120-second allowance. The per-ref allowance adds two
+requests above measured growth, and the base adds six above measured fixed work.
+The deadline preserves the former `120000 / 128` milliseconds per allowed
+response, with an independent 15-minute ceiling. Actual graphs, tag chains and
+redirects may differ and can still exhaust a bounded allowance; these synthetic
+counts are not measurements of a release's actual upstream graph.
 Bodies are transient; records retain hashes and finite findings only. Client-source
 identity does not establish packaging, native execution, delivery or backend meaning.
 
-The Claude documentation library uses the same bounds and host, authenticates
+The Claude documentation library keeps the same byte/redirect bounds and host,
+with its unchanged fixed 128-response, 120-second budget. It authenticates
 `anthropics/claude-code`, resolves exact `v<version>` tags to the job commits and
 reads pinned `CHANGELOG.md` blobs without redundant SHA-object revalidation.
 Mutable repository metadata, tag refs and unversioned contents remain revalidated.
