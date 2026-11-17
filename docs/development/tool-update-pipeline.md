@@ -121,10 +121,23 @@ Alternate tag spellings are neither queried nor checked for conflicts.
 GitHub-only intermediate releases and full historical GitHub coverage are not
 verified. Historical release pagination is not requested or followed.
 It revalidates mutable resources with ETags or repeated digests before finishing.
+For GitHub latest and by-tag release objects, both repeated reads and revalidation
+compare a canonical projection of exactly `id`, `tag_name`, `draft` and `prerelease`.
+Changes to any consumed value still fail with `metadata_drift`; ignored release
+fields such as asset download counts and JSON whitespace do not cause drift.
+Unknown or malformed release data remains refused. Repository metadata, tag refs,
+npm metadata and every other resource retain raw-byte comparison. Conditional 304,
+Link handling, byte/request/deadline limits and failure codes are unchanged.
 Full 40-hex SHA-addressed annotated tag objects are not revalidated; repository
 metadata, release metadata, tag refs and npm metadata still are.
-Repeated reads of the same resource must agree on their digest within the job,
-including SHA-addressed objects.
+Repeated reads must agree on that resource's comparison digest within the job,
+including raw-byte checks for SHA-addressed objects.
+Observation `checks[].sha256` remains the initial raw-response hash (or ordered
+multi-part digest), and `checks[].validator` remains the initial ETag hash,
+multi-part digest or null. Neither is replaced by a projection hash or the later
+response's receipt. Identical initial responses and clock inputs keep their record
+bytes and IDs; changed ignored bytes or validators can still change observation
+IDs through these raw receipts, while identical consumed values keep candidate IDs.
 Drift or an exhausted budget is `discovery_incomplete`,
 not success. That check gives bounded retrieval consistency. It isn't an atomic
 snapshot across GitHub and npm, so don't describe it as one.

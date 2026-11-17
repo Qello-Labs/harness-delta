@@ -42,13 +42,8 @@ test.each(['cycle', 'depth'] as const)('bounds annotated tag %s', async mode => 
   expect(result.candidate).toBeNull();
 });
 
-test.each(['github_latest', 'npm', 'github_tag'] as const)('rejects digest drift in %s without ETags', async source => {
-  const matches = (url: URL) =>
-    source === 'npm'
-      ? url.host === 'registry.npmjs.org'
-      : source === 'github_tag'
-        ? url.pathname.includes('/git/ref/')
-        : url.pathname.endsWith('/releases/latest');
+test.each(['npm', 'github_tag'] as const)('rejects raw digest drift in %s without ETags', async source => {
+  const matches = (url: URL) => (source === 'npm' ? url.host === 'registry.npmjs.org' : url.pathname.includes('/git/ref/'));
   const wire = fixture({
     etag: null,
     rewrite: async (url, attempt, _init, response) => (matches(url) && attempt === 2 ? new Response(`${await response.text()} `) : response)

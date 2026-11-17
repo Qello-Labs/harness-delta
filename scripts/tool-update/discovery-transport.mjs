@@ -4,6 +4,20 @@ import { instant, checkOrder } from './discovery-records.mjs';
 
 const hashBytes = value => createHash('sha256').update(value).digest('hex');
 const redirects = new Set([301, 302, 303, 307, 308]);
+function releaseDigest(body) {
+  // Initial invalid bodies still reach consumer validation after their raw receipt is recorded.
+  if (body === null || typeof body !== 'object' || Array.isArray(body) ||
+      typeof body.id !== 'number' || typeof body.tag_name !== 'string' ||
+      typeof body.draft !== 'boolean' || typeof body.prerelease !== 'boolean') return null;
+  return digest({ id: body.id, tag_name: body.tag_name, draft: body.draft, prerelease: body.prerelease });
+}
+function parseBody(bytes, invalidCode) {
+  try { return JSON.parse(bytes.toString('utf8')); }
+  catch (error) {
+    if (error instanceof SyntaxError) fail(invalidCode);
+    throw error;
+  }
+}
 
 // One invocation owns the byte ledger, deadline, and transient validators.
 export function transport(fetchImpl, now, signal) {
@@ -107,12 +121,13 @@ export function transport(fetchImpl, now, signal) {
       if (snapshots.length >= 512) fail('reference_limit');
       const response = await request(url, source);
       const previous = observed.get(url);
-      if (previous !== undefined && previous !== response.rawDigest) fail('metadata_drift');
-      observed.set(url, response.rawDigest);
-      snapshots.push({ url, source, key, ...response });
-      let body;
-      try { body = JSON.parse(response.bytes.toString('utf8')); }
-      catch { fail('metadata_invalid'); }
+      const release = source === 'github_latest' || source === 'github_release';
+      if (!release && previous !== undefined && previous !== response.rawDigest) fail('metadata_drift');
+      const body = parseBody(response.bytes, release && previous !== undefined ? 'metadata_drift' : 'metadata_invalid');
+      const comparisonDigest = release ? releaseDigest(body) : response.rawDigest;
+      if (previous !== undefined && (comparisonDigest === null || previous !== comparisonDigest)) fail('metadata_drift');
+      observed.set(url, comparisonDigest);
+      snapshots.push({ url, source, key, ...response, comparisonDigest });
       // Raw response bytes are never retained after projection.
       delete snapshots[snapshots.length - 1].bytes;
       const groupKey = `${source}:${key}`;
@@ -128,7 +143,13 @@ export function transport(fetchImpl, now, signal) {
         const url = new URL(entry.url);
         if (url.origin === 'https://api.github.com' && immutableGithubPath(url.pathname.replace(/^\/repos\/[^/]+\/[^/]+/, '') + url.search)) continue;
         const response = await request(entry.url, entry.source, entry.etag);
-        if (!response.unchanged && (response.rawDigest !== entry.rawDigest || response.link !== entry.link)) fail('metadata_drift');
+        if (!response.unchanged) {
+          let comparisonDigest = response.rawDigest;
+          if (entry.source === 'github_latest' || entry.source === 'github_release') {
+            comparisonDigest = releaseDigest(parseBody(response.bytes, 'metadata_drift'));
+          }
+          if (comparisonDigest === null || comparisonDigest !== entry.comparisonDigest || response.link !== entry.link) fail('metadata_drift');
+        }
         groups.get(`${entry.source}:${entry.key}`).checked_at = response.checkedAt;
       }
     },
