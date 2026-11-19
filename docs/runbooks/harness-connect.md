@@ -213,10 +213,11 @@ connect recheck live root linkage, return `automatic_children:false`, and never
 blindly retry a mutation.
 
 For a separately approved Claude trial, the existing `hm compatibility ordinary-window`
-`arm`, `status --arming` and `disarm` commands also apply. Start the prepared task
-and install the owned Claude window package in that registered project, then arm
-with a finite lifetime before launching a fresh root from the registered project root,
-without a prompt. Receipt-only
+`arm`, `status --arming` and `disarm` commands also apply. First install or update the
+owned Claude window package in that registered project while the task is inactive
+and there is no open binding. Then start the prepared task and arm receipt-only
+emission with a finite lifetime. Launch a fresh root from the registered project
+root without a prompt. Receipt-only
 emission requires the same project root, task generation and policy and an unexpired
 arming. It emits only the root `SessionStart` pending receipt; `SubagentStart` and
 `SubagentStop` emit no receipts under `receipt_only`. Confirm the native root from

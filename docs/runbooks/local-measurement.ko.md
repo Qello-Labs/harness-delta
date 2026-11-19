@@ -219,9 +219,10 @@ backfill은 하지 않습니다. root-source 관측은 root 소유 사용량이
 `revoke <packet-file>`은 유지보수자의 결정을 기록하며 실행이나 native 증거가 아닙니다.
 제품 활성화에는 별도 승인이 필요하고 이 안내는 그 승인을 부여하지 않습니다.
 
-별도 승인된 Codex 또는 Claude 일반 창 trial에서는 준비한 작업을 시작하고, 등록된 프로젝트에
-현재 소유 ordinary-window 패키지를 설치하세요. 새 root를 실행하기 전에 해당 작업의
-receipt 발행을 유한한 시간 동안 arm하세요.
+별도 승인된 Codex 또는 Claude 일반 창 trial에서는 먼저 작업이 비활성 상태이고 열린 binding이
+없는 동안 등록된 프로젝트에 현재 소유 ordinary-window 패키지를 설치하거나 업데이트하세요.
+그런 다음 준비한 작업을 시작하고 새 root를 실행하기 전에 해당 작업의 receipt-only 발행을
+유한한 시간 동안 arm하세요.
 
 ```sh
 hm --db ./local.db compatibility ordinary-window arm <task-id> --duration-ms 60000

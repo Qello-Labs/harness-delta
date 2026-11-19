@@ -191,10 +191,11 @@ connect는 유효한 root 연결을 다시 검사하며, `automatic_children:fal
 변경 요청을 무작정 재시도하지 않습니다.
 
 별도 승인된 Claude trial에도 기존 `hm compatibility ordinary-window`의
-`arm`, `status --arming`, `disarm` 명령을 사용합니다. 준비한 작업을 시작하고 해당
-등록 프로젝트에 소유 Claude window 패키지를 설치한 뒤, 프롬프트 없이 새 root를
-실행하기 전에 유한한 시간 동안 arm하세요. 새 root는 등록된 프로젝트 root에서
-실행하세요. receipt-only 발행에는 같은 프로젝트 root,
+`arm`, `status --arming`, `disarm` 명령을 사용합니다. 먼저 작업이 비활성 상태이고
+열린 binding이 없는 동안 해당 등록 프로젝트에 소유 Claude window 패키지를 설치하거나
+업데이트하세요. 그런 다음 준비한 작업을 시작하고 receipt-only 발행을 유한한 시간 동안
+arm하세요. 등록된 프로젝트 root에서 프롬프트 없이 새 root를 실행하세요.
+receipt-only 발행에는 같은 프로젝트 root,
 작업 generation, policy와 만료되지 않은 arming이 필요합니다.
 root `SessionStart` pending receipt만 발행하며, `receipt_only`에서 `SubagentStart`와
 `SubagentStop`은 receipt를 발행하지 않습니다. 해당 receipt에서 native root를 확인한 뒤

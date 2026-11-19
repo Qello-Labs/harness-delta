@@ -217,10 +217,10 @@ activate <packet-file>` and `revoke <packet-file>` record maintainer decisions,
 not launch or native evidence. Product activation needs its own approval;
 this guide grants none.
 
-For a separately approved Codex or Claude ordinary-window trial, start the prepared task
-and install the current owned ordinary-window package in its registered project.
-Before launching a fresh root, arm receipt emission for that task with a finite
-lifetime:
+For a separately approved Codex or Claude ordinary-window trial, first install or update
+the current owned ordinary-window package in its registered project while the task
+is inactive and there is no open binding. Then start the prepared task and arm
+receipt-only emission for that task with a finite lifetime before launching a fresh root:
 
 ```sh
 hm --db ./local.db compatibility ordinary-window arm <task-id> --duration-ms 60000
