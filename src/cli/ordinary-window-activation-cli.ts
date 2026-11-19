@@ -2,6 +2,7 @@ import { closeSync, constants, fstatSync, openSync, readSync } from 'node:fs';
 import { z } from 'zod';
 import { TimestampSchema } from '../contracts.js';
 import { statusCodexConnectInstallation } from '../connect/codex-connect-installation.js';
+import { statusClaudeConnectInstallation } from '../connect/claude-connect-installation.js';
 import { readOrdinaryWindowControl, writeOrdinaryWindowControl } from '../core/ordinary-window-trial.js';
 import type { Command } from 'commander';
 import type { Store } from '../store.js';
@@ -34,7 +35,7 @@ function readDecisionPacket(path: string): unknown {
 export function registerOrdinaryWindowActivationCommands(window: Command, db: () => Store, print: (value: unknown) => void): void {
   window
     .command('arm <task-id>')
-    .description('Arm only pending receipt emission for a Codex trial; never authorize collection')
+    .description('Arm only pending receipt emission for a Codex or Claude trial; never authorize collection')
     .requiredOption('--duration-ms <milliseconds>', 'Finite receipt-only arming lifetime')
     .action((taskId: string, options: { durationMs: string }) => {
       print(armOrdinaryWindowTrial(db(), taskId, Number(options.durationMs), new Date().toISOString()));
@@ -89,7 +90,7 @@ export function armOrdinaryWindowTrial(store: Store, taskId: string, durationMs:
   return store.immediateTransaction(() => {
     const selection = assertOrdinaryWindowPrepared(store, taskId);
     const task = store.get<{ state: string; generation: number }>('SELECT state,generation FROM tasks WHERE id=?', [taskId]);
-    if (selection.policy.product !== 'codex' || task?.state !== 'active') {
+    if (task?.state !== 'active') {
       throw new Error('binding_scope_revoked');
     }
     const key = ordinaryWindowDecisionKeyForSelection(selection);
@@ -98,13 +99,19 @@ export function armOrdinaryWindowTrial(store: Store, taskId: string, durationMs:
     }
     const project = store.get<{ local_root: string }>('SELECT local_root FROM projects WHERE id=?', [selection.projectId]);
     if (!project?.local_root) throw new Error('binding_scope_revoked');
-    const installation = statusCodexConnectInstallation(project.local_root, {
-      bundleMode: 'ordinary_window',
-      productVersion: selection.declaredVersion,
-      sourceRoots: [project.local_root]
-    });
+    const installation =
+      selection.policy.product === 'codex'
+        ? statusCodexConnectInstallation(project.local_root, {
+            bundleMode: 'ordinary_window',
+            productVersion: selection.declaredVersion,
+            sourceRoots: [project.local_root]
+          })
+        : statusClaudeConnectInstallation(project.local_root, {
+            bundleMode: 'ordinary_window',
+            productVersion: selection.declaredVersion
+          });
     if (installation.state !== 'installed' || installation.bundleMode !== 'ordinary_window') throw new Error('binding_window_package_required');
-    const current = readOrdinaryWindowControl(project.local_root, 'codex');
+    const current = readOrdinaryWindowControl(project.local_root, selection.policy.product);
     if (current?.state === 'receipt_only') {
       const status = ordinaryWindowArmingStatus(store, current.arming.taskId, timestamp);
       if (status.state === 'receipt_only') {
@@ -114,7 +121,7 @@ export function armOrdinaryWindowTrial(store: Store, taskId: string, durationMs:
     writeOrdinaryWindowControl({
       schemaVersion: 1,
       projectRoot: project.local_root,
-      product: 'codex',
+      product: selection.policy.product,
       policyId: selection.policy.policyId,
       policyRevision: selection.policy.ruleRevision,
       evidenceMode: selection.policy.evidenceMode,

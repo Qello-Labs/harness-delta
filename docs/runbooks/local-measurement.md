@@ -217,7 +217,7 @@ activate <packet-file>` and `revoke <packet-file>` record maintainer decisions,
 not launch or native evidence. Product activation needs its own approval;
 this guide grants none.
 
-For a separately approved Codex ordinary-window trial, start the prepared task
+For a separately approved Codex or Claude ordinary-window trial, start the prepared task
 and install the current owned ordinary-window package in its registered project.
 Before launching a fresh root, arm receipt emission for that task with a finite
 lifetime:
@@ -232,9 +232,13 @@ The expected state is `receipt_only`, with an `expires_at` timestamp and
 to the project root, task generation and policy. An existing decision for that
 project/policy key, including a revoked decision, refuses arming. Only pending
 receipt metadata is enabled; connect, collect and native source access remain closed.
-Launch the fresh root without a prompt. Read only the receipt id and
+Emission requires an unexpired arming matching that project root, task and policy;
+it does not apply to another project. Under `receipt_only`, the Claude hook emits
+only a root `SessionStart` receipt, never `SubagentStart` or `SubagentStop` receipts.
+Launch the fresh root from the registered project root without a prompt. Read only the receipt id and
 `nativeSessionId` from the installed hook's pending receipt under
-`<project>/.harness-delta/window-receipts`, then confirm that native root.
+`<project>/.harness-delta/window-receipts` for Codex or
+`<project>/.harness-delta/claude-window-receipts` for Claude, then confirm that native root.
 Activate with the existing trial packet: `decision_kind:trial`, this `task_id`,
 the receipt's `native_root_id`, finite `duration_ms`, `token_limit`, and
 `token_budget_basis:accepted_observed_root_input_plus_output-v1`, together with
@@ -253,7 +257,7 @@ receipt-only arming to `inactive`. The hook checks expiry again after reading it
 input, even if no status command runs. Status reports an observed expiry as
 `expired` while clearing it, and a recorded decision as `consumed`; neither grants
 collection authority. The decision/trial schemas and product activation flow are
-unchanged. The Claude window hook ignores `receipt_only` and emits nothing for it.
+unchanged. Recording any decision also removes receipt-only arming.
 These commands do not approve a native trial or extend qualified support.
 
 ## Recovery and limits

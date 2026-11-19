@@ -148,7 +148,7 @@ receipt before recording the existing trial activation packet. Arming emits
 receipt metadata only; it never authorizes connect or collect. Check `status
 <task-id> --arming` or cancel with `disarm <task-id>`. Follow
 [local measurement](local-measurement.md) for the full sequence and expiry/revocation
-limits. The Claude window hook ignores `receipt_only`.
+limits.
 
 The `source_only` provider compares the declared version with the root creation
 header. That header does not verify the current writer, executable, publisher or
@@ -211,6 +211,21 @@ the installed window helper; it never locates a process, guesses a receipt or
 starts a task. Its versioned task read and CSRF/If-Match/idempotency-protected
 connect recheck live root linkage, return `automatic_children:false`, and never
 blindly retry a mutation.
+
+For a separately approved Claude trial, the existing `hm compatibility ordinary-window`
+`arm`, `status --arming` and `disarm` commands also apply. Start the prepared task
+and install the owned Claude window package in that registered project, then arm
+with a finite lifetime before launching a fresh root from the registered project root,
+without a prompt. Receipt-only
+emission requires the same project root, task generation and policy and an unexpired
+arming. It emits only the root `SessionStart` pending receipt; `SubagentStart` and
+`SubagentStop` emit no receipts under `receipt_only`. Confirm the native root from
+that receipt, then record the unchanged trial activation packet. Activation consumes
+the arming and publishes `active`; connect and collect still require the matching
+recorded decision and native root. Disarm, expiry, task pause/finalization/deletion
+and collection revocation clear receipt-only arming; recording any decision also
+removes it. See [local measurement](local-measurement.md) for commands and cleanup.
+Arming grants neither native trial permission nor additional support.
 
 The live-authorized provider, not the payload-only helper, checks same-user
 PID/start, the canonical executable path from that process, approved publisher and local disk pins.
