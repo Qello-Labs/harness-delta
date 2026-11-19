@@ -35,7 +35,7 @@ test('snapshot exposes only the two finite root-policy operation sets and refuse
       .sort((a, b) => laneKey(a).localeCompare(laneKey(b), 'en'))
   );
   expect(snapshot.value.refused).toEqual(Array(10).fill(null));
-  expect(snapshot.source_paths).toHaveLength(88);
+  expect(snapshot.source_paths).toHaveLength(90);
 });
 
 test.each([

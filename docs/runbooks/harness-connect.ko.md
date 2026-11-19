@@ -135,7 +135,6 @@ CSRF·version·idempotency 보호 요청을 보낸 뒤 유효한 root 연결을 
 발행하며 connect나 collect를 허용하지 않습니다. `status <task-id> --arming`으로
 확인하거나 `disarm <task-id>`로 취소하세요. 전체 순서와 만료·철회 제한은
 [로컬 측정](local-measurement.ko.md)을 따르세요.
-Claude window hook은 `receipt_only`를 무시합니다.
 
 `source_only` provider는 지정 버전과 root 생성 header를 비교합니다. 이 header는 현재
 writer, 실행 파일, publisher나 프로세스를 검증하지 않습니다. native asset 검사는 사전 조건이
@@ -190,6 +189,22 @@ origin·프로젝트·작업·receipt ID만 전달합니다. process를 찾거�
 작업을 시작하지 않습니다. 버전이 지정된 작업 조회와 CSRF·If-Match·idempotency로 보호한
 connect는 유효한 root 연결을 다시 검사하며, `automatic_children:false`를 반환하고
 변경 요청을 무작정 재시도하지 않습니다.
+
+별도 승인된 Claude trial에도 기존 `hm compatibility ordinary-window`의
+`arm`, `status --arming`, `disarm` 명령을 사용합니다. 먼저 작업이 비활성 상태이고
+열린 binding이 없는 동안 해당 등록 프로젝트에 소유 Claude window 패키지를 설치하거나
+업데이트하세요. 그런 다음 준비한 작업을 시작하고 receipt-only 발행을 유한한 시간 동안
+arm하세요. 등록된 프로젝트 root에서 프롬프트 없이 새 root를 실행하세요.
+receipt-only 발행에는 같은 프로젝트 root,
+작업 generation, policy와 만료되지 않은 arming이 필요합니다.
+root `SessionStart` pending receipt만 발행하며, `receipt_only`에서 `SubagentStart`와
+`SubagentStop`은 receipt를 발행하지 않습니다. 해당 receipt에서 native root를 확인한 뒤
+기존 trial activation packet을 기록하세요. 활성화는 arming을 소비하고 `active`를
+발행하며, connect와 collect에는 여전히 일치하는 기록된 결정과 native root가 필요합니다.
+disarm, 만료, 작업 일시 정지·종료·삭제, 수집 철회는 receipt-only arming을 지우며,
+어떤 결정이든 기록되면 arming을 제거합니다.
+명령과 정리 절차는 [로컬 측정](local-measurement.ko.md)을 참고하세요.
+arming은 native trial 권한이나 추가 지원을 부여하지 않습니다.
 
 payload-only helper가 아니라 유효한 권한을 가진 provider가 same-user PID/start,
 해당 process에서 얻은 정규 실행 파일 경로, 승인된 publisher와 로컬 disk pin을 확인합니다. native adapter는

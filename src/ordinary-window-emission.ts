@@ -46,16 +46,16 @@ export function publishOrdinaryWindowEmissionControl(store: Store, key: Ordinary
 
 export function ordinaryWindowArmingStatus(store: Store, taskId: string, at: string) {
   const selection = ordinaryWindowSelection(store, taskId);
-  if (!selection || selection.policy.product !== 'codex') {
+  if (!selection) {
     throw new Error('binding_scope_mismatch');
   }
   const project = store.get<{ local_root: string | null }>('SELECT local_root FROM projects WHERE id=?', [selection.projectId]);
   if (!project?.local_root) throw new Error('binding_scope_revoked');
-  const control = readOrdinaryWindowControl(project.local_root, 'codex');
+  const control = readOrdinaryWindowControl(project.local_root, selection.policy.product);
   const timestamp = Date.parse(TimestampSchema.parse(at));
   let state: 'absent' | 'receipt_only' | 'inactive' | 'expired' | 'consumed' = control ? 'inactive' : 'absent';
   if (ordinaryWindowDecisionStatus(store, ordinaryWindowDecisionKeyForSelection(selection), at).state !== 'absent') {
-    clearOrdinaryWindowArming(project.local_root);
+    clearOrdinaryWindowArming(project.local_root, undefined, selection.policy.product);
     state = 'consumed';
   } else if (control?.state === 'receipt_only' && control.arming.taskId === taskId) {
     const task = store.get<{ state: string; generation: number }>('SELECT state,generation FROM tasks WHERE id=?', [taskId]);
@@ -83,7 +83,7 @@ export function ordinaryWindowArmingStatus(store: Store, taskId: string, at: str
       control.policyRevision !== selection.policy.ruleRevision ||
       control.evidenceMode !== selection.policy.evidenceMode
     ) {
-      clearOrdinaryWindowArming(project.local_root, taskId);
+      clearOrdinaryWindowArming(project.local_root, taskId, selection.policy.product);
       state = expired ? 'expired' : 'inactive';
     } else state = 'receipt_only';
   }
@@ -101,12 +101,12 @@ export function ordinaryWindowArmingStatus(store: Store, taskId: string, at: str
 export function disarmOrdinaryWindowTrial(store: Store, taskId: string, at: string) {
   return store.immediateTransaction(() => {
     const selection = ordinaryWindowSelection(store, taskId);
-    if (!selection || selection.policy.product !== 'codex') {
+    if (!selection) {
       throw new Error('binding_scope_mismatch');
     }
     const project = store.get<{ local_root: string | null }>('SELECT local_root FROM projects WHERE id=?', [selection.projectId]);
     if (!project?.local_root) throw new Error('binding_scope_revoked');
-    clearOrdinaryWindowArming(project.local_root, taskId);
+    clearOrdinaryWindowArming(project.local_root, taskId, selection.policy.product);
     return ordinaryWindowArmingStatus(store, taskId, at);
   });
 }

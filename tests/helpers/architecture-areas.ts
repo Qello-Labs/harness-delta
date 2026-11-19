@@ -1,6 +1,6 @@
 const areas: readonly (readonly [string, RegExp])[] = [
   ['core', /^src\/core\/tool-version-(profiles|promotion|promotion-store)\.ts$/],
-  ['core', /^src\/core\/ordinary-window-(policy|store|decision|activation|trial|evidence)\.ts$/],
+  ['core', /^src\/core\/ordinary-window-(policy|store|decision|activation|trial|evidence|control|segment)\.ts$/],
   ['ops', /^src\/(deletion|readiness|readiness-store)\.ts$/],
   [
     'core',
