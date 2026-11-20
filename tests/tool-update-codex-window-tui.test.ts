@@ -94,9 +94,11 @@ for (const point of ['before_start', 'before_signal'] as const) {
         return;
       }
       const ready = witness(session, 'ready');
+      const signalReady = witness(session, 'signal_ready');
       session.start();
       try {
         await ready;
+        await signalReady;
         session.releaseSyntheticBaseline();
         const input = witness(session, 'input');
         await session.submit();
