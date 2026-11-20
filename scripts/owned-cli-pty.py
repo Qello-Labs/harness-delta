@@ -17,6 +17,10 @@ import termios
 import time
 
 cfg = json.loads(sys.argv[1])
+ps_query_budget_ms = cfg.get('psQueryBudgetMs', 200)
+if type(ps_query_budget_ms) not in (int, float) or not 200 <= ps_query_budget_ms <= 1000:
+    sys.exit('invalid_ps_query_budget')
+ps_query_timeout = ps_query_budget_ms / 1000
 started = time.monotonic()
 deadline = started + cfg['durationMs'] / 1000
 uid = os.getuid()
@@ -41,7 +45,7 @@ def emit(value):
 def metadata(pid, missing=None):
     global cleanup_exhausted, ownership_failed
     try:
-        timeout = .2 if cleanup_until is None else min(.2, cleanup_until - time.monotonic())
+        timeout = ps_query_timeout if cleanup_until is None else min(ps_query_timeout, cleanup_until - time.monotonic())
         if timeout <= 0:
             cleanup_exhausted = True
             return None

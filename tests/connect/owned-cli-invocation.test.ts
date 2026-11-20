@@ -450,6 +450,7 @@ for outcome in ['absent','live','timeout','malformed','reused_parent','query_err
  def run(args,**kwargs):
   return types.SimpleNamespace(returncode=0,stdout={42:b'43',43:b'44'}[int(args[-1])])
  ns={'known':{42:root,43:parent},'proofs':{42:None,43:root},'absent':set(),'pid':42,'uid':501,'escape_seen':False,'ownership_failed':False,'cleanup_exhausted':False,'cleanup_until':None,'ps_env':{},'note_group_change':lambda *args:None,'time':types.SimpleNamespace(monotonic=lambda:100),'subprocess':types.SimpleNamespace(check_output=check_output,run=run,PIPE=-1,DEVNULL=-3,CalledProcessError=subprocess.CalledProcessError,SubprocessError=subprocess.SubprocessError)}
+ ns['ps_query_timeout']=.2
  exec(compile(ast.Module(body=functions,type_ignores=[]),'<synthetic transient discovery>','exec'),ns)
  covered=ns['discover']()
  out.append({'outcome':outcome,'coverage':covered,'failed':ns['ownership_failed'],'members':sorted(ns['known']),'proofs':sorted(ns['proofs']),'absent':sorted(ns['absent']),'calls':calls})
@@ -503,6 +504,7 @@ for outcome in ['absent','live','timeout','malformed','query_error','reused_pare
  def run(args,**kwargs):
   return types.SimpleNamespace(returncode=0,stdout={42:b'43',43:b'44 45'}[int(args[-1])])
  ns={'known':{42:root,43:parent},'proofs':{42:None,43:root},'absent':set(),'pid':42,'uid':501,'escape_seen':False,'ownership_failed':False,'cleanup_exhausted':False,'cleanup_until':101,'ps_env':{},'note_group_change':lambda *args:None,'time':types.SimpleNamespace(monotonic=lambda:next(clock) if outcome=='budget' else 100),'subprocess':types.SimpleNamespace(check_output=check_output,run=run,PIPE=-1,DEVNULL=-3,CalledProcessError=subprocess.CalledProcessError,SubprocessError=subprocess.SubprocessError)}
+ ns['ps_query_timeout']=.2
  exec(compile(ast.Module(body=functions,type_ignores=[]),'<synthetic cleanup discovery>','exec'),ns)
  covered=ns['discover']()
  out.append({'outcome':outcome,'coverage':covered,'failed':ns['ownership_failed'],'exhausted':ns['cleanup_exhausted'],'members':sorted(ns['known']),'proofs':sorted(ns['proofs']),'identities_unchanged':ns['known']=={42:root,43:parent},'proofs_unchanged':ns['proofs']=={42:None,43:root},'absent':sorted(ns['absent']),'calls':calls})
@@ -591,6 +593,7 @@ def waitpid(p,flags):
  return(0,0)
 import subprocess
 ns={'cfg':{'terminationMs':5000,'termGraceMs':2000},'time':types.SimpleNamespace(monotonic=lambda:clock[0],sleep=advance),'os':types.SimpleNamespace(kill=kill,killpg=killpg,waitpid=waitpid,WNOHANG=1,waitstatus_to_exitcode=lambda s:-s,close=lambda fd:None),'signal':signal,'subprocess':types.SimpleNamespace(check_output=check_output,run=run,PIPE=-1,DEVNULL=-3,CalledProcessError=subprocess.CalledProcessError,SubprocessError=subprocess.SubprocessError),'known':dict(records),'absent':set(),'proofs':{p:None if p==42 else records[42] for p in records},'groups':set(records),'pid':42,'uid':501,'root_exit':None,'cleanup_until':None,'cleanup_exhausted':False,'ownership_failed':False,'coverage':True,'escape_seen':True,'group_changes':[],'group_changes_truncated':False,'started':100,'ps_env':{},'status':'stopped','termination_cause':'control','tty_verified':True,'master':0,'emit':result.append}
+ns['ps_query_timeout']=.2
 exec(compile(ast.Module(body=functions,type_ignores=[]),'<synthetic owner functions>','exec'),ns)
 ns['group_exists']=lambda g:g in alive
 exec(compile(ast.Module(body=cleanup,type_ignores=[]),'<synthetic owner cleanup>','exec'),ns)
