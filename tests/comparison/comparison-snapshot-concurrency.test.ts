@@ -100,5 +100,5 @@ for (const first of ['snapshot', 'deletion']) {
       if (worker) await worker.terminate();
       rmSync(root, { recursive: true, force: true });
     }
-  });
+  }, 15000);
 }
