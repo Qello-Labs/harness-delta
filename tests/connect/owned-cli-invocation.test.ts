@@ -415,6 +415,7 @@ for returncode,expired in [(0,False),(1,False),(2,False),(0,True)]:
  def run(*args,**kwargs):
   calls.append(1);return types.SimpleNamespace(returncode=returncode,stdout=b'')
  ns={'known':{42:record},'absent':set(),'proofs':{42:None},'pid':42,'uid':501,'escape_seen':False,'ownership_failed':False,'cleanup_until':time.monotonic()-1 if expired else None,'metadata':lambda pid:record,'identity_matches':lambda a,b:a==b,'note_group_change':lambda *args:None,'time':time,'subprocess':types.SimpleNamespace(run=run,SubprocessError=Exception,PIPE=-1,DEVNULL=-3)}
+ ns['pgrep_query_timeout']=.2
  exec(compile(ast.Module(body=[fn],type_ignores=[]),'<synthetic discovery>','exec'),ns)
  out.append({'returncode':returncode,'expired':expired,'coverage':ns['discover'](),'queries':len(calls)})
 print(json.dumps(out))`;
@@ -451,6 +452,7 @@ for outcome in ['absent','live','timeout','malformed','reused_parent','query_err
   return types.SimpleNamespace(returncode=0,stdout={42:b'43',43:b'44'}[int(args[-1])])
  ns={'known':{42:root,43:parent},'proofs':{42:None,43:root},'absent':set(),'pid':42,'uid':501,'escape_seen':False,'ownership_failed':False,'cleanup_exhausted':False,'cleanup_until':None,'ps_env':{},'note_group_change':lambda *args:None,'time':types.SimpleNamespace(monotonic=lambda:100),'subprocess':types.SimpleNamespace(check_output=check_output,run=run,PIPE=-1,DEVNULL=-3,CalledProcessError=subprocess.CalledProcessError,SubprocessError=subprocess.SubprocessError)}
  ns['ps_query_timeout']=.2
+ ns['pgrep_query_timeout']=.2
  exec(compile(ast.Module(body=functions,type_ignores=[]),'<synthetic transient discovery>','exec'),ns)
  covered=ns['discover']()
  out.append({'outcome':outcome,'coverage':covered,'failed':ns['ownership_failed'],'members':sorted(ns['known']),'proofs':sorted(ns['proofs']),'absent':sorted(ns['absent']),'calls':calls})
@@ -505,6 +507,7 @@ for outcome in ['absent','live','timeout','malformed','query_error','reused_pare
   return types.SimpleNamespace(returncode=0,stdout={42:b'43',43:b'44 45'}[int(args[-1])])
  ns={'known':{42:root,43:parent},'proofs':{42:None,43:root},'absent':set(),'pid':42,'uid':501,'escape_seen':False,'ownership_failed':False,'cleanup_exhausted':False,'cleanup_until':101,'ps_env':{},'note_group_change':lambda *args:None,'time':types.SimpleNamespace(monotonic=lambda:next(clock) if outcome=='budget' else 100),'subprocess':types.SimpleNamespace(check_output=check_output,run=run,PIPE=-1,DEVNULL=-3,CalledProcessError=subprocess.CalledProcessError,SubprocessError=subprocess.SubprocessError)}
  ns['ps_query_timeout']=.2
+ ns['pgrep_query_timeout']=.2
  exec(compile(ast.Module(body=functions,type_ignores=[]),'<synthetic cleanup discovery>','exec'),ns)
  covered=ns['discover']()
  out.append({'outcome':outcome,'coverage':covered,'failed':ns['ownership_failed'],'exhausted':ns['cleanup_exhausted'],'members':sorted(ns['known']),'proofs':sorted(ns['proofs']),'identities_unchanged':ns['known']=={42:root,43:parent},'proofs_unchanged':ns['proofs']=={42:None,43:root},'absent':sorted(ns['absent']),'calls':calls})
@@ -544,6 +547,7 @@ def metadata(p):
 def run(args,**kwargs):
  p=int(args[-1]);queries.append(p);return types.SimpleNamespace(returncode=0 if p==42 else 1,stdout=b'43 44 45 46 47 48 49 50' if p==42 else b'')
 ns={'known':dict(records),'absent':set(),'proofs':{42:None,**{p:root for p in children}},'pid':42,'uid':501,'escape_seen':False,'ownership_failed':False,'cleanup_until':105,'metadata':metadata,'identity_matches':lambda a,b:a==b,'note_group_change':lambda *args:None,'time':types.SimpleNamespace(monotonic=lambda:100),'subprocess':types.SimpleNamespace(run=run,SubprocessError=Exception,PIPE=-1,DEVNULL=-3)}
+ns['pgrep_query_timeout']=.2
 exec(compile(ast.Module(body=[fn],type_ignores=[]),'<synthetic cleanup discovery>','exec'),ns)
 coverage=ns['discover']()
 print(json.dumps({'coverage':coverage,'metadata':metadata_calls,'queries':queries,'members':sorted(ns['known']),'failed':ns['ownership_failed']}))`;
@@ -594,6 +598,7 @@ def waitpid(p,flags):
 import subprocess
 ns={'cfg':{'terminationMs':5000,'termGraceMs':2000},'time':types.SimpleNamespace(monotonic=lambda:clock[0],sleep=advance),'os':types.SimpleNamespace(kill=kill,killpg=killpg,waitpid=waitpid,WNOHANG=1,waitstatus_to_exitcode=lambda s:-s,close=lambda fd:None),'signal':signal,'subprocess':types.SimpleNamespace(check_output=check_output,run=run,PIPE=-1,DEVNULL=-3,CalledProcessError=subprocess.CalledProcessError,SubprocessError=subprocess.SubprocessError),'known':dict(records),'absent':set(),'proofs':{p:None if p==42 else records[42] for p in records},'groups':set(records),'pid':42,'uid':501,'root_exit':None,'cleanup_until':None,'cleanup_exhausted':False,'ownership_failed':False,'coverage':True,'escape_seen':True,'group_changes':[],'group_changes_truncated':False,'started':100,'ps_env':{},'status':'stopped','termination_cause':'control','tty_verified':True,'master':0,'emit':result.append}
 ns['ps_query_timeout']=.2
+ns['pgrep_query_timeout']=.2
 exec(compile(ast.Module(body=functions,type_ignores=[]),'<synthetic owner functions>','exec'),ns)
 ns['group_exists']=lambda g:g in alive
 exec(compile(ast.Module(body=cleanup,type_ignores=[]),'<synthetic owner cleanup>','exec'),ns)
@@ -812,6 +817,7 @@ for case in ['proved','leaderless','foreign','identity_conflict','wrong_group','
  def run(*args,**kwargs):
   calls.append(1);return types.SimpleNamespace(returncode=2 if case=='query_failure' else 1 if case=='malformed_recheck' and len(calls)>1 else 0,stdout=ids+b' 99' if case=='membership_change' and len(calls)>1 else ids)
  ns={'known':known,'absent':{43} if case=='absent_identity' else set(),'proofs':proofs,'pid':42,'uid':501,'cleanup_until':None,'metadata':lambda p:records.get(p),'identity_matches':lambda a,b:b is not None and a[0]==b[0] and a[3:]==b[3:],'note_group_change':lambda *args:None,'ownership_failed':False,'time':__import__('time'),'subprocess':types.SimpleNamespace(run=run,PIPE=-1,DEVNULL=-3,SubprocessError=Exception)}
+ ns['pgrep_query_timeout']=.2
  exec(compile(ast.Module(body=[fn],type_ignores=[]),'<synthetic group proof>','exec'),ns)
  result=ns['verified_group_members'](42)
  out.append({'case':case,'members':None if result is None else sorted(result),'failed':ns['ownership_failed']})
@@ -854,6 +860,7 @@ parent=(42,1,42,501,'start root');child=(43,42,43,501,'start child');calls=[]
 def metadata(p):
  calls.append(p);return child if p==43 else parent if calls.count(42)==1 else (42,1,42,501,'reused parent')
 ns={'known':{42:parent},'absent':set(),'proofs':{42:None},'pid':42,'uid':501,'escape_seen':False,'ownership_failed':False,'cleanup_until':None,'metadata':metadata,'identity_matches':lambda a,b:b is not None and a[0]==b[0] and a[3:]==b[3:],'note_group_change':lambda *a:None,'time':time,'subprocess':types.SimpleNamespace(run=lambda *a,**k:types.SimpleNamespace(returncode=0,stdout=b'43'),SubprocessError=Exception,PIPE=-1,DEVNULL=-3)}
+ns['pgrep_query_timeout']=.2
 exec(compile(ast.Module(body=[discover],type_ignores=[]),'<synthetic ancestry>','exec'),ns);covered=ns['discover']()
 signals=[];group_signals=[]
 ns.update({'known':{42:parent,43:child},'groups':{42,43},'root_exit':None,'metadata':lambda p:parent if p==42 else (43,42,43,501,'reused child'),'verified_group_members':lambda g:None,'os':types.SimpleNamespace(kill=lambda p,s:signals.append(p),killpg=lambda g,s:group_signals.append(g)),'reap':lambda:None})

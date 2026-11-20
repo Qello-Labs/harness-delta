@@ -21,6 +21,11 @@ ps_query_budget_ms = cfg.get('psQueryBudgetMs', 200)
 if type(ps_query_budget_ms) not in (int, float) or not 200 <= ps_query_budget_ms <= 1000:
     sys.exit('invalid_ps_query_budget')
 ps_query_timeout = ps_query_budget_ms / 1000
+pgrep_query_budget_ms = cfg.get('pgrepQueryBudgetMs', 200)
+if type(pgrep_query_budget_ms) not in (int, float) or not 200 <= pgrep_query_budget_ms <= 1000:
+    sys.stderr.write('invalid_pgrep_query_budget\n')
+    sys.exit(2)
+pgrep_query_timeout = pgrep_query_budget_ms / 1000
 started = time.monotonic()
 deadline = started + cfg['durationMs'] / 1000
 uid = os.getuid()
@@ -121,7 +126,7 @@ def discover():
             known[record[0]] = current
             escape_seen = escape_seen or current[2] != pid
         try:
-            timeout = .2 if cleanup_until is None else min(.2, cleanup_until - time.monotonic())
+            timeout = pgrep_query_timeout if cleanup_until is None else min(pgrep_query_timeout, cleanup_until - time.monotonic())
             if timeout <= 0:
                 return False
             query = subprocess.run(['pgrep', '-P', str(record[0])], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=timeout, check=False)
@@ -184,7 +189,7 @@ def verified_group_members(group):
     """Scoped membership only. A group number alone never authorizes a signal."""
     global ownership_failed
     try:
-        timeout = .2 if cleanup_until is None else min(.2, cleanup_until - time.monotonic())
+        timeout = pgrep_query_timeout if cleanup_until is None else min(pgrep_query_timeout, cleanup_until - time.monotonic())
         if timeout <= 0:
             raise TimeoutError()
         query = subprocess.run(['pgrep', '-g', str(group)], stdout=subprocess.PIPE,
@@ -208,7 +213,7 @@ def verified_group_members(group):
             note_group_change(record, current)
             known[member] = current
             members[member] = current
-        timeout = .2 if cleanup_until is None else min(.2, cleanup_until - time.monotonic())
+        timeout = pgrep_query_timeout if cleanup_until is None else min(pgrep_query_timeout, cleanup_until - time.monotonic())
         if timeout <= 0:
             raise TimeoutError()
         after = subprocess.run(['pgrep', '-g', str(group)], stdout=subprocess.PIPE,
