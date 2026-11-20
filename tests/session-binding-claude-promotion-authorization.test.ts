@@ -64,7 +64,7 @@ vi.mock('node:child_process', async importOriginal => {
     ...actual,
     execFileSync: () => {
       synthetic.imageReads();
-      return `p${process.pid}\nn${synthetic.image}\n`;
+      return `p${process.pid}\nftxt\nn${synthetic.image}\n`;
     }
   };
 });
@@ -179,7 +179,7 @@ beforeEach(async () => {
   vi.mocked(fs.openSync).mockImplementation(actualFs.openSync);
   vi.mocked(fs.readSync).mockImplementation(actualFs.readSync);
   synthetic.imageReads.mockClear();
-  synthetic.image = join(root, 'synthetic-image');
+  synthetic.image = join(root, 'claude');
   synthetic.hash = createHash('sha256').update('synthetic image').digest('hex');
   writeFileSync(synthetic.image, 'synthetic image', { mode: 0o700 });
   grant();

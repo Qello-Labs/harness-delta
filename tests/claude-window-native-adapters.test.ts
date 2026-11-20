@@ -431,7 +431,7 @@ test.each([
 test.each([
   ['empty image list', ''],
   ['wrong PID', 'p9999\nftxt\nn/synthetic/claude\n'],
-  ['two images', 'p4402\nftxt\nn/synthetic/claude\nftxt\nn/synthetic/other\n'],
+  ['two Claude images', 'p4402\nftxt\nn/synthetic/claude\nftxt\nn/synthetic/other/claude\n'],
   ['duplicate path', 'p4402\nftxt\nn/synthetic/claude\nn/synthetic/claude\n'],
   ['wrong descriptor', 'p4402\nfcwd\nn/synthetic/claude\n'],
   ['missing descriptor', 'p4402\nn/synthetic/claude\n'],

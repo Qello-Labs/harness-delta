@@ -9,7 +9,7 @@ export const denialAssessmentSourcePathLimit: 87;
 export const producerAssessmentSourcePathLimit: 82;
 export const projectionAssessmentSourcePathLimit: 55;
 export const policyAssessmentSourcePathLimit: 52;
-export const assessmentSourcePathLimit: 90;
+export const assessmentSourcePathLimit: 91;
 export const expandedAssessmentSourcePathLimit: 48;
 export const legacySourcePathAllowlist: readonly string[];
 export const expandedSourcePathAllowlist: readonly string[];

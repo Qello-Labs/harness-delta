@@ -119,6 +119,7 @@ const parserPaths = [
   'src/codex-candidate-rollout.ts',
   'src/core/ordinary-window-store.ts',
   'src/ordinary-window-binding.ts',
+  'src/claude-process-binary-fields.ts',
   'src/store.ts',
   'src/core/ordinary-window-activation.ts',
   'src/core/ordinary-window-decision.ts',
@@ -586,7 +587,7 @@ test('rejects aggregate capture above 16 MiB even when each hash-only input fits
 });
 test('the current snapshot consumes the finite promoted producer closure', async () => {
   const snapshot = await withSourceSnapshot(root, () => null);
-  expect(snapshot.source_paths).toHaveLength(90);
+  expect(snapshot.source_paths).toHaveLength(91);
 });
 test.each(['src/core/tool-version-promotion.ts', 'src/core/tool-version-promotions.json', 'src/core/tool-version-promotion-result.json'])(
   'a metadata-preserving byte change in %s changes the snapshot identity',
@@ -611,7 +612,7 @@ test('loads nested source imports and retirement metadata without dist', async (
   expect(snapshot.value.retired).toEqual(['2.1.288', '2.1.291']);
   expect(snapshot.value.admitted?.state).toBe('verified');
   expect(snapshot.source_paths).toEqual(sourcePathAllowlist);
-  expect(snapshot.source_paths).toHaveLength(90);
+  expect(snapshot.source_paths).toHaveLength(91);
 });
 test.each([
   ['escape', "import '../../package.json' with { type: 'json' };"],
