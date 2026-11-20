@@ -90,6 +90,7 @@ export const promotionImplementationFiles = Object.freeze([
 	"src/binding/session-binding-human-pilot.ts",
 	"src/binding/session-binding-qualification-lease.ts",
 	"src/claude-binding-admission.ts",
+	"src/claude-process-binary-fields.ts",
 	"src/claude-process-binary.ts",
 	"src/claude-workflow-versions.ts",
 	"src/codex-admissions.json",

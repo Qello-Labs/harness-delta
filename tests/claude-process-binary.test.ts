@@ -7,7 +7,7 @@ import { readClaudeProcessBinary } from '../src/claude-process-binary.js';
 
 const native = vi.hoisted(() => ({ path: '', sha256: '', version: '2.1.306' }));
 vi.mock('node:child_process', () => ({
-  execFileSync: () => `p${process.pid}\nn${native.path}\n`
+  execFileSync: () => `p${process.pid}\nftxt\nn${native.path}\n`
 }));
 vi.mock('../src/claude-binding-admission.js', () => ({
   claudeBindingRuntimeSupported: () => true,
@@ -28,7 +28,7 @@ const targetBytes = 272984176;
 let root: string;
 beforeEach(() => {
   root = realpathSync(mkdtempSync(join(tmpdir(), 'claude-image-')));
-  native.path = join(root, 'synthetic-image');
+  native.path = join(root, 'claude');
   native.version = '2.1.306';
   writeFileSync(native.path, '', { mode: 0o700 });
 });

@@ -15,8 +15,9 @@ import {
   unlinkSync,
   writeSync
 } from 'node:fs';
-import { basename, isAbsolute, join } from 'node:path';
+import { isAbsolute, join } from 'node:path';
 import { claudeBindingRuntimeSupported, getEffectiveClaudeExactImages } from './claude-binding-admission.js';
+import { claudeProcessImagePath } from './claude-process-binary-fields.js';
 import { toolVersionReadCeilings } from './core/tool-version-profiles.js';
 
 export interface ClaudeProcessBinary {
@@ -32,14 +33,13 @@ export function readClaudeProcessBinary(pid: number): ClaudeProcessBinary {
   if (!claudeBindingRuntimeSupported()) {
     throw new Error('binding_runtime_unsupported');
   }
-  const fields = execFileSync('/usr/sbin/lsof', ['-a', '-p', String(pid), '-d', 'txt', '-Fn'], {
+  const text = execFileSync('/usr/sbin/lsof', ['-a', '-p', String(pid), '-d', 'txt', '-Fpfn'], {
     encoding: 'utf8',
     timeout: 2000,
     maxBuffer: 65536,
     stdio: ['ignore', 'pipe', 'ignore']
-  }).split('\n');
-  const image = fields.find(field => field.startsWith('n'));
-  const path = image?.slice(1);
+  });
+  const path = claudeProcessImagePath(text, pid);
   if (!path || !isAbsolute(path) || realpathSync(path) !== path) {
     throw new Error('claude_binary_unqualified');
   }
@@ -257,15 +257,8 @@ class ClaudeWindowNativeBoundary {
         stdio: ['ignore', 'pipe', 'ignore']
       })
     );
-    const fields = text.split('\n');
-    if (fields.at(-1) === '') fields.pop();
-    if (fields.length !== 3 || fields[0] !== `p${pid}` || fields[1] !== 'ftxt') return null;
-    const name = fields[2];
-    if (!name?.startsWith('n')) return null;
-    const path = name.slice(1);
-    if (!isAbsolute(path) || path.includes('\0') || path.split('/').some(part => part === '.' || part === '..')) return null;
-    if (path.includes('.app/') || (basename(path) !== 'claude' && !/\/claude\/versions\/\d+\.\d+\.\d+$/.test(path))) return null;
-    return { path, layout: 'standalone', requiredHost: null };
+    const path = claudeProcessImagePath(text, pid);
+    return path === null ? null : { path, layout: 'standalone', requiredHost: null };
   }
 
   stat(fd: number): ClaudeWindowImageStat {

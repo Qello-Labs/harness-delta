@@ -40,7 +40,7 @@ vi.mock('node:child_process', async importOriginal => {
     ...actual,
     execFileSync: (...args: unknown[]) => {
       registry.native(...args);
-      return `p${process.pid}\nn${registry.image}\n`;
+      return `p${process.pid}\nftxt\nn${registry.image}\n`;
     }
   };
 });
@@ -121,7 +121,7 @@ beforeEach(async () => {
   root = realpathSync(mkdtempSync(join(tmpdir(), 'binding-promotion-')));
   promotionStore = new Store(':memory:');
   registry.fixture = undefined;
-  registry.image = join(root, 'synthetic-image');
+  registry.image = join(root, 'claude');
   writeFileSync(registry.image, 'synthetic image', { mode: 0o700 });
   registry.imageSha = createHash('sha256').update('synthetic image').digest('hex');
   registry.hostSha = createHash('sha256').update('host').digest('hex');

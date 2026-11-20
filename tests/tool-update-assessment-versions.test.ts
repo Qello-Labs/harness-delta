@@ -30,7 +30,12 @@ test.each([
     source_paths: ['src/binding/session-binding-promotion.ts']
   };
   expect(assessmentSchema.parse(input)).toEqual(input);
-  for (const path of ['src/binding/session-binding-promotion.ts', 'src/core/ordinary-window-control.ts', 'src/core/ordinary-window-segment.ts']) {
+  for (const path of [
+    'src/binding/session-binding-promotion.ts',
+    'src/claude-process-binary-fields.ts',
+    'src/core/ordinary-window-control.ts',
+    'src/core/ordinary-window-segment.ts'
+  ]) {
     expect(assessmentSchema.parse({ ...input, source_paths: [path] }).source_paths).toEqual([path]);
     for (const [schema_version, rule_revision] of [
       [8, 'static-assessment-v4'],
@@ -47,8 +52,8 @@ test.each([
       ).toBe(false);
     }
   }
-  expect(assessmentSourcePathLimit).toBe(90);
-  expect(sourcePathAllowlist).toHaveLength(90);
+  expect(assessmentSourcePathLimit).toBe(91);
+  expect(sourcePathAllowlist).toHaveLength(91);
   expect(
     assessmentSchema.parse({
       ...input,
@@ -57,14 +62,14 @@ test.each([
   ).toEqual(sourcePathAllowlist);
   const overflow = assessmentSchema.safeParse({
     ...input,
-    source_paths: Array<string>(91).fill('src/source-compatibility.ts')
+    source_paths: Array<string>(92).fill('src/source-compatibility.ts')
   });
   if (overflow.success) throw new Error('current_path_limit_required');
   expect(overflow.error.issues).toEqual(
     expect.arrayContaining([
       expect.objectContaining({
         code: 'too_big',
-        maximum: 90,
+        maximum: 91,
         path: ['source_paths']
       })
     ])

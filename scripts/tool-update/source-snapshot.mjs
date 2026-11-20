@@ -136,6 +136,7 @@ const denialHashOnlyPaths = [
 ];
 const authorityHashOnlyPaths = [
   'src/binding/session-binding-promotion.ts',
+  'src/claude-process-binary-fields.ts',
   'src/core/ordinary-window-control.ts',
   'src/core/ordinary-window-segment.ts'
 ];
@@ -169,7 +170,7 @@ export const denialSourcePathAllowlist = Object.freeze(
   [...producerSourcePathAllowlist, ...denialHashOnlyPaths, 'src/core/tool-version-promotion-store.ts'].sort()
 );
 export const sourcePathAllowlist = Object.freeze([...denialSourcePathAllowlist, ...authorityHashOnlyPaths].sort());
-export const assessmentSourcePathLimit = 90;
+export const assessmentSourcePathLimit = 91;
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 
 function snapshotImports(ts, path, output) {
