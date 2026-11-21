@@ -25,7 +25,14 @@ hooks:
 This independent Claude bundle (`ordinary_window`, `claude-window-bundle-v1`) is
 implemented for offline acceptance. Ordinary-window collection is disabled pending
 separate product activation and native acceptance. Installing or invoking it does
-not activate collection or establish hook delivery.
+not activate collection. Installer apply configures one owned SessionStart
+registration in the project `.claude/settings.local.json`, but Claude Code trust
+and actual hook delivery still need operator verification. Installation grants no
+collection authority and creates no control or native session. Preview shows the
+owned entry before explicit apply; remove deletes only that entry and deletes the
+file only if the installer created it and it is otherwise empty. Trust and delivery
+verification remain separate from the existing arming, activation and connection
+requirements.
 
 Use the user's explicit local origin (`http://127.0.0.1:PORT`), registered project
 ID, active prepared task ID, and opaque pending receipt from the selected hook

@@ -181,8 +181,10 @@ The exact Claude defaults, saved tasks and procedures below remain unchanged.
    review the project and permitted Claude source directory. Both bounds,
    prereleases and build suffixes are rejected. Changing either mode requires an
    explicit eligible version; omitting mode preserves the saved choice.
-2. Save, preview installation, inspect the relative owned-file changes, then
-   apply that preview. This is one explicit window-mode migration, never an
+2. Save, preview installation, inspect the relative owned-file changes and the
+   separate planned SessionStart registration in the project
+   `.claude/settings.local.json`, then apply that preview. This is one explicit
+   window-mode migration, never an
    automatic exact-to-window conversion. Edited/unowned files, unsafe paths,
    stale previews and unrelated-hook conflicts still block changes. An active
    Claude task or open binding also blocks migration, including activation
@@ -198,7 +200,24 @@ installer selects `skills/harness-connect-window-claude`, retains exact
 `.claude/skills/harness-connect`, and adds `scripts/connect-window.mjs` and
 `scripts/claude-window-session-hook.mjs`. The window recorder uses
 `.harness-delta/claude-window-receipts`; exact-mode schema 1 meaning and unrelated
-settings remain unchanged. Missing/closed/malformed control emits nothing; even stale or
+settings remain unchanged.
+
+In `ordinary_window` mode only, the installer also owns exactly one SessionStart
+command group in the project `.claude/settings.local.json`. Its command is the
+quoted absolute Node executable that runs the installer plus the installed
+`.claude/skills/harness-connect/scripts/claude-window-session-hook.mjs` path and
+`record`, with `timeout: 10`. The manifest records that entry. Preview lists it as
+its own planned change, and only an explicit apply writes it, under the same
+review, stale-preview and lock rules as owned files. All other bytes in the file
+stay unchanged. If the file is absent, the installer creates it. Remove deletes only
+the owned entry, and deletes the file only when the installer created it and it is
+now otherwise empty. An edited or foreign entry in place of the owned one blocks
+removal like an edited owned file. Migration between exact and window modes adds or
+removes the registration with the mode. An exact-only installation makes no settings edits, and
+`.claude/settings.json` and global or user settings are never touched. A configured
+registration doesn't prove that Claude Code trusts the workspace or delivers the
+hook; the operator still verifies that. Installation authorizes no collection,
+creates no control and runs no native binary. Missing/closed/malformed control emits nothing; even stale or
 forged active control permits only unverified allowlisted pending metadata.
 The recorder/helper discover no native source, process, version or image.
 
@@ -449,7 +468,9 @@ otherwise returns `binding_runtime_unsupported`.
 
 These are manual examples, not an automatic installation. Choose the target and
 review the package first. They refuse an existing destination. Node 24 or 26 and built-in
-libraries suffice for the portable helper. No global settings, AGENTS or auth are changed by copying the skill. Claude
+libraries suffice for the portable helper. No global settings, AGENTS or auth are changed by copying the skill. The Claude
+ordinary-window installer preview/apply, unlike these copies, edits the project
+`.claude/settings.local.json` as described in its setup above. Claude
 frontmatter registers hooks for the rest of a session when explicitly invoked;
 review that package and workspace trust before installation or invocation.
 

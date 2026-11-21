@@ -6,6 +6,21 @@ import { z } from 'zod';
 
 import { durablePrivateBytes, hashBytes, readRepositoryFile, readStrictJson, safeRelativePath } from '../core/repository-files.js';
 import { packagedSkillPath } from '../package-paths.js';
+import {
+  inspectWindowHookRegistration,
+  planWindowHookRegistration,
+  WindowHookRegistrationError,
+  WindowHookRegistrationSchema
+} from './claude-window-registration.js';
+import type { WindowHookRegistration } from './claude-window-registration.js';
+import {
+  readWindowRegistrationFile,
+  planWindowRegistrationFile,
+  windowRegistrationTransaction,
+  windowRegistrationFileHash,
+  windowRegistrationPath,
+  WindowRegistrationFileError
+} from './claude-window-registration-file.js';
 
 const destination = '.claude/skills/harness-connect';
 const metadata = '.harness-delta/claude-connect';
@@ -36,7 +51,8 @@ const manifestSchema = z.strictObject({
 const windowManifestSchema = manifestSchema.extend({
   schema_version: z.literal(2),
   bundle_mode: z.literal('ordinary_window'),
-  bundle_revision: z.literal(windowBundleRevision)
+  bundle_revision: z.literal(windowBundleRevision),
+  window_registration: WindowHookRegistrationSchema.optional()
 });
 const promotedManifestSchema = manifestSchema.extend({
   schema_version: z.literal(3),
@@ -83,6 +99,7 @@ export interface ClaudeConnectInstallationStatus {
   readonly producerContract?: 'promoted_producer_contract_unverified';
   readonly requiresFreshRoots?: true;
   readonly hookRegistration: 'unverified';
+  readonly recorderRegistration?: ReturnType<typeof inspectWindowHookRegistration>;
   readonly blockers: readonly string[];
 }
 export interface ClaudeConnectInstallationPreview extends ClaudeConnectInstallationStatus {
@@ -196,7 +213,7 @@ function packageSource(options: InstallationOptions): { files: Map<string, Buffe
           : '')
     )
   );
-  // Both recorder and locator must use the same project-local directory without settings edits.
+  // Both recorder and locator must use the same project-local receipt directory.
   for (const path of ['scripts/connect.mjs', 'scripts/claude-session-hook.mjs']) {
     const bytes = shipped.get(path);
     if (!bytes) return fail('package_invalid');
@@ -293,10 +310,15 @@ function inspectOwned(projectRoot: string) {
   return { identity, identities, manifest, bytes, files };
 }
 function blocker(error: unknown): string {
-  return error instanceof ClaudeConnectInstallationError ? error.code : 'installation_unavailable';
+  return error instanceof ClaudeConnectInstallationError || error instanceof WindowHookRegistrationError || error instanceof WindowRegistrationFileError
+    ? error.code
+    : 'installation_unavailable';
 }
 function assertWindowIdle(options: InstallationOptions): void {
   if (typeof options.windowInUse === 'function' ? options.windowInUse() : options.windowInUse) fail('ordinary_installation_in_use');
+}
+function ownedWindowRegistration(owned: ReturnType<typeof inspectOwned> | undefined): WindowHookRegistration | undefined {
+  return owned?.manifest?.schema_version === 2 ? owned.manifest.window_registration : undefined;
 }
 function metadataBlockers(projectRoot: string, window: boolean): string[] {
   const blockers: string[] = [];
@@ -337,7 +359,7 @@ function assertPromotedIdle(options: InstallationOptions): void {
   if (inUse === undefined) fail('promoted_in_use_unverified');
   if (inUse !== false) fail('promoted_installation_in_use');
 }
-function promotedSettingsHash(projectRoot: string): string {
+function promotedSettingsHash(projectRoot: string, ownedRegistration?: WindowHookRegistration): string {
   const conflicting = (value: unknown): boolean => {
     if (typeof value === 'string') {
       return /harness-connect|claude-(?:window-)?session-hook\.mjs/.test(value);
@@ -354,7 +376,16 @@ function promotedSettingsHash(projectRoot: string): string {
           return fail('unsafe_path');
         }
         const bytes = readRepositoryFile(projectRoot, path);
-        const settings = z.object({ hooks: z.unknown().optional() }).parse(readStrictJson(bytes));
+        let inspected = bytes;
+        if (path === windowRegistrationPath && ownedRegistration) {
+          try {
+            inspected = planWindowHookRegistration(bytes, ownedRegistration, null).after ?? Buffer.from('{}');
+          } catch (error) {
+            if (!(error instanceof WindowHookRegistrationError)) throw error;
+            fail('promoted_registration_conflict');
+          }
+        }
+        const settings = z.object({ hooks: z.unknown().optional() }).parse(readStrictJson(inspected));
         if (conflicting(settings.hooks)) {
           fail('promoted_registration_conflict');
         }
@@ -438,8 +469,10 @@ function installationInputs(projectRoot: string, options: ClaudeConnectInstallat
   } catch (error) {
     blockers.push(blocker(error));
   }
-  const installedWindow = owned?.manifest?.schema_version === 2;
-  const installedPromoted = owned?.manifest?.schema_version === 3;
+  const installedSchema = owned?.manifest?.schema_version;
+  const installedWindow = installedSchema === 2;
+  const installedPromoted = installedSchema === 3;
+  const ownedRegistration = ownedWindowRegistration(owned);
   const bundleMode = options.bundleMode ?? (installedWindow ? 'ordinary_window' : 'exact');
   const promoted = bundleMode === 'promoted';
   let settingsHash: string | null = null;
@@ -450,7 +483,7 @@ function installationInputs(projectRoot: string, options: ClaudeConnectInstallat
   if (promoted) {
     try {
       assertPromotedIdle(options);
-      settingsHash = promotedSettingsHash(projectRoot);
+      settingsHash = promotedSettingsHash(projectRoot, ownedRegistration);
       receiptsIdentity = promotedReceiptIdentity(projectRoot);
     } catch (error) {
       blockers.push(blocker(error));
@@ -467,6 +500,17 @@ function installationInputs(projectRoot: string, options: ClaudeConnectInstallat
     }
   }
   const changes: ClaudeConnectInstallationChange[] = [];
+  const {
+    file: registrationFile,
+    registration,
+    sourceHash: registrationHash,
+    installedHash: installedRegistrationHash,
+    state: recorderRegistration,
+    blockers: registrationBlockers,
+    changes: registrationChanges
+  } = planWindowRegistrationFile(projectRoot, guardedWindow && owned !== undefined, ownedRegistration, window, operation);
+  blockers.push(...registrationBlockers);
+  changes.push(...registrationChanges);
   const wanted = operation === 'remove' ? new Map<string, Buffer>() : source?.files;
   if (owned && wanted && !blockers.length) {
     for (const path of [...new Set([...owned.files.keys(), ...wanted.keys()])].sort()) {
@@ -512,13 +556,46 @@ function installationInputs(projectRoot: string, options: ClaudeConnectInstallat
     settingsHash,
     receiptsIdentity,
     installedWindow,
-    installedPromoted
+    installedPromoted,
+    registrationFile,
+    registration,
+    registrationHash,
+    installedRegistrationHash,
+    recorderRegistration
   };
 }
 function plan(projectRoot: string, options: ClaudeConnectInstallationPreviewOptions) {
-  const { operation, owned, source, blockers, changes, window, guardedWindow, promoted, settingsHash, receiptsIdentity, installedWindow, installedPromoted } =
-    installationInputs(projectRoot, options);
+  const {
+    operation,
+    owned,
+    source,
+    blockers,
+    changes,
+    window,
+    guardedWindow,
+    promoted,
+    settingsHash,
+    receiptsIdentity,
+    installedWindow,
+    installedPromoted,
+    registrationFile,
+    registration,
+    registrationHash,
+    installedRegistrationHash,
+    recorderRegistration
+  } = installationInputs(projectRoot, options);
   const localState = { settingsHash, receiptsIdentity };
+  const packageHash =
+    source && (!window || owned)
+      ? promoted && owned
+        ? promotedHash(source.files, owned.identity, localState)
+        : bundleHash(source.files, window ? owned?.identity : undefined)
+      : null;
+  const installedHash = owned?.manifest
+    ? installedPromoted
+      ? promotedHash(owned.files, owned.identity, localState)
+      : bundleHash(owned.files, installedWindow ? owned.identity : undefined)
+    : null;
   const preview: ClaudeConnectInstallationPreview = {
     state: blockers.length
       ? 'blocked'
@@ -528,21 +605,14 @@ function plan(projectRoot: string, options: ClaudeConnectInstallationPreviewOpti
             (window !== installedWindow ||
               promoted !== installedPromoted ||
               (promoted && receiptsIdentity === null) ||
+              (guardedWindow && changes.some(change => change.path === windowRegistrationPath)) ||
               bundleHash(source.files) !== bundleHash(owned.files))
           ? 'update_available'
           : 'installed',
     source: source ? 'available' : 'unavailable',
-    packageHash:
-      source && (!window || owned)
-        ? promoted && owned
-          ? promotedHash(source.files, owned.identity, localState)
-          : bundleHash(source.files, window ? owned?.identity : undefined)
-        : null,
-    installedHash: owned?.manifest
-      ? installedPromoted
-        ? promotedHash(owned.files, owned.identity, localState)
-        : bundleHash(owned.files, installedWindow ? owned.identity : undefined)
-      : null,
+    packageHash: packageHash && window && registrationHash ? hashBytes(JSON.stringify([packageHash, registrationHash])) : packageHash,
+    installedHash:
+      installedHash && installedWindow && installedRegistrationHash ? hashBytes(JSON.stringify([installedHash, installedRegistrationHash])) : installedHash,
     destination,
     receiptDirectory: promoted ? promotedReceiptDirectory : window ? windowReceiptDirectory : `${metadata}/receipts`,
     ...(window
@@ -560,6 +630,7 @@ function plan(projectRoot: string, options: ClaudeConnectInstallationPreviewOpti
         }
       : {}),
     hookRegistration: 'unverified',
+    ...(guardedWindow ? { recorderRegistration } : {}),
     operation,
     changes: blockers.length ? [] : changes,
     blockers
@@ -572,7 +643,9 @@ function plan(projectRoot: string, options: ClaudeConnectInstallationPreviewOpti
     guardedWindow,
     promoted,
     settingsHash,
-    receiptsIdentity
+    receiptsIdentity,
+    registrationFile,
+    registration
   };
 }
 export function previewClaudeConnectInstallation(projectRoot: string, options: ClaudeConnectInstallationPreviewOptions = {}): ClaudeConnectInstallationPreview {
@@ -700,6 +773,7 @@ export function statusClaudeConnectInstallation(projectRoot: string, options: In
         }
       : {}),
     hookRegistration: result.hookRegistration,
+    ...(result.recorderRegistration ? { recorderRegistration: result.recorderRegistration } : {}),
     blockers: result.blockers
   };
 }
@@ -721,7 +795,8 @@ function assertOwnedUnchanged(projectRoot: string, owned: ReturnType<typeof insp
 function installedManifest(
   owned: ReturnType<typeof inspectOwned>,
   source: ReturnType<typeof packageSource>,
-  bundleMode: 'exact' | 'ordinary_window' | 'promoted'
+  bundleMode: 'exact' | 'ordinary_window' | 'promoted',
+  registration?: WindowHookRegistration
 ): Manifest {
   const common = {
     package: 'harness-connect',
@@ -751,19 +826,27 @@ function installedManifest(
       ...common,
       schema_version: 2,
       bundle_mode: 'ordinary_window',
-      bundle_revision: windowBundleRevision
+      bundle_revision: windowBundleRevision,
+      ...(registration ? { window_registration: registration } : {})
     };
   }
   return { schema_version: 1, ...common };
 }
 function assertCutoverBoundary(projectRoot: string, options: ClaudeConnectInstallationPreviewOptions, planned: ReturnType<typeof plan>): void {
+  if (
+    planned.registrationFile &&
+    windowRegistrationFileHash(readWindowRegistrationFile(projectRoot)) !== windowRegistrationFileHash(planned.registrationFile)
+  ) {
+    fail('installation_preview_changed');
+  }
   if (planned.guardedWindow) assertWindowIdle(options);
   if (planned.promoted) {
     assertPromotedIdle(options);
     if (options.quiescentBoundaryConfirmed !== true) {
       fail('promoted_quiescent_boundary_unconfirmed');
     }
-    if (promotedSettingsHash(projectRoot) !== planned.settingsHash) {
+    const registration = ownedWindowRegistration(planned.owned);
+    if (promotedSettingsHash(projectRoot, registration) !== planned.settingsHash) {
       fail('installation_preview_changed');
     }
     const currentReceipts = promotedReceiptIdentity(projectRoot);
@@ -772,7 +855,8 @@ function assertCutoverBoundary(projectRoot: string, options: ClaudeConnectInstal
 }
 function apply(projectRoot: string, options: ClaudeConnectInstallationPreviewOptions): ClaudeConnectInstallationStatus {
   const planned = plan(projectRoot, options);
-  const { owned, source, preview, window, guardedWindow, promoted } = planned;
+  const { owned, source, preview, window, guardedWindow, promoted, registrationFile, registration } = planned;
+  const registrationMutation = windowRegistrationTransaction(projectRoot, registrationFile, registration);
   assertPreviewMatches(options, preview);
   if (preview.blockers.length || !owned) return preview;
   if (preview.operation === 'remove' && !owned.manifest) return preview;
@@ -831,7 +915,7 @@ function apply(projectRoot: string, options: ClaudeConnectInstallationPreviewOpt
       for (const [path, bytes] of source.files) {
         durablePrivateBytes(projectRoot, `${transaction}/package/${path}`, bytes);
       }
-      const manifest = installedManifest(owned, source, promoted ? 'promoted' : window ? 'ordinary_window' : 'exact');
+      const manifest = installedManifest(owned, source, promoted ? 'promoted' : window ? 'ordinary_window' : 'exact', registrationMutation.ownership);
       durablePrivateBytes(projectRoot, `${transaction}/manifest.json`, Buffer.from(JSON.stringify(manifest) + '\n'));
     }
     assertOwnedUnchanged(projectRoot, owned);
@@ -843,11 +927,16 @@ function apply(projectRoot: string, options: ClaudeConnectInstallationPreviewOpt
     if (preview.operation === 'install') {
       renameSync(join(projectRoot, transaction, 'package'), join(projectRoot, destination));
       installed = true;
+      registrationMutation.apply();
       renameSync(join(projectRoot, transaction, 'manifest.json'), join(projectRoot, manifestPath));
-    } else unlinkSync(join(projectRoot, manifestPath));
+    } else {
+      registrationMutation.apply();
+      unlinkSync(join(projectRoot, manifestPath));
+    }
     committed = true;
   } catch (error) {
     try {
+      registrationMutation.rollback();
       if (installed) {
         if (rootIdentity(projectRoot) !== owned.identity || !source || bundleHash(tree(join(projectRoot, destination))) !== bundleHash(source.files)) {
           fail('package_drift');

@@ -17,7 +17,7 @@ const areas: readonly (readonly [string, RegExp])[] = [
   ['workflow', /^src\/(?:comparison\/)?config-confirmation-write\.ts$/],
   ['comparison', /^src\/(?:comparison\/)?(comparison|allocation|config-confirmation|reports\/|exchange\/)/],
   ['pricing', /^src\/(?:pricing\/)?(price|pricing|cost-coverage|catalog-cost|observed-cost|request-price|report-source-trust|metrics)/],
-  ['connect', /^src\/(?:connect\/)?(codex-connect|claude-connect|claude-process-binary|owned-cli-invocation)/],
+  ['connect', /^src\/(?:connect\/)?(codex-connect|claude-connect|claude-window-registration|claude-process-binary|owned-cli-invocation)/],
   [
     'workflow',
     /^src\/(?:workflow\/)?(task-workflow|external-session-|codex-workflow-|claude-workflow-|nested-candidate|bounded-candidate|codex-candidate-|codex-continuation)/

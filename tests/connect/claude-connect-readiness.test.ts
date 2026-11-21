@@ -336,6 +336,9 @@ test('compiled dist module resolves its own bundled skills without repository fa
   symlinkSync(fileURLToPath(new URL('../../node_modules', import.meta.url)), join(f.root, 'node_modules'), 'dir');
   for (const name of [
     'connect/claude-connect-installation',
+    'connect/claude-window-registration-file',
+    'connect/claude-window-registration',
+    'connect/claude-window-registration-json',
     'harness/harness-application-files',
     'harness/harness-config',
     'core/repository-files',
@@ -360,7 +363,7 @@ test('compiled dist module resolves its own bundled skills without repository fa
       { encoding: 'utf8', timeout: 10000 }
     );
   const result = invoke();
-  expect(result.status).toBe(0);
+  expect(result.status, result.stderr).toBe(0);
   const value: unknown = JSON.parse(result.stdout);
   expect(value).toMatchObject({ state: 'missing' });
   if (!value || typeof value !== 'object' || !('install_command' in value) || typeof value.install_command !== 'string') {
