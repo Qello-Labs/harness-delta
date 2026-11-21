@@ -12,7 +12,7 @@ export const scopeSourceDigests = Object.freeze({
   'src/session-binding-service.ts': '55cad8fa77f8ab59df50cab1458cdbb91ad1189aa9f9d4ac8f464ffe740e5148',
   'src/claude-workflow-versions.ts': '3a85ae4d57edd2897954502420e000d41fedcdf2b475e502c6453a50a8218937',
   'src/session-binding-codex.ts': 'b76ee2a404b76d91aa7b24d3c1b9ce72c131ce397b9fe536fbbbde9febe1558f',
-  'src/session-binding-claude.ts': '39470353953fae64ad244f21cf4cc8e82c34b5574e62589ae06c291594a0f1a3',
+  'src/session-binding-claude.ts': '1d55706dc5764fa0736b3244657718f1cf0b9d4c3163254fdc45493ed7fd33e5',
 });
 export const laneSchema = z.strictObject({
   product: z.enum(['codex', 'claude_code']),

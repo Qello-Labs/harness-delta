@@ -2091,7 +2091,9 @@ export class ClaudeWindowSessionBindingProvider implements SessionBindingProvide
     const snapshot = this.#snapshot(receipt.sourceRef, receipt.nativeSessionId);
     const version = this.#access('source').selection.declaredVersion;
     const rows = this.#rawRows(snapshot.bytes);
-    const first = rows.find(row => row.sessionId === receipt.nativeSessionId && row.agentId === undefined && row.isSidechain !== true);
+    const first = rows.find(
+      row => row.sessionId === receipt.nativeSessionId && row.agentId === undefined && row.isSidechain !== true && Object.hasOwn(row, 'version')
+    );
     if (!first) throw new Error('binding_identity_unavailable');
     if (first.version !== version) throw new Error('binding_source_version_mismatch');
     this.#pin(receipt.processIdHint);
