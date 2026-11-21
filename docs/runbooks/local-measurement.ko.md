@@ -249,6 +249,23 @@ receipt의 `native_root_id`, 유한한 `duration_ms`, `token_limit`,
 활성화는 arming을 소비하고 `active`를 발행합니다. connect와 collect에는 여전히
 기록된 결정과 일치하는 native root가 필요합니다. 이전 사용량은 backfill하지 않습니다.
 
+Claude에서는 arm, 프롬프트 없이 새 root 실행, receipt 확인, 활성화, 첫 메시지 하나를
+보내고 완료 대기, connect, 새 메시지에서 측정 작업 시작, collect 순서를 따르세요.
+Claude Code 2.1.329의 `compatibility_unverified` 관측에서는 첫 메시지 전까지 root
+transcript JSONL이 없었습니다. connect에는 일치하는 scoped root source가 필요하며,
+해당 원본이 없으면 `binding_source_unavailable`을 반환합니다.
+이 관측은 다른 버전의 transcript 형식을 보장하지 않습니다.
+
+첫 메시지는 connect 기준점 이전이므로 수집하지 않으며 backfill도 하지 않습니다.
+그러나 관측된 합계를 가진 수락된 root 요청은 baseline/제외 요청이라도
+`accepted_observed_root_input_plus_output-v1` trial 예산에
+`input_total + output_total`로 한 번 포함됩니다. Claude의 `input_total`에는
+일반 입력, cache 생성과 cache 읽기가 포함되며 `cached_input`과
+`reasoning_output`은 다시 더하지 않습니다. 미관측 요청이나 누락된 합계를
+0의 예산 차감으로 취급하지 마세요.
+활성화의 `duration_ms`는 connect가 아니라 활성화 결정 시점에 시작하므로,
+측정 작업과 collect뿐 아니라 첫 메시지와 connect 시간도 포함해야 합니다.
+
 활성화 전에 취소하려면 다음을 실행하세요.
 
 ```sh

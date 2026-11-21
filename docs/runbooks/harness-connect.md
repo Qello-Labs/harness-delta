@@ -247,6 +247,24 @@ and collection revocation clear receipt-only arming; recording any decision also
 removes it. See [local measurement](local-measurement.md) for commands and cleanup.
 Arming grants neither native trial permission nor additional support.
 
+For Claude, use this order: arm, launch the fresh root without a prompt, confirm
+the receipt, activate, send one first message and let it finish, connect, then
+begin measured work in a new message and collect. In the Claude Code 2.1.329
+`compatibility_unverified` observation, the root transcript JSONL did not exist
+until the first message. Connect requires that matching scoped root source;
+while it is absent, connect returns `binding_source_unavailable`. This observation
+is not a transcript-format guarantee for other versions.
+
+The first message precedes the connect baseline and is not collected; there is
+no backfill. Its accepted root requests with observed totals still count toward
+the trial's `accepted_observed_root_input_plus_output-v1` budget, including
+baseline/excluded requests, once as `input_total + output_total`. For Claude,
+`input_total` includes ordinary input, cache creation and cache reads;
+`cached_input` and `reasoning_output` are not added again. Do not equate an
+unobserved request or missing total with a zero charge.
+The activation's `duration_ms` starts at the activation decision, not connect:
+it must cover the first message and connect as well as measured work and collect.
+
 The live-authorized provider, not the payload-only helper, checks same-user
 PID/start, the canonical executable path from that process, approved publisher and local disk pins.
 The native adapter is limited to the standalone macOS arm64 CLI layout; unknown
