@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { chmodSync, lstatSync, renameSync, unlinkSync } from 'node:fs';
+import { chmodSync, closeSync, constants, fsyncSync, lstatSync, openSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import type { BigIntStats } from 'node:fs';
 import { join } from 'node:path';
-import { durablePrivateBytes, hashBytes, readRepositoryFile } from '../core/repository-files.js';
+import { hashBytes, readRepositoryFile } from '../core/repository-files.js';
 import { inspectWindowHookRegistration, planWindowHookRegistration, WindowHookRegistrationError } from './claude-window-registration.js';
 import type { WindowHookRegistration } from './claude-window-registration.js';
 
@@ -146,8 +146,14 @@ export function replaceWindowRegistrationFile(
   const temporary = `.claude/.window-hook-settings-${randomUUID()}.json`;
   let staged = false;
   try {
-    durablePrivateBytes(projectRoot, temporary, after);
+    const fd = openSync(join(projectRoot, temporary), constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | constants.O_NOFOLLOW, 0o600);
     staged = true;
+    try {
+      writeFileSync(fd, after);
+      fsyncSync(fd);
+    } finally {
+      closeSync(fd);
+    }
     chmodSync(join(projectRoot, temporary), mode);
     assertUnchanged();
     renameSync(join(projectRoot, temporary), join(projectRoot, windowRegistrationPath));
