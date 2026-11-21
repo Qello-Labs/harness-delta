@@ -158,6 +158,26 @@ export class ClaudeWindowBinaryError extends Error {
     this.name = 'ClaudeWindowBinaryError';
   }
 }
+// Providers share verified evidence, not their phase-specific authorization.
+export class ClaudeWindowBinaryOperation {
+  #pin: ClaudeWindowBinaryPin | null = null;
+  #stopped = false;
+
+  get pin(): ClaudeWindowBinaryPin | null {
+    if (this.#stopped) throw new ClaudeWindowBinaryError('binding_executable_changed');
+    return this.#pin;
+  }
+
+  remember(pin: ClaudeWindowBinaryPin): void {
+    if (this.#stopped) throw new ClaudeWindowBinaryError('binding_executable_changed');
+    this.#pin ??= pin;
+  }
+
+  stop(): void {
+    this.#stopped = true;
+    this.#pin = null;
+  }
+}
 const sameWindowFile = (left: ClaudeWindowImageStat, right: ClaudeWindowImageStat): boolean =>
   left.device === right.device &&
   left.inode === right.inode &&
@@ -636,43 +656,55 @@ export function createClaudeWindowBinaryAdapters(options: {
 export class ClaudeWindowBinaryReader {
   readonly #adapters: ClaudeWindowBinaryAdapters;
   readonly #authorize: () => void;
+  readonly #operation: ClaudeWindowBinaryOperation | undefined;
   #pin: ClaudeWindowBinaryPin | null = null;
   #stopped = false;
 
-  constructor(options: { readonly adapters: ClaudeWindowBinaryAdapters; readonly assertAuthorized: () => void }) {
+  constructor(options: {
+    readonly adapters: ClaudeWindowBinaryAdapters;
+    readonly assertAuthorized: () => void;
+    readonly operation?: ClaudeWindowBinaryOperation;
+  }) {
     this.#adapters = options.adapters;
     this.#authorize = options.assertAuthorized;
+    this.#operation = options.operation;
     this.#authorize();
   }
 
   snapshot(pid: number): ClaudeWindowBinaryPin {
-    this.#authorize();
-    if (this.#stopped) {
-      throw new ClaudeWindowBinaryError('binding_executable_changed');
-    }
     try {
-      const current = this.#inspect(pid);
+      this.#authorize();
+      if (this.#stopped) throw new ClaudeWindowBinaryError('binding_executable_changed');
+      const previous = this.#operation?.pin;
+      const current = previous ? this.#reuse(pid, previous) : this.#inspect(pid);
       if (this.#pin && JSON.stringify(current) !== JSON.stringify(this.#pin)) throw new ClaudeWindowBinaryError('binding_executable_changed');
       this.#pin ??= current;
+      this.#operation?.remember(current);
       return this.#pin;
     } catch (error) {
       this.#stopped = true;
+      this.#operation?.stop();
       throw error;
     }
   }
 
   revalidate(pin: ClaudeWindowBinaryPin): void {
-    this.#authorize();
-    if (this.#pin && JSON.stringify(pin) !== JSON.stringify(this.#pin)) {
+    try {
+      this.#authorize();
+      if (this.#pin && JSON.stringify(pin) !== JSON.stringify(this.#pin)) {
+        throw new ClaudeWindowBinaryError('binding_executable_changed');
+      }
+      this.#pin ??= pin;
+      this.snapshot(pin.process.pid);
+    } catch (error) {
       this.#stopped = true;
-      throw new ClaudeWindowBinaryError('binding_executable_changed');
+      this.#operation?.stop();
+      throw error;
     }
-    this.#pin ??= pin;
-    this.snapshot(pin.process.pid);
   }
 
   #fail(): never {
-    throw new ClaudeWindowBinaryError(this.#pin ? 'binding_executable_changed' : 'binding_executable_identity_unverified');
+    throw new ClaudeWindowBinaryError(this.#pin || this.#operation?.pin ? 'binding_executable_changed' : 'binding_executable_identity_unverified');
   }
 
   #call<T>(operation: () => T, checkpoint = true): T {
@@ -791,6 +823,30 @@ export class ClaudeWindowBinaryReader {
       signature: Object.freeze({ ...signature }),
       mappedImageProof: 'unverified'
     });
+  }
+
+  #reuse(pid: number, pin: ClaudeWindowBinaryPin): ClaudeWindowBinaryPin {
+    const expected = JSON.stringify({ process: pin.process, parent: pin.parent });
+    if (JSON.stringify(this.#process(pid)) !== expected) return this.#fail();
+    const image = this.#call(() => this.#adapters.readImage(pid));
+    if (!image || image.path !== pin.path || image.layout !== 'standalone' || image.requiredHost !== null) return this.#fail();
+    if (this.#call(() => this.#adapters.realpath(pin.path)) !== pin.path) return this.#fail();
+    const before = this.#call(() => this.#adapters.stat(pin.path));
+    this.#checkStat(before);
+    if (!sameWindowFile(pin.stat, before)) return this.#fail();
+    if (JSON.stringify(this.#process(pid)) !== expected) return this.#fail();
+    const after = this.#call(() => this.#adapters.readImage(pid));
+    if (!after || after.path !== pin.path || after.layout !== image.layout || after.requiredHost !== null) return this.#fail();
+    if (this.#call(() => this.#adapters.realpath(pin.path)) !== pin.path) return this.#fail();
+    if (
+      !sameWindowFile(
+        pin.stat,
+        this.#call(() => this.#adapters.stat(pin.path))
+      )
+    )
+      return this.#fail();
+    this.#authorize();
+    return pin;
   }
 
   #checkStat(stat: ClaudeWindowImageStat): void {
