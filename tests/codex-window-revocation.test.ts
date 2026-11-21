@@ -336,10 +336,20 @@ test('trial expiry during an authorized real-provider open durably closes the ow
     ]);
     f.advance(60_000);
     const io = fsCalls();
+    let publishedIo: ReturnType<typeof fsCalls> | undefined;
+    const afterCommit = f.store.afterCommit.bind(f.store);
+    vi.spyOn(f.store, 'afterCommit').mockImplementation(effect => {
+      afterCommit(() => {
+        // Control publication is authorized after commit; source I/O stays fenced on both sides.
+        expect(fsCalls()).toEqual(io);
+        effect();
+        publishedIo = fsCalls();
+      });
+    });
     gate.release();
     await rejected;
     gate.assertNoNextRead();
-    expect(fsCalls()).toEqual(io);
+    expect(fsCalls()).toEqual(publishedIo);
     expect(f.store.get('SELECT revoked_at,revocation_reason FROM ordinary_window_activations')).toEqual({
       revoked_at: f.clock(),
       revocation_reason: 'trial_expired'

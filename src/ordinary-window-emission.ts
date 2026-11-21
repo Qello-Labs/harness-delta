@@ -1,48 +1,10 @@
 import type { Store } from './store.js';
 import { TimestampSchema } from './contracts.js';
-import { type OrdinaryWindowDecisionKey, ordinaryWindowDecisionKeyForSelection, ordinaryWindowDecisionStatus } from './core/ordinary-window-activation.js';
+import { ordinaryWindowDecisionKeyForSelection, ordinaryWindowDecisionStatus } from './core/ordinary-window-activation.js';
 import { assertOrdinaryWindowPrepared, ordinaryWindowSelection } from './core/ordinary-window-store.js';
-import {
-  clearOrdinaryWindowArming,
-  type OrdinaryWindowEmissionControl,
-  readOrdinaryWindowControl,
-  writeOrdinaryWindowControl
-} from './core/ordinary-window-trial.js';
+import { clearOrdinaryWindowArming, readOrdinaryWindowControl } from './core/ordinary-window-trial.js';
 
-export function publishOrdinaryWindowEmissionControl(store: Store, key: OrdinaryWindowDecisionKey, at: string) {
-  const status = ordinaryWindowDecisionStatus(store, key, at);
-  const project = store.get<{ local_root: string | null }>('SELECT local_root FROM projects WHERE id=?', [key.project_id]);
-  if (!project?.local_root) {
-    throw new Error('binding_window_control_unavailable');
-  }
-  const state =
-    status.state === 'recorded' && (status.decision?.decision_kind !== 'trial' || status.decision.trial_project_root === project.local_root)
-      ? 'active'
-      : 'inactive';
-  const control: OrdinaryWindowEmissionControl = {
-    schemaVersion: 1,
-    projectRoot: project.local_root,
-    product: key.product,
-    policyId: key.policy_id,
-    policyRevision: key.policy_revision,
-    evidenceMode: key.evidence_mode,
-    state
-  };
-  try {
-    writeOrdinaryWindowControl(control);
-  } catch (error) {
-    if (!(error instanceof Error)) throw error;
-    throw new Error('binding_window_control_unavailable', { cause: error });
-  }
-  return {
-    schema_version: 1,
-    kind: 'ordinary_window_emission_status',
-    product: key.product,
-    policy_id: key.policy_id,
-    state,
-    runtime_authority: false
-  };
-}
+export { publishOrdinaryWindowEmissionControl } from './core/ordinary-window-activation.js';
 
 export function ordinaryWindowArmingStatus(store: Store, taskId: string, at: string) {
   const selection = ordinaryWindowSelection(store, taskId);

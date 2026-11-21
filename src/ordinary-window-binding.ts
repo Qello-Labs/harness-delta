@@ -10,7 +10,8 @@ import {
   ordinaryWindowSelection,
   type OrdinaryWindowScope,
   pauseOrdinaryWindowSegment,
-  terminateOrdinaryWindowTrial
+  terminateOrdinaryWindowTrial,
+  terminateOrdinaryWindowTrialOnError
 } from './core/ordinary-window-store.js';
 import { ordinaryWindowDecisionKeyForSelection, readOrdinaryWindowDecision } from './core/ordinary-window-activation.js';
 import { commitOrdinaryWindowTrialCharge, stageOrdinaryWindowTrialCharge } from './core/ordinary-window-trial.js';
@@ -89,15 +90,7 @@ function ordinaryWindowReadContext(options: Parameters<typeof readOrdinaryWindow
     assertOrdinaryWindowAuthority(store, scope);
   } catch (error) {
     if (!(error instanceof Error)) throw error;
-    terminateOrdinaryWindowTrial(store, scope, {
-      at: clock(),
-      reason:
-        error.message === 'binding_window_trial_expired'
-          ? 'trial_expired'
-          : error.message === 'binding_window_trial_budget_exhausted'
-            ? 'trial_budget_exhausted'
-            : 'trial_failed'
-    });
+    terminateOrdinaryWindowTrialOnError(store, scope, { at: clock(), error });
     throw error;
   }
   const identity = VerifiedSessionIdentitySchema.parse(JSON.parse(row.identity));
@@ -231,10 +224,14 @@ export async function readOrdinaryWindowBatch(options: {
     });
   } catch (error) {
     if (!(error instanceof Error)) throw error;
-    rejectOrdinaryWindowBatch(store, scope, {
-      error,
-      at: TimestampSchema.parse(clock())
-    });
+    try {
+      rejectOrdinaryWindowBatch(store, scope, {
+        error,
+        at: TimestampSchema.parse(clock())
+      });
+    } catch (failure) {
+      if (!(failure instanceof Error) || failure.message !== 'binding_window_control_unavailable') throw failure;
+    }
     throw error;
   }
 }

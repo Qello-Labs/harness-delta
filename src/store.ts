@@ -10,6 +10,7 @@ type EventRow = Omit<Event, 'payload'> & { payload: string };
 
 export class Store {
   private readonly db: Database.Database;
+  private readonly commitEffects: (() => void)[] = [];
 
   /** Database file path; ':memory:' for an in-memory store. */
   get filename(): string {
@@ -98,12 +99,41 @@ export class Store {
   }
 
   transaction<T>(action: () => T): T {
-    return this.db.transaction(action)();
+    return this.withCommitEffects(() => this.db.transaction(action)());
   }
 
   /** Takes the writer lock at BEGIN, so a busy upgrade cannot fail after reads. */
   immediateTransaction<T>(action: () => T): T {
-    return this.db.transaction(action).immediate();
+    return this.withCommitEffects(() => this.db.transaction(action).immediate());
+  }
+
+  afterCommit(effect: () => void): void {
+    if (this.db.inTransaction) this.commitEffects.push(effect);
+    else effect();
+  }
+
+  private withCommitEffects<T>(action: () => T): T {
+    const pending = this.commitEffects.length;
+    let value: T;
+    try {
+      value = action();
+    } catch (error) {
+      this.commitEffects.splice(pending);
+      throw error;
+    }
+    if (!this.db.inTransaction) {
+      const effects = this.commitEffects.splice(0);
+      const failures: unknown[] = [];
+      for (const effect of effects) {
+        try {
+          effect();
+        } catch (error) {
+          failures.push(error);
+        }
+      }
+      if (failures.length) throw failures[0];
+    }
+    return value;
   }
 
   putEvent(input: import('zod').infer<typeof EventSchema>): boolean {

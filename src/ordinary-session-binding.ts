@@ -49,7 +49,7 @@ import {
   type OrdinaryWindowScope,
   pauseOrdinaryWindowSegment,
   recordOrdinaryWindowSegment,
-  terminateOrdinaryWindowTrial
+  terminateOrdinaryWindowTrialOnError
 } from './core/ordinary-window-store.js';
 
 interface BindingRow {
@@ -1526,15 +1526,7 @@ export async function connectOrdinaryCodexWindow(
       scope.rootSessionId === undefined ||
       scope.segmentRevision === 0
     ) {
-      terminateOrdinaryWindowTrial(store, scope, {
-        at: clock(),
-        reason:
-          error.message === 'binding_window_trial_expired'
-            ? 'trial_expired'
-            : error.message === 'binding_window_trial_budget_exhausted'
-              ? 'trial_budget_exhausted'
-              : 'trial_failed'
-      });
+      terminateOrdinaryWindowTrialOnError(store, scope, { at: clock(), error });
     }
     store.immediateTransaction(() => {
       let current = false;
@@ -1774,15 +1766,7 @@ export async function connectOrdinaryClaudeWindow(
       scope.segmentRevision === 0 ||
       ['binding_window_trial_expired', 'binding_window_trial_budget_exhausted'].includes(error.message)
     ) {
-      terminateOrdinaryWindowTrial(store, scope, {
-        at: clock(),
-        reason:
-          error.message === 'binding_window_trial_expired'
-            ? 'trial_expired'
-            : error.message === 'binding_window_trial_budget_exhausted'
-              ? 'trial_budget_exhausted'
-              : 'trial_failed'
-      });
+      terminateOrdinaryWindowTrialOnError(store, scope, { at: clock(), error });
     }
     store.immediateTransaction(() => {
       try {

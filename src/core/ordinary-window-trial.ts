@@ -111,6 +111,22 @@ export function terminateOrdinaryWindowTrial(
   });
 }
 
+export function terminateOrdinaryWindowTrialOnError(store: Store, scope: OrdinaryWindowScope, failure: { readonly error: Error; readonly at: string }): void {
+  try {
+    terminateOrdinaryWindowTrial(store, scope, {
+      at: failure.at,
+      reason:
+        failure.error.message === 'binding_window_trial_expired'
+          ? 'trial_expired'
+          : failure.error.message === 'binding_window_trial_budget_exhausted'
+            ? 'trial_budget_exhausted'
+            : 'trial_failed'
+    });
+  } catch (error) {
+    if (!(error instanceof Error) || error.message !== 'binding_window_control_unavailable') throw error;
+  }
+}
+
 export interface OrdinaryWindowTrialCharge {
   readonly decision: Extract<OrdinaryWindowDecision, { decision_kind: 'trial' }>;
   readonly nextTokens: number;

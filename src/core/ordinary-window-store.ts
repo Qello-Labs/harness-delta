@@ -6,6 +6,7 @@ import {
   assertOrdinaryWindowDecision,
   matchingOrdinaryWindowRevocation,
   ordinaryWindowDecisionKeyForSelection,
+  queueOrdinaryWindowEmissionControl,
   readOrdinaryWindowDecision,
   revokeOrdinaryWindowDecisionRow
 } from './ordinary-window-activation.js';
@@ -13,7 +14,7 @@ import { OrdinaryWindowRevocationPacketSchema, type OrdinaryWindowScope } from '
 export type { OrdinaryWindowScope } from './ordinary-window-decision.js';
 import { assertOrdinaryWindowSegment, assertOrdinaryWindowDeletionFence, pauseOrdinaryWindowSegment } from './ordinary-window-trial.js';
 export { ordinaryWindowRuntimeRevision } from './ordinary-window-decision.js';
-export { pauseOrdinaryWindowSegment, terminateOrdinaryWindowTrial } from './ordinary-window-trial.js';
+export { pauseOrdinaryWindowSegment, terminateOrdinaryWindowTrial, terminateOrdinaryWindowTrialOnError } from './ordinary-window-trial.js';
 import {
   emptyOrdinaryWindowCoverage,
   OrdinaryWindowConnectionProofSchema,
@@ -200,7 +201,10 @@ export function revokeOrdinaryWindowDecision(store: Store, input: unknown, at: s
   const timestamp = TimestampSchema.parse(at);
   return store.immediateTransaction(() => {
     const decision = matchingOrdinaryWindowRevocation(store, packet);
-    if (decision.revoked_at !== null) return decision;
+    if (decision.revoked_at !== null) {
+      queueOrdinaryWindowEmissionControl(store, decision);
+      return decision;
+    }
     revokeOrdinaryWindowDecisionRow(store, decision, { at: timestamp, reason: packet.reason });
     const affected = store.all<{ task_id: string }>(
       `SELECT task_id FROM ordinary_window_selections WHERE
