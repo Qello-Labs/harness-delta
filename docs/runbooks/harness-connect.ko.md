@@ -162,7 +162,8 @@ native 검증 전까지 비활성 상태입니다. 지원 검증 완료나 정�
    `2.1.306 < v < 2.2.0` 안의 안정 버전을 직접 지정하고 프로젝트와 허용 Claude source
    디렉터리를 검토합니다. 양 경계, prerelease와 build suffix는 거부합니다. 어느 모드로든
    전환하려면 적격 버전을 명시해야 하며, 모드를 생략하면 저장된 선택을 유지합니다.
-2. 저장 후 설치 미리보기에서 소유 파일의 상대 경로 변경을 검토하고 해당 미리보기를 적용합니다.
+2. 저장 후 설치 미리보기에서 소유 파일의 상대 경로 변경과 프로젝트
+   `.claude/settings.local.json`에 계획된 별도 SessionStart 등록을 검토하고 해당 미리보기를 적용합니다.
    window 모드로 한 번 명시적으로 이전하는 절차이며 정확 모드의 자동 변환이 아닙니다.
    편집되거나 소유하지 않은 파일, 안전하지 않은 경로, 오래된 미리보기, 다른 hook과의 충돌은
    계속 변경을 차단합니다. 활성 Claude 작업이나 열린 binding도 migration을 차단하며,
@@ -177,7 +178,22 @@ native 검증 전까지 비활성 상태입니다. 지원 검증 완료나 정�
 정확 `scripts/connect.mjs`와 `scripts/claude-session-hook.mjs`를 유지하고
 `scripts/connect-window.mjs`와 `scripts/claude-window-session-hook.mjs`를 추가합니다.
 window recorder는 `.harness-delta/claude-window-receipts`를 사용하며 정확 모드 schema 1의
-의미와 다른 설정은 바꾸지 않습니다. control이 없거나 닫혔거나 잘못된 경우 아무것도 emit하지 않으며,
+의미와 다른 설정은 바꾸지 않습니다.
+
+`ordinary_window` 모드에서만 설치기는 프로젝트 `.claude/settings.local.json`의
+SessionStart command group 정확히 하나를 추가로 소유합니다. 명령은 설치기를 실행한
+Node 실행 파일의 따옴표로 감싼 절대 경로, 설치된
+`.claude/skills/harness-connect/scripts/claude-window-session-hook.mjs` 경로와
+`record`이며 `timeout: 10`을 씁니다. manifest가 이 항목을 기록합니다. 미리보기는 이를
+별도의 계획된 변경으로 보여 주고, 명시적 apply만 소유 파일과 같은 검토·오래된 미리보기·lock
+규칙 아래에서 씁니다. 파일의 나머지 바이트는 그대로 유지됩니다. 파일이 없으면 설치기가
+만듭니다. 제거는 소유 항목만 지우며, 설치기가 만들었고 이제 그 밖에 비어 있는 파일만
+삭제합니다. 소유 항목 자리에 편집되었거나 외부의 항목이 있으면 편집된 소유 파일처럼 제거를
+차단합니다. 정확 모드와 window 모드 사이의 migration은 모드에 맞춰 등록을 추가하거나
+제거합니다. 정확 모드만 설치하는 경우에는 설정을 수정하지 않으며 `.claude/settings.json`과 전역·사용자 설정은
+건드리지 않습니다. 등록이 구성되었다고 해서 Claude Code가 workspace를 신뢰하거나 hook을
+전달한다는 증거는 아니며, 이는 운영자가 계속 확인해야 합니다. 설치는 수집을 허가하거나
+control을 만들거나 native binary를 실행하지 않습니다. control이 없거나 닫혔거나 잘못된 경우 아무것도 emit하지 않으며,
 오래되거나 위조된 active control도 허용 목록의 미검증 pending 메타데이터만 허용합니다.
 recorder와 helper는 native 원본·process·version·image를 탐색하지 않습니다.
 
@@ -415,7 +431,8 @@ Node 26은 별도 증거가 필요합니다.
 아래는 수동 예시이며 자동 설치가 아닙니다. 대상을 선택하고 패키지를 검토하세요.
 기존 목적지가 있으면 복사하지 않습니다. portable helper에는 Node 24 또는 26과 내장
 라이브러리만 필요합니다. 스킬 복사는 전역 설정, AGENTS, 인증을 바꾸지
-않습니다. Claude에서 명시적 호출하면 세션 hooks가 등록되므로 패키지와 trust를
+않습니다. 이 복사와 달리 Claude 일반 window 설치기의 미리보기·적용은 위 설정 절차에
+설명한 대로 프로젝트 `.claude/settings.local.json`을 수정합니다. Claude에서 명시적 호출하면 세션 hooks가 등록되므로 패키지와 trust를
 설치·호출 전에 검토해야 합니다.
 
 ```sh

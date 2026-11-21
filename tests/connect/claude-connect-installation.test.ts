@@ -495,6 +495,7 @@ test('exact to window migration is a read-only preview followed by explicit owne
   expect(proposed.state).toBe('update_available');
   expect(proposed.installedHash).toBe(status(f.project, f.options).installedHash);
   expect(proposed.changes.map(change => change.path)).toEqual([
+    '.claude/settings.local.json',
     `${target}/SKILL.md`,
     `${target}/scripts/claude-connect-config.mjs`,
     `${target}/scripts/claude-window-session-hook.mjs`,
@@ -618,9 +619,14 @@ test('window removal preserves receipts transcripts and all unrelated settings a
   for (const [path, bytes] of preserved) put(f.project, path, bytes);
   install(f.project, reviewed(f.project, f.windowOptions));
   for (const [path, bytes] of preserved) {
-    expect(readFileSync(join(f.project, path), 'utf8')).toBe(bytes);
+    if (path !== '.claude/settings.local.json') expect(readFileSync(join(f.project, path), 'utf8')).toBe(bytes);
+    else expect(JSON.parse(readFileSync(join(f.project, path), 'utf8')) as unknown).toMatchObject({ other: true });
   }
-  expect(preview(f.project, { ...f.windowOptions, operation: 'remove' }).changes.every(change => change.path.startsWith(`${target}/`))).toBe(true);
+  expect(
+    preview(f.project, { ...f.windowOptions, operation: 'remove' }).changes.every(
+      change => change.path.startsWith(`${target}/`) || change.path === '.claude/settings.local.json'
+    )
+  ).toBe(true);
   expect(remove(f.project, reviewed(f.project, f.windowOptions, 'remove')).state).toBe('absent');
   expect(existsSync(join(f.project, target))).toBe(false);
   expect(existsSync(join(f.project, metadata, 'installation.json'))).toBe(false);
