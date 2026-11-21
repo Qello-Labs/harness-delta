@@ -250,6 +250,7 @@ export function createSyntheticWindowTui(root) {
         terminationMs: 5000,
         termGraceMs: 2000,
         psQueryBudgetMs: 1000,
+        pgrepQueryBudgetMs: 1000,
         rows: 24,
         columns: 80
       };
