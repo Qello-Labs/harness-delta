@@ -124,6 +124,11 @@ export interface ClaudeWindowImageHandle {
   verifySignature(): { readonly signature: ClaudeWindowSignature; readonly sha256: string; readonly stat: ClaudeWindowImageStat };
   close(): void;
 }
+type ClaudeWindowChunkRead = (...args: [...Parameters<ClaudeWindowImageHandle['read']>, boolean]) => number;
+// Public reads stay eager; only bounded byte passes use the private checkpoint bridge.
+const windowChunkReads = new WeakMap<ClaudeWindowImageHandle, ClaudeWindowChunkRead>();
+// Avoid multiplying database authorization by every 64 KiB identity probe.
+const windowAuthorizationInterval = 4 * 1024 * 1024;
 /** Native ports are supplied by the live provider, never by receipt payloads. */
 export interface ClaudeWindowBinaryAdapters {
   currentUid(): number | null;
@@ -198,18 +203,19 @@ function windowNativeStat(stat: Stats): ClaudeWindowImageStat {
 class ClaudeWindowNativeBoundary {
   constructor(readonly authorize: () => void) {}
 
-  step<T>(operation: () => T): T {
-    this.authorize();
+  step<T>(operation: () => T, checkpoint = true): T {
+    if (checkpoint) this.authorize();
     if (process.platform !== 'darwin' || process.arch !== 'arm64') {
       return windowNativeFailure();
     }
     try {
       return operation();
     } catch (error) {
+      if (!checkpoint) this.authorize();
       if (error instanceof Error) return windowNativeFailure();
       return windowNativeFailure();
     } finally {
-      this.authorize();
+      if (checkpoint) this.authorize();
     }
   }
 
@@ -261,12 +267,12 @@ class ClaudeWindowNativeBoundary {
     return path === null ? null : { path, layout: 'standalone', requiredHost: null };
   }
 
-  stat(fd: number): ClaudeWindowImageStat {
-    return windowNativeStat(this.step(() => fstatSync(fd)));
+  stat(fd: number, checkpoint = true): ClaudeWindowImageStat {
+    return windowNativeStat(this.step(() => fstatSync(fd), checkpoint));
   }
 
-  read(fd: number, buffer: Buffer, offset: number, length: number, position: number): number {
-    this.authorize();
+  read(fd: number, buffer: Buffer, offset: number, length: number, position: number, checkpoint = true): number {
+    if (checkpoint) this.authorize();
     if (
       !Number.isSafeInteger(offset) ||
       offset < 0 ||
@@ -279,7 +285,7 @@ class ClaudeWindowNativeBoundary {
       position + length > claudeWindowImageLimits.cli
     )
       return windowNativeFailure();
-    return this.step(() => readSync(fd, buffer, offset, length, position));
+    return this.step(() => readSync(fd, buffer, offset, length, position), checkpoint);
   }
 }
 
@@ -400,17 +406,17 @@ class ClaudeWindowSnapshotVerifier {
     this.#check();
   }
 
-  #check(): void {
+  #check(checkpoint = true): void {
     const native = this.#native,
       owned = this.#owned;
-    if (!sameWindowFile(this.#source, native.stat(this.#fd))) {
+    if (!sameWindowFile(this.#source, native.stat(this.#fd, checkpoint))) {
       return windowNativeFailure();
     }
     if (
       this.#parent === null ||
       !sameWindowIdentity(
         this.#parent,
-        native.step(() => lstatSync(this.#scratch))
+        native.step(() => lstatSync(this.#scratch), checkpoint)
       )
     )
       return windowNativeFailure();
@@ -419,7 +425,7 @@ class ClaudeWindowSnapshotVerifier {
       owned.directoryStat === null ||
       !sameWindowIdentity(
         owned.directoryStat,
-        native.step(() => lstatSync(owned.directory ?? windowNativeFailure()))
+        native.step(() => lstatSync(owned.directory ?? windowNativeFailure()), checkpoint)
       )
     )
       return windowNativeFailure();
@@ -427,8 +433,8 @@ class ClaudeWindowSnapshotVerifier {
     if (fd === null || owned.path === null || owned.fileStat === null) {
       return windowNativeFailure();
     }
-    const opened = native.step(() => fstatSync(fd)),
-      named = native.step(() => lstatSync(owned.path ?? windowNativeFailure()));
+    const opened = native.step(() => fstatSync(fd), checkpoint),
+      named = native.step(() => lstatSync(owned.path ?? windowNativeFailure()), checkpoint);
     if (!sameWindowIdentity(owned.fileStat, opened) || !sameWindowIdentity(opened, named) || !opened.isFile() || opened.nlink !== 1)
       return windowNativeFailure();
     if (owned.readonlyFd !== null && (opened.size !== this.#source.size || !sameWindowFile(windowNativeStat(opened), windowNativeStat(named))))
@@ -442,10 +448,13 @@ class ClaudeWindowSnapshotVerifier {
     const buffer = Buffer.alloc(65536),
       hash = createHash('sha256');
     const header = Buffer.alloc(16);
+    let nextCheckpoint = 0;
     for (let offset = 0; offset < this.#source.size;) {
-      this.#check();
-      const length = Math.min(buffer.length, this.#source.size - offset);
-      const count = this.#native.read(this.#fd, buffer, 0, length, offset);
+      const checkpoint = offset >= nextCheckpoint;
+      if (checkpoint) nextCheckpoint = offset + windowAuthorizationInterval;
+      this.#check(checkpoint);
+      const length = Math.min(buffer.length, this.#source.size - offset, nextCheckpoint - offset);
+      const count = this.#native.read(this.#fd, buffer, 0, length, offset, checkpoint);
       if (!Number.isSafeInteger(count) || count < 1 || count > length) {
         return windowNativeFailure();
       }
@@ -455,7 +464,7 @@ class ClaudeWindowSnapshotVerifier {
       hash.update(buffer.subarray(0, count));
       for (let written = 0; written < count;) {
         const position = written;
-        const amount = this.#native.step(() => writeSync(writable, buffer, position, count - position, offset + position));
+        const amount = this.#native.step(() => writeSync(writable, buffer, position, count - position, offset + position), checkpoint && written === 0);
         if (!Number.isSafeInteger(amount) || amount < 1 || amount > count - written) return windowNativeFailure();
         written += amount;
       }
@@ -471,10 +480,13 @@ class ClaudeWindowSnapshotVerifier {
     if (fd === null) return windowNativeFailure();
     const hash = createHash('sha256'),
       buffer = Buffer.alloc(65536);
+    let nextCheckpoint = 0;
     for (let offset = 0; offset < this.#source.size;) {
-      this.#check();
-      const length = Math.min(buffer.length, this.#source.size - offset);
-      const count = this.#native.read(fd, buffer, 0, length, offset);
+      const checkpoint = offset >= nextCheckpoint;
+      if (checkpoint) nextCheckpoint = offset + windowAuthorizationInterval;
+      this.#check(checkpoint);
+      const length = Math.min(buffer.length, this.#source.size - offset, nextCheckpoint - offset);
+      const count = this.#native.read(fd, buffer, 0, length, offset, checkpoint);
       if (!Number.isSafeInteger(count) || count < 1 || count > length) {
         return windowNativeFailure();
       }
@@ -589,19 +601,20 @@ export function createClaudeWindowBinaryAdapters(options: {
       if (fd === null) return windowNativeFailure();
       const opened = fd;
       let closed = false;
-      const requireOpen = () => {
-        native.authorize();
+      const requireOpen = (checkpoint = true) => {
+        if (checkpoint) native.authorize();
         if (closed) return windowNativeFailure();
       };
-      return {
+      const chunkRead: ClaudeWindowChunkRead = (buffer, offset, length, position, checkpoint) => {
+        requireOpen(checkpoint);
+        return native.read(opened, buffer, offset, length, position, checkpoint);
+      };
+      const handle: ClaudeWindowImageHandle = {
         stat: () => {
           requireOpen();
           return native.stat(opened);
         },
-        read: (buffer, offset, length, position) => {
-          requireOpen();
-          return native.read(opened, buffer, offset, length, position);
-        },
+        read: (buffer, offset, length, position) => chunkRead(buffer, offset, length, position, true),
         verifySignature: () => {
           requireOpen();
           return new ClaudeWindowSnapshotVerifier(native, opened, options.scratchDirectory).verify();
@@ -613,6 +626,8 @@ export function createClaudeWindowBinaryAdapters(options: {
           }
         }
       };
+      windowChunkReads.set(handle, chunkRead);
+      return handle;
     }
   };
 }
@@ -660,8 +675,8 @@ export class ClaudeWindowBinaryReader {
     throw new ClaudeWindowBinaryError(this.#pin ? 'binding_executable_changed' : 'binding_executable_identity_unverified');
   }
 
-  #call<T>(operation: () => T): T {
-    this.#authorize();
+  #call<T>(operation: () => T, checkpoint = true): T {
+    if (checkpoint) this.#authorize();
     let value: T;
     try {
       value = operation();
@@ -669,7 +684,7 @@ export class ClaudeWindowBinaryReader {
       this.#authorize();
       return this.#fail();
     }
-    this.#authorize();
+    if (checkpoint) this.#authorize();
     return value;
   }
 
@@ -795,18 +810,30 @@ export class ClaudeWindowBinaryReader {
   }
 
   #hash(handle: ClaudeWindowImageHandle, size: number): string {
+    this.#authorize();
     const hash = createHash('sha256');
     const buffer = Buffer.alloc(65536);
-    for (let offset = 0; offset < size;) {
-      const length = Math.min(buffer.length, size - offset);
-      const count = this.#call(() => handle.read(buffer, 0, length, offset));
-      if (!Number.isSafeInteger(count) || count < 1 || count > length) {
-        return this.#fail();
+    const chunkRead = windowChunkReads.get(handle);
+    let nextCheckpoint = 0;
+    try {
+      for (let offset = 0; offset < size;) {
+        const checkpoint = offset >= nextCheckpoint;
+        if (checkpoint) nextCheckpoint = offset + windowAuthorizationInterval;
+        const length = Math.min(buffer.length, size - offset, nextCheckpoint - offset);
+        const count = this.#call(
+          () => (chunkRead === undefined ? handle.read(buffer, 0, length, offset) : chunkRead(buffer, 0, length, offset, checkpoint)),
+          checkpoint
+        );
+        if (!Number.isSafeInteger(count) || count < 1 || count > length) {
+          return this.#fail();
+        }
+        // MH_MAGIC_64 and CPU_TYPE_ARM64; no wrapper or alternate image format.
+        if (offset === 0 && (count < 8 || buffer.readUInt32LE(0) !== 0xfeedfacf || buffer.readUInt32LE(4) !== 0x0100000c)) return this.#fail();
+        hash.update(buffer.subarray(0, count));
+        offset += count;
       }
-      // MH_MAGIC_64 and CPU_TYPE_ARM64; no wrapper or alternate image format.
-      if (offset === 0 && (count < 8 || buffer.readUInt32LE(0) !== 0xfeedfacf || buffer.readUInt32LE(4) !== 0x0100000c)) return this.#fail();
-      hash.update(buffer.subarray(0, count));
-      offset += count;
+    } finally {
+      this.#authorize();
     }
     return hash.digest('hex');
   }
