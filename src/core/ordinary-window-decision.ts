@@ -5,9 +5,60 @@ import {
   OrdinaryWindowPolicyIdSchema,
   ordinaryWindowDigest,
   ordinaryWindowPolicies,
+  ordinaryWindowSelectionHash,
+  OrdinaryWindowSelectionSchema,
   type OrdinaryWindowSelection
 } from './ordinary-window-policy.js';
 import type { Store } from '../store.js';
+
+export function ordinaryWindowSelection(store: Store, taskId: string): OrdinaryWindowSelection | undefined {
+  const row = store.get<{ selection: string; selection_hash: string }>('SELECT selection,selection_hash FROM ordinary_window_selections WHERE task_id=?', [
+    IdSchema.parse(taskId)
+  ]);
+  if (!row) return undefined;
+  const selection = OrdinaryWindowSelectionSchema.parse(JSON.parse(row.selection));
+  if (selection.taskId !== taskId || ordinaryWindowSelectionHash(selection) !== row.selection_hash) {
+    throw new Error('ordinary_configuration_changed');
+  }
+  return selection;
+}
+export function assertOrdinaryWindowPrepared(store: Store, taskId: string): OrdinaryWindowSelection {
+  const selection = ordinaryWindowSelection(store, taskId);
+  if (!selection) throw new Error('ordinary_preparation_required');
+  const task = store.get<{ project_id: string; state: string; metadata: string }>('SELECT project_id,state,metadata FROM tasks WHERE id=?', [taskId]);
+  const prepared = store.get<{
+    settings: string;
+    settings_hash: string;
+    price_table_id: string;
+    revoked_at: string | null;
+  }>('SELECT settings,settings_hash,price_table_id,revoked_at FROM ordinary_tasks WHERE task_id=?', [taskId]);
+  if (
+    !task ||
+    !prepared ||
+    prepared.revoked_at !== null ||
+    task.state === 'finalized' ||
+    store.get("SELECT 1 FROM tombstones WHERE (kind='task' AND id=?) OR (kind='project' AND id=?)", [taskId, selection.projectId])
+  ) {
+    throw new Error('binding_scope_revoked');
+  }
+  if (store.get('SELECT 1 FROM comparison_assignments WHERE task_id=?', [taskId])) {
+    throw new Error('binding_ordinary_assignment_conflict');
+  }
+  const metadata = z.object({ product: z.string() }).parse(JSON.parse(task.metadata));
+  if (
+    task.project_id !== selection.projectId ||
+    metadata.product !== selection.policy.product ||
+    prepared.settings !== JSON.stringify(selection) ||
+    prepared.settings_hash !== ordinaryWindowSelectionHash(selection) ||
+    prepared.price_table_id !== selection.priceTableId
+  ) {
+    throw new Error('ordinary_configuration_changed');
+  }
+  if (!store.get('SELECT 1 FROM projects WHERE id=? AND local_root IS NOT NULL', [selection.projectId])) {
+    throw new Error('binding_scope_mismatch');
+  }
+  return selection;
+}
 
 export const ordinaryWindowRuntimeRevision = 'ordinary-window-runtime-v2';
 export const ordinaryWindowTrialBudgetBasis = 'accepted_observed_root_input_plus_output-v1';

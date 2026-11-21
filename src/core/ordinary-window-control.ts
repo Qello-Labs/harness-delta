@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { IdSchema, TimestampSchema } from '../contracts.js';
 import type { Store } from '../store.js';
 import type { OrdinaryWindowDecisionKey } from './ordinary-window-activation.js';
+import { assertOrdinaryWindowPrepared } from './ordinary-window-decision.js';
 
 const controlFields = {
   schemaVersion: z.literal(1),
@@ -31,6 +32,45 @@ const ControlSchema = z.discriminatedUnion('state', [
   })
 ]);
 export type OrdinaryWindowEmissionControl = z.infer<typeof ControlSchema>;
+
+export function isCurrentOrdinaryWindowArming(
+  store: Store,
+  control: Extract<OrdinaryWindowEmissionControl, { state: 'receipt_only' }>,
+  timestamp: number
+): boolean {
+  let selection: ReturnType<typeof assertOrdinaryWindowPrepared>;
+  try {
+    selection = assertOrdinaryWindowPrepared(store, control.arming.taskId);
+  } catch (error) {
+    if (!(error instanceof Error)) throw error;
+    if (
+      ![
+        'binding_scope_revoked',
+        'binding_scope_mismatch',
+        'binding_ordinary_assignment_conflict',
+        'ordinary_configuration_changed',
+        'ordinary_preparation_required'
+      ].includes(error.message)
+    ) {
+      throw error;
+    }
+    return false;
+  }
+  const task = store.get<{ state: string; generation: number }>('SELECT state,generation FROM tasks WHERE id=?', [control.arming.taskId]);
+  return (
+    task?.state === 'active' &&
+    task.generation === control.arming.generation &&
+    timestamp >= Date.parse(control.arming.armedAt) &&
+    timestamp < Date.parse(control.arming.expiresAt) &&
+    control.arming.projectId === selection.projectId &&
+    control.arming.policyDigest === selection.policyDigest &&
+    control.product === selection.policy.product &&
+    control.policyId === selection.policy.policyId &&
+    control.policyRevision === selection.policy.ruleRevision &&
+    control.evidenceMode === selection.policy.evidenceMode &&
+    control.projectRoot === store.get<{ local_root: string | null }>('SELECT local_root FROM projects WHERE id=?', [selection.projectId])?.local_root
+  );
+}
 
 function controlDirectory(projectRoot: string, product: OrdinaryWindowDecisionKey['product'], create: boolean): string | null {
   if (!projectRoot || projectRoot.length > 4096 || resolve(projectRoot) !== projectRoot) throw new Error('binding_window_control_unavailable');

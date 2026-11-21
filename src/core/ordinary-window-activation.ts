@@ -1,5 +1,10 @@
 import type { Store } from '../store.js';
-import { type OrdinaryWindowEmissionControl, readOrdinaryWindowControl, writeOrdinaryWindowControl } from './ordinary-window-control.js';
+import {
+  type OrdinaryWindowEmissionControl,
+  isCurrentOrdinaryWindowArming,
+  readOrdinaryWindowControl,
+  writeOrdinaryWindowControl
+} from './ordinary-window-control.js';
 import { TimestampSchema } from '../contracts.js';
 import { type OrdinaryWindowSelection, ordinaryWindowSelectionHash, OrdinaryWindowSelectionSchema } from './ordinary-window-policy.js';
 import {
@@ -204,13 +209,27 @@ export function queueOrdinaryWindowEmissionControl(store: Store, key: OrdinaryWi
   const projectRoot = capturedRoot ?? store.get<{ local_root: string | null }>('SELECT local_root FROM projects WHERE id=?', [key.project_id])?.local_root;
   if (!projectRoot) return;
   store.afterCommit(() => {
+    const at = new Date().toISOString();
     try {
       // An absent control already refuses emission, including DB-only preparations.
-      if (!readOrdinaryWindowControl(projectRoot, key.product)) return;
+      const control = readOrdinaryWindowControl(projectRoot, key.product);
+      if (!control) return;
+      if (
+        control.state === 'receipt_only' &&
+        !readOrdinaryWindowDecision(store, key) &&
+        control.arming.projectId === key.project_id &&
+        control.arming.policyDigest === key.policy_digest &&
+        control.policyId === key.policy_id &&
+        control.policyRevision === key.policy_revision &&
+        control.evidenceMode === key.evidence_mode &&
+        isCurrentOrdinaryWindowArming(store, control, Date.parse(at))
+      ) {
+        return;
+      }
     } catch (error) {
       if (!(error instanceof Error)) throw error;
       throw new Error('binding_window_control_unavailable', { cause: error });
     }
-    publishOrdinaryWindowEmissionControl(store, { ...key, projectRoot }, new Date().toISOString());
+    publishOrdinaryWindowEmissionControl(store, { ...key, projectRoot }, at);
   });
 }
