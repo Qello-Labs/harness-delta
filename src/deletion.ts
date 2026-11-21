@@ -9,6 +9,7 @@ import type { Store } from './store.js';
 import { assertWebMetadataCleanupDone, flushWebMetadataCleanup, queueWebMetadataCleanup } from './core/store-metadata-cleanup.js';
 import { recordToolVersionPromotionDenial, type ToolVersionPromotionKey } from './core/tool-version-promotion-store.js';
 import { clearTaskOrdinaryWindowArming } from './core/ordinary-window-trial.js';
+import { type OrdinaryWindowDecisionKey, queueOrdinaryWindowEmissionControl } from './core/ordinary-window-activation.js';
 
 export class Deletion {
   private deletionDepth = 0;
@@ -41,6 +42,11 @@ export class Deletion {
           [taskId, taskId]
         );
         if (!task) throw new Error('unknown_task');
+        const decisions = this.store.all<OrdinaryWindowDecisionKey & { local_root: string | null }>(
+          `SELECT a.project_id,a.product,a.source,a.policy_id,a.policy_revision,a.policy_digest,a.evidence_mode,p.local_root
+          FROM ordinary_window_activations a JOIN projects p ON p.id=a.project_id WHERE a.trial_task_id=?`,
+          [taskId]
+        );
         clearTaskOrdinaryWindowArming(this.store, taskId);
         queueWebMetadataCleanup(this.store, 'task', taskId, task.project_id);
         queueApplicationCleanup(this.store, taskId);
@@ -50,6 +56,7 @@ export class Deletion {
         this.tombstone('task', taskId);
         this.store.execute('DELETE FROM tasks WHERE id = ?', [taskId]);
         this.store.execute('DELETE FROM shared_configuration_tasks WHERE task_id=?', [taskId]);
+        for (const decision of decisions) queueOrdinaryWindowEmissionControl(this.store, decision, decision.local_root ?? undefined);
       });
     } finally {
       this.deletionDepth--;
@@ -74,7 +81,13 @@ export class Deletion {
     try {
       this.store.immediateTransaction(() => {
         if (this.isDeleted('project', projectId)) return;
-        if (!this.store.get('SELECT id FROM projects WHERE id = ?', [projectId])) throw new Error('unknown_project');
+        const project = this.store.get<{ local_root: string | null }>('SELECT local_root FROM projects WHERE id = ?', [projectId]);
+        if (!project) throw new Error('unknown_project');
+        const decisions = this.store.all<OrdinaryWindowDecisionKey>(
+          `SELECT project_id,product,source,policy_id,policy_revision,policy_digest,evidence_mode
+          FROM ordinary_window_activations WHERE project_id=?`,
+          [projectId]
+        );
         queueWebMetadataCleanup(this.store, 'project', projectId, projectId);
         deleteMappedProject(this.store, projectId, TimestampSchema.parse(this.clock()));
         recordSourceProjectDeletion(this.store, projectId, TimestampSchema.parse(this.clock()));
@@ -96,6 +109,7 @@ export class Deletion {
         }
         this.tombstone('project', projectId);
         this.store.execute('DELETE FROM projects WHERE id = ?', [projectId]);
+        for (const decision of decisions) queueOrdinaryWindowEmissionControl(this.store, decision, project.local_root ?? undefined);
       });
     } finally {
       this.deletionDepth--;

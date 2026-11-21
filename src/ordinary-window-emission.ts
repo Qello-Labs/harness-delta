@@ -1,48 +1,11 @@
 import type { Store } from './store.js';
 import { TimestampSchema } from './contracts.js';
-import { type OrdinaryWindowDecisionKey, ordinaryWindowDecisionKeyForSelection, ordinaryWindowDecisionStatus } from './core/ordinary-window-activation.js';
-import { assertOrdinaryWindowPrepared, ordinaryWindowSelection } from './core/ordinary-window-store.js';
-import {
-  clearOrdinaryWindowArming,
-  type OrdinaryWindowEmissionControl,
-  readOrdinaryWindowControl,
-  writeOrdinaryWindowControl
-} from './core/ordinary-window-trial.js';
+import { ordinaryWindowDecisionKeyForSelection, ordinaryWindowDecisionStatus } from './core/ordinary-window-activation.js';
+import { ordinaryWindowSelection } from './core/ordinary-window-store.js';
+import { clearOrdinaryWindowArming, readOrdinaryWindowControl } from './core/ordinary-window-trial.js';
+import { isCurrentOrdinaryWindowArming } from './core/ordinary-window-control.js';
 
-export function publishOrdinaryWindowEmissionControl(store: Store, key: OrdinaryWindowDecisionKey, at: string) {
-  const status = ordinaryWindowDecisionStatus(store, key, at);
-  const project = store.get<{ local_root: string | null }>('SELECT local_root FROM projects WHERE id=?', [key.project_id]);
-  if (!project?.local_root) {
-    throw new Error('binding_window_control_unavailable');
-  }
-  const state =
-    status.state === 'recorded' && (status.decision?.decision_kind !== 'trial' || status.decision.trial_project_root === project.local_root)
-      ? 'active'
-      : 'inactive';
-  const control: OrdinaryWindowEmissionControl = {
-    schemaVersion: 1,
-    projectRoot: project.local_root,
-    product: key.product,
-    policyId: key.policy_id,
-    policyRevision: key.policy_revision,
-    evidenceMode: key.evidence_mode,
-    state
-  };
-  try {
-    writeOrdinaryWindowControl(control);
-  } catch (error) {
-    if (!(error instanceof Error)) throw error;
-    throw new Error('binding_window_control_unavailable', { cause: error });
-  }
-  return {
-    schema_version: 1,
-    kind: 'ordinary_window_emission_status',
-    product: key.product,
-    policy_id: key.policy_id,
-    state,
-    runtime_authority: false
-  };
-}
+export { publishOrdinaryWindowEmissionControl } from './core/ordinary-window-activation.js';
 
 export function ordinaryWindowArmingStatus(store: Store, taskId: string, at: string) {
   const selection = ordinaryWindowSelection(store, taskId);
@@ -58,31 +21,8 @@ export function ordinaryWindowArmingStatus(store: Store, taskId: string, at: str
     clearOrdinaryWindowArming(project.local_root, undefined, selection.policy.product);
     state = 'consumed';
   } else if (control?.state === 'receipt_only' && control.arming.taskId === taskId) {
-    const task = store.get<{ state: string; generation: number }>('SELECT state,generation FROM tasks WHERE id=?', [taskId]);
     const expired = timestamp < Date.parse(control.arming.armedAt) || timestamp >= Date.parse(control.arming.expiresAt);
-    let prepared = false;
-    try {
-      assertOrdinaryWindowPrepared(store, taskId);
-      prepared = true;
-    } catch (error) {
-      if (!(error instanceof Error)) throw error;
-      if (
-        !['binding_scope_revoked', 'binding_scope_mismatch', 'binding_ordinary_assignment_conflict', 'ordinary_configuration_changed'].includes(error.message)
-      ) {
-        throw error;
-      }
-    }
-    if (
-      expired ||
-      !prepared ||
-      task?.state !== 'active' ||
-      task.generation !== control.arming.generation ||
-      control.arming.projectId !== selection.projectId ||
-      control.arming.policyDigest !== selection.policyDigest ||
-      control.policyId !== selection.policy.policyId ||
-      control.policyRevision !== selection.policy.ruleRevision ||
-      control.evidenceMode !== selection.policy.evidenceMode
-    ) {
+    if (!isCurrentOrdinaryWindowArming(store, control, timestamp)) {
       clearOrdinaryWindowArming(project.local_root, taskId, selection.policy.product);
       state = expired ? 'expired' : 'inactive';
     } else state = 'receipt_only';

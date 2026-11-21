@@ -1,73 +1,37 @@
 import type { Store } from '../store.js';
-import { TimestampSchema } from '../contracts.js';
 import {
-  ordinaryWindowDigest,
-  ordinaryWindowPolicies,
-  type OrdinaryWindowSelection,
-  ordinaryWindowSelectionHash,
-  OrdinaryWindowSelectionSchema
-} from './ordinary-window-policy.js';
+  type OrdinaryWindowEmissionControl,
+  isCurrentOrdinaryWindowArming,
+  readOrdinaryWindowControl,
+  writeOrdinaryWindowControl
+} from './ordinary-window-control.js';
+import { TimestampSchema } from '../contracts.js';
+import { type OrdinaryWindowSelection, ordinaryWindowSelectionHash, OrdinaryWindowSelectionSchema } from './ordinary-window-policy.js';
 import {
   type OrdinaryWindowActivationPacket,
   OrdinaryWindowActivationPacketSchema,
   type OrdinaryWindowDecision,
-  OrdinaryWindowDecisionSchema,
-  type OrdinaryWindowRevocationPacket,
-  ordinaryWindowTrialBudgetBasis
+  type OrdinaryWindowRevocationPacket
 } from './ordinary-window-decision.js';
 
-export type OrdinaryWindowDecisionKey = Pick<
-  OrdinaryWindowDecision,
-  'project_id' | 'product' | 'source' | 'policy_id' | 'policy_revision' | 'policy_digest' | 'evidence_mode'
->;
-export const ordinaryWindowDecisionKeyValues = (key: OrdinaryWindowDecisionKey) => [
-  key.project_id,
-  key.product,
-  key.source,
-  key.policy_id,
-  key.policy_revision,
-  key.policy_digest,
-  key.evidence_mode
-];
-export function ordinaryWindowDecisionKeyForSelection(selection: OrdinaryWindowSelection): OrdinaryWindowDecisionKey {
-  return {
-    project_id: selection.projectId,
-    product: selection.policy.product,
-    source: selection.policy.source,
-    policy_id: selection.policy.policyId,
-    policy_revision: selection.policy.ruleRevision,
-    policy_digest: selection.policyDigest,
-    evidence_mode: selection.policy.evidenceMode
-  };
-}
-export const ordinaryWindowDecisionWhere =
-  'project_id=? AND product=? AND source=? AND policy_id=? AND policy_revision=? AND policy_digest=? AND evidence_mode=?';
-export function readOrdinaryWindowDecision(store: Store, key: OrdinaryWindowDecisionKey): OrdinaryWindowDecision | null {
-  const row = store.get<{ accepted_risks: string }>(
-    `SELECT * FROM ordinary_window_activations WHERE ${ordinaryWindowDecisionWhere}`,
-    ordinaryWindowDecisionKeyValues(key)
-  );
-  if (!row) return null;
-  const acceptedRisks: unknown = JSON.parse(row.accepted_risks);
-  const parsed = OrdinaryWindowDecisionSchema.safeParse({
-    ...row,
-    accepted_risks: acceptedRisks
-  });
-  return parsed.success ? parsed.data : null;
-}
-function assertDecisionPolicy(packet: OrdinaryWindowDecisionKey): void {
-  const policy = ordinaryWindowPolicies.find(value => value.policyId === packet.policy_id);
-  if (
-    !policy ||
-    policy.product !== packet.product ||
-    policy.source !== packet.source ||
-    policy.ruleRevision !== packet.policy_revision ||
-    ordinaryWindowDigest(policy) !== packet.policy_digest ||
-    policy.evidenceMode !== packet.evidence_mode
-  ) {
-    throw new Error('binding_window_policy_mismatch');
-  }
-}
+import {
+  assertDecisionPolicy,
+  ordinaryWindowDecisionKeyValues,
+  ordinaryWindowDecisionKeyForSelection,
+  ordinaryWindowDecisionWhere,
+  readOrdinaryWindowDecision,
+  ordinaryWindowDecisionStatus
+} from './ordinary-window-decision.js';
+export {
+  type OrdinaryWindowDecisionKey,
+  ordinaryWindowDecisionKeyValues,
+  ordinaryWindowDecisionKeyForSelection,
+  ordinaryWindowDecisionWhere,
+  readOrdinaryWindowDecision,
+  ordinaryWindowDecisionStatus
+} from './ordinary-window-decision.js';
+import type { OrdinaryWindowDecisionKey } from './ordinary-window-decision.js';
+
 function assertTrialTask(store: Store, packet: Extract<OrdinaryWindowActivationPacket, { decision_kind: 'trial' }>): void {
   const row = store.get<{
     selection: string;
@@ -196,33 +160,7 @@ export function revokeOrdinaryWindowDecisionRow(
     WHERE ${ordinaryWindowDecisionWhere} AND decision_ref=? AND revoked_at IS NULL`,
     [TimestampSchema.parse(termination.at), termination.reason, ...ordinaryWindowDecisionKeyValues(decision), decision.decision_ref]
   );
-}
-export function ordinaryWindowDecisionStatus(store: Store, key: OrdinaryWindowDecisionKey, at: string) {
-  assertDecisionPolicy(key);
-  const decision = readOrdinaryWindowDecision(store, key);
-  const unreviewed =
-    !decision && !!store.get(`SELECT 1 FROM ordinary_window_activations WHERE ${ordinaryWindowDecisionWhere}`, ordinaryWindowDecisionKeyValues(key));
-  const now = Date.parse(TimestampSchema.parse(at));
-  const state = !decision
-    ? unreviewed
-      ? 'unreviewed'
-      : 'absent'
-    : decision.revoked_at
-      ? 'revoked'
-      : decision.decision_kind === 'trial' && (now < Date.parse(decision.decided_at) || now >= Date.parse(decision.trial_expires_at))
-        ? 'expired'
-        : decision.decision_kind === 'trial' && decision.trial_tokens_consumed >= decision.trial_token_limit
-          ? 'budget_exhausted'
-          : 'recorded';
-  return {
-    schema_version: 1,
-    kind: 'ordinary_window_decision_status',
-    key,
-    state,
-    decision,
-    trial_budget_basis: decision?.decision_kind === 'trial' ? ordinaryWindowTrialBudgetBasis : null,
-    runtime_authority: false
-  };
+  queueOrdinaryWindowEmissionControl(store, decision);
 }
 export function matchingOrdinaryWindowRevocation(store: Store, packet: OrdinaryWindowRevocationPacket): OrdinaryWindowDecision {
   assertDecisionPolicy(packet);
@@ -231,4 +169,67 @@ export function matchingOrdinaryWindowRevocation(store: Store, packet: OrdinaryW
     throw new Error('binding_window_decision_mismatch');
   }
   return decision;
+}
+
+export function publishOrdinaryWindowEmissionControl(store: Store, key: OrdinaryWindowDecisionKey & { readonly projectRoot?: string }, at: string) {
+  const status = ordinaryWindowDecisionStatus(store, key, at);
+  const project = store.get<{ local_root: string | null }>('SELECT local_root FROM projects WHERE id=?', [key.project_id]);
+  const projectRoot = project?.local_root ?? key.projectRoot;
+  if (!projectRoot) {
+    throw new Error('binding_window_control_unavailable');
+  }
+  const state =
+    status.state === 'recorded' && (status.decision?.decision_kind !== 'trial' || status.decision.trial_project_root === projectRoot) ? 'active' : 'inactive';
+  const control: OrdinaryWindowEmissionControl = {
+    schemaVersion: 1,
+    projectRoot: projectRoot,
+    product: key.product,
+    policyId: key.policy_id,
+    policyRevision: key.policy_revision,
+    evidenceMode: key.evidence_mode,
+    state
+  };
+  try {
+    writeOrdinaryWindowControl(control);
+  } catch (error) {
+    if (!(error instanceof Error)) throw error;
+    throw new Error('binding_window_control_unavailable', { cause: error });
+  }
+  return {
+    schema_version: 1,
+    kind: 'ordinary_window_emission_status',
+    product: key.product,
+    policy_id: key.policy_id,
+    state,
+    runtime_authority: false
+  };
+}
+
+export function queueOrdinaryWindowEmissionControl(store: Store, key: OrdinaryWindowDecisionKey, capturedRoot?: string): void {
+  const projectRoot = capturedRoot ?? store.get<{ local_root: string | null }>('SELECT local_root FROM projects WHERE id=?', [key.project_id])?.local_root;
+  if (!projectRoot) return;
+  store.afterCommit(() => {
+    const at = new Date().toISOString();
+    try {
+      // An absent control already refuses emission, including DB-only preparations.
+      const control = readOrdinaryWindowControl(projectRoot, key.product);
+      if (!control) return;
+      if (
+        control.state === 'receipt_only' &&
+        !readOrdinaryWindowDecision(store, key) &&
+        control.arming.projectId === key.project_id &&
+        control.arming.policyDigest === key.policy_digest &&
+        control.policyId === key.policy_id &&
+        control.policyRevision === key.policy_revision &&
+        control.evidenceMode === key.evidence_mode &&
+        isCurrentOrdinaryWindowArming(store, control, Date.parse(at))
+      ) {
+        return;
+      }
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
+      throw new Error('binding_window_control_unavailable', { cause: error });
+    }
+    publishOrdinaryWindowEmissionControl(store, { ...key, projectRoot }, at);
+  });
 }

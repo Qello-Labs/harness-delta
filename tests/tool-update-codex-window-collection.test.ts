@@ -258,6 +258,13 @@ function snapshot(f: ReturnType<typeof fixture>) {
   };
 }
 
+function assertTerminatedControl(f: ReturnType<typeof fixture>, change: string) {
+  if (!['trial_expired', 'revoked', 'deleted'].includes(change)) return;
+  expect(JSON.parse(readFileSync(join(f.session.receiptDirectory, 'ordinary-window-control.json'), 'utf8'))).toMatchObject({ state: 'inactive' });
+  // Product publication replaces the original inode; the conformance guard must still refuse it.
+  expect(() => f.session.close()).toThrow('control_storage_changed');
+}
+
 const changes = [
   'consent_bytes',
   'intent_bytes',
@@ -393,6 +400,7 @@ test.each(changes)(
     assertNoRead();
     expect(f.session.store.eventCount()).toBe(0);
     expect(f.session.store.all('SELECT * FROM binding_requests')).toEqual([]);
+    assertTerminatedControl(f, change);
   },
   realStoreTimeoutMs
 );
@@ -437,6 +445,7 @@ test.each(changes)(
     expect(snapshot(f)).toEqual(before);
     expect(f.session.store.eventCount()).toBe(0);
     expect(f.session.store.all('SELECT * FROM binding_requests')).toEqual([]);
+    assertTerminatedControl(f, change);
   },
   realStoreTimeoutMs
 );

@@ -1,6 +1,64 @@
 import { z } from 'zod';
 import { IdSchema, TimestampSchema } from '../contracts.js';
-import { OrdinaryWindowEvidenceModeSchema, OrdinaryWindowPolicyIdSchema } from './ordinary-window-policy.js';
+import {
+  OrdinaryWindowEvidenceModeSchema,
+  OrdinaryWindowPolicyIdSchema,
+  ordinaryWindowDigest,
+  ordinaryWindowPolicies,
+  ordinaryWindowSelectionHash,
+  OrdinaryWindowSelectionSchema,
+  type OrdinaryWindowSelection
+} from './ordinary-window-policy.js';
+import type { Store } from '../store.js';
+
+export function ordinaryWindowSelection(store: Store, taskId: string): OrdinaryWindowSelection | undefined {
+  const row = store.get<{ selection: string; selection_hash: string }>('SELECT selection,selection_hash FROM ordinary_window_selections WHERE task_id=?', [
+    IdSchema.parse(taskId)
+  ]);
+  if (!row) return undefined;
+  const selection = OrdinaryWindowSelectionSchema.parse(JSON.parse(row.selection));
+  if (selection.taskId !== taskId || ordinaryWindowSelectionHash(selection) !== row.selection_hash) {
+    throw new Error('ordinary_configuration_changed');
+  }
+  return selection;
+}
+export function assertOrdinaryWindowPrepared(store: Store, taskId: string): OrdinaryWindowSelection {
+  const selection = ordinaryWindowSelection(store, taskId);
+  if (!selection) throw new Error('ordinary_preparation_required');
+  const task = store.get<{ project_id: string; state: string; metadata: string }>('SELECT project_id,state,metadata FROM tasks WHERE id=?', [taskId]);
+  const prepared = store.get<{
+    settings: string;
+    settings_hash: string;
+    price_table_id: string;
+    revoked_at: string | null;
+  }>('SELECT settings,settings_hash,price_table_id,revoked_at FROM ordinary_tasks WHERE task_id=?', [taskId]);
+  if (
+    !task ||
+    !prepared ||
+    prepared.revoked_at !== null ||
+    task.state === 'finalized' ||
+    store.get("SELECT 1 FROM tombstones WHERE (kind='task' AND id=?) OR (kind='project' AND id=?)", [taskId, selection.projectId])
+  ) {
+    throw new Error('binding_scope_revoked');
+  }
+  if (store.get('SELECT 1 FROM comparison_assignments WHERE task_id=?', [taskId])) {
+    throw new Error('binding_ordinary_assignment_conflict');
+  }
+  const metadata = z.object({ product: z.string() }).parse(JSON.parse(task.metadata));
+  if (
+    task.project_id !== selection.projectId ||
+    metadata.product !== selection.policy.product ||
+    prepared.settings !== JSON.stringify(selection) ||
+    prepared.settings_hash !== ordinaryWindowSelectionHash(selection) ||
+    prepared.price_table_id !== selection.priceTableId
+  ) {
+    throw new Error('ordinary_configuration_changed');
+  }
+  if (!store.get('SELECT 1 FROM projects WHERE id=? AND local_root IS NOT NULL', [selection.projectId])) {
+    throw new Error('binding_scope_mismatch');
+  }
+  return selection;
+}
 
 export const ordinaryWindowRuntimeRevision = 'ordinary-window-runtime-v2';
 export const ordinaryWindowTrialBudgetBasis = 'accepted_observed_root_input_plus_output-v1';
@@ -95,3 +153,83 @@ export const OrdinaryWindowDecisionSchema = z.discriminatedUnion('decision_kind'
     .refine(value => value.trial_tokens_consumed <= value.trial_token_limit)
 ]);
 export type OrdinaryWindowDecision = z.infer<typeof OrdinaryWindowDecisionSchema>;
+
+export type OrdinaryWindowDecisionKey = Pick<
+  OrdinaryWindowDecision,
+  'project_id' | 'product' | 'source' | 'policy_id' | 'policy_revision' | 'policy_digest' | 'evidence_mode'
+>;
+export const ordinaryWindowDecisionKeyValues = (key: OrdinaryWindowDecisionKey) => [
+  key.project_id,
+  key.product,
+  key.source,
+  key.policy_id,
+  key.policy_revision,
+  key.policy_digest,
+  key.evidence_mode
+];
+export function ordinaryWindowDecisionKeyForSelection(selection: OrdinaryWindowSelection): OrdinaryWindowDecisionKey {
+  return {
+    project_id: selection.projectId,
+    product: selection.policy.product,
+    source: selection.policy.source,
+    policy_id: selection.policy.policyId,
+    policy_revision: selection.policy.ruleRevision,
+    policy_digest: selection.policyDigest,
+    evidence_mode: selection.policy.evidenceMode
+  };
+}
+export const ordinaryWindowDecisionWhere =
+  'project_id=? AND product=? AND source=? AND policy_id=? AND policy_revision=? AND policy_digest=? AND evidence_mode=?';
+export function readOrdinaryWindowDecision(store: Store, key: OrdinaryWindowDecisionKey): OrdinaryWindowDecision | null {
+  const row = store.get<{ accepted_risks: string }>(
+    `SELECT * FROM ordinary_window_activations WHERE ${ordinaryWindowDecisionWhere}`,
+    ordinaryWindowDecisionKeyValues(key)
+  );
+  if (!row) return null;
+  const acceptedRisks: unknown = JSON.parse(row.accepted_risks);
+  const parsed = OrdinaryWindowDecisionSchema.safeParse({
+    ...row,
+    accepted_risks: acceptedRisks
+  });
+  return parsed.success ? parsed.data : null;
+}
+export function assertDecisionPolicy(packet: OrdinaryWindowDecisionKey): void {
+  const policy = ordinaryWindowPolicies.find(value => value.policyId === packet.policy_id);
+  if (
+    !policy ||
+    policy.product !== packet.product ||
+    policy.source !== packet.source ||
+    policy.ruleRevision !== packet.policy_revision ||
+    ordinaryWindowDigest(policy) !== packet.policy_digest ||
+    policy.evidenceMode !== packet.evidence_mode
+  ) {
+    throw new Error('binding_window_policy_mismatch');
+  }
+}
+export function ordinaryWindowDecisionStatus(store: Store, key: OrdinaryWindowDecisionKey, at: string) {
+  assertDecisionPolicy(key);
+  const decision = readOrdinaryWindowDecision(store, key);
+  const unreviewed =
+    !decision && !!store.get(`SELECT 1 FROM ordinary_window_activations WHERE ${ordinaryWindowDecisionWhere}`, ordinaryWindowDecisionKeyValues(key));
+  const now = Date.parse(TimestampSchema.parse(at));
+  const state = !decision
+    ? unreviewed
+      ? 'unreviewed'
+      : 'absent'
+    : decision.revoked_at
+      ? 'revoked'
+      : decision.decision_kind === 'trial' && (now < Date.parse(decision.decided_at) || now >= Date.parse(decision.trial_expires_at))
+        ? 'expired'
+        : decision.decision_kind === 'trial' && decision.trial_tokens_consumed >= decision.trial_token_limit
+          ? 'budget_exhausted'
+          : 'recorded';
+  return {
+    schema_version: 1,
+    kind: 'ordinary_window_decision_status',
+    key,
+    state,
+    decision,
+    trial_budget_basis: decision?.decision_kind === 'trial' ? ordinaryWindowTrialBudgetBasis : null,
+    runtime_authority: false
+  };
+}
