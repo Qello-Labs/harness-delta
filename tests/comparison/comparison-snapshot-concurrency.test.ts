@@ -1,14 +1,14 @@
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { Worker } from 'node:worker_threads';
-import { ModuleKind, ScriptTarget, transpileModule } from 'typescript';
 import { expect, test } from 'vitest';
 import { Store } from '../../src/store.js';
 import { Deletion } from '../../src/deletion.js';
 import { createComparisonSnapshot, readComparisonSnapshot } from '../../src/comparison/reports/comparison-snapshot.js';
 import { reportStore, request, evaluation } from '../helpers/comparison-report-fixture.js';
+import { compiledWorker } from '../helpers/compiled-worker.js';
 
 for (const first of ['snapshot', 'deletion']) {
   test(`two SQLite connections serialize ${first} first and never retain deleted evidence`, async () => {
@@ -17,28 +17,7 @@ for (const first of ['snapshot', 'deletion']) {
     let worker: Worker | undefined;
     try {
       const store = reportStore(file);
-      const compiled = join(root, 'compiled');
-      mkdirSync(compiled);
-      writeFileSync(join(compiled, 'package.json'), '{"type":"module"}');
-      symlinkSync(join(process.cwd(), 'node_modules'), join(compiled, 'node_modules'), 'dir');
-      for (const name of readdirSync(new URL('../../src/', import.meta.url), { recursive: true, encoding: 'utf8' })) {
-        if (!name.endsWith('.ts')) continue;
-        const output = transpileModule(readFileSync(new URL(`../../src/${name}`, import.meta.url), 'utf8'), {
-          compilerOptions: { module: ModuleKind.ESNext, target: ScriptTarget.ES2023 }
-        }).outputText;
-        mkdirSync(dirname(join(compiled, name)), { recursive: true });
-        writeFileSync(join(compiled, name.replace(/\.ts$/, '.js')), output);
-      }
-      cpSync(new URL('../../src/codex-admissions.json', import.meta.url), join(compiled, 'codex-admissions.json'));
-      for (const name of [
-        'tool-version-profiles',
-        'tool-version-recipes',
-        'tool-version-identities',
-        'tool-version-promotions',
-        'tool-version-promotion-result'
-      ])
-        cpSync(new URL(`../../src/core/${name}.json`, import.meta.url), join(compiled, 'core', name + '.json'));
-      cpSync(new URL('../../src/migrations/', import.meta.url), join(compiled, 'migrations'), { recursive: true });
+      const compiled = compiledWorker(root);
       const barrier = new SharedArrayBuffer(8);
       const flags = new Int32Array(barrier);
       worker = new Worker(
@@ -83,7 +62,7 @@ for (const first of ['snapshot', 'deletion']) {
       store.immediateTransaction(() => {
         Atomics.store(flags, 0, 1);
         Atomics.notify(flags, 0);
-        Atomics.wait(flags, 1, 0, 1000);
+        expect(Atomics.wait(flags, 1, 0, 1000), 'snapshot worker did not acknowledge the transaction within 1000 ms').not.toBe('timed-out');
         if (first === 'snapshot') createComparisonSnapshot(store, request, () => evaluation);
         else new Deletion(store, () => evaluation).deleteTask('task-1');
       });
