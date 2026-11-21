@@ -14,10 +14,12 @@ import type { ToolVersionPromotionAuthority } from './core/tool-version-promotio
 import {
   type ClaudeProcessBinary,
   type ClaudeWindowBinaryAdapters,
+  type ClaudeWindowBinaryOperation,
   ClaudeWindowBinaryReader,
   createClaudeWindowBinaryAdapters,
   readClaudeProcessBinary
 } from './claude-process-binary.js';
+export { ClaudeWindowBinaryOperation } from './claude-process-binary.js';
 import { assertClaudeWindowSourceAuthorization, type ClaudeWindowSourceAuthorization } from './core/ordinary-window-store.js';
 import { emptyOrdinaryWindowCoverage, type OrdinaryWindowConnectionProof, type OrdinaryWindowCoverage } from './core/ordinary-window-policy.js';
 import { execFileSync } from 'node:child_process';
@@ -1808,6 +1810,7 @@ export interface ClaudeWindowBindingOptions {
   readonly projectRoot: string;
   readonly clock?: () => string;
   readonly binaryAdapters?: ClaudeWindowBinaryAdapters;
+  readonly binaryOperation?: ClaudeWindowBinaryOperation;
   readonly expectedNativePinDigest?: string;
   readonly maxReadBytes?: number;
   readonly maxSourceBytes?: number;
@@ -1992,6 +1995,7 @@ export class ClaudeWindowSessionBindingProvider implements SessionBindingProvide
     const context = this.#access('source');
     if (!this.#binary && this.options.binaryAdapters === undefined) this.#scratch();
     this.#binary ??= new ClaudeWindowBinaryReader({
+      ...(this.options.binaryOperation === undefined ? {} : { operation: this.options.binaryOperation }),
       assertAuthorized: () => {
         this.#access('source');
       },

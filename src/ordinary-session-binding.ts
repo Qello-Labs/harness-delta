@@ -34,7 +34,12 @@ import { ordinaryWindowDecisionKeyForSelection, readOrdinaryWindowDecision } fro
 import { assertOrdinaryWindowSurfaceClosed, ordinaryWindowSelection } from './core/ordinary-window-store.js';
 import { readOrdinaryWindowBatch } from './ordinary-window-binding.js';
 import { type CodexWindowPendingReceipt, CodexWindowSessionBindingProvider } from './session-binding-codex.js';
-import { type ClaudeWindowBindingOptions, type ClaudeWindowPendingReceipt, ClaudeWindowSessionBindingProvider } from './session-binding-claude.js';
+import {
+  type ClaudeWindowBindingOptions,
+  type ClaudeWindowPendingReceipt,
+  ClaudeWindowBinaryOperation,
+  ClaudeWindowSessionBindingProvider
+} from './session-binding-claude.js';
 import { OrdinaryWindowConnectionProofSchema } from './core/ordinary-window-policy.js';
 import { type ClaudeWindowSourceAuthorization, issueClaudeWindowSourceAuthorization } from './core/ordinary-window-store.js';
 import {
@@ -1569,13 +1574,17 @@ function selectedClaudeWindowRoot(store: Store, taskId: string) {
     [taskId]
   );
 }
-function claudeWindowProvider(options: OrdinaryClaudeWindowBindingOptions, authorization: ClaudeWindowSourceAuthorization, expectedDigest?: string) {
+interface ClaudeWindowOperationOptions extends OrdinaryClaudeWindowBindingOptions {
+  readonly binaryOperation: ClaudeWindowBinaryOperation;
+}
+function claudeWindowProvider(options: ClaudeWindowOperationOptions, authorization: ClaudeWindowSourceAuthorization, expectedDigest?: string) {
   return new ClaudeWindowSessionBindingProvider({
     authorization,
     receiptDirectory: options.receiptDirectory,
     claudeProjectsDirectory: options.claudeProjectsDirectory,
     projectRoot: authorization().projectRoot,
     clock: options.clock ?? utcNow,
+    binaryOperation: options.binaryOperation,
     ...(options.binaryAdapters === undefined ? {} : { binaryAdapters: options.binaryAdapters }),
     ...(expectedDigest === undefined ? {} : { expectedNativePinDigest: expectedDigest })
   });
@@ -1653,6 +1662,14 @@ function reserveClaudeWindowRoot(
   });
 }
 export async function collectOrdinaryClaudeWindow(options: OrdinaryClaudeWindowBindingOptions, rootSessionId: string, baseline = false): Promise<void> {
+  const binaryOperation = new ClaudeWindowBinaryOperation();
+  try {
+    await collectClaudeWindowOperation({ ...options, binaryOperation }, rootSessionId, baseline);
+  } finally {
+    binaryOperation.stop();
+  }
+}
+async function collectClaudeWindowOperation(options: ClaudeWindowOperationOptions, rootSessionId: string, baseline: boolean): Promise<void> {
   await readOrdinaryWindowBatch({
     store: options.store,
     taskId: options.taskId,
@@ -1678,9 +1695,10 @@ export async function connectOrdinaryClaudeWindow(
     ...(decision === null ? {} : { decisionRef: decision.decision_ref })
   };
   let authorization: ClaudeWindowSourceAuthorization | undefined;
+  const operation = { ...options, binaryOperation: new ClaudeWindowBinaryOperation() };
   try {
     const metadata = issueClaudeWindowSourceAuthorization(store, scope, 'metadata');
-    const pending = claudeWindowProvider(options, metadata).pendingReceipt(input);
+    const pending = claudeWindowProvider(operation, metadata).pendingReceipt(input);
     const at = TimestampSchema.parse(clock());
     const reservation = reserveClaudeWindowRoot(options, pending, generation, metadata, at);
     scope = {
@@ -1690,7 +1708,7 @@ export async function connectOrdinaryClaudeWindow(
     };
     const acquiring = issueClaudeWindowSourceAuthorization(store, scope, 'acquiring');
     authorization = acquiring;
-    const proof = await claudeWindowProvider(options, acquiring, reservation.expectedDigest).inspectWindowCurrent(input);
+    const proof = await claudeWindowProvider(operation, acquiring, reservation.expectedDigest).inspectWindowCurrent(input);
     store.immediateTransaction(() => {
       acquiring();
       if (proof.mode !== 'claude_publisher_local_pin') {
@@ -1737,7 +1755,7 @@ export async function connectOrdinaryClaudeWindow(
       store.execute("UPDATE binding_root_segments SET state='observing',revision=revision+1 WHERE root_session_id=?", [reservation.rootSessionId]);
     });
     scope = { ...scope, segmentRevision: 1, cursor: null };
-    await collectOrdinaryClaudeWindow(options, reservation.rootSessionId, true);
+    await collectClaudeWindowOperation(operation, reservation.rootSessionId, true);
     assertOrdinaryWindowAuthority(store, {
       taskId,
       rootSessionId: reservation.rootSessionId,
@@ -1778,5 +1796,7 @@ export async function connectOrdinaryClaudeWindow(
       }
     });
     throw error;
+  } finally {
+    operation.binaryOperation.stop();
   }
 }
