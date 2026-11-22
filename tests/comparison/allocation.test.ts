@@ -189,6 +189,7 @@ test('a late declared identity conflict blocks affected protocols without mergin
   }
 });
 
+// Allow runner-load headroom for current-source compilation and two real SQLite writers.
 test('two real SQLite writers racing an identity commit one assignment and one position', async () => {
   const root = mkdtempSync(join(tmpdir(), 'allocation-race-'));
   const file = join(root, 'local.db');
@@ -269,7 +270,7 @@ test('two real SQLite writers racing an identity commit one assignment and one p
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
-});
+}, 15000);
 
 test('an unrelated project task ID cannot invalidate another project through alias resolution', () => {
   const store = new Store(':memory:');

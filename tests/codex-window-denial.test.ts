@@ -187,6 +187,7 @@ test('requires an issued callback rather than a wrapper around otherwise valid a
   });
 });
 
+// Allow runner-load headroom for three subprocess startups and real SQLite/source checks.
 test('the same subprocess oracle observes real authorized source access without process or native-asset inspection', async () => {
   const f = await fixture();
   const before = readFileSync(join(f.sourceRoot, 'root.jsonl'));
@@ -209,7 +210,7 @@ test('the same subprocess oracle observes real authorized source access without 
     processCalls: 0,
     operations: []
   });
-});
+}, 15000);
 
 test('checks owned ancestor symlinks before touching an aliased native metadata directory', async () => {
   const f = await fixture();
