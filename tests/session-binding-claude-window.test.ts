@@ -26,6 +26,8 @@ import { Deletion } from '../src/deletion.js';
 import { ClaudeWindowSessionBindingProvider } from '../src/session-binding-claude.js';
 import { type OrdinaryWindowReadBoundary, VerifiedSessionIdentitySchema } from '../src/session-binding-contract.js';
 import { createClaudeWindowFixture } from './helpers/claude-window-fixture.js';
+import { readOrdinaryWindowControl, writeOrdinaryWindowControl } from '../src/core/ordinary-window-control.js';
+import { captureGuardedControlIo } from './helpers/guarded-control-io.js';
 
 vi.mock('node:fs', { spy: true });
 vi.mock('node:fs/promises', { spy: true });
@@ -68,15 +70,14 @@ async function connected() {
   return f;
 }
 
+const processCalls = () => [vi.mocked(execFileSync).mock.calls.length, vi.mocked(spawnSync).mock.calls.length, vi.spyOn(process, 'kill').mock.calls.length];
 const ioCalls = () => [
   ...[lstatSync, statSync, realpathSync, readdirSync, readlinkSync, openSync, readSync, fstatSync, readFileSync, createReadStream].map(
     operation => vi.mocked(operation).mock.calls.length
   ),
   vi.mocked(openAsync).mock.calls.length,
   vi.mocked(readFileAsync).mock.calls.length,
-  vi.mocked(execFileSync).mock.calls.length,
-  vi.mocked(spawnSync).mock.calls.length,
-  vi.spyOn(process, 'kill').mock.calls.length
+  ...processCalls()
 ];
 
 function metadataAuthorization(f: Fixture) {
@@ -168,20 +169,41 @@ function reader(
 
 test('requires an explicitly active prepared task and activation before receipt or native operations', async () => {
   const f = fixture();
-  const before = ioCalls();
+  const before = processCalls();
+  const controlIo = captureGuardedControlIo(f.projectRoot, 'claude_code');
 
   await expect(f.connect()).rejects.toThrow();
   expect(f.life.state(f.taskId)).toBe('registered');
   f.life.start(f.taskId);
   await expect(f.connect()).rejects.toThrow('binding_window_activation_required');
 
-  expect(ioCalls()).toEqual(before);
+  controlIo.expectOnlyReads();
+  expect(processCalls()).toEqual(before);
   expect(f.binary.operations).toEqual([]);
   expect(f.store.all('SELECT * FROM sessions')).toEqual([]);
   f.activate();
   await expect(f.connect()).resolves.toMatchObject({
     automatic_children: false
   });
+});
+
+test.each(['receipt', 'source', 'unguarded-control'] as const)('rejects %s I/O outside the exact guarded control-read allowance', kind => {
+  const f = fixture();
+  writeOrdinaryWindowControl({
+    schemaVersion: 1,
+    projectRoot: f.projectRoot,
+    product: 'claude_code',
+    policyId: f.selection.policy.policyId,
+    policyRevision: f.selection.policy.ruleRevision,
+    evidenceMode: f.selection.policy.evidenceMode,
+    state: 'inactive'
+  });
+  const io = captureGuardedControlIo(f.projectRoot, 'claude_code');
+  expect(readOrdinaryWindowControl(f.projectRoot, 'claude_code')).toMatchObject({ state: 'inactive' });
+  io.expectOnlyReads();
+  if (kind === 'unguarded-control') readFileSync(join(f.receiptDirectory, 'ordinary-window-control.json'));
+  else lstatSync(kind === 'receipt' ? join(f.receiptDirectory, `${f.receipt.receipt}.json`) : f.sourcePath);
+  expect(() => io.expectOnlyReads()).toThrow();
 });
 
 test.each(['missing', 'forged', 'revoked', 'wrong-product'] as const)('rejects %s source authority before any receipt, source or native operation', kind => {
@@ -833,17 +855,20 @@ test.each(['pause', 'generation', 'delete', 'revoke'] as const)(
           break;
       }
       const state = f.usageState();
-      const io = ioCalls();
+      const io = processCalls();
+      const controlIo = captureGuardedControlIo(f.projectRoot, 'claude_code');
       const native = [...f.binary.operations];
       gate.release();
       await rejection;
 
       expect(gate.reads).not.toHaveBeenCalled();
-      expect(ioCalls()).toEqual(io);
+      controlIo.expectOnlyReads();
+      expect(processCalls()).toEqual(io);
       expect(f.binary.operations).toEqual(native);
       expect(f.usageState()).toEqual(state);
       await expect(f.collect()).rejects.toThrow();
-      expect(ioCalls()).toEqual(io);
+      controlIo.expectOnlyReads();
+      expect(processCalls()).toEqual(io);
       expect(f.binary.operations).toEqual(native);
     } finally {
       gate.release();
@@ -885,10 +910,12 @@ test.each(['pid', 'start', 'pin'] as const)('rejects %s drift while provider rev
 
     expect(gate.reads).not.toHaveBeenCalled();
     expectRejectedWithoutUsage(f, before, 'binding_scope_revoked');
-    const io = ioCalls();
+    const io = processCalls();
+    const controlIo = captureGuardedControlIo(f.projectRoot, 'claude_code');
     const native = [...f.binary.operations];
     await expect(f.collect()).rejects.toThrow();
-    expect(ioCalls()).toEqual(io);
+    controlIo.expectOnlyReads();
+    expect(processCalls()).toEqual(io);
     expect(f.binary.operations).toEqual(native);
   } finally {
     gate.release();

@@ -217,6 +217,43 @@ activate <packet-file>` and `revoke <packet-file>` record maintainer decisions,
 not launch or native evidence. Product activation needs its own approval;
 this guide grants none.
 
+Automatic trial termination, explicit revoke and task/project deletion republish
+the emission control after their transactions finish. A failed write, or a crash
+between commit and publication, can leave the file `active` while the decision
+is revoked or absent. The database stays revoked; connect and collect remain
+closed. Existing error conventions still apply, including
+`binding_window_control_unavailable` where reported; a repair failure does not
+replace the operation's own result or error.
+
+The next connect, collect, window-control or ordinary-window status touch
+attempts to repair an `active` file whose current decision is not `recorded`
+(including an absent, `expired` or `budget_exhausted` decision), when the project root is available from
+live project metadata or explicitly supplied to the operation. Repair runs only
+outside Store transactions, including after an operation rejects; a touch inside
+an open transaction skips repair without queueing it. There is no background
+retry. If any live project in the same database at that root/product and control
+policy has a recorded decision, reconciliation writes nothing. Matching control
+causes no write. Publication re-reads the current
+decision, preserving a newer recorded activation and valid surviving
+`receipt_only` arming. CLI `status <task-id>`, `--decision` and `--arming` add
+`emission_control_stale`: a boolean describing the control after the repair
+attempt (`true` if still stale, `false` if not), or `null` when the control cannot
+be inspected. Existing fields are unchanged; this field grants no authority.
+Reports, metrics and evidence status do not repair controls or gain this field.
+
+A fully deleted project's leftover `active` file is outside that repair guarantee:
+no root, locator or key is retained after deletion. If project deletion reports
+`binding_window_control_unavailable`, remove the window installation for that
+root through the [installer removal procedure](harness-connect.md), or explicitly
+revoke before deleting the project. Until then the hook can keep writing pending
+receipts, but nothing collects them. Registering a project at the same root again
+is a root-bearing touch that attempts repair for that root/product. This applies
+to product CLI/web registration, not internal qualification registration.
+A status or web GET touch after trial expiry or budget exhaustion closes emission
+without revoking the decision or changing any database row. Without a touch,
+time-only expiry is still not repaired. Task pause/finalization and collection
+revoke do not gain decision-revocation behavior from this repair.
+
 For a separately approved Codex or Claude ordinary-window trial, first install or update
 the current owned ordinary-window package in its registered project while the task
 is inactive and there is no open binding. Then start the prepared task and arm

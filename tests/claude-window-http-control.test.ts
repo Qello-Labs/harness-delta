@@ -13,6 +13,7 @@ import { createLocalWebDomain } from '../src/web/local-web-domain.js';
 import { createLocalWebServer } from '../src/web/local-web-server.js';
 import type { ClaudeWindowTaskDto } from '../src/web/local-web-claude-window-control.js';
 import { createClaudeWindowFixture } from './helpers/claude-window-fixture.js';
+import { expectOnlyGuardedControlReads } from './helpers/guarded-control-io.js';
 
 vi.mock('node:fs', { spy: true });
 vi.mock('node:fs/promises', { spy: true });
@@ -123,17 +124,15 @@ async function fixture() {
   return result;
 }
 
-function expectNoNativeOperations(f: Awaited<ReturnType<typeof fixture>>) {
+function expectNoNativeOperations(f: Awaited<ReturnType<typeof fixture>>, product: 'claude_code' | 'codex' = 'claude_code') {
   expect(f.binary.operations).toEqual([]);
+  expectOnlyGuardedControlReads(f.projectRoot, product);
   for (const operation of [
     filesystem.realpathSync,
-    filesystem.lstatSync,
     filesystem.statSync,
-    filesystem.openSync,
     filesystem.readFileSync,
     filesystem.readdirSync,
     filesystem.readlinkSync,
-    filesystem.readSync,
     filesystemAsync.open,
     filesystemAsync.readFile,
     filesystemAsync.readdir,
@@ -296,7 +295,7 @@ test('does not accept a Codex prepared selection through Claude routes', async (
   const response = await f.post('connect', f.body, '"unused"');
   expect(response.statusCode, response.body).toBe(400);
   expect(response.json()).toEqual({ error: 'binding_scope_mismatch' });
-  expectNoNativeOperations(f);
+  expectNoNativeOperations(f, 'codex');
   expect(f.usageState()).toEqual(before);
 });
 

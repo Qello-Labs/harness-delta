@@ -1,7 +1,14 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
+import { realpathSync } from 'node:fs';
+import { ordinaryWindowDigest, ordinaryWindowPolicies } from './core/ordinary-window-policy.js';
 import type { Store } from './store.js';
 import { TimestampSchema } from './contracts.js';
-import { ordinaryWindowDecisionKeyForSelection, ordinaryWindowDecisionStatus } from './core/ordinary-window-activation.js';
-import { ordinaryWindowSelection } from './core/ordinary-window-store.js';
+import {
+  ordinaryWindowDecisionKeyForSelection,
+  ordinaryWindowDecisionStatus,
+  publishOrdinaryWindowEmissionControl
+} from './core/ordinary-window-activation.js';
+import { ordinaryWindowSelection } from './core/ordinary-window-decision.js';
 import { clearOrdinaryWindowArming, readOrdinaryWindowControl } from './core/ordinary-window-trial.js';
 import { isCurrentOrdinaryWindowArming } from './core/ordinary-window-control.js';
 
@@ -49,4 +56,96 @@ export function disarmOrdinaryWindowTrial(store: Store, taskId: string, at: stri
     clearOrdinaryWindowArming(project.local_root, taskId, selection.policy.product);
     return ordinaryWindowArmingStatus(store, taskId, at);
   });
+}
+
+type ReconciliationTarget = ({ readonly taskId: string } | { readonly projectId: string; readonly product?: 'codex' | 'claude_code' }) & {
+  readonly clock?: () => string;
+  readonly projectRoot?: string;
+};
+const operations = new AsyncLocalStorage<Store>();
+
+function controlScopes(store: Store, target: ReconciliationTarget) {
+  const selection = 'taskId' in target ? ordinaryWindowSelection(store, target.taskId) : undefined;
+  if ('taskId' in target && !selection) return [];
+  const projectId = 'projectId' in target ? target.projectId : selection?.projectId;
+  if (!projectId) return [];
+  const projectRoot =
+    store.get<{ local_root: string | null }>('SELECT local_root FROM projects WHERE id=?', [projectId])?.local_root ??
+    (target.projectRoot === undefined ? undefined : realpathSync(target.projectRoot));
+  if (!projectRoot) return [];
+  const keys = selection
+    ? [ordinaryWindowDecisionKeyForSelection(selection)]
+    : ordinaryWindowPolicies
+        .filter(policy => !('product' in target) || target.product === undefined || policy.product === target.product)
+        .map(policy => ({
+          project_id: projectId,
+          product: policy.product,
+          source: policy.source,
+          policy_id: policy.policyId,
+          policy_revision: policy.ruleRevision,
+          policy_digest: ordinaryWindowDigest(policy),
+          evidence_mode: policy.evidenceMode
+        }));
+  return keys.map(key => ({ ...key, projectRoot }));
+}
+
+function staleControl(store: Store, key: ReturnType<typeof controlScopes>[number], at: string): boolean {
+  const control = readOrdinaryWindowControl(key.projectRoot, key.product);
+  if (control?.state !== 'active') return false;
+  if (control.policyId !== key.policy_id || control.policyRevision !== key.policy_revision || control.evidenceMode !== key.evidence_mode) return true;
+  const projects = store.all<{ id: string }>(
+    `SELECT p.id FROM projects p WHERE p.local_root=?
+    AND NOT EXISTS (SELECT 1 FROM tombstones t WHERE t.kind='project' AND t.id=p.id)`,
+    [key.projectRoot]
+  );
+  return !projects.some(project => ordinaryWindowDecisionStatus(store, { ...key, project_id: project.id }, at).state === 'recorded');
+}
+
+export function ordinaryWindowEmissionControlStale(store: Store, target: ReconciliationTarget): boolean | null {
+  try {
+    const at = target.clock?.() ?? new Date().toISOString();
+    const scopes = controlScopes(store, target);
+    if (!scopes.length) return null;
+    return scopes.some(key => staleControl(store, key, at));
+  } catch {
+    return null;
+  }
+}
+
+function reconcile(store: Store, target: ReconciliationTarget): void {
+  if (store.inTransaction) return;
+  try {
+    const at = target.clock?.() ?? new Date().toISOString();
+    for (const key of controlScopes(store, target)) {
+      try {
+        if (!staleControl(store, key, at)) continue;
+        // A concurrent activation or arming must win over the earlier stale observation.
+        if (staleControl(store, key, at)) {
+          publishOrdinaryWindowEmissionControl(store, key, at);
+        }
+      } catch {
+        // Registration touches both products even when one product's repair fails.
+        continue;
+      }
+    }
+  } catch {
+    // A repair failure must not replace the operation's result, including an earlier closed-scope error.
+    return;
+  }
+}
+
+export function withOrdinaryWindowReconciliation<T>(store: Store, target: ReconciliationTarget, operation: () => Promise<T>): Promise<T>;
+export function withOrdinaryWindowReconciliation<T>(store: Store, target: ReconciliationTarget, operation: () => T): T;
+export function withOrdinaryWindowReconciliation<T>(store: Store, target: ReconciliationTarget, operation: () => T | Promise<T>): T | Promise<T> {
+  if (operations.getStore() === store) return operation();
+  let result: T | Promise<T>;
+  try {
+    result = operations.run(store, operation);
+  } catch (error) {
+    reconcile(store, target);
+    throw error;
+  }
+  if (result instanceof Promise) return result.finally(() => reconcile(store, target));
+  reconcile(store, target);
+  return result;
 }

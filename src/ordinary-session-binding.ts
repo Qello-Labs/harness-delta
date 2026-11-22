@@ -33,6 +33,7 @@ import type { Store } from './store.js';
 import { ordinaryWindowDecisionKeyForSelection, readOrdinaryWindowDecision } from './core/ordinary-window-activation.js';
 import { assertOrdinaryWindowSurfaceClosed, ordinaryWindowSelection } from './core/ordinary-window-store.js';
 import { readOrdinaryWindowBatch } from './ordinary-window-binding.js';
+import { withOrdinaryWindowReconciliation } from './ordinary-window-emission.js';
 import { type CodexWindowPendingReceipt, CodexWindowSessionBindingProvider } from './session-binding-codex.js';
 import {
   type ClaudeWindowBindingOptions,
@@ -1425,17 +1426,27 @@ function reserveCodexWindowRoot(
 }
 
 export async function collectOrdinaryCodexWindow(options: OrdinaryCodexWindowBindingOptions, rootSessionId: string, baseline = false): Promise<void> {
-  await readOrdinaryWindowBatch({
-    store: options.store,
-    taskId: options.taskId,
-    rootSessionId,
-    baseline,
-    clock: options.clock ?? utcNow,
-    provider: (_authorizeSource, scope) => codexWindowProvider(options, issueCodexWindowSourceAuthorization(options.store, scope, 'observing'))
-  });
+  await withOrdinaryWindowReconciliation(options.store, { taskId: options.taskId, clock: options.clock ?? utcNow }, () =>
+    readOrdinaryWindowBatch({
+      store: options.store,
+      taskId: options.taskId,
+      rootSessionId,
+      baseline,
+      clock: options.clock ?? utcNow,
+      provider: (_authorizeSource, scope) => codexWindowProvider(options, issueCodexWindowSourceAuthorization(options.store, scope, 'observing'))
+    })
+  );
 }
 
 export async function connectOrdinaryCodexWindow(
+  options: OrdinaryCodexWindowBindingOptions,
+  input: CurrentIdentityRequest
+): Promise<{ readonly rootSessionId: string; readonly automatic_children: false }> {
+  return withOrdinaryWindowReconciliation(options.store, { taskId: options.taskId, clock: options.clock ?? utcNow }, () =>
+    connectOrdinaryCodexWindowOperation(options, input)
+  );
+}
+async function connectOrdinaryCodexWindowOperation(
   options: OrdinaryCodexWindowBindingOptions,
   input: CurrentIdentityRequest
 ): Promise<{ readonly rootSessionId: string; readonly automatic_children: false }> {
@@ -1654,12 +1665,14 @@ function reserveClaudeWindowRoot(
   });
 }
 export async function collectOrdinaryClaudeWindow(options: OrdinaryClaudeWindowBindingOptions, rootSessionId: string, baseline = false): Promise<void> {
-  const binaryOperation = new ClaudeWindowBinaryOperation();
-  try {
-    await collectClaudeWindowOperation({ ...options, binaryOperation }, rootSessionId, baseline);
-  } finally {
-    binaryOperation.stop();
-  }
+  await withOrdinaryWindowReconciliation(options.store, { taskId: options.taskId, clock: options.clock ?? utcNow }, async () => {
+    const binaryOperation = new ClaudeWindowBinaryOperation();
+    try {
+      await collectClaudeWindowOperation({ ...options, binaryOperation }, rootSessionId, baseline);
+    } finally {
+      binaryOperation.stop();
+    }
+  });
 }
 async function collectClaudeWindowOperation(options: ClaudeWindowOperationOptions, rootSessionId: string, baseline: boolean): Promise<void> {
   await readOrdinaryWindowBatch({
@@ -1672,6 +1685,14 @@ async function collectClaudeWindowOperation(options: ClaudeWindowOperationOption
   });
 }
 export async function connectOrdinaryClaudeWindow(
+  options: OrdinaryClaudeWindowBindingOptions,
+  input: CurrentIdentityRequest
+): Promise<{ readonly rootSessionId: string; readonly automatic_children: false }> {
+  return withOrdinaryWindowReconciliation(options.store, { taskId: options.taskId, clock: options.clock ?? utcNow }, () =>
+    connectOrdinaryClaudeWindowOperation(options, input)
+  );
+}
+async function connectOrdinaryClaudeWindowOperation(
   options: OrdinaryClaudeWindowBindingOptions,
   input: CurrentIdentityRequest
 ): Promise<{ readonly rootSessionId: string; readonly automatic_children: false }> {

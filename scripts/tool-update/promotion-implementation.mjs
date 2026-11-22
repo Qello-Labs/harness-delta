@@ -199,6 +199,7 @@ export const promotionImplementationFiles = Object.freeze([
 	"src/ordinary-observation.ts",
 	"src/ordinary-session-binding.ts",
 	"src/ordinary-window-binding.ts",
+	"src/ordinary-window-emission.ts",
 	"src/package-paths.ts",
 	"src/pricing/catalog-cost-report.ts",
 	"src/pricing/metrics-ordinary-window.ts",

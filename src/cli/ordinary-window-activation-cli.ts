@@ -1,6 +1,6 @@
 import { closeSync, constants, fstatSync, openSync, readSync } from 'node:fs';
 import { z } from 'zod';
-import { TimestampSchema } from '../contracts.js';
+import { IdSchema, TimestampSchema } from '../contracts.js';
 import { statusCodexConnectInstallation } from '../connect/codex-connect-installation.js';
 import { statusClaudeConnectInstallation } from '../connect/claude-connect-installation.js';
 import { readOrdinaryWindowControl, writeOrdinaryWindowControl } from '../core/ordinary-window-trial.js';
@@ -9,7 +9,13 @@ import type { Store } from '../store.js';
 import { readOrdinaryWindowStatus } from '../core/ordinary-window-evidence.js';
 import { activateOrdinaryWindowDecision, ordinaryWindowDecisionKeyForSelection, ordinaryWindowDecisionStatus } from '../core/ordinary-window-activation.js';
 import { assertOrdinaryWindowPrepared, ordinaryWindowSelection, revokeOrdinaryWindowDecision } from '../core/ordinary-window-store.js';
-import { disarmOrdinaryWindowTrial, ordinaryWindowArmingStatus, publishOrdinaryWindowEmissionControl } from '../ordinary-window-emission.js';
+import {
+  disarmOrdinaryWindowTrial,
+  ordinaryWindowArmingStatus,
+  ordinaryWindowEmissionControlStale,
+  publishOrdinaryWindowEmissionControl,
+  withOrdinaryWindowReconciliation
+} from '../ordinary-window-emission.js';
 import { ordinaryWindowTrialBudgetBasis } from '../core/ordinary-window-decision.js';
 
 function readDecisionPacket(path: string): unknown {
@@ -38,10 +44,14 @@ export function registerOrdinaryWindowActivationCommands(window: Command, db: ()
     .description('Arm only pending receipt emission for a Codex or Claude trial; never authorize collection')
     .requiredOption('--duration-ms <milliseconds>', 'Finite receipt-only arming lifetime')
     .action((taskId: string, options: { durationMs: string }) => {
-      print(armOrdinaryWindowTrial(db(), taskId, Number(options.durationMs), new Date().toISOString()));
+      const store = db();
+      print(
+        withOrdinaryWindowReconciliation(store, { taskId }, () => armOrdinaryWindowTrial(store, taskId, Number(options.durationMs), new Date().toISOString()))
+      );
     });
   window.command('disarm <task-id>').action((taskId: string) => {
-    print(disarmOrdinaryWindowTrial(db(), taskId, new Date().toISOString()));
+    const store = db();
+    print(withOrdinaryWindowReconciliation(store, { taskId }, () => disarmOrdinaryWindowTrial(store, taskId, new Date().toISOString())));
   });
   window
     .command('status <task-id>')
@@ -49,12 +59,11 @@ export function registerOrdinaryWindowActivationCommands(window: Command, db: ()
     .option('--arming', 'Describe receipt-only trial arming; never authorize collection')
     .action((taskId: string, options: { decision?: boolean; arming?: boolean }) => {
       const store = db();
-      if (options.arming) {
-        print(store.immediateTransaction(() => ordinaryWindowArmingStatus(store, taskId, new Date().toISOString())));
-        return;
-      }
-      print(
-        store.transaction(() => {
+      const result = withOrdinaryWindowReconciliation(store, { taskId }, () => {
+        if (options.arming) {
+          return store.immediateTransaction(() => ordinaryWindowArmingStatus(store, taskId, new Date().toISOString()));
+        }
+        return store.transaction(() => {
           const report = readOrdinaryWindowStatus(store, taskId);
           if (!options.decision) return report;
           const selection = ordinaryWindowSelection(store, taskId);
@@ -62,24 +71,29 @@ export function registerOrdinaryWindowActivationCommands(window: Command, db: ()
             throw new Error('ordinary_preparation_required');
           }
           return ordinaryWindowDecisionStatus(store, ordinaryWindowDecisionKeyForSelection(selection), new Date().toISOString());
-        })
-      );
+        });
+      });
+      print({ ...result, emission_control_stale: ordinaryWindowEmissionControlStale(store, { taskId }) });
     });
   for (const operation of ['activate', 'revoke'] as const) {
     window.command(`${operation} <packet-file>`).action((path: string) => {
       const store = db();
       const packet = readDecisionPacket(path);
-      const at = new Date().toISOString();
-      const decision = operation === 'activate' ? activateOrdinaryWindowDecision(store, packet, at) : revokeOrdinaryWindowDecision(store, packet, at);
-      const emission = publishOrdinaryWindowEmissionControl(store, decision, new Date().toISOString());
-      print({
-        schema_version: 1,
-        kind: 'ordinary_window_decision_result',
-        decision,
-        emission_control: emission,
-        trial_budget_basis: decision.decision_kind === 'trial' ? ordinaryWindowTrialBudgetBasis : null,
-        runtime_authority: false
-      });
+      const scope = z.object({ project_id: IdSchema, product: z.enum(['codex', 'claude_code']) }).safeParse(packet);
+      const execute = () => {
+        const at = new Date().toISOString();
+        const decision = operation === 'activate' ? activateOrdinaryWindowDecision(store, packet, at) : revokeOrdinaryWindowDecision(store, packet, at);
+        const emission = publishOrdinaryWindowEmissionControl(store, decision, new Date().toISOString());
+        return {
+          schema_version: 1,
+          kind: 'ordinary_window_decision_result',
+          decision,
+          emission_control: emission,
+          trial_budget_basis: decision.decision_kind === 'trial' ? ordinaryWindowTrialBudgetBasis : null,
+          runtime_authority: false
+        };
+      };
+      print(scope.success ? withOrdinaryWindowReconciliation(store, { projectId: scope.data.project_id, product: scope.data.product }, execute) : execute());
     });
   }
 }
