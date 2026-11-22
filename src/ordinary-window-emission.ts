@@ -12,6 +12,7 @@ import {
 import { ordinaryWindowSelection } from './core/ordinary-window-decision.js';
 import { clearOrdinaryWindowArming, readOrdinaryWindowControl } from './core/ordinary-window-trial.js';
 import { isCurrentOrdinaryWindowArming } from './core/ordinary-window-control.js';
+import { ordinaryWindowEmissionEligible } from './core/ordinary-window-emission-eligibility.js';
 
 export { publishOrdinaryWindowEmissionControl } from './core/ordinary-window-activation.js';
 
@@ -106,7 +107,7 @@ function staleControl(store: Store, key: ReturnType<typeof controlScopes>[number
     AND NOT EXISTS (SELECT 1 FROM tombstones t WHERE t.kind='project' AND t.id=p.id)`,
     [key.projectRoot]
   );
-  return !projects.some(project => ordinaryWindowDecisionStatus(store, { ...key, project_id: project.id }, at).state === 'recorded');
+  return !projects.some(project => ordinaryWindowEmissionEligible(store, { ...key, project_id: project.id }, key.projectRoot, at));
 }
 
 export function ordinaryWindowEmissionControlStale(store: Store, target: ReconciliationTarget): boolean | null {

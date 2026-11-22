@@ -1539,18 +1539,22 @@ async function connectOrdinaryCodexWindowOperation(
     ) {
       terminateOrdinaryWindowTrialOnError(store, scope, { at: clock(), error });
     }
-    store.immediateTransaction(() => {
-      let current = false;
-      try {
-        authorization?.();
-        current = authorization !== undefined;
-      } catch (failure) {
-        if (!(failure instanceof Error)) throw failure;
-      }
-      if (current) {
-        pauseOrdinaryWindowSegment(store, taskId, TimestampSchema.parse(clock()), 'binding_scope_revoked');
-      }
-    });
+    try {
+      store.immediateTransaction(() => {
+        let current = false;
+        try {
+          authorization?.();
+          current = authorization !== undefined;
+        } catch (failure) {
+          if (!(failure instanceof Error)) throw failure;
+        }
+        if (current) {
+          pauseOrdinaryWindowSegment(store, taskId, TimestampSchema.parse(clock()), 'binding_scope_revoked');
+        }
+      });
+    } catch (failure) {
+      if (!(failure instanceof Error) || failure.message !== 'binding_window_control_unavailable') throw failure;
+    }
     throw error;
   }
 }
@@ -1789,17 +1793,21 @@ async function connectOrdinaryClaudeWindowOperation(
     ) {
       terminateOrdinaryWindowTrialOnError(store, scope, { at: clock(), error });
     }
-    store.immediateTransaction(() => {
-      try {
-        authorization?.();
-      } catch (failure) {
-        if (!(failure instanceof Error)) throw failure;
-        return;
-      }
-      if (authorization) {
-        pauseOrdinaryWindowSegment(store, taskId, TimestampSchema.parse(clock()), 'binding_scope_revoked');
-      }
-    });
+    try {
+      store.immediateTransaction(() => {
+        try {
+          authorization?.();
+        } catch (failure) {
+          if (!(failure instanceof Error)) throw failure;
+          return;
+        }
+        if (authorization) {
+          pauseOrdinaryWindowSegment(store, taskId, TimestampSchema.parse(clock()), 'binding_scope_revoked');
+        }
+      });
+    } catch (failure) {
+      if (!(failure instanceof Error) || failure.message !== 'binding_window_control_unavailable') throw failure;
+    }
     throw error;
   } finally {
     operation.binaryOperation.stop();

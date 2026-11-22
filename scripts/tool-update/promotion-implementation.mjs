@@ -124,6 +124,7 @@ export const promotionImplementationFiles = Object.freeze([
 	"src/core/ordinary-window-control.ts",
 	"src/core/ordinary-window-decision.ts",
 	"src/core/ordinary-window-evidence.ts",
+	"src/core/ordinary-window-emission-eligibility.ts",
 	"src/core/ordinary-window-policy.ts",
 	"src/core/ordinary-window-segment.ts",
 	"src/core/ordinary-window-store.ts",

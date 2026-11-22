@@ -1,4 +1,5 @@
 import type { Store } from '../store.js';
+import { ordinaryWindowEmissionEligible } from './ordinary-window-emission-eligibility.js';
 import {
   type OrdinaryWindowEmissionControl,
   isCurrentOrdinaryWindowArming,
@@ -20,7 +21,7 @@ import {
   ordinaryWindowDecisionKeyForSelection,
   ordinaryWindowDecisionWhere,
   readOrdinaryWindowDecision,
-  ordinaryWindowDecisionStatus
+  ordinaryWindowSelection
 } from './ordinary-window-decision.js';
 export {
   type OrdinaryWindowDecisionKey,
@@ -172,14 +173,12 @@ export function matchingOrdinaryWindowRevocation(store: Store, packet: OrdinaryW
 }
 
 export function publishOrdinaryWindowEmissionControl(store: Store, key: OrdinaryWindowDecisionKey & { readonly projectRoot?: string }, at: string) {
-  const status = ordinaryWindowDecisionStatus(store, key, at);
   const project = store.get<{ local_root: string | null }>('SELECT local_root FROM projects WHERE id=?', [key.project_id]);
   const projectRoot = project?.local_root ?? key.projectRoot;
   if (!projectRoot) {
     throw new Error('binding_window_control_unavailable');
   }
-  const state =
-    status.state === 'recorded' && (status.decision?.decision_kind !== 'trial' || status.decision.trial_project_root === projectRoot) ? 'active' : 'inactive';
+  const state = ordinaryWindowEmissionEligible(store, key, projectRoot, at) ? 'active' : 'inactive';
   const control: OrdinaryWindowEmissionControl = {
     schemaVersion: 1,
     projectRoot: projectRoot,
@@ -203,6 +202,11 @@ export function publishOrdinaryWindowEmissionControl(store: Store, key: Ordinary
     state,
     runtime_authority: false
   };
+}
+
+export function queueTaskOrdinaryWindowEmissionControl(store: Store, taskId: string): void {
+  const selection = ordinaryWindowSelection(store, taskId);
+  if (selection) queueOrdinaryWindowEmissionControl(store, ordinaryWindowDecisionKeyForSelection(selection));
 }
 
 export function queueOrdinaryWindowEmissionControl(store: Store, key: OrdinaryWindowDecisionKey, capturedRoot?: string): void {

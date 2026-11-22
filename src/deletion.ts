@@ -44,8 +44,14 @@ export class Deletion {
         if (!task) throw new Error('unknown_task');
         const decisions = this.store.all<OrdinaryWindowDecisionKey & { local_root: string | null }>(
           `SELECT a.project_id,a.product,a.source,a.policy_id,a.policy_revision,a.policy_digest,a.evidence_mode,p.local_root
-          FROM ordinary_window_activations a JOIN projects p ON p.id=a.project_id WHERE a.trial_task_id=?`,
-          [taskId]
+          FROM ordinary_window_activations a JOIN projects p ON p.id=a.project_id
+          LEFT JOIN ordinary_window_selections w ON w.task_id=?
+          WHERE a.trial_task_id=? OR (a.decision_kind='product' AND a.project_id=?
+          AND a.project_id=json_extract(w.selection,'$.projectId') AND a.product=json_extract(w.selection,'$.policy.product')
+          AND a.source=json_extract(w.selection,'$.policy.source') AND a.policy_id=json_extract(w.selection,'$.policy.policyId')
+          AND a.policy_revision=json_extract(w.selection,'$.policy.ruleRevision') AND a.policy_digest=json_extract(w.selection,'$.policyDigest')
+          AND a.evidence_mode=json_extract(w.selection,'$.policy.evidenceMode'))`,
+          [taskId, taskId, task.project_id]
         );
         clearTaskOrdinaryWindowArming(this.store, taskId);
         queueWebMetadataCleanup(this.store, 'task', taskId, task.project_id);

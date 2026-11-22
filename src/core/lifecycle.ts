@@ -12,6 +12,7 @@ import { authorizeCandidateScope } from '../nested-candidate.js';
 import { revokeOtelProcesses } from '../sources/otel-journal.js';
 import { recordInFlightWorkflowGaps, recordObservationGap } from './runtime-history.js';
 import { clearTaskOrdinaryWindowArming } from './ordinary-window-trial.js';
+import { queueTaskOrdinaryWindowEmissionControl } from './ordinary-window-activation.js';
 
 export type TaskState = 'registered' | 'active' | 'paused' | 'finalized';
 export type Outcome = 'success' | 'failed' | 'aborted';
@@ -121,6 +122,7 @@ export class Lifecycle {
         revokeOtelProcesses(this.store, taskId, 'pause', now);
         this.store.execute('UPDATE active_intervals SET ended_at = ? WHERE task_id = ? AND ended_at IS NULL', [now, taskId]);
       }
+      if (from !== 'registered') queueTaskOrdinaryWindowEmissionControl(this.store, taskId);
     });
   }
 
@@ -230,6 +232,7 @@ export class Lifecycle {
       ]);
       this.store.execute('UPDATE active_intervals SET ended_at = ? WHERE task_id = ? AND ended_at IS NULL', [now, taskId]);
       this.store.execute('UPDATE attempts SET ended_at = ? WHERE task_id = ? AND ended_at IS NULL', [now, taskId]);
+      queueTaskOrdinaryWindowEmissionControl(this.store, taskId);
     });
   }
 
