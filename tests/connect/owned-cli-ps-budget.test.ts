@@ -119,11 +119,29 @@ function runOwner(budgetJson: string | undefined, field: 'psQueryBudgetMs' | 'pg
 }
 
 for (const query of [
-  { name: 'ps', field: 'psQueryBudgetMs', selected: 'psTimeouts', other: 'pgrepTimeouts', error: 'invalid_ps_query_budget', status: 1 },
-  { name: 'pgrep', field: 'pgrepQueryBudgetMs', selected: 'pgrepTimeouts', other: 'psTimeouts', error: 'invalid_pgrep_query_budget', status: 2 }
+  {
+    name: 'ps',
+    field: 'psQueryBudgetMs',
+    selected: 'psTimeouts',
+    other: 'pgrepTimeouts',
+    defaultSeconds: 0.5,
+    otherSeconds: 0.5,
+    error: 'invalid_ps_query_budget',
+    status: 1
+  },
+  {
+    name: 'pgrep',
+    field: 'pgrepQueryBudgetMs',
+    selected: 'pgrepTimeouts',
+    other: 'psTimeouts',
+    defaultSeconds: 0.5,
+    otherSeconds: 0.5,
+    error: 'invalid_pgrep_query_budget',
+    status: 2
+  }
 ] as const) {
   test.each([
-    { name: 'absent default', budgetJson: undefined, expectedSeconds: 0.2 },
+    { name: 'absent default', budgetJson: undefined, expectedSeconds: query.defaultSeconds },
     { name: 'inclusive lower bound', budgetJson: '200', expectedSeconds: 0.2 },
     { name: 'fractional override', budgetJson: '450.5', expectedSeconds: 0.4505 },
     { name: 'inclusive upper override', budgetJson: '1000', expectedSeconds: 1 }
@@ -136,9 +154,9 @@ for (const query of [
       expect(result.diagnostics).toEqual([]);
       expect(result.observation).toMatchObject({ forks: 1, ready: true });
       expect(result.observation[query.selected][0]).toBe(expectedSeconds);
-      expect(result.observation[query.other][0]).toBe(0.2);
+      expect(result.observation[query.other][0]).toBe(query.otherSeconds);
       for (const timeout of result.observation[query.selected]) expect(timeout).toBeLessThanOrEqual(expectedSeconds);
-      for (const timeout of result.observation[query.other]) expect(timeout).toBeLessThanOrEqual(0.2);
+      for (const timeout of result.observation[query.other]) expect(timeout).toBeLessThanOrEqual(query.otherSeconds);
       expect(result.result).toMatchObject({
         status: 'stopped',
         exitCode: -15,

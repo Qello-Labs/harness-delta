@@ -17,11 +17,11 @@ import termios
 import time
 
 cfg = json.loads(sys.argv[1])
-ps_query_budget_ms = cfg.get('psQueryBudgetMs', 200)
+ps_query_budget_ms = cfg.get('psQueryBudgetMs', 500)
 if type(ps_query_budget_ms) not in (int, float) or not 200 <= ps_query_budget_ms <= 1000:
     sys.exit('invalid_ps_query_budget')
 ps_query_timeout = ps_query_budget_ms / 1000
-pgrep_query_budget_ms = cfg.get('pgrepQueryBudgetMs', 200)
+pgrep_query_budget_ms = cfg.get('pgrepQueryBudgetMs', 500)
 if type(pgrep_query_budget_ms) not in (int, float) or not 200 <= pgrep_query_budget_ms <= 1000:
     sys.stderr.write('invalid_pgrep_query_budget\n')
     sys.exit(2)
@@ -47,11 +47,18 @@ def emit(value):
     sys.stderr.write(json.dumps(value) + '\n')
     sys.stderr.flush()
 
+class ActiveDeadlineReached(Exception):
+    """Yield to cleanup without recording an incomplete ownership observation."""
+
 def metadata(pid, missing=None):
     global cleanup_exhausted, ownership_failed
     try:
-        timeout = ps_query_timeout if cleanup_until is None else min(ps_query_timeout, cleanup_until - time.monotonic())
+        remaining = (deadline if cleanup_until is None else cleanup_until) - time.monotonic()
+        timeout = min(ps_query_timeout, remaining)
         if timeout <= 0:
+            if cleanup_until is None:
+                raise ActiveDeadlineReached()
+            ownership_failed = True
             cleanup_exhausted = True
             return None
         text = subprocess.check_output(['ps', '-o', 'pid=,ppid=,pgid=,uid=,lstart=', '-p', str(pid)], env=ps_env, timeout=timeout, stderr=subprocess.DEVNULL).decode().strip().split(None, 4)
@@ -60,10 +67,17 @@ def metadata(pid, missing=None):
             if cleanup_until is not None:
                 cleanup_exhausted = True
             return None
-        return (int(text[0]), int(text[1]), int(text[2]), int(text[3]), text[4])
+        current = (int(text[0]), int(text[1]), int(text[2]), int(text[3]), text[4])
+        if cleanup_until is None and time.monotonic() >= deadline:
+            raise ActiveDeadlineReached()
+        return current
     except (OSError, subprocess.SubprocessError, ValueError) as error:
+        if cleanup_until is None and isinstance(error, subprocess.TimeoutExpired) and remaining <= ps_query_timeout and time.monotonic() >= deadline:
+            raise ActiveDeadlineReached() from error
         # ps exit 1 means the exact PID is absent; timeout/query failure does not.
         if isinstance(error, subprocess.CalledProcessError) and error.returncode == 1:
+            if cleanup_until is None and time.monotonic() >= deadline:
+                raise ActiveDeadlineReached() from error
             if pid in known:
                 absent.add(pid)
             if missing is not None:
@@ -126,14 +140,21 @@ def discover():
             known[record[0]] = current
             escape_seen = escape_seen or current[2] != pid
         try:
-            timeout = pgrep_query_timeout if cleanup_until is None else min(pgrep_query_timeout, cleanup_until - time.monotonic())
+            remaining = (deadline if cleanup_until is None else cleanup_until) - time.monotonic()
+            timeout = min(pgrep_query_timeout, remaining)
             if timeout <= 0:
+                if cleanup_until is None:
+                    raise ActiveDeadlineReached()
                 return False
             query = subprocess.run(['pgrep', '-P', str(record[0])], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=timeout, check=False)
             if query.returncode not in (0, 1):
                 return False
-            children = query.stdout.split()
-        except (OSError, subprocess.SubprocessError):
+            children = [int(child) for child in query.stdout.split()]
+            if cleanup_until is None and time.monotonic() >= deadline:
+                raise ActiveDeadlineReached()
+        except (OSError, subprocess.SubprocessError) as error:
+            if cleanup_until is None and isinstance(error, subprocess.TimeoutExpired) and remaining <= pgrep_query_timeout and time.monotonic() >= deadline:
+                raise ActiveDeadlineReached() from error
             return False
         if cleanup_until is not None:
             # No admission or signal follows a no-children result. Do not resample
@@ -189,8 +210,11 @@ def verified_group_members(group):
     """Scoped membership only. A group number alone never authorizes a signal."""
     global ownership_failed
     try:
-        timeout = pgrep_query_timeout if cleanup_until is None else min(pgrep_query_timeout, cleanup_until - time.monotonic())
+        remaining = (deadline if cleanup_until is None else cleanup_until) - time.monotonic()
+        timeout = min(pgrep_query_timeout, remaining)
         if timeout <= 0:
+            if cleanup_until is None:
+                raise ActiveDeadlineReached()
             raise TimeoutError()
         query = subprocess.run(['pgrep', '-g', str(group)], stdout=subprocess.PIPE,
                                stderr=subprocess.DEVNULL, timeout=timeout, check=False)
@@ -200,6 +224,8 @@ def verified_group_members(group):
         member_ids = {int(value) for value in query.stdout.split()}
         if len(member_ids) > 32 or query.returncode == 0 and not member_ids:
             raise ValueError()
+        if cleanup_until is None and time.monotonic() >= deadline:
+            raise ActiveDeadlineReached()
         if not member_ids:
             return {}
         # Leader identity is sampled last, immediately before group authorization.
@@ -213,15 +239,22 @@ def verified_group_members(group):
             note_group_change(record, current)
             known[member] = current
             members[member] = current
-        timeout = pgrep_query_timeout if cleanup_until is None else min(pgrep_query_timeout, cleanup_until - time.monotonic())
+        remaining = (deadline if cleanup_until is None else cleanup_until) - time.monotonic()
+        timeout = min(pgrep_query_timeout, remaining)
         if timeout <= 0:
+            if cleanup_until is None:
+                raise ActiveDeadlineReached()
             raise TimeoutError()
         after = subprocess.run(['pgrep', '-g', str(group)], stdout=subprocess.PIPE,
                                stderr=subprocess.DEVNULL, timeout=timeout, check=False)
         if after.returncode not in (0, 1) or after.returncode == 1 and after.stdout or {int(value) for value in after.stdout.split()} != member_ids:
             raise ValueError()
+        if cleanup_until is None and time.monotonic() >= deadline:
+            raise ActiveDeadlineReached()
         return members
-    except (OSError, subprocess.SubprocessError, ValueError):
+    except (OSError, subprocess.SubprocessError, ValueError) as error:
+        if cleanup_until is None and isinstance(error, subprocess.TimeoutExpired) and remaining <= pgrep_query_timeout and time.monotonic() >= deadline:
+            raise ActiveDeadlineReached() from error
         ownership_failed = True
         return None
 
@@ -298,6 +331,9 @@ try:
             except OSError as error:
                 if error.errno != errno.EIO:
                     raise
+except ActiveDeadlineReached:
+    status = 'timed_out'
+    termination_cause = 'deadline'
 except BaseException:
     status = 'failed'
     termination_cause = 'owner_error'

@@ -1513,6 +1513,40 @@ test('an unlinked owner reaching its fixed deadline reports timeout separately f
     f.cleanup();
   }
 }, 5000);
+test('an unlinked deadline with unverified termination preserves timeout evidence without reporting observer failure', async () => {
+  const f = fixture('deadline-before-connect');
+  const spawned = vi.spyOn(OwnedCliInvocation.prototype, 'hasSpawned').mockReturnValue(true);
+  const run = vi.spyOn(OwnedCliInvocation.prototype, 'run').mockResolvedValue({
+    status: 'failed',
+    pid: 42,
+    exitCode: -15,
+    terminationVerified: false,
+    ownershipVerified: false,
+    controllingTerminal: true,
+    escapedMemberObserved: false,
+    ownedMembers: 1,
+    terminationCause: 'deadline',
+    groupChanges: [],
+    groupChangesTruncated: false
+  });
+  try {
+    const p = await prepareCodexSessionBindingQualification(f.dir, { binary: realpathSync(process.execPath), codexHome: f.home }, f.dependency);
+    const result = await executeCodexSessionBindingQualification(p.intentPath, consent(p.sha256), f.dependency);
+    expect(result, JSON.stringify(result)).toMatchObject({
+      status: 'failed',
+      reason: 'owned_cli_termination_unverified',
+      safety_usage_verification: 'unverified',
+      native: { terminationVerified: false, ownershipVerified: false, terminationCause: 'deadline' },
+      binding: { roots: 0, children: 0, requests: 0 },
+      independent_source_check: null
+    });
+    expect(result.observer_stop_reason).not.toBe('binding_qualification_observer_failed');
+  } finally {
+    run.mockRestore();
+    spawned.mockRestore();
+    f.cleanup();
+  }
+}, 5000);
 test('one ordinary fixture connects through real helper/server, inherits two direct children without child connect, records native product separately, verifies shutdown and independent counters', async () => {
   const f = fixture();
   try {

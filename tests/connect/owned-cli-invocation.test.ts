@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, watch, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawn, execFileSync } from 'node:child_process';
@@ -196,50 +196,105 @@ finally:
   }
 }, 12000);
 
-for (const mode of ['abort', 'root-exit', 'deadline'] as const)
-  test(`owned CLI ${mode} stops an ignoring descendant and verifies the group is gone`, async () => {
+for (const mode of ['abort', 'root-exit', 'deadline', 'forced-cut'] as const)
+  test(`owned CLI ${mode} stops an ignoring descendant and verifies teardown`, async () => {
     const dir = realpathSync(mkdtempSync(join(tmpdir(), 'owned-cli-fixture-')));
+    let rootPid: number | undefined;
+    let readiness: ReturnType<typeof watch> | undefined;
     try {
       const pidFile = join(dir, 'child.pid');
-      const script = join(dir, 'worker.mjs');
+      const cutFile = join(dir, 'cut.json');
+      const script = join(dir, 'worker.py');
       writeFileSync(
         script,
-        `import{spawn}from'node:child_process';import{writeFileSync}from'node:fs';const c=spawn(process.execPath,['-e',"process.on('SIGTERM',()=>{});setInterval(()=>{},1000)"],{stdio:'ignore'});writeFileSync(${JSON.stringify(pidFile)},String(c.pid));${mode === 'root-exit' ? 'setTimeout(()=>process.exit(0),100);' : 'setInterval(()=>{},1000);'}`
+        `import os,signal,sys
+signal.signal(signal.SIGTERM,signal.SIG_IGN)
+child=os.fork()
+if child==0:
+ while True:
+  signal.pause()
+signal.signal(signal.SIGTERM,signal.SIG_DFL)
+with open(${JSON.stringify(pidFile + '.tmp')},'w') as marker:
+ marker.write(str(child))
+os.replace(${JSON.stringify(pidFile + '.tmp')},${JSON.stringify(pidFile)})
+${mode === 'root-exit' ? 'signal.signal(signal.SIGALRM,lambda *_:sys.exit(0))\nsignal.setitimer(signal.ITIMER_REAL,.1)' : ''}
+while True:
+ signal.pause()
+`
       );
+      const python = join(dir, 'deadline-python');
+      if (mode === 'forced-cut')
+        // A real descendant must exist before synthetic time interrupts discovery.
+        writeFileSync(
+          python,
+          `#!${OwnedCliInvocation.pythonExecutable()}
+import json,os,runpy,subprocess,sys,time
+original_clock=time.monotonic
+original_run=subprocess.run
+cutoff=None
+duration=json.loads(sys.argv[2])['durationMs']/1000
+def clock():
+ return (100+duration-.125 if os.path.exists(${JSON.stringify(pidFile)}) else 100) if cutoff is None else 100+duration+original_clock()-cutoff
+def query(args,**kwargs):
+ global cutoff
+ result=original_run(args,**kwargs)
+ if cutoff is None and args[0]=='pgrep' and args[1]=='-P' and result.stdout.strip() and os.path.exists(${JSON.stringify(pidFile)}) and kwargs['timeout']<.5:
+  cutoff=original_clock()
+  with open(${JSON.stringify(cutFile)},'w') as marker:
+   json.dump({'timeout':kwargs['timeout']},marker)
+  raise subprocess.TimeoutExpired(args,kwargs['timeout'])
+ return result
+time.monotonic=clock
+subprocess.run=query
+sys.argv=sys.argv[1:]
+runpy.run_path(sys.argv[0],run_name='__main__')
+`,
+          { mode: 0o700 }
+        );
+      const publication = new EventEmitter();
+      readiness =
+        mode === 'forced-cut'
+          ? undefined
+          : watch(dir, (_, filename) => {
+              if (filename === 'child.pid') publication.emit('ready');
+            });
+      const ready = readiness ? once(publication, 'ready', { signal: AbortSignal.timeout(4000) }) : undefined;
       const owner = new OwnedCliInvocation({
-        command: realpathSync(process.execPath),
+        command: OwnedCliInvocation.pythonExecutable(),
         args: [script],
         cwd: dir,
         durationMs: mode === 'deadline' ? 300 : 3000,
         terminationMs: 1500,
         termGraceMs: 100,
-        stdio: 'ignore'
+        stdio: 'ignore',
+        ...(mode === 'forced-cut' ? { pythonExecutable: python } : {})
       });
       const controller = new AbortController();
-      const resultPromise = owner.run(controller.signal);
-      await expect
-        .poll(
-          () => {
-            try {
-              return Number(readFileSync(pidFile, 'utf8')) > 0;
-            } catch {
-              return false;
-            }
-          },
-          { timeout: 1500 }
-        )
-        .toBe(true);
+      const resultPromise = owner.run(controller.signal).then(result => {
+        rootPid = result.pid;
+        return result;
+      });
+      if (ready) await ready;
       if (mode === 'abort') controller.abort();
       const result = await resultPromise;
-      expect(result.terminationVerified).toBe(true);
+      if (mode === 'forced-cut') expect(JSON.parse(readFileSync(cutFile, 'utf8'))).toEqual({ timeout: 0.125 });
+      expect(Number(readFileSync(pidFile, 'utf8'))).toBeGreaterThan(0);
+      expect(result, JSON.stringify(result)).toMatchObject({ terminationVerified: true, ownershipVerified: true });
       expect(owner.isAlive()).toBe(false);
       expect(() => process.kill(-result.pid, 0)).toThrow();
-      expect(result.status).toBe(mode === 'deadline' ? 'timed_out' : mode === 'abort' ? 'stopped' : 'completed');
-      expect(result.terminationCause).toBe(mode === 'deadline' ? 'deadline' : mode === 'abort' ? 'control' : 'root_exit');
+      expect(result.status).toBe(mode === 'deadline' || mode === 'forced-cut' ? 'timed_out' : mode === 'abort' ? 'stopped' : 'completed');
+      expect(result.terminationCause).toBe(mode === 'deadline' || mode === 'forced-cut' ? 'deadline' : mode === 'abort' ? 'control' : 'root_exit');
       expect(result.groupChanges).toEqual([]);
       expect(result.groupChangesTruncated).toBe(false);
       await expect(owner.run()).rejects.toThrow('owned_cli_already_started');
     } finally {
+      readiness?.close();
+      if (rootPid)
+        try {
+          process.kill(-rootPid, 'SIGKILL');
+        } catch (error) {
+          expect(error).toMatchObject({ code: 'ESRCH' });
+        }
       rmSync(dir, { recursive: true, force: true });
     }
   }, 5000);
@@ -416,6 +471,7 @@ for returncode,expired in [(0,False),(1,False),(2,False),(0,True)]:
   calls.append(1);return types.SimpleNamespace(returncode=returncode,stdout=b'')
  ns={'known':{42:record},'absent':set(),'proofs':{42:None},'pid':42,'uid':501,'escape_seen':False,'ownership_failed':False,'cleanup_until':time.monotonic()-1 if expired else None,'metadata':lambda pid:record,'identity_matches':lambda a,b:a==b,'note_group_change':lambda *args:None,'time':time,'subprocess':types.SimpleNamespace(run=run,SubprocessError=Exception,PIPE=-1,DEVNULL=-3)}
  ns['pgrep_query_timeout']=.2
+ ns['deadline']=time.monotonic()+60
  exec(compile(ast.Module(body=[fn],type_ignores=[]),'<synthetic discovery>','exec'),ns)
  out.append({'returncode':returncode,'expired':expired,'coverage':ns['discover'](),'queries':len(calls)})
 print(json.dumps(out))`;
@@ -450,9 +506,10 @@ for outcome in ['absent','live','timeout','malformed','reused_parent','query_err
   return ('%d %d %d %d %s'%(child if value=='live' else value)).encode()
  def run(args,**kwargs):
   return types.SimpleNamespace(returncode=0,stdout={42:b'43',43:b'44'}[int(args[-1])])
- ns={'known':{42:root,43:parent},'proofs':{42:None,43:root},'absent':set(),'pid':42,'uid':501,'escape_seen':False,'ownership_failed':False,'cleanup_exhausted':False,'cleanup_until':None,'ps_env':{},'note_group_change':lambda *args:None,'time':types.SimpleNamespace(monotonic=lambda:100),'subprocess':types.SimpleNamespace(check_output=check_output,run=run,PIPE=-1,DEVNULL=-3,CalledProcessError=subprocess.CalledProcessError,SubprocessError=subprocess.SubprocessError)}
+ ns={'known':{42:root,43:parent},'proofs':{42:None,43:root},'absent':set(),'pid':42,'uid':501,'escape_seen':False,'ownership_failed':False,'cleanup_exhausted':False,'cleanup_until':None,'ps_env':{},'note_group_change':lambda *args:None,'time':types.SimpleNamespace(monotonic=lambda:100),'subprocess':types.SimpleNamespace(check_output=check_output,run=run,PIPE=-1,DEVNULL=-3,CalledProcessError=subprocess.CalledProcessError,TimeoutExpired=subprocess.TimeoutExpired,SubprocessError=subprocess.SubprocessError)}
  ns['ps_query_timeout']=.2
  ns['pgrep_query_timeout']=.2
+ ns['deadline']=101
  exec(compile(ast.Module(body=functions,type_ignores=[]),'<synthetic transient discovery>','exec'),ns)
  covered=ns['discover']()
  out.append({'outcome':outcome,'coverage':covered,'failed':ns['ownership_failed'],'members':sorted(ns['known']),'proofs':sorted(ns['proofs']),'absent':sorted(ns['absent']),'calls':calls})
@@ -802,7 +859,7 @@ test('a previously proved descendant that later changes PGID remains owned throu
 
 test('group signals require every sampled member identity to be proved; foreign, conflicting and failed queries reject', () => {
   // Only the group-check function, with synthetic PID metadata; no real ps/signals.
-  const code = `import ast,json,sys,types
+  const code = `import ast,json,sys,types,subprocess
 tree=ast.parse(open(sys.argv[1]).read());fn=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='verified_group_members')
 out=[]
 for case in ['proved','leaderless','foreign','identity_conflict','wrong_group','query_failure','missing_proof','absent_identity','membership_change','malformed_recheck']:
@@ -816,8 +873,9 @@ for case in ['proved','leaderless','foreign','identity_conflict','wrong_group','
  calls=[]
  def run(*args,**kwargs):
   calls.append(1);return types.SimpleNamespace(returncode=2 if case=='query_failure' else 1 if case=='malformed_recheck' and len(calls)>1 else 0,stdout=ids+b' 99' if case=='membership_change' and len(calls)>1 else ids)
- ns={'known':known,'absent':{43} if case=='absent_identity' else set(),'proofs':proofs,'pid':42,'uid':501,'cleanup_until':None,'metadata':lambda p:records.get(p),'identity_matches':lambda a,b:b is not None and a[0]==b[0] and a[3:]==b[3:],'note_group_change':lambda *args:None,'ownership_failed':False,'time':__import__('time'),'subprocess':types.SimpleNamespace(run=run,PIPE=-1,DEVNULL=-3,SubprocessError=Exception)}
+ ns={'known':known,'absent':{43} if case=='absent_identity' else set(),'proofs':proofs,'pid':42,'uid':501,'cleanup_until':None,'metadata':lambda p:records.get(p),'identity_matches':lambda a,b:b is not None and a[0]==b[0] and a[3:]==b[3:],'note_group_change':lambda *args:None,'ownership_failed':False,'time':__import__('time'),'subprocess':types.SimpleNamespace(run=run,PIPE=-1,DEVNULL=-3,TimeoutExpired=subprocess.TimeoutExpired,SubprocessError=subprocess.SubprocessError)}
  ns['pgrep_query_timeout']=.2
+ ns['deadline']=ns['time'].monotonic()+60
  exec(compile(ast.Module(body=[fn],type_ignores=[]),'<synthetic group proof>','exec'),ns)
  result=ns['verified_group_members'](42)
  out.append({'case':case,'members':None if result is None else sorted(result),'failed':ns['ownership_failed']})
@@ -861,6 +919,7 @@ def metadata(p):
  calls.append(p);return child if p==43 else parent if calls.count(42)==1 else (42,1,42,501,'reused parent')
 ns={'known':{42:parent},'absent':set(),'proofs':{42:None},'pid':42,'uid':501,'escape_seen':False,'ownership_failed':False,'cleanup_until':None,'metadata':metadata,'identity_matches':lambda a,b:b is not None and a[0]==b[0] and a[3:]==b[3:],'note_group_change':lambda *a:None,'time':time,'subprocess':types.SimpleNamespace(run=lambda *a,**k:types.SimpleNamespace(returncode=0,stdout=b'43'),SubprocessError=Exception,PIPE=-1,DEVNULL=-3)}
 ns['pgrep_query_timeout']=.2
+ns['deadline']=time.monotonic()+60
 exec(compile(ast.Module(body=[discover],type_ignores=[]),'<synthetic ancestry>','exec'),ns);covered=ns['discover']()
 signals=[];group_signals=[]
 ns.update({'known':{42:parent,43:child},'groups':{42,43},'root_exit':None,'metadata':lambda p:parent if p==42 else (43,42,43,501,'reused child'),'verified_group_members':lambda g:None,'os':types.SimpleNamespace(kill=lambda p,s:signals.append(p),killpg=lambda g,s:group_signals.append(g)),'reap':lambda:None})
