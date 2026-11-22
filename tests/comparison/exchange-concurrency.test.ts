@@ -61,7 +61,7 @@ for (const first of ['import', 'delete', 'project'])
       db.immediateTransaction(() => {
         Atomics.store(flags, 0, 1);
         Atomics.notify(flags, 0);
-        Atomics.wait(flags, 1, 0, 1000);
+        expect(Atomics.wait(flags, 1, 0, 1000), 'exchange worker did not acknowledge the transaction within 1000 ms').not.toBe('timed-out');
         if (first === 'import') importExchangePackage(db!, pair.pkg, 'destination', () => receivedAt);
         else if (first === 'delete')
           deleteImportedTask(db!, { local_project_id: 'destination', shared_project_id: sharedProjectId, task_id: 'task-1' }, () => receivedAt);
