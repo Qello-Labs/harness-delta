@@ -7,7 +7,7 @@ import { readOrdinaryWindowControl } from '../src/core/ordinary-window-control.j
 import { ordinaryWindowSelection } from '../src/core/ordinary-window-store.js';
 import { Deletion } from '../src/deletion.js';
 import { createOrdinaryWindowTask } from '../src/ordinary-observation.js';
-import { publishOrdinaryWindowEmissionControl } from '../src/ordinary-window-emission.js';
+import { publishOrdinaryWindowEmissionControl, withOrdinaryWindowReconciliation } from '../src/ordinary-window-emission.js';
 import { ordinaryWindowFixture } from './helpers/ordinary-window-fixture.js';
 import { windowDecisionPacket, windowTrialPacket } from './helpers/ordinary-window-decision-fixture.js';
 
@@ -66,8 +66,9 @@ afterEach(() => {
 
 test.each(cases)('$product $operation deletion closes a cascaded trial decision', ({ product, operation }) => {
   const f = fixture(product);
-  f.prepare(operation);
   expect(f.control()?.state).toBe('active');
+  f.prepare(operation);
+  if (operation === 'retention') expect(f.control()?.state).toBe('inactive');
 
   const deleted = f.remove(operation);
 
@@ -77,16 +78,23 @@ test.each(cases)('$product $operation deletion closes a cascaded trial decision'
   expect(f.control()?.state).toBe('inactive');
 });
 
-test.each(products)('%s task deletion is unaffected by control write failure for a surviving product decision', product => {
+test.each(products)('%s final task deletion reports a committed publication failure for a surviving product decision', async product => {
   const f = fixture(product, 'product');
   vi.mocked(renameSync).mockImplementation(() => {
     throw new Error('synthetic_control_write_failure');
   });
 
-  expect(() => f.deletion.deleteTask(f.taskId)).not.toThrow();
+  expect(() => f.deletion.deleteTask(f.taskId)).toThrow('binding_window_control_unavailable');
 
   expect(f.store.get('SELECT decision_kind,revoked_at FROM ordinary_window_activations')).toEqual({ decision_kind: 'product', revoked_at: null });
+  expect(f.deletion.isDeleted('task', f.taskId)).toBe(true);
   expect(f.control()?.state).toBe('active');
+  const native = await vi.importActual<typeof import('node:fs')>('node:fs');
+  vi.mocked(renameSync).mockImplementation(native.renameSync);
+
+  withOrdinaryWindowReconciliation(f.store, { projectId: 'project', product, clock: f.clock }, () => undefined);
+
+  expect(f.control()?.state).toBe('inactive');
 });
 
 test.each(products)('%s project deletion closes a product decision with no remaining tasks', product => {
@@ -120,10 +128,10 @@ test('project deletion closes both products when their product decisions have no
 
 test.each(cases)('$product $operation nested deletion waits for the actual outer commit', ({ product, operation }) => {
   const f = fixture(product);
-  f.prepare(operation);
   vi.clearAllMocks();
 
   f.store.transaction(() => {
+    f.prepare(operation);
     f.remove(operation);
     expect(f.control()?.state).toBe('active');
   });
@@ -133,12 +141,12 @@ test.each(cases)('$product $operation nested deletion waits for the actual outer
 
 test.each(cases)('$product $operation rollback discards nested deletion publication', ({ product, operation }) => {
   const f = fixture(product);
-  f.prepare(operation);
   vi.clearAllMocks();
 
   f.store.transaction(() => {
     expect(() =>
       f.store.immediateTransaction(() => {
+        f.prepare(operation);
         f.remove(operation);
         throw new Error('synthetic_rollback');
       })
@@ -152,12 +160,16 @@ test.each(cases)('$product $operation rollback discards nested deletion publicat
 
 test.each(cases)('$product $operation control write failure reports committed deletion', ({ product, operation }) => {
   const f = fixture(product);
-  f.prepare(operation);
   vi.mocked(renameSync).mockImplementation(() => {
     throw new Error('synthetic_control_write_failure');
   });
 
-  expect(() => f.remove(operation)).toThrow('binding_window_control_unavailable');
+  expect(() =>
+    f.store.transaction(() => {
+      f.prepare(operation);
+      f.remove(operation);
+    })
+  ).toThrow('binding_window_control_unavailable');
 
   expect(f.store.all('SELECT * FROM ordinary_window_activations')).toEqual([]);
   expect(f.deletion.isDeleted('task', f.taskId)).toBe(true);

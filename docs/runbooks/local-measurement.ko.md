@@ -219,22 +219,36 @@ backfill은 하지 않습니다. root-source 관측은 root 소유 사용량이
 `revoke <packet-file>`은 유지보수자의 결정을 기록하며 실행이나 native 증거가 아닙니다.
 제품 활성화에는 별도 승인이 필요하고 이 안내는 그 승인을 부여하지 않습니다.
 
-trial 자동 종료, 명시적 revoke와 작업·프로젝트 삭제는 트랜잭션이 끝난 뒤
-emission control을 다시 발행합니다. 쓰기 실패나 commit과 발행 사이의 중단으로
-결정이 철회되거나 없어져도 파일은 `active`로 남을 수 있습니다. DB의 철회는
-유지되며 connect와 collect는 계속 닫혀 있습니다. 보고되는 경로의
+emission control은 결정이 `recorded`이고 유효하며 일치하는 준비된 작업 하나 이상이
+그 결정을 사용할 때만 `active`입니다. 그 작업은 `registered` 또는 `active` 상태이고,
+수집이 철회되지 않았으며, 작업과 프로젝트 범위가 live이고, comparison assignment로
+제외되지 않아야 합니다. trial이면 일치하는 trial root를 가진 trial 작업이어야 합니다.
+그 외에는 살아남은 유효한 `receipt_only` arming을 제외하고 `inactive`입니다.
+작업 일시 정지, 종료와 수집 철회는 결정 행을 바꾸지 않지만, 다른 적격 작업이 그
+결정을 계속 사용하지 않으면 emission을 닫습니다. 마지막 적격 작업을 삭제해도 같은
+방식으로 닫힙니다. 재개는 규칙이 허용하면 emission을 다시 엽니다. 일치하는 대체
+작업을 준비해도 가장 바깥 트랜잭션의 commit 후에 다시 발행하므로, 유지된 recorded
+결정 아래에서 작업 시작 전에 emission을 다시 엽니다. 수집 복원 명령은 없습니다.
+
+trial 자동 종료, 명시적 revoke, 작업 일시 정지·재개·종료, 수집 철회와
+작업·프로젝트 삭제는 트랜잭션이 끝난 뒤 emission control을 다시 발행합니다.
+쓰기 실패나 commit과 발행 사이의 중단으로 결정이 철회되거나 없어지거나 적격 작업이
+없어도 파일은 `active`로 남을 수 있습니다. commit된 작업과 결정 상태는 그대로
+유지되며, 그 상태가 닫는 connect와 collect는 계속 닫혀 있습니다. 보고되는 경로의
 `binding_window_control_unavailable`을 포함한 기존 오류 규칙을 유지하고,
 복구 실패가 작업 자체의 결과나 오류를 대체하지 않습니다.
+거부된 Codex lifecycle 또는 null-source root에서는 일시 정지 발행이 실패해도
+`binding_fresh_root_required`를 대체하지 않으며, 일시 정지는 commit된 채 유지됩니다.
 
 다음 connect, collect, window-control 또는 ordinary-window status 접촉은
-현재 결정이 `recorded`가 아닌데 파일이 `active`인 control의 복구를 시도합니다.
-결정이 없거나 `expired`, `budget_exhausted`인 경우도 포함하며, live 프로젝트 메타데이터나 작업에 명시적으로
+현재 결정이 `recorded`가 아니거나 적격 작업이 없는데 파일이 `active`인 control의
+복구를 시도합니다. 결정이 없거나 `expired`, `budget_exhausted`인 경우도 포함하며, live 프로젝트 메타데이터나 작업에 명시적으로
 전달된 root를 사용할 수 있어야 합니다. 복구는 작업이 거부된 경우에도 Store
 트랜잭션 밖에서만 실행하며, 열린 트랜잭션 안의 접촉은 대기열에 넣지 않고
 복구를 건너뜁니다. 백그라운드 재시도는 없습니다. 같은 DB의 같은 root/product와
-control policy에 live 프로젝트 하나라도 recorded 결정이 있으면 복구는 쓰지 않습니다.
+control policy에 live 프로젝트 하나라도 적격 작업이 사용하는 recorded 결정이 있으면 복구는 쓰지 않습니다.
 일치하는 control은 쓰지 않습니다.
-발행 시 현재 결정을 다시 읽으므로 더 새로운 recorded 활성화와 살아남은 작업의
+발행 시 현재 결정과 작업 적격 여부를 다시 읽으므로 더 새로운 적격 recorded 활성화와 살아남은 작업의
 유효한 `receipt_only` arming을 보존합니다. CLI `status <task-id>`, `--decision`,
 `--arming`에는 `emission_control_stale`이 추가됩니다. 복구 시도 후 control을
 설명하는 boolean이며 여전히 오래된 상태이면 `true`, 아니면 `false`이고,
@@ -252,7 +266,7 @@ root/product의 복구를 시도하는 root 보유 접촉이 됩니다. 이는 �
 적용하며 내부 qualification 등록에는 적용하지 않습니다.
 trial 만료나 예산 소진 뒤의 status 또는 web GET 접촉은 결정을 철회하거나 DB 행을
 바꾸지 않고 emission을 닫습니다. 접촉 없이 시간만 지난 만료는 여전히 복구하지
-않습니다. 작업 일시 정지·종료와 수집 철회에는 이 복구로 결정 철회 동작이 추가되지
+않습니다. 작업 일시 정지·종료와 수집 철회는 emission을 닫지만 결정을 철회하지는
 않습니다.
 
 별도 승인된 Codex 또는 Claude 일반 창 trial에서는 먼저 작업이 비활성 상태이고 열린 binding이

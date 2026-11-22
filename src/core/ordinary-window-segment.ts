@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { IdSchema, TimestampSchema } from '../contracts.js';
 import type { Store } from '../store.js';
 import type { OrdinaryWindowScope } from './ordinary-window-decision.js';
+import { queueTaskOrdinaryWindowEmissionControl } from './ordinary-window-activation.js';
 import {
   OrdinaryWindowConnectionProofSchema,
   OrdinaryWindowCoverageSchema,
@@ -110,24 +111,27 @@ export function assertOrdinaryWindowDeletionFence(
 }
 export function pauseOrdinaryWindowSegment(store: Store, taskId: string, at: string, reason: string): void {
   const timestamp = TimestampSchema.parse(at);
-  const root = store.get<{ selected_root_id: string | null }>('SELECT selected_root_id FROM ordinary_tasks WHERE task_id=?', [taskId])?.selected_root_id;
-  if (!root) return;
-  store.execute("UPDATE binding_root_segments SET state='paused',revision=revision+1,observer_identity=NULL WHERE root_session_id=? AND state!='closed'", [
-    root
-  ]);
-  store.execute("UPDATE session_bindings SET state='stopped' WHERE root_id=?", [root]);
-  store.execute("UPDATE tasks SET state='paused',generation=generation+1,last_transition_at=? WHERE id=? AND state='active'", [timestamp, taskId]);
-  store.execute('UPDATE active_intervals SET ended_at=? WHERE task_id=? AND ended_at IS NULL', [timestamp, taskId]);
-  const existing = store.get<{ coverage: string }>('SELECT coverage FROM ordinary_window_segments WHERE root_session_id=?', [root]);
-  if (existing) {
-    const coverage = OrdinaryWindowCoverageSchema.parse(JSON.parse(existing.coverage));
-    store.execute('UPDATE ordinary_window_segments SET coverage=? WHERE root_session_id=?', [
-      JSON.stringify({
-        ...coverage,
-        status: reason === 'compatibility_invalidated' ? 'invalidated' : 'partial',
-        reason
-      }),
+  store.immediateTransaction(() => {
+    const root = store.get<{ selected_root_id: string | null }>('SELECT selected_root_id FROM ordinary_tasks WHERE task_id=?', [taskId])?.selected_root_id;
+    if (!root) return;
+    store.execute("UPDATE binding_root_segments SET state='paused',revision=revision+1,observer_identity=NULL WHERE root_session_id=? AND state!='closed'", [
       root
     ]);
-  }
+    store.execute("UPDATE session_bindings SET state='stopped' WHERE root_id=?", [root]);
+    store.execute("UPDATE tasks SET state='paused',generation=generation+1,last_transition_at=? WHERE id=? AND state='active'", [timestamp, taskId]);
+    store.execute('UPDATE active_intervals SET ended_at=? WHERE task_id=? AND ended_at IS NULL', [timestamp, taskId]);
+    const existing = store.get<{ coverage: string }>('SELECT coverage FROM ordinary_window_segments WHERE root_session_id=?', [root]);
+    if (existing) {
+      const coverage = OrdinaryWindowCoverageSchema.parse(JSON.parse(existing.coverage));
+      store.execute('UPDATE ordinary_window_segments SET coverage=? WHERE root_session_id=?', [
+        JSON.stringify({
+          ...coverage,
+          status: reason === 'compatibility_invalidated' ? 'invalidated' : 'partial',
+          reason
+        }),
+        root
+      ]);
+    }
+    queueTaskOrdinaryWindowEmissionControl(store, taskId);
+  });
 }

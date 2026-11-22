@@ -12,6 +12,7 @@ import { codexWindowJsonl, createCodexWindowProviderFixture } from './helpers/co
 import { activateOrdinaryWindowDecision } from '../src/core/ordinary-window-activation.js';
 import { windowTrialPacket } from './helpers/ordinary-window-decision-fixture.js';
 import { captureGuardedControlIo } from './helpers/guarded-control-io.js';
+import { readOrdinaryWindowControl } from '../src/core/ordinary-window-control.js';
 
 vi.mock('node:fs', { spy: true });
 vi.mock('node:fs/promises', { spy: true });
@@ -342,7 +343,8 @@ test('trial expiry during an authorized real-provider open durably closes the ow
     vi.spyOn(f.store, 'afterCommit').mockImplementation(effect => {
       afterCommit(() => {
         // Control publication is authorized after commit; source I/O stays fenced on both sides.
-        expect(fsCalls()).toEqual(io);
+        if (publishedIo) publishedIo.expectOnlyReads();
+        else expect(fsCalls()).toEqual(io);
         effect();
         publishedIo = captureGuardedControlIo(f.projectRoot, 'codex');
       });
@@ -352,6 +354,7 @@ test('trial expiry during an authorized real-provider open durably closes the ow
     gate.assertNoNextRead();
     if (!publishedIo) throw new Error('fixture_control_publication_not_observed');
     publishedIo.expectOnlyReads();
+    expect(readOrdinaryWindowControl(f.projectRoot, 'codex')?.state).toBe('inactive');
     expect(f.store.get('SELECT revoked_at,revocation_reason FROM ordinary_window_activations')).toEqual({
       revoked_at: f.clock(),
       revocation_reason: 'trial_expired'

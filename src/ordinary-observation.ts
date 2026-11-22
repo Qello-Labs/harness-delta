@@ -1,5 +1,8 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { clearTaskOrdinaryWindowArming } from './core/ordinary-window-trial.js';
+import { queueTaskOrdinaryWindowEmissionControl } from './core/ordinary-window-activation.js';
+import { ordinaryWindowEmissionEligible } from './core/ordinary-window-emission-eligibility.js';
+import { ordinaryWindowDecisionKeyForSelection } from './core/ordinary-window-decision.js';
 import { isAbsolute } from 'node:path';
 import { z } from 'zod';
 import { IdSchema, ProductVersionSchema, TimestampSchema } from './contracts.js';
@@ -147,12 +150,15 @@ export function assertOrdinaryTaskPrepared(store: Store, taskId: string): Ordina
 }
 
 export function revokeOrdinaryObservation(store: Store, taskId: string, clock: Clock = utcNow): void {
-  const prepared = ordinaryTask(store, taskId);
-  if (!prepared) throw new Error('ordinary_preparation_required');
-  clearTaskOrdinaryWindowArming(store, taskId);
-  if (prepared.revoked_at === null) {
-    store.execute('UPDATE ordinary_tasks SET revoked_at=? WHERE task_id=?', [new Date(TimestampSchema.parse(clock())).toISOString(), taskId]);
-  }
+  store.immediateTransaction(() => {
+    const prepared = ordinaryTask(store, taskId);
+    if (!prepared) throw new Error('ordinary_preparation_required');
+    clearTaskOrdinaryWindowArming(store, taskId);
+    if (prepared.revoked_at === null) {
+      store.execute('UPDATE ordinary_tasks SET revoked_at=? WHERE task_id=?', [new Date(TimestampSchema.parse(clock())).toISOString(), taskId]);
+    }
+    queueTaskOrdinaryWindowEmissionControl(store, taskId);
+  });
 }
 
 export const OrdinaryWindowTaskInputSchema = OrdinaryTaskInputSchema.extend({
@@ -208,6 +214,9 @@ export function createOrdinaryWindowTask(store: Store, input: z.input<typeof Ord
       at
     ]);
     store.execute('INSERT INTO ordinary_window_selections(task_id,selection,selection_hash) VALUES (?,?,?)', [taskId, serialized, hash]);
+    if (ordinaryWindowEmissionEligible(store, ordinaryWindowDecisionKeyForSelection(selection), project.local_root, at)) {
+      queueTaskOrdinaryWindowEmissionControl(store, taskId);
+    }
   });
   return taskId;
 }

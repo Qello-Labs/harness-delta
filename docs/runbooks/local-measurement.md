@@ -217,24 +217,40 @@ activate <packet-file>` and `revoke <packet-file>` record maintainer decisions,
 not launch or native evidence. Product activation needs its own approval;
 this guide grants none.
 
-Automatic trial termination, explicit revoke and task/project deletion republish
-the emission control after their transactions finish. A failed write, or a crash
-between commit and publication, can leave the file `active` while the decision
-is revoked or absent. The database stays revoked; connect and collect remain
-closed. Existing error conventions still apply, including
+The emission control is `active` only while the decision is `recorded` and at
+least one valid matching prepared task uses it. That task must be `registered` or
+`active`, with collection not revoked, live task and project scope, no exclusion
+through a comparison assignment, and, for a trial, the trial task with a matching
+trial root. Otherwise the control is `inactive`, apart from a valid surviving
+`receipt_only` arming. Task pause, finalization and collection revoke don't touch
+the decision row, but they close emission unless another eligible task still uses
+the decision. Deleting the last eligible task closes it the same way. Resume
+reopens emission when the rule allows it. Preparing a matching replacement task
+also republishes after the outer commit, reopening emission under the retained
+recorded decision before the task starts. There's no collection restore command.
+
+Automatic trial termination, explicit revoke, task pause, resume, finalization,
+collection revoke and task/project deletion republish the emission control after
+their transactions finish. A failed write, or a crash between commit and
+publication, can leave the file `active` while the decision is revoked or absent
+or no eligible task uses it. The committed task and decision state stays as
+written; connect and collect remain closed where that state closes them. Existing error conventions still apply, including
 `binding_window_control_unavailable` where reported; a repair failure does not
 replace the operation's own result or error.
+For a rejected Codex lifecycle or null-source root, a failed pause publication
+does not replace `binding_fresh_root_required`; the pause remains committed.
 
 The next connect, collect, window-control or ordinary-window status touch
 attempts to repair an `active` file whose current decision is not `recorded`
-(including an absent, `expired` or `budget_exhausted` decision), when the project root is available from
+(including an absent, `expired` or `budget_exhausted` decision) or has no
+eligible task, when the project root is available from
 live project metadata or explicitly supplied to the operation. Repair runs only
 outside Store transactions, including after an operation rejects; a touch inside
 an open transaction skips repair without queueing it. There is no background
 retry. If any live project in the same database at that root/product and control
-policy has a recorded decision, reconciliation writes nothing. Matching control
+policy has a recorded decision with an eligible task, reconciliation writes nothing. Matching control
 causes no write. Publication re-reads the current
-decision, preserving a newer recorded activation and valid surviving
+decision and task eligibility, preserving a newer eligible recorded activation and valid surviving
 `receipt_only` arming. CLI `status <task-id>`, `--decision` and `--arming` add
 `emission_control_stale`: a boolean describing the control after the repair
 attempt (`true` if still stale, `false` if not), or `null` when the control cannot
@@ -251,8 +267,8 @@ is a root-bearing touch that attempts repair for that root/product. This applies
 to product CLI/web registration, not internal qualification registration.
 A status or web GET touch after trial expiry or budget exhaustion closes emission
 without revoking the decision or changing any database row. Without a touch,
-time-only expiry is still not repaired. Task pause/finalization and collection
-revoke do not gain decision-revocation behavior from this repair.
+time-only expiry is still not repaired. Task pause, finalization and collection
+revoke close emission but never revoke the decision.
 
 For a separately approved Codex or Claude ordinary-window trial, first install or update
 the current owned ordinary-window package in its registered project while the task
