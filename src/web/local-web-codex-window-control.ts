@@ -13,6 +13,7 @@ import {
   pauseOrdinaryWindowSegment
 } from '../core/ordinary-window-store.js';
 import { ordinaryWindowDecisionKeyForSelection, readOrdinaryWindowDecision } from '../core/ordinary-window-activation.js';
+import { withOrdinaryWindowReconciliation } from '../ordinary-window-emission.js';
 import type { Store } from '../store.js';
 import type { createLocalWebMetadata } from './local-web-metadata-store.js';
 import type { createCodexProjectSetupManager } from './local-web-codex.js';
@@ -66,6 +67,9 @@ class LocalCodexWindowControl {
   ) {
     this.life = new Lifecycle(store);
   }
+  request<T>(target: { readonly taskId: string } | { readonly projectId: string }, operation: () => T): T {
+    return withOrdinaryWindowReconciliation(this.store, 'projectId' in target ? { ...target, product: 'codex' } : target, operation);
+  }
   private context(taskId: string) {
     const task = this.life.task(taskId);
     const selection = ordinaryWindowSelection(this.store, taskId);
@@ -111,7 +115,7 @@ class LocalCodexWindowControl {
     return value;
   }
   task(taskId: string) {
-    return this.store.immediateTransaction(() => this.readTask(taskId));
+    return withOrdinaryWindowReconciliation(this.store, { taskId }, () => this.store.immediateTransaction(() => this.readTask(taskId)));
   }
   private readTask(taskId: string) {
     const value = this.context(taskId);
@@ -174,6 +178,9 @@ class LocalCodexWindowControl {
     };
   }
   prepare(projectId: string, input: z.infer<typeof CodexWindowPrepareSchema>) {
+    return withOrdinaryWindowReconciliation(this.store, { projectId, product: 'codex' }, () => this.prepareTask(projectId, input));
+  }
+  private prepareTask(projectId: string, input: z.infer<typeof CodexWindowPrepareSchema>) {
     const parsed = CodexWindowPrepareSchema.parse(input);
     return withLiveWebMetadataScope(this.store, { projectId }, () =>
       this.metadata.database.transaction(() => {
@@ -217,6 +224,9 @@ class LocalCodexWindowControl {
     };
   }
   async connect(taskId: string, input: z.infer<typeof CodexWindowConnectSchema>) {
+    return withOrdinaryWindowReconciliation(this.store, { taskId }, () => this.connectTask(taskId, input));
+  }
+  private async connectTask(taskId: string, input: z.infer<typeof CodexWindowConnectSchema>) {
     const parsed = CodexWindowConnectSchema.parse(input);
     const options = this.bindingOptions(taskId, parsed.project_id);
     const result = await connectOrdinaryCodexWindow(options, {
@@ -242,6 +252,9 @@ class LocalCodexWindowControl {
     });
   }
   async action(taskId: string, input: z.infer<typeof CodexWindowActionSchema>) {
+    return withOrdinaryWindowReconciliation(this.store, { taskId }, () => this.applyAction(taskId, input));
+  }
+  private async applyAction(taskId: string, input: z.infer<typeof CodexWindowActionSchema>) {
     const parsed = CodexWindowActionSchema.parse(input);
     if (parsed.operation === 'collect') {
       const rootId = ordinaryTask(this.store, taskId)?.selected_root_id;
@@ -282,7 +295,7 @@ class LocalCodexWindowControl {
     return this.task(taskId);
   }
   validateReplay(taskId: string, input: unknown) {
-    return this.store.immediateTransaction(() => this.assertReplay(taskId, input));
+    return withOrdinaryWindowReconciliation(this.store, { taskId }, () => this.store.immediateTransaction(() => this.assertReplay(taskId, input)));
   }
   private assertReplay(taskId: string, input: unknown) {
     const result = z.object({ kind: z.string() }).parse(input);

@@ -14,6 +14,7 @@ import {
   pauseOrdinaryWindowSegment
 } from '../core/ordinary-window-store.js';
 import { ordinaryWindowDecisionKeyForSelection, readOrdinaryWindowDecision } from '../core/ordinary-window-activation.js';
+import { withOrdinaryWindowReconciliation } from '../ordinary-window-emission.js';
 import type { Store } from '../store.js';
 import type { createLocalWebMetadata } from './local-web-metadata-store.js';
 import { withLiveWebMetadataScope } from './local-web-metadata.js';
@@ -140,7 +141,10 @@ class LocalClaudeWindowControl {
     return current;
   }
   task(taskId: string) {
-    return this.store.immediateTransaction(() => this.readTask(taskId));
+    return withOrdinaryWindowReconciliation(this.store, { taskId }, () => this.store.immediateTransaction(() => this.readTask(taskId)));
+  }
+  request<T>(target: { readonly taskId: string } | { readonly projectId: string }, operation: () => T): T {
+    return withOrdinaryWindowReconciliation(this.store, 'projectId' in target ? { ...target, product: 'claude_code' } : target, operation);
   }
   private readTask(taskId: string) {
     const value = this.context(taskId);
@@ -193,6 +197,9 @@ class LocalClaudeWindowControl {
     };
   }
   prepare(projectId: string, input: z.infer<typeof prepareSchema>) {
+    return withOrdinaryWindowReconciliation(this.store, { projectId, product: 'claude_code' }, () => this.prepareTask(projectId, input));
+  }
+  private prepareTask(projectId: string, input: z.infer<typeof prepareSchema>) {
     const parsed = prepareSchema.parse(input);
     return withLiveWebMetadataScope(this.store, { projectId }, () =>
       this.metadata.database.transaction(() => {
@@ -250,6 +257,9 @@ class LocalClaudeWindowControl {
     };
   }
   async connect(taskId: string, input: z.infer<typeof ClaudeWindowConnectSchema>) {
+    return withOrdinaryWindowReconciliation(this.store, { taskId }, () => this.connectTask(taskId, input));
+  }
+  private async connectTask(taskId: string, input: z.infer<typeof ClaudeWindowConnectSchema>) {
     const parsed = ClaudeWindowConnectSchema.parse(input);
     const value = this.authorize(taskId, parsed.project_id);
     const snapshot = this.authoritySnapshot(value);
@@ -276,6 +286,9 @@ class LocalClaudeWindowControl {
     });
   }
   async action(taskId: string, input: z.infer<typeof ClaudeWindowActionSchema>) {
+    return withOrdinaryWindowReconciliation(this.store, { taskId }, () => this.applyAction(taskId, input));
+  }
+  private async applyAction(taskId: string, input: z.infer<typeof ClaudeWindowActionSchema>) {
     const parsed = ClaudeWindowActionSchema.parse(input);
     if (parsed.operation === 'collect') {
       const value = this.authorize(taskId, parsed.project_id);
@@ -315,28 +328,29 @@ class LocalClaudeWindowControl {
     return this.task(taskId);
   }
   validateReplay(taskId: string, input: unknown) {
-    this.store.immediateTransaction(() => {
-      const cached = z
-        .object({
-          kind: z.string(),
-          project_id: IdSchema,
-          task_id: IdSchema,
-          version: z.string()
-        })
-        .parse(input);
-      const current = this.task(taskId);
-      if (cached.task_id !== taskId || cached.project_id !== current.project_id) throw new Error('binding_scope_mismatch');
-      if (cached.kind === 'claude_window_connection') {
-        const connection = z.object({ session_id: IdSchema }).parse(input);
-        this.authorize(taskId, cached.project_id, connection.session_id);
-        if (!current.connection_enabled || current.selected_root_id !== connection.session_id) throw new Error('binding_scope_revoked');
-      } else if (cached.kind !== 'claude_window_task') {
-        throw new Error('binding_scope_mismatch');
-      }
-      if (current.version !== cached.version) {
-        throw new Error('ui_state_changed');
-      }
-    });
+    return withOrdinaryWindowReconciliation(this.store, { taskId }, () => this.store.immediateTransaction(() => this.assertReplay(taskId, input)));
+  }
+  private assertReplay(taskId: string, input: unknown) {
+    const cached = z
+      .object({
+        kind: z.string(),
+        project_id: IdSchema,
+        task_id: IdSchema,
+        version: z.string()
+      })
+      .parse(input);
+    const current = this.task(taskId);
+    if (cached.task_id !== taskId || cached.project_id !== current.project_id) throw new Error('binding_scope_mismatch');
+    if (cached.kind === 'claude_window_connection') {
+      const connection = z.object({ session_id: IdSchema }).parse(input);
+      this.authorize(taskId, cached.project_id, connection.session_id);
+      if (!current.connection_enabled || current.selected_root_id !== connection.session_id) throw new Error('binding_scope_revoked');
+    } else if (cached.kind !== 'claude_window_task') {
+      throw new Error('binding_scope_mismatch');
+    }
+    if (current.version !== cached.version) {
+      throw new Error('ui_state_changed');
+    }
   }
 }
 

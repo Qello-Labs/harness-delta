@@ -13,6 +13,7 @@ import type { SessionBindingProvider } from '../session-binding-contract.js';
 import type { createSessionBindingService } from '../session-binding-service.js';
 import type { createCodexProjectSetupManager } from './local-web-codex.js';
 import type { createLocalWebMetadata } from './local-web-metadata-store.js';
+import { withOrdinaryWindowReconciliation } from '../ordinary-window-emission.js';
 
 import type { LocalWebDomain } from './local-web-server.js';
 import type { LocalWebDomainOptions } from './local-web-domain.js';
@@ -124,15 +125,19 @@ export function createLocalWebProjectHandlers(
       return Promise.resolve(result);
     },
     registerProject(directory) {
-      if (options.nativePilot) throw new Error('binding_pilot_control_only');
-      if (options.qualificationLease) throw new Error('binding_qualification_control_only');
-      const root = realpathSync(resolve(directory));
-      projectBaseline(root);
-      const previous = store.get<{ id: string }>('SELECT id FROM projects WHERE local_root=?', [root]);
-      if (previous) return Promise.resolve({ id: previous.id });
-      const id = randomUUID();
-      life.registerProject(id, root);
-      return Promise.resolve({ id });
+      const target: { projectId: string; projectRoot?: string } = { projectId: randomUUID() };
+      return withOrdinaryWindowReconciliation(store, target, () => {
+        if (options.nativePilot) throw new Error('binding_pilot_control_only');
+        if (options.qualificationLease) throw new Error('binding_qualification_control_only');
+        const root = realpathSync(resolve(directory));
+        target.projectRoot = root;
+        const previous = store.get<{ id: string }>('SELECT id FROM projects WHERE local_root=?', [root]);
+        target.projectId = previous?.id ?? target.projectId;
+        projectBaseline(root);
+        if (previous) return Promise.resolve({ id: previous.id });
+        life.registerProject(target.projectId, root);
+        return Promise.resolve({ id: target.projectId });
+      });
     },
     async chooseDirectory() {
       if (options.nativePilot) throw new Error('binding_pilot_control_only');

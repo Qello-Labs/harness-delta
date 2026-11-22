@@ -24,6 +24,7 @@ import { aggregateTask } from './pricing/metrics.js';
 import { freezePeriod, periodReport } from './comparison/reports/period.js';
 import { renderReport } from './comparison/reports/render.js';
 import { setTimeout as delay } from 'node:timers/promises';
+import { withOrdinaryWindowReconciliation } from './ordinary-window-emission.js';
 
 export async function main(argv: string[], workflowDependencies: WorkflowCommandDependencies = {}): Promise<number> {
   let store: Store | undefined;
@@ -44,7 +45,7 @@ export async function main(argv: string[], workflowDependencies: WorkflowCommand
     .command('add <id>')
     .requiredOption('--root <directory>')
     .action((id: string, options: { root: string }) => {
-      life().registerProject(id, options.root);
+      withOrdinaryWindowReconciliation(db(), { projectId: id, projectRoot: options.root }, () => life().registerProject(id, options.root));
     });
   const task = program.command('task');
   task

@@ -1,6 +1,6 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { expect, test } from 'vitest';
 import { Store } from '../../src/store.js';
 import { codexWindowControl, runCodexWindowHook } from '../helpers/codex-window-hook-fixture.js';
@@ -27,7 +27,10 @@ test.each(['codex', 'claude_code'] as const)(
   'real CLI reports %s saved evidence without any unauthorized read or process call',
   async product => {
     const f = windowReportFixture(product);
-    const directory = mkdtempSync(join(tmpdir(), 'window-report-cli-'));
+    const directory = realpathSync(mkdtempSync(join(tmpdir(), 'window-report-cli-')));
+    const projectRoot = join(directory, 'project');
+    mkdirSync(projectRoot, { mode: 0o700 });
+    f.store.execute('UPDATE projects SET local_root=?', [projectRoot]);
     const database = join(directory, 'report.sqlite');
     try {
       f.life.start(f.taskId);
@@ -39,14 +42,16 @@ test.each(['codex', 'claude_code'] as const)(
         runCodexWindowHook({
           scriptPath: resolve('tests/helpers/ordinary-window-report-cli.mjs'),
           receiptDirectory: directory,
-          projectRoot: '/synthetic/window-project',
+          projectRoot,
           nativePrefixes: ['/synthetic'],
           args: [],
-          input: ['--db', database, ...args]
+          input: ['--db', database, ...args],
+          controlScope: projectRoot
         });
       const args = ['report', 'ordinary-window', f.taskId, '--cutoff', windowReportCutoff];
       const json = await run(args);
       expect(json.effects).toEqual({ nativeCalls: 0, processCalls: 0, operations: [] });
+      expect(json.controlIo).toEqual([]);
       expect(json.code).toBe(0);
       const report: unknown = JSON.parse(json.stdout);
       expect(report).toMatchObject({
@@ -59,11 +64,18 @@ test.each(['codex', 'claude_code'] as const)(
       });
       const markdown = await run([...args, '--format', 'markdown']);
       expect(markdown.effects).toEqual({ nativeCalls: 0, processCalls: 0, operations: [] });
+      expect(markdown.controlIo).toEqual([]);
       expect(markdown.code).toBe(0);
       const embedded = markdown.stdout.split('```json\n')[1]?.split('\n```')[0];
       expect(JSON.parse(embedded ?? 'null') as unknown).toEqual(report);
       const status = await run(['compatibility', 'ordinary-window', 'status', f.taskId]);
       expect(status.effects).toEqual({ nativeCalls: 0, processCalls: 0, operations: [] });
+      const controlWalk: string[] = [];
+      for (let path = join(projectRoot, '.harness-delta'); ; path = dirname(path)) {
+        controlWalk.unshift(path);
+        if (path === dirname(path)) break;
+      }
+      expect(status.controlIo).toEqual([...controlWalk, ...controlWalk].map(path => ({ operation: 'lstatSync', path, throwIfNoEntry: false })));
       expect(status.code).toBe(0);
       expect(JSON.parse(status.stdout) as unknown).toMatchObject({
         report_version: 'ordinary-window-status-v1',
@@ -72,6 +84,7 @@ test.each(['codex', 'claude_code'] as const)(
       });
       const denied = await run(['report', 'task', f.taskId, '--cutoff', windowReportCutoff]);
       expect(denied.effects).toEqual({ nativeCalls: 0, processCalls: 0, operations: [] });
+      expect(denied.controlIo).toEqual([]);
       expect(denied.code).toBe(2);
       expect(denied.stderr).toBe('binding_window_activation_required\n');
       const after = new Store(database);
@@ -81,6 +94,7 @@ test.each(['codex', 'claude_code'] as const)(
         after.close();
       }
       expect(json.stdout + markdown.stdout + status.stdout).not.toContain('/synthetic/');
+      expect(json.stdout + markdown.stdout + status.stdout).not.toContain(projectRoot);
       expect(f.calls).toEqual([]);
     } finally {
       f.store.close();

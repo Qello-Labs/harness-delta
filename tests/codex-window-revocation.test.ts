@@ -11,6 +11,7 @@ import { runCodexWindowHook } from './helpers/codex-window-hook-fixture.js';
 import { codexWindowJsonl, createCodexWindowProviderFixture } from './helpers/codex-window-provider-fixture.js';
 import { activateOrdinaryWindowDecision } from '../src/core/ordinary-window-activation.js';
 import { windowTrialPacket } from './helpers/ordinary-window-decision-fixture.js';
+import { captureGuardedControlIo } from './helpers/guarded-control-io.js';
 
 vi.mock('node:fs', { spy: true });
 vi.mock('node:fs/promises', { spy: true });
@@ -101,11 +102,11 @@ test.each(['revoke', 'pause', 'generation'] as const)(
         f.lifecycle.resume(f.taskId);
       }
       const before = snapshot(f);
-      const io = fsCalls();
+      const io = captureGuardedControlIo(f.projectRoot, 'codex');
       gate.release();
       await rejected;
       gate.assertNoNextRead();
-      expect(fsCalls()).toEqual(io);
+      io.expectOnlyReads();
       expect(snapshot(f)).toEqual(before);
     } finally {
       gate.release();
@@ -129,11 +130,11 @@ test('task deletion during pending open leaves no later native read, proof, usag
     ]);
     new Deletion(f.store, f.clock).deleteTask(f.taskId);
     const before = snapshot(f);
-    const io = fsCalls();
+    const io = captureGuardedControlIo(f.projectRoot, 'codex');
     gate.release();
     await rejected;
     gate.assertNoNextRead();
-    expect(fsCalls()).toEqual(io);
+    io.expectOnlyReads();
     expect(snapshot(f)).toEqual(before);
     expect(f.store.all('SELECT * FROM ordinary_window_segments')).toEqual([]);
     expect(f.store.all('SELECT product,native_session_id FROM ordinary_window_forget_fences')).toEqual([
@@ -166,11 +167,11 @@ test.each(['resolved', 'rejected'] as const)('a stale real source %s cannot paus
     const replacement = await f.connect(pending.receipt);
     expect(replacement.rootSessionId).not.toBe(old.rootSessionId);
     const before = snapshot(f);
-    const io = fsCalls();
+    const io = captureGuardedControlIo(f.projectRoot, 'codex');
     gate.release();
     await rejected;
     gate.assertNoNextRead();
-    expect(fsCalls()).toEqual(io);
+    io.expectOnlyReads();
     expect(snapshot(f)).toEqual(before);
     expect(f.lifecycle.state(f.taskId)).toBe('active');
     expect(f.store.get<{ state: string }>('SELECT state FROM binding_root_segments WHERE root_session_id=?', [replacement.rootSessionId])?.state).toBe(
@@ -215,10 +216,10 @@ test.each(['resolved', 'rejected'] as const)('a stale real header-proof %s canno
     const pending = await f.emitRoot('replacement-proof-root', source);
     const replacement = await f.connect(pending.receipt);
     const before = snapshot(f);
-    const io = fsCalls();
+    const io = captureGuardedControlIo(f.projectRoot, 'codex');
     gates.emit('release');
     await rejected;
-    expect(fsCalls()).toEqual(io);
+    io.expectOnlyReads();
     expect(snapshot(f)).toEqual(before);
     expect(f.lifecycle.state(f.taskId)).toBe('active');
     expect(f.store.all<{ root_session_id: string }>('SELECT root_session_id FROM ordinary_window_segments')).toEqual([
@@ -336,20 +337,21 @@ test('trial expiry during an authorized real-provider open durably closes the ow
     ]);
     f.advance(60_000);
     const io = fsCalls();
-    let publishedIo: ReturnType<typeof fsCalls> | undefined;
+    let publishedIo: ReturnType<typeof captureGuardedControlIo> | undefined;
     const afterCommit = f.store.afterCommit.bind(f.store);
     vi.spyOn(f.store, 'afterCommit').mockImplementation(effect => {
       afterCommit(() => {
         // Control publication is authorized after commit; source I/O stays fenced on both sides.
         expect(fsCalls()).toEqual(io);
         effect();
-        publishedIo = fsCalls();
+        publishedIo = captureGuardedControlIo(f.projectRoot, 'codex');
       });
     });
     gate.release();
     await rejected;
     gate.assertNoNextRead();
-    expect(fsCalls()).toEqual(publishedIo);
+    if (!publishedIo) throw new Error('fixture_control_publication_not_observed');
+    publishedIo.expectOnlyReads();
     expect(f.store.get('SELECT revoked_at,revocation_reason FROM ordinary_window_activations')).toEqual({
       revoked_at: f.clock(),
       revocation_reason: 'trial_expired'

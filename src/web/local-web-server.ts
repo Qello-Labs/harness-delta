@@ -20,7 +20,8 @@ import type { Store } from '../store.js';
 import type { CodexWindowControl } from './local-web-codex-window-control.js';
 import { registerCodexWindowRoutes } from './local-web-codex-window-http.js';
 import type { ClaudeWindowControl } from './local-web-claude-window-control.js';
-import { registerClaudeWindowRoutes } from './local-web-claude-window-http.js';
+import { registerClaudeWindowPreparationRoute, registerClaudeWindowRoutes } from './local-web-claude-window-http.js';
+import { registerLocalWebProjectRoute } from './local-web-project-http.js';
 import { registerWebMetadata, withLiveWebMetadataScope, type WebMetadataScope } from './local-web-metadata.js';
 
 /** Accepted imports retain imported:true; counts describe actual transactional saves. */
@@ -526,17 +527,7 @@ export function createLocalWebServer(options: LocalWebOptions) {
       await reply.code(value.status).send(value.result);
     });
   };
-  addMutation(
-    '/api/projects',
-    z.strictObject({
-      directory: z
-        .string()
-        .min(1)
-        .max(4096)
-        .refine(p => !/[\0\r\n]/.test(p))
-    }),
-    async input => options.domain.registerProject((input as { directory: string }).directory)
-  );
+  registerLocalWebProjectRoute(app, options.domain, mutation);
   addMutation('/api/project-picker', empty, async () => ({ selection: await options.domain.chooseDirectory() }));
   addMutation('/api/setup-picker', empty, async () => {
     if (!options.domain.importSetup) throw new Error('invalid_ui_setup');
@@ -555,7 +546,9 @@ export function createLocalWebServer(options: LocalWebOptions) {
     if (!options.domain.saveReviewedSetup) throw new Error('invalid_ui_setup');
     return options.domain.saveReviewedSetup(z.strictObject({ token: z.uuid() }).parse(input).token);
   });
-  addMutation('/api/tasks', createInput, async input => options.domain.createTask(createInput.parse(input)));
+  registerClaudeWindowPreparationRoute(app, options.domain, request =>
+    mutation(request, createInput.parse.bind(createInput), input => options.domain.createTask(input))
+  );
   registerCodexWindowRoutes(app, options.domain.codexWindow, { csrf, mutation, errorCode: localWebError });
   registerClaudeWindowRoutes(app, options.domain.claudeWindow, { csrf, mutation, errorCode: localWebError });
   app.get<{ Params: { id: string } }>('/api/projects/:id/ordinary-setup', request => {

@@ -9,6 +9,7 @@ export const CodexWindowHookEffectsSchema = z.object({
   operations: z.array(z.string()).max(128)
 });
 export type CodexWindowHookEffects = z.infer<typeof CodexWindowHookEffectsSchema>;
+const controlIoSchema = z.array(z.object({ operation: z.string(), path: z.string(), throwIfNoEntry: z.boolean().optional() })).max(128);
 export const codexWindowControl = (projectRoot: string) => ({
   schemaVersion: 1,
   projectRoot,
@@ -29,6 +30,7 @@ export async function runCodexWindowHook(options: {
   readonly nativeEntryNames?: readonly string[];
   readonly scriptPath?: string;
   readonly args?: readonly string[];
+  readonly controlScope?: string;
 }) {
   const child = spawn(
     process.execPath,
@@ -42,7 +44,8 @@ export async function runCodexWindowHook(options: {
         CODEX_WINDOW_SCRIPT: options.scriptPath ?? resolve('scripts/session-binding-codex-window-hook.mjs'),
         CODEX_WINDOW_NATIVE_PREFIXES: JSON.stringify(options.nativePrefixes ?? []),
         CODEX_WINDOW_NATIVE_ALIASES: JSON.stringify(options.nativeAliases ?? []),
-        CODEX_WINDOW_NATIVE_ENTRY_NAMES: JSON.stringify(options.nativeEntryNames ?? [])
+        CODEX_WINDOW_NATIVE_ENTRY_NAMES: JSON.stringify(options.nativeEntryNames ?? []),
+        CODEX_WINDOW_CONTROL_SCOPE: options.controlScope ?? ''
       },
       stdio: ['pipe', 'pipe', 'pipe', 'ipc']
     }
@@ -55,6 +58,7 @@ export async function runCodexWindowHook(options: {
   let stdout = '';
   let stderr = '';
   let effects: CodexWindowHookEffects | undefined;
+  let controlIo: z.infer<typeof controlIoSchema> | undefined;
   let ready = false;
   const code = await new Promise<number | null>((resolveCode, reject) => {
     const deadline = setTimeout(() => {
@@ -84,10 +88,14 @@ export async function runCodexWindowHook(options: {
       const ledger = z
         .object({
           kind: z.literal('effects'),
-          effects: CodexWindowHookEffectsSchema
+          effects: CodexWindowHookEffectsSchema,
+          controlIo: controlIoSchema.optional()
         })
         .safeParse(message);
-      if (ledger.success) effects = ledger.data.effects;
+      if (ledger.success) {
+        effects = ledger.data.effects;
+        controlIo = ledger.data.controlIo;
+      }
     });
     child.once('close', exitCode => {
       clearTimeout(deadline);
@@ -102,5 +110,5 @@ export async function runCodexWindowHook(options: {
     .filter(name => /^[0-9a-f-]{36}\.json$/.test(name))
     .filter(name => lstatSync(join(receiptDirectory, name)).isFile())
     .map(name => JSON.parse(readFileSync(join(receiptDirectory, name), 'utf8')) as unknown);
-  return { code, stdout, stderr, effects, receipts };
+  return { code, stdout, stderr, effects, receipts, ...(controlIo === undefined ? {} : { controlIo }) };
 }

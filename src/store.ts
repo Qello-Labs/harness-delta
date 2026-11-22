@@ -17,6 +17,10 @@ export class Store {
     return this.db.name;
   }
 
+  get inTransaction(): boolean {
+    return this.db.inTransaction;
+  }
+
   constructor(
     path: string,
     private readonly receiptClock: () => string = () => new Date().toISOString()

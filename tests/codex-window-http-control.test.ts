@@ -11,6 +11,7 @@ import { codexBindingAdmissions, isQualifiedCodexBindingAdmission } from '../src
 import { CodexWindowSessionBindingProvider } from '../src/session-binding-codex.js';
 import { ordinaryWindowRuntimeRevision, ordinaryWindowSelection, revokeOrdinaryWindowActivation } from '../src/core/ordinary-window-store.js';
 import { localWebCodexWindowFixture } from './helpers/local-web-codex-window-fixture.js';
+import { expectOnlyGuardedControlReads } from './helpers/guarded-control-io.js';
 
 vi.mock('node:fs', { spy: true });
 vi.mock('node:fs/promises', { spy: true });
@@ -82,15 +83,13 @@ test.each([
   expect(response.json()).toEqual({
     error: authority === 'inactive_task' ? 'binding_scope_revoked' : 'binding_window_activation_required'
   });
+  expectOnlyGuardedControlReads(f.projectRoot, 'codex');
   for (const operation of [
     filesystem.realpathSync,
-    filesystem.lstatSync,
     filesystem.statSync,
-    filesystem.openSync,
     filesystem.readFileSync,
     filesystem.readdirSync,
     filesystem.readlinkSync,
-    filesystem.readSync,
     openAsync,
     processes.spawn,
     processes.spawnSync,

@@ -219,6 +219,42 @@ backfill은 하지 않습니다. root-source 관측은 root 소유 사용량이
 `revoke <packet-file>`은 유지보수자의 결정을 기록하며 실행이나 native 증거가 아닙니다.
 제품 활성화에는 별도 승인이 필요하고 이 안내는 그 승인을 부여하지 않습니다.
 
+trial 자동 종료, 명시적 revoke와 작업·프로젝트 삭제는 트랜잭션이 끝난 뒤
+emission control을 다시 발행합니다. 쓰기 실패나 commit과 발행 사이의 중단으로
+결정이 철회되거나 없어져도 파일은 `active`로 남을 수 있습니다. DB의 철회는
+유지되며 connect와 collect는 계속 닫혀 있습니다. 보고되는 경로의
+`binding_window_control_unavailable`을 포함한 기존 오류 규칙을 유지하고,
+복구 실패가 작업 자체의 결과나 오류를 대체하지 않습니다.
+
+다음 connect, collect, window-control 또는 ordinary-window status 접촉은
+현재 결정이 `recorded`가 아닌데 파일이 `active`인 control의 복구를 시도합니다.
+결정이 없거나 `expired`, `budget_exhausted`인 경우도 포함하며, live 프로젝트 메타데이터나 작업에 명시적으로
+전달된 root를 사용할 수 있어야 합니다. 복구는 작업이 거부된 경우에도 Store
+트랜잭션 밖에서만 실행하며, 열린 트랜잭션 안의 접촉은 대기열에 넣지 않고
+복구를 건너뜁니다. 백그라운드 재시도는 없습니다. 같은 DB의 같은 root/product와
+control policy에 live 프로젝트 하나라도 recorded 결정이 있으면 복구는 쓰지 않습니다.
+일치하는 control은 쓰지 않습니다.
+발행 시 현재 결정을 다시 읽으므로 더 새로운 recorded 활성화와 살아남은 작업의
+유효한 `receipt_only` arming을 보존합니다. CLI `status <task-id>`, `--decision`,
+`--arming`에는 `emission_control_stale`이 추가됩니다. 복구 시도 후 control을
+설명하는 boolean이며 여전히 오래된 상태이면 `true`, 아니면 `false`이고,
+control을 검사할 수 없으면 `null`입니다. 기존 필드는 바뀌지 않으며 이 필드는
+권한을 부여하지 않습니다. 보고서, metrics와 evidence status는 control을
+복구하지 않으며 이 필드도 추가하지 않습니다.
+
+완전히 삭제된 프로젝트에 남은 `active` 파일은 복구 보장 범위 밖입니다.
+삭제 후에는 root, locator나 key를 보관하지 않습니다. 프로젝트 삭제가
+`binding_window_control_unavailable`을 보고하면 해당 root의 window 설치를
+[installer 제거 절차](harness-connect.ko.md)로 제거하거나, 프로젝트 삭제 전에
+명시적으로 revoke하세요. 그때까지 hook은 pending receipt를 계속 쓸 수 있지만
+아무것도 수집하지 않습니다. 같은 root에 프로젝트를 다시 등록하면 해당
+root/product의 복구를 시도하는 root 보유 접촉이 됩니다. 이는 제품 CLI/web 등록에
+적용하며 내부 qualification 등록에는 적용하지 않습니다.
+trial 만료나 예산 소진 뒤의 status 또는 web GET 접촉은 결정을 철회하거나 DB 행을
+바꾸지 않고 emission을 닫습니다. 접촉 없이 시간만 지난 만료는 여전히 복구하지
+않습니다. 작업 일시 정지·종료와 수집 철회에는 이 복구로 결정 철회 동작이 추가되지
+않습니다.
+
 별도 승인된 Codex 또는 Claude 일반 창 trial에서는 먼저 작업이 비활성 상태이고 열린 binding이
 없는 동안 등록된 프로젝트에 현재 소유 ordinary-window 패키지를 설치하거나 업데이트하세요.
 그런 다음 준비한 작업을 시작하고 새 root를 실행하기 전에 해당 작업의 receipt-only 발행을
