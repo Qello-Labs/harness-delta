@@ -1,4 +1,4 @@
-import { mkdtempSync, openSync, realpathSync, renameSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, openSync, realpathSync, renameSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
@@ -222,6 +222,36 @@ test.each(products)('%s rejected CLI re-registration repairs its explicit root a
   expect(result.store.get("SELECT id FROM tombstones WHERE kind='project'")).toEqual({ id: 'project' });
   expect(f.emission()?.state).toBe('inactive');
 });
+
+test.each(products.flatMap(product => [false, true].map(deleted => ({ product, deleted }))))(
+  '$product colliding CLI ID repairs the supplied root with deleted=$deleted without touching the ID owner',
+  async ({ product, deleted }) => {
+    const f = fixture(product);
+    const other = join(f.root, 'other');
+    mkdirSync(other);
+    f.life.registerProject('occupied', other);
+    if (deleted) {
+      vi.mocked(renameSync).mockImplementationOnce(() => {
+        throw new Error('synthetic_control_write_failure');
+      });
+      expect(() => new Deletion(f.store, f.clock).deleteProject('project')).toThrow('binding_window_control_unavailable');
+    } else f.store.execute("UPDATE ordinary_window_activations SET revoked_at=?,revocation_reason='operator_revoked'", [f.clock()]);
+    const before = f.store.all('SELECT * FROM projects ORDER BY id');
+    const tombstones = f.store.all('SELECT * FROM tombstones');
+    const decisions = f.store.all('SELECT * FROM ordinary_window_activations');
+    const stderr = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+
+    const result = await f.cli('occupied');
+
+    expect(result.code).toBe(2);
+    expect(stderr).toHaveBeenCalledWith('input_or_state_error\n');
+    expect(result.store.all('SELECT * FROM projects ORDER BY id')).toEqual(before);
+    expect(result.store.all('SELECT * FROM tombstones')).toEqual(tombstones);
+    expect(result.store.all('SELECT * FROM ordinary_window_activations')).toEqual(decisions);
+    expect(readOrdinaryWindowControl(other, product)).toBeNull();
+    expect(f.emission()?.state).toBe('inactive');
+  }
+);
 
 test.each(products.flatMap(product => [false, true].map(fresh => ({ product, fresh }))))(
   '$product internal registration stays inert with fresh Store=$fresh',

@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { randomUUID } from 'node:crypto';
 import { realpathSync } from 'node:fs';
 import { ordinaryWindowDigest, ordinaryWindowPolicies } from './core/ordinary-window-policy.js';
 import type { Store } from './store.js';
@@ -67,11 +68,18 @@ const operations = new AsyncLocalStorage<Store>();
 function controlScopes(store: Store, target: ReconciliationTarget) {
   const selection = 'taskId' in target ? ordinaryWindowSelection(store, target.taskId) : undefined;
   if ('taskId' in target && !selection) return [];
-  const projectId = 'projectId' in target ? target.projectId : selection?.projectId;
+  let projectId = 'projectId' in target ? target.projectId : selection?.projectId;
   if (!projectId) return [];
-  const projectRoot =
-    store.get<{ local_root: string | null }>('SELECT local_root FROM projects WHERE id=?', [projectId])?.local_root ??
-    (target.projectRoot === undefined ? undefined : realpathSync(target.projectRoot));
+  let projectRoot = store.get<{ local_root: string | null }>('SELECT local_root FROM projects WHERE id=?', [projectId])?.local_root;
+  if (target.projectRoot !== undefined) {
+    try {
+      projectRoot = realpathSync(target.projectRoot);
+      projectId = store.get<{ id: string }>('SELECT id FROM projects WHERE local_root=?', [projectRoot])?.id ?? randomUUID();
+    } catch (error) {
+      // An unresolvable registration root can still fall back to its live ID's root.
+      if (!(error instanceof Error)) throw error;
+    }
+  }
   if (!projectRoot) return [];
   const keys = selection
     ? [ordinaryWindowDecisionKeyForSelection(selection)]
