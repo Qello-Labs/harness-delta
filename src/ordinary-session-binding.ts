@@ -1356,73 +1356,86 @@ function reserveCodexWindowRoot(
   at: string
 ): { readonly rootSessionId: string; readonly rejected: boolean } {
   const { store, taskId } = options;
-  return store.immediateTransaction(() => {
-    const context = authorization();
-    assertOrdinaryWindowAuthority(store, {
-      taskId,
-      generation,
-      nativeRootId: pending.nativeSessionId,
-      decisionRef: context.decisionRef,
-      clock: options.clock ?? utcNow
-    });
-    if (JSON.stringify(selectedCodexWindowRoot(store, taskId)) !== JSON.stringify(previous)) throw new Error('binding_scope_revoked');
-    if (pending.event !== 'SessionStart' || pending.nativeRootSessionId !== pending.nativeSessionId || pending.agentId !== null || pending.turnId !== null) {
-      throw new Error('binding_root_only_required');
-    }
-    const rejected = pending.lifecycle !== 'startup' || pending.sourceRef === null;
-    if (rejected && previous?.native_root_id === pending.nativeSessionId) {
-      pauseOrdinaryWindowSegment(store, taskId, at, 'binding_fresh_root_required');
-      return { rootSessionId: previous.root_session_id, rejected };
-    }
-    if (previous && previous.state !== 'paused' && previous.state !== 'closed' && (previous.generation === null || previous.generation === generation)) {
-      throw new Error('binding_fresh_root_required');
-    }
-    if (
-      store.get('SELECT 1 FROM binding_root_segments WHERE product=? AND native_root_id=?', ['codex', pending.nativeSessionId]) ||
-      store.get("SELECT 1 FROM ordinary_window_segments WHERE json_extract(proof,'$.product')='codex' AND json_extract(proof,'$.sourceRef')=?", [
-        pending.sourceRef
-      ])
-    ) {
-      throw new Error('binding_fresh_root_required');
-    }
-    if (previous) {
-      store.execute(
-        "UPDATE binding_root_segments SET state='closed',closed_at=?,revision=revision+1,observer_identity=NULL WHERE root_session_id=? AND state!='closed'",
-        [at, previous.root_session_id]
-      );
-      store.execute("UPDATE session_bindings SET state='stopped' WHERE root_id=?", [previous.root_session_id]);
-    }
-    const rootSessionId = randomUUID();
-    store.execute('INSERT INTO sessions(id,project_id,task_id,product,product_version) VALUES (?,?,?,?,?)', [
-      rootSessionId,
-      context.selection.projectId,
-      taskId,
-      'codex',
-      context.selection.declaredVersion
-    ]);
-    store.execute(
-      `INSERT INTO binding_root_segments(root_session_id,task_id,product,native_root_id,project_root,state,opened_at)
-      VALUES (?,?,?,?,?,'acquiring',?)`,
-      [rootSessionId, taskId, 'codex', pending.nativeSessionId, context.projectRoot, at]
-    );
-    store.execute('UPDATE ordinary_tasks SET selected_root_id=? WHERE task_id=?', [rootSessionId, taskId]);
-    issueCodexWindowSourceAuthorization(
-      store,
-      {
+  let rejectedCommitted = false;
+  try {
+    return store.immediateTransaction(() => {
+      const context = authorization();
+      assertOrdinaryWindowAuthority(store, {
         taskId,
-        rootSessionId,
         generation,
-        segmentRevision: 0,
+        nativeRootId: pending.nativeSessionId,
         decisionRef: context.decisionRef,
         clock: options.clock ?? utcNow
-      },
-      'acquiring'
-    );
-    if (rejected) {
-      pauseOrdinaryWindowSegment(store, taskId, at, 'binding_fresh_root_required');
+      });
+      if (JSON.stringify(selectedCodexWindowRoot(store, taskId)) !== JSON.stringify(previous)) throw new Error('binding_scope_revoked');
+      if (pending.event !== 'SessionStart' || pending.nativeRootSessionId !== pending.nativeSessionId || pending.agentId !== null || pending.turnId !== null) {
+        throw new Error('binding_root_only_required');
+      }
+      const rejected = pending.lifecycle !== 'startup' || pending.sourceRef === null;
+      if (rejected) {
+        store.afterCommit(() => {
+          rejectedCommitted = true;
+        });
+      }
+      if (rejected && previous?.native_root_id === pending.nativeSessionId) {
+        pauseOrdinaryWindowSegment(store, taskId, at, 'binding_fresh_root_required');
+        return { rootSessionId: previous.root_session_id, rejected };
+      }
+      if (previous && previous.state !== 'paused' && previous.state !== 'closed' && (previous.generation === null || previous.generation === generation)) {
+        throw new Error('binding_fresh_root_required');
+      }
+      if (
+        store.get('SELECT 1 FROM binding_root_segments WHERE product=? AND native_root_id=?', ['codex', pending.nativeSessionId]) ||
+        store.get("SELECT 1 FROM ordinary_window_segments WHERE json_extract(proof,'$.product')='codex' AND json_extract(proof,'$.sourceRef')=?", [
+          pending.sourceRef
+        ])
+      ) {
+        throw new Error('binding_fresh_root_required');
+      }
+      if (previous) {
+        store.execute(
+          "UPDATE binding_root_segments SET state='closed',closed_at=?,revision=revision+1,observer_identity=NULL WHERE root_session_id=? AND state!='closed'",
+          [at, previous.root_session_id]
+        );
+        store.execute("UPDATE session_bindings SET state='stopped' WHERE root_id=?", [previous.root_session_id]);
+      }
+      const rootSessionId = randomUUID();
+      store.execute('INSERT INTO sessions(id,project_id,task_id,product,product_version) VALUES (?,?,?,?,?)', [
+        rootSessionId,
+        context.selection.projectId,
+        taskId,
+        'codex',
+        context.selection.declaredVersion
+      ]);
+      store.execute(
+        `INSERT INTO binding_root_segments(root_session_id,task_id,product,native_root_id,project_root,state,opened_at)
+      VALUES (?,?,?,?,?,'acquiring',?)`,
+        [rootSessionId, taskId, 'codex', pending.nativeSessionId, context.projectRoot, at]
+      );
+      store.execute('UPDATE ordinary_tasks SET selected_root_id=? WHERE task_id=?', [rootSessionId, taskId]);
+      issueCodexWindowSourceAuthorization(
+        store,
+        {
+          taskId,
+          rootSessionId,
+          generation,
+          segmentRevision: 0,
+          decisionRef: context.decisionRef,
+          clock: options.clock ?? utcNow
+        },
+        'acquiring'
+      );
+      if (rejected) {
+        pauseOrdinaryWindowSegment(store, taskId, at, 'binding_fresh_root_required');
+      }
+      return { rootSessionId, rejected };
+    });
+  } catch (error) {
+    if (rejectedCommitted && error instanceof Error && error.message === 'binding_window_control_unavailable') {
+      throw new Error('binding_fresh_root_required', { cause: error });
     }
-    return { rootSessionId, rejected };
-  });
+    throw error;
+  }
 }
 
 export async function collectOrdinaryCodexWindow(options: OrdinaryCodexWindowBindingOptions, rootSessionId: string, baseline = false): Promise<void> {

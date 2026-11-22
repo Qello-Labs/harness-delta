@@ -226,8 +226,9 @@ emission control은 결정이 `recorded`이고 유효하며 일치하는 준비�
 그 외에는 살아남은 유효한 `receipt_only` arming을 제외하고 `inactive`입니다.
 작업 일시 정지, 종료와 수집 철회는 결정 행을 바꾸지 않지만, 다른 적격 작업이 그
 결정을 계속 사용하지 않으면 emission을 닫습니다. 마지막 적격 작업을 삭제해도 같은
-방식으로 닫힙니다. 재개는 규칙이 허용하면 emission을 다시 엽니다. 수집 복원 명령은
-없습니다.
+방식으로 닫힙니다. 재개는 규칙이 허용하면 emission을 다시 엽니다. 일치하는 대체
+작업을 준비해도 가장 바깥 트랜잭션의 commit 후에 다시 발행하므로, 유지된 recorded
+결정 아래에서 작업 시작 전에 emission을 다시 엽니다. 수집 복원 명령은 없습니다.
 
 trial 자동 종료, 명시적 revoke, 작업 일시 정지·재개·종료, 수집 철회와
 작업·프로젝트 삭제는 트랜잭션이 끝난 뒤 emission control을 다시 발행합니다.
@@ -236,6 +237,8 @@ trial 자동 종료, 명시적 revoke, 작업 일시 정지·재개·종료, 수
 유지되며, 그 상태가 닫는 connect와 collect는 계속 닫혀 있습니다. 보고되는 경로의
 `binding_window_control_unavailable`을 포함한 기존 오류 규칙을 유지하고,
 복구 실패가 작업 자체의 결과나 오류를 대체하지 않습니다.
+거부된 Codex lifecycle 또는 null-source root에서는 일시 정지 발행이 실패해도
+`binding_fresh_root_required`를 대체하지 않으며, 일시 정지는 commit된 채 유지됩니다.
 
 다음 connect, collect, window-control 또는 ordinary-window status 접촉은
 현재 결정이 `recorded`가 아니거나 적격 작업이 없는데 파일이 `active`인 control의

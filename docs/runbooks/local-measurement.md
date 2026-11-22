@@ -225,7 +225,9 @@ trial root. Otherwise the control is `inactive`, apart from a valid surviving
 `receipt_only` arming. Task pause, finalization and collection revoke don't touch
 the decision row, but they close emission unless another eligible task still uses
 the decision. Deleting the last eligible task closes it the same way. Resume
-reopens emission when the rule allows it. There's no collection restore command.
+reopens emission when the rule allows it. Preparing a matching replacement task
+also republishes after the outer commit, reopening emission under the retained
+recorded decision before the task starts. There's no collection restore command.
 
 Automatic trial termination, explicit revoke, task pause, resume, finalization,
 collection revoke and task/project deletion republish the emission control after
@@ -235,6 +237,8 @@ or no eligible task uses it. The committed task and decision state stays as
 written; connect and collect remain closed where that state closes them. Existing error conventions still apply, including
 `binding_window_control_unavailable` where reported; a repair failure does not
 replace the operation's own result or error.
+For a rejected Codex lifecycle or null-source root, a failed pause publication
+does not replace `binding_fresh_root_required`; the pause remains committed.
 
 The next connect, collect, window-control or ordinary-window status touch
 attempts to repair an `active` file whose current decision is not `recorded`

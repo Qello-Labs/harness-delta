@@ -1,8 +1,13 @@
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { expect, test } from 'vitest';
+import { beforeAll, expect, test } from 'vitest';
 
 const owner = fileURLToPath(new URL('../../scripts/owned-cli-pty.py', import.meta.url));
+// Interpreter cold starts need a separate budget from the synthetic-duration cases.
+beforeAll(() => {
+  execFileSync('/usr/bin/python3', ['-I', '-c', 'pass'], { timeout: 15000 });
+}, 20000);
+
 // Synthetic time removes scheduling races while retaining the shipped observation and cleanup paths.
 const harness = `import ast,json,signal,subprocess,sys,types
 with open(sys.argv[1]) as source:

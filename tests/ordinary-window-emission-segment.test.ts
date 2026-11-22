@@ -58,3 +58,50 @@ test.each(products)('%s connect keeps its source error after a committed segment
   expect(ordinaryWindowDecisionStatus(f.store, f.key, f.clock()).state).toBe('recorded');
   expect(f.store.eventCount()).toBe(0);
 });
+
+const rejectedRoots = ['resume', 'null-source'] as const;
+const reservations = [false, true].flatMap(existing => rejectedRoots.flatMap(reason => [false, true].map(failedWrite => ({ existing, reason, failedWrite }))));
+test.each(reservations)(
+  'Codex $reason rejection preserves its error with existing=$existing and failedWrite=$failedWrite',
+  async ({ existing, reason, failedWrite }) => {
+    const f = await fixture('codex');
+    if (!('emitLifecycle' in f)) throw new Error('synthetic_codex_fixture_required');
+    if (existing) await f.connect();
+    const pending = await f.emitLifecycle(reason === 'resume' ? 'resume' : 'startup', reason === 'null-source' ? null : f.sourcePath);
+    const usage = { events: f.store.all('SELECT * FROM events'), requests: f.store.all('SELECT * FROM binding_requests') };
+    if (failedWrite) {
+      vi.mocked(renameSync).mockImplementation(() => {
+        throw new Error('synthetic_control_write_failure');
+      });
+    }
+
+    await expect(f.connect(pending.receipt)).rejects.toThrow('binding_fresh_root_required');
+
+    expect(f.life.state(f.taskId)).toBe('paused');
+    expect(ordinaryWindowDecisionStatus(f.store, f.key, f.clock()).state).toBe('recorded');
+    expect({ events: f.store.all('SELECT * FROM events'), requests: f.store.all('SELECT * FROM binding_requests') }).toEqual(usage);
+    expect(f.control()?.state).toBe(failedWrite ? 'active' : 'inactive');
+  }
+);
+
+test.each(['synthetic_transaction_failure', 'binding_window_control_unavailable'])(
+  'Codex rejected reservation propagates a pre-commit %s instead of converting it',
+  async failure => {
+    const f = await fixture('codex');
+    if (!('emitLifecycle' in f)) throw new Error('synthetic_codex_fixture_required');
+    const pending = await f.emitLifecycle('resume');
+    f.store.execute(
+      `CREATE TRIGGER synthetic_pause_failure BEFORE UPDATE OF state ON tasks
+      WHEN NEW.state='paused' BEGIN SELECT RAISE(ABORT,'${failure}'); END`,
+      []
+    );
+
+    await expect(f.connect(pending.receipt)).rejects.toThrow(failure);
+
+    expect(f.life.state(f.taskId)).toBe('active');
+    expect(ordinaryWindowDecisionStatus(f.store, f.key, f.clock()).state).toBe('recorded');
+    expect(f.store.eventCount()).toBe(0);
+    expect(f.store.all('SELECT * FROM binding_requests')).toEqual([]);
+    expect(f.control()?.state).toBe('active');
+  }
+);
