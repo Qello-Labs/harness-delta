@@ -29,8 +29,14 @@ not activate collection. Installer apply configures one owned SessionStart
 registration in the project `.claude/settings.local.json`, but Claude Code trust
 and actual hook delivery still need operator verification. Installation grants no
 collection authority and creates no control or native session. Preview shows the
-owned entry before explicit apply; remove deletes only that entry and deletes the
-file only if the installer created it and it is otherwise empty. Trust and delivery
+owned entry before explicit apply. Claude Code may rewrite that file; reformatting,
+key order and unrelated additions are tolerated, but the owned group must still
+match by content and duplicate or foreign harness hooks still block. Any byte
+change between preview and apply still invalidates that preview. Remove deletes
+only that entry and deletes the file only if the installer created it and it is
+otherwise empty. It restores the original bytes only when the file wasn't rewritten;
+otherwise it leaves the remaining current bytes as Claude Code wrote them.
+Trust and delivery
 verification remain separate from the existing arming, activation and connection
 requirements.
 
@@ -63,6 +69,9 @@ uncertain result; do not retry mutations automatically.
 The recorder accepts bounded SessionStart/SubagentStart/SubagentStop payloads.
 Only owned private control and receipt storage may be read. Installer configuration
 sets `HARNESS_DELTA_CLAUDE_WINDOW_RECEIPT_DIR`; no vendor or source path is inspected.
+An unarmed start is silent: a missing final receipt directory below valid
+ancestors, or a missing control file in a valid directory, exits 0 with no output
+or receipt. Other failures still report `binding_window_hook_metadata_unavailable`.
 Missing, closed, malformed or mismatched control emits nothing. Even a forged or
 stale active control allows only unverified pending metadata. Session/PID/path
 hints are not identity, collection authority, usage, mapping, or version proof.

@@ -69,6 +69,8 @@ export function planWindowRegistrationFile(
   let registration: ReturnType<typeof planWindowHookRegistration> | undefined;
   let sourceHash: string | null = null;
   let installedHash: string | null = null;
+  let sourceIdentityHash: string | null = null;
+  let installedIdentityHash: string | null = null;
   let state: ReturnType<typeof inspectWindowHookRegistration> = 'absent';
   const blockers: string[] = [];
   const changes: { path: string; action: 'create' | 'update' | 'delete'; beforeHash: string | null; afterHash: string | null }[] = [];
@@ -84,6 +86,9 @@ export function planWindowRegistrationFile(
       const desired = operation === 'install' ? registration : planWindowHookRegistration(file.bytes, owned, command);
       sourceHash = hashBytes(JSON.stringify([desired.registration ?? null, file.mode, desired.after === null ? null : hashBytes(desired.after)]));
       installedHash = hashBytes(JSON.stringify([owned ?? null, file.mode, file.bytes === null ? null : hashBytes(file.bytes)]));
+      // Native settings rewrites are not package changes; reviewed hashes above still bind their bytes.
+      sourceIdentityHash = hashBytes(JSON.stringify([desired.registration ?? null, file.mode]));
+      installedIdentityHash = hashBytes(JSON.stringify([owned ?? null, file.mode]));
       const beforeHash = file.bytes === null ? null : hashBytes(file.bytes);
       const afterHash = registration.after === null ? null : hashBytes(registration.after);
       if (beforeHash !== afterHash) {
@@ -99,7 +104,7 @@ export function planWindowRegistrationFile(
       blockers.push(error instanceof WindowHookRegistrationError || error instanceof WindowRegistrationFileError ? error.code : 'installation_unavailable');
     }
   }
-  return { file, registration, sourceHash, installedHash, state, blockers, changes };
+  return { file, registration, sourceHash, installedHash, sourceIdentityHash, installedIdentityHash, state, blockers, changes };
 }
 
 export function windowRegistrationTransaction(

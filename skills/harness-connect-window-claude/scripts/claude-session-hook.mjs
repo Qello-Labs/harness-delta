@@ -28,12 +28,23 @@ function configuration() {
     ancestors.push(current);
     if (current === dirname(current)) break;
   }
-  // Check each ancestor before descending, so a symlink is never traversed.
-  for (const current of ancestors.reverse()) {
+  const validateDirectory = current => {
     const stat = lstatSync(current);
     if (!stat.isDirectory() || stat.isSymbolicLink()) invalid();
     if ((current === directory || current === dirname(directory)) && !privateOwned(stat)) invalid();
     if (current === projectRoot && (stat.uid !== process.getuid?.() || (stat.mode & 0o022) !== 0)) invalid();
+  };
+  // Check each ancestor before descending, so a symlink is never traversed.
+  for (const current of ancestors.reverse()) {
+    try {
+      validateDirectory(current);
+    } catch (error) {
+      if (current === directory && error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+        for (const ancestor of ancestors.slice(0, -1)) validateDirectory(ancestor);
+        return null;
+      }
+      throw error;
+    }
   }
   return { directory, projectRoot };
 }
@@ -60,7 +71,17 @@ function receiptArmingLive(arming) {
 }
 
 function activeControl({ directory, projectRoot }) {
-  const fd = openSync(join(directory, 'ordinary-window-control.json'), constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+  let fd;
+  try {
+    fd = openSync(join(directory, 'ordinary-window-control.json'), constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+      // ENOENT can also mean a checked ancestor disappeared before open.
+      configuration();
+      return null;
+    }
+    throw error;
+  }
   try {
     const stat = fstatSync(fd);
     if (!stat.isFile() || !privateOwned(stat) || stat.nlink !== 1 || stat.size > 4096) invalid();
@@ -161,14 +182,14 @@ function emit(directory, record) {
 }
 try {
   const config = configuration();
-  const control = activeControl(config);
+  const control = config && activeControl(config);
   if (control) {
     const record = await payload();
     // Revocation while stdin was pending suppresses emission, but never grants native access.
     const current = configuration();
-    const currentControl = activeControl(current);
+    const currentControl = current && activeControl(current);
     if (
-      current.directory === config.directory &&
+      current?.directory === config.directory &&
       currentControl?.state === control.state &&
       (control.state !== 'receipt_only' ||
         (record.event === 'connect' && record.cwd === config.projectRoot && JSON.stringify(currentControl) === JSON.stringify(control)))
