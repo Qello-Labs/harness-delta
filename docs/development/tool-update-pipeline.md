@@ -486,8 +486,19 @@ drifted or exhausted reads produce unavailable evidence, never partial success.
 Revalidation skips only exact `/git/trees/<sha>`, `/git/blobs/<sha>` and
 `/git/tags/<sha>` paths with full 40-hex SHAs, and `/contents/<path>` with exactly
 a full-SHA `ref` query. Repository metadata, tag refs, named refs and unclassified
-paths remain revalidated. Repeated gets still detect in-job byte drift, including
-for immutable resources. Shared tree and schema-blob SHAs are reused within a job.
+paths remain revalidated. For the Codex repository root only, repeated gets and
+revalidation compare a canonical projection of `id`, `name`, `full_name`,
+`owner.login`, `owner.id` and `fork`. Changes to consumed identity still fail with
+`source_identity_drift`; unrelated metadata such as `size` and JSON whitespace
+do not. Malformed bodies remain refused with the existing failure codes.
+Every other resource, including Claude repository metadata, refs, tags, commits,
+trees, blobs, compare and release resources, keeps raw-byte comparison.
+Conditional 304 handling, pins and limits are unchanged. The root comparison
+digest is transient, not a recorded raw-response receipt. Difference evidence
+`from_content_hash` and `to_content_hash` still identify source closures or schema
+projections; identical consumed inputs and job bindings keep evidence bytes and
+IDs. Discovery observation raw receipts are unchanged. Shared tree and schema-blob
+SHAs are reused within a job.
 With the current complete synthetic closure and distinct objects per ref, the
 count is `2 + 22 * n`: five refs use 106 initial requests plus six mutable
 revalidations, 112 total; nine refs use 190 plus ten, 200 total. The nine-ref

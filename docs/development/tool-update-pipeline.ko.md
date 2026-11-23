@@ -441,8 +441,17 @@ Codex 응답 예산은 `min(8 + 24 * n, 1024)`, 기한은
 재검증은 전체 40자리 16진 SHA를 사용하는 정확한 `/git/trees/<sha>`, `/git/blobs/<sha>`,
 `/git/tags/<sha>` 경로와, 전체 SHA인 `ref` 쿼리만 있는 `/contents/<path>`만 건너뜁니다.
 저장소 메타데이터, 태그 ref, 이름으로 지정한 ref와 분류되지 않은 경로는 계속 재검증합니다.
-불변 리소스를 포함해 반복 get의 작업 내 바이트 drift 감지는 유지합니다.
-공유 tree와 schema blob SHA는 작업 안에서 재사용합니다. 현재의 완전한 합성 closure에서
+Codex 저장소 루트에 한해서 반복 get과 재검증은 `id`, `name`, `full_name`,
+`owner.login`, `owner.id`, `fork`의 정규화된 투영을 비교합니다. 소비하는 identity가
+바뀌면 계속 `source_identity_drift`로 실패하지만 `size` 같은 무관한 메타데이터와
+JSON 공백 변경은 drift로 처리하지 않습니다. 잘못된 본문은 기존 실패 코드로 거부합니다.
+Claude 저장소 메타데이터, ref, tag, commit, tree, blob, compare, release를 포함한
+다른 모든 리소스는 원시 바이트 비교를 유지합니다. 조건부 304 처리, pin, 제한은
+변경하지 않습니다. 루트 비교 다이제스트는 일시적인 값이며 기록된 원시 응답 receipt가
+아닙니다. 차이 증거의 `from_content_hash`와 `to_content_hash`는 계속 소스 closure 또는
+schema 투영을 식별합니다. 소비하는 입력과 작업 바인딩이 같으면 증거 바이트와 ID도
+같습니다. Discovery 관측의 원시 receipt는 변경하지 않습니다. 공유 tree와 schema blob
+SHA는 작업 안에서 재사용합니다. 현재의 완전한 합성 closure에서
 ref마다 객체가 다르면 요청 수는 `2 + 22 * n`입니다. ref 5개는 최초 요청 106회와
 변경 가능한 리소스 재검증 6회로 총 112회, ref 9개는 190회와 10회로 총 200회입니다.
 ref 9개의 허용량은 응답 224개와 210초이며 요청 24회의 여유가 있습니다.
