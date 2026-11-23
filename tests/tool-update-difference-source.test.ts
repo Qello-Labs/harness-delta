@@ -457,7 +457,6 @@ test.each([
 });
 test.each([
   ['tag drift', '/git/ref/tags/', 'source_identity_drift'],
-  ['repository drift', '/repos/openai/codex', 'source_identity_drift'],
   ['late tag drift', '/git/ref/tags/rust-v0.165.0', 'source_identity_drift']
 ] as const)('%s during revalidation discards all earlier successes', async (_name, path, failure) => {
   const wire = sourceFixture({
@@ -468,6 +467,16 @@ test.each([
   });
   expect(result.failure).toBe(failure);
   noPass(result);
+});
+test('repository whitespace drift during revalidation preserves identical evidence', async () => {
+  const unchanged = sourceFixture();
+  const expected = await collectCodexSourceEvidence(unchanged.job, { fetch: unchanged.fetchImpl });
+  const wire = sourceFixture({
+    rewrite: async (url, attempt, response) => (url.pathname === '/repos/openai/codex' && attempt === 2 ? new Response(`${await response.text()} `) : response)
+  });
+  const result = await collectCodexSourceEvidence(wire.job, { fetch: wire.fetchImpl });
+  expect(result.failure).toBeNull();
+  expect(result.evidence).toEqual(expected.evidence);
 });
 test.each([
   [

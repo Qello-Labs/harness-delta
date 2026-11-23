@@ -189,6 +189,18 @@ function sourceTransport(
   { signal, ledger, repository = { path: repositoryPath, number: repositoryNumber }, responses = codexSourceLimits.responses }
 ) {
   const snapshots = new Map();
+  function comparisonDigest(path, bytes) {
+    if (repository.path !== repositoryPath || path !== '') return hash(bytes);
+    let body;
+    try {
+      body = parseJson(bytes);
+    } catch (error) {
+      if (error instanceof ToolUpdateError && error.code === 'source_document_invalid') return null;
+      throw error;
+    }
+    const parsed = repositorySchema.safeParse(body);
+    return parsed.success ? digest(parsed.data) : null;
+  }
   async function request(path, validator = null) {
     const original = new URL(`${origin}${repository.path}${path}`);
     let current = original;
@@ -258,11 +270,12 @@ function sourceTransport(
     async get(path) {
       const response = await request(path);
       const previous = snapshots.get(path);
-      if (previous && previous.digest !== hash(response.bytes)) {
+      const comparison = comparisonDigest(path, response.bytes);
+      if (previous && (comparison === null || previous.digest !== comparison)) {
         fail('source_identity_drift');
       }
       snapshots.set(path, {
-        digest: hash(response.bytes),
+        digest: comparison,
         etag: response.etag
       });
       return response.bytes;
@@ -271,7 +284,10 @@ function sourceTransport(
       for (const [path, snapshot] of snapshots) {
         if (immutableGithubPath(path)) continue;
         const response = await request(path, snapshot.etag);
-        if (response !== null && hash(response.bytes) !== snapshot.digest) fail('source_identity_drift');
+        if (response !== null) {
+          const comparison = comparisonDigest(path, response.bytes);
+          if (comparison === null || comparison !== snapshot.digest) fail('source_identity_drift');
+        }
       }
     }
   };
