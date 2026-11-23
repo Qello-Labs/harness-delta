@@ -209,15 +209,27 @@ quoted absolute Node executable that runs the installer plus the installed
 `record`, with `timeout: 10`. The manifest records that entry. Preview lists it as
 its own planned change, and only an explicit apply writes it, under the same
 review, stale-preview and lock rules as owned files. All other bytes in the file
-stay unchanged. If the file is absent, the installer creates it. Remove deletes only
-the owned entry, and deletes the file only when the installer created it and it is
-now otherwise empty. An edited or foreign entry in place of the owned one blocks
+stay unchanged. If the file is absent, the installer creates it. Claude Code may
+rewrite this file itself, for example to save trust, MCP or permission choices.
+Status, arm, connect and remove tolerate reformatting, key order and unrelated
+additions. The owned group still has to match by content: the same command, type,
+timeout and key sets, with no extra hook. A duplicate or foreign harness hook
+still blocks. Any byte change between preview and apply still invalidates that
+preview. Remove deletes only the owned entry, and deletes the file only when the installer created it and it is
+now otherwise empty. If the file wasn't rewritten since install, remove restores its
+original bytes. After a rewrite, it removes only the owned entry and leaves the rest
+of the current bytes as Claude Code wrote them. An edited or foreign entry in
+place of the owned one blocks
 removal like an edited owned file. Migration between exact and window modes adds or
 removes the registration with the mode. An exact-only installation makes no settings edits, and
 `.claude/settings.json` and global or user settings are never touched. A configured
 registration doesn't prove that Claude Code trusts the workspace or delivers the
 hook; the operator still verifies that. Installation authorizes no collection,
-creates no control and runs no native binary. Missing/closed/malformed control emits nothing; even stale or
+creates no control and runs no native binary. An unarmed start is silent: when the
+receipt directory itself is missing below valid ancestors, or the valid directory
+has no control file, the recorder exits 0 with no output and no receipt. Other
+failures still show `binding_window_hook_metadata_unavailable`.
+Missing/closed/malformed control emits nothing; even stale or
 forged active control permits only unverified allowlisted pending metadata.
 The recorder/helper discover no native source, process, version or image.
 

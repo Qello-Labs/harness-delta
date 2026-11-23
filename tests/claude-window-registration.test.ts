@@ -91,7 +91,7 @@ test.each([null, '{}', '{"hooks":{}}', '{"hooks":{"SessionStart":[]}}'])('report
 
 test.each([
   group.replace('"timeout":10', '"timeout":11'),
-  group.replace('{"hooks"', '{ "hooks"'),
+  JSON.stringify({ hooks: [{ type: 'command', command: 'echo edited', timeout: 10 }] }),
   group.replace('"hooks":', '"matcher":"startup","hooks":'),
   `${group},${group}`,
   group.replace('/synthetic/node', '/different/node'),
@@ -107,6 +107,30 @@ test.each([
   for (const target of [command, null]) {
     expect(() => plan(current, initial.registration, target)).toThrowError(new WindowHookRegistrationError('window_registration_mismatched'));
   }
+});
+
+test.each([group.replace('{"hooks"', '{ "hooks"'), JSON.stringify({ hooks: [{ timeout: 10, command, type: 'command' }] }, null, 2)])(
+  'accepts rewritten owned content with the original canonical manifest: %s',
+  rewritten => {
+    const initial = installed();
+    const current = Buffer.from(`{"hooks":{"SessionStart":[${rewritten}]},"permissions":{"allow":[]}}`);
+    expect(initial.registration).toMatchObject({ command_sha256: sha(command), group_sha256: sha(group) });
+    expect(inspect(current, initial.registration)).toBe('present');
+    expect(plan(current, initial.registration, command)).toEqual({ after: current, registration: initial.registration, state: 'present' });
+  }
+);
+
+test('removes only a reformatted owned entry while preserving native rewrite bytes', () => {
+  const initial = installed('{"hooks":{"SessionStart":[]}}');
+  const rewritten = JSON.stringify({ hooks: [{ timeout: 10, command, type: 'command' }] }, null, 2).replace(/\n/g, '\n      ');
+  const current = `{\n  "hooks": {\n    "SessionStart": [\n      ${rewritten},\n      ${operator}\n    ]\n  },\n  "disabledMcpjsonServers": ["synthetic-disabled"]\n}\n`;
+  expect(plan(Buffer.from(current), initial.registration, null).after).toEqual(Buffer.from(current.replace(rewritten + ',', '')));
+});
+
+test('removes a rewritten installer-created file when its owned containers are now empty', () => {
+  const initial = installed(null);
+  const current = Buffer.from(JSON.stringify({ hooks: { SessionStart: [{ hooks: [{ timeout: 10, command, type: 'command' }] }] } }, null, 2) + '\n');
+  expect(plan(current, initial.registration, null).after).toBeNull();
 });
 
 test.each([

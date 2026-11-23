@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
 import { z } from 'zod';
 import { container, insertEntry, parseWindowSettings, property, removeEntry, WindowHookRegistrationError } from './claude-window-registration-json.js';
 import type { JsonContainer, JsonNode } from './claude-window-registration-json.js';
@@ -52,11 +53,17 @@ function inspect(parsed: ReturnType<typeof settings>, owned: WindowHookRegistrat
   if (!owned) return 'absent';
   if (hash(owned.command) !== owned.command_sha256) return 'mismatched';
   const count = parsed.hooks ? commandCount(parsed.hooks, owned.command) : 0;
-  if (count === 0) return parsed.hooks && conflicting(parsed.hooks) ? 'mismatched' : 'missing';
+  if (count === 0) {
+    return (parsed.starts?.entries.length ?? 0) > 0 || (parsed.hooks && conflicting(parsed.hooks)) ? 'mismatched' : 'missing';
+  }
   const group = parsed.starts?.entries.find(entry => commandCount(entry.value, owned.command) > 0)?.value;
   if (!group || count !== 1) return 'mismatched';
-  const raw = parsed.text.slice(group.start, group.end);
-  if (raw !== groupJson(owned.command) || hash(raw) !== owned.group_sha256 || (parsed.hooks && conflicting(parsed.hooks, group))) return 'mismatched';
+  const canonical = groupJson(owned.command);
+  const actual: unknown = JSON.parse(parsed.text.slice(group.start, group.end));
+  const expected: unknown = JSON.parse(canonical);
+  if (!isDeepStrictEqual(actual, expected) || hash(canonical) !== owned.group_sha256 || (parsed.hooks && conflicting(parsed.hooks, group))) {
+    return 'mismatched';
+  }
   return 'present';
 }
 

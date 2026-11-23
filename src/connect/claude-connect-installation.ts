@@ -359,7 +359,7 @@ function assertPromotedIdle(options: InstallationOptions): void {
   if (inUse === undefined) fail('promoted_in_use_unverified');
   if (inUse !== false) fail('promoted_installation_in_use');
 }
-function promotedSettingsHash(projectRoot: string, ownedRegistration?: WindowHookRegistration): string {
+function promotedSettingsHash(projectRoot: string, ownedRegistration?: WindowHookRegistration) {
   const conflicting = (value: unknown): boolean => {
     if (typeof value === 'string') {
       return /harness-connect|claude-(?:window-)?session-hook\.mjs/.test(value);
@@ -367,32 +367,32 @@ function promotedSettingsHash(projectRoot: string, ownedRegistration?: WindowHoo
     if (Array.isArray(value)) return value.some(conflicting);
     return value !== null && typeof value === 'object' && Object.values(value).some(conflicting);
   };
-  return hashBytes(
-    JSON.stringify(
-      ['.claude/settings.json', '.claude/settings.local.json'].map(path => {
-        const stat = entry(projectRoot, path);
-        if (!stat) return [path, null];
-        if (!stat.isFile() || stat.nlink !== 1) {
-          return fail('unsafe_path');
-        }
-        const bytes = readRepositoryFile(projectRoot, path);
-        let inspected = bytes;
-        if (path === windowRegistrationPath && ownedRegistration) {
-          try {
-            inspected = planWindowHookRegistration(bytes, ownedRegistration, null).after ?? Buffer.from('{}');
-          } catch (error) {
-            if (!(error instanceof WindowHookRegistrationError)) throw error;
-            fail('promoted_registration_conflict');
-          }
-        }
-        const settings = z.object({ hooks: z.unknown().optional() }).parse(readStrictJson(inspected));
-        if (conflicting(settings.hooks)) {
-          fail('promoted_registration_conflict');
-        }
-        return [path, hashBytes(bytes)];
-      })
-    )
-  );
+  const hashes = ['.claude/settings.json', '.claude/settings.local.json'].map(path => {
+    const stat = entry(projectRoot, path);
+    if (!stat) return [path, null] as const;
+    if (!stat.isFile() || stat.nlink !== 1) {
+      return fail('unsafe_path');
+    }
+    const bytes = readRepositoryFile(projectRoot, path);
+    let inspected = bytes;
+    if (path === windowRegistrationPath && ownedRegistration) {
+      try {
+        inspected = planWindowHookRegistration(bytes, ownedRegistration, null).after ?? Buffer.from('{}');
+      } catch (error) {
+        if (!(error instanceof WindowHookRegistrationError)) throw error;
+        fail('promoted_registration_conflict');
+      }
+    }
+    const settings = z.object({ hooks: z.unknown().optional() }).parse(readStrictJson(inspected));
+    if (conflicting(settings.hooks)) {
+      fail('promoted_registration_conflict');
+    }
+    return [path, hashBytes(bytes)] as const;
+  });
+  return {
+    reviewHash: hashBytes(JSON.stringify(hashes)),
+    identityHash: hashBytes(JSON.stringify(hashes.map(([path, value]) => [path, path === windowRegistrationPath ? null : value])))
+  };
 }
 function promotedSource(options: InstallationOptions, owned: ReturnType<typeof inspectOwned>) {
   if (!options.productVersion || !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(options.productVersion)) {
@@ -476,6 +476,7 @@ function installationInputs(projectRoot: string, options: ClaudeConnectInstallat
   const bundleMode = options.bundleMode ?? (installedWindow ? 'ordinary_window' : 'exact');
   const promoted = bundleMode === 'promoted';
   let settingsHash: string | null = null;
+  let settingsIdentityHash: string | null = null;
   let receiptsIdentity: string | null = null;
   if (installedPromoted && (!promoted || operation === 'remove')) {
     blockers.push('promoted_cutover_required');
@@ -483,7 +484,9 @@ function installationInputs(projectRoot: string, options: ClaudeConnectInstallat
   if (promoted) {
     try {
       assertPromotedIdle(options);
-      settingsHash = promotedSettingsHash(projectRoot, ownedRegistration);
+      const settings = promotedSettingsHash(projectRoot, ownedRegistration);
+      settingsHash = settings.reviewHash;
+      settingsIdentityHash = settings.identityHash;
       receiptsIdentity = promotedReceiptIdentity(projectRoot);
     } catch (error) {
       blockers.push(blocker(error));
@@ -505,6 +508,8 @@ function installationInputs(projectRoot: string, options: ClaudeConnectInstallat
     registration,
     sourceHash: registrationHash,
     installedHash: installedRegistrationHash,
+    sourceIdentityHash: registrationIdentityHash,
+    installedIdentityHash: installedRegistrationIdentityHash,
     state: recorderRegistration,
     blockers: registrationBlockers,
     changes: registrationChanges
@@ -554,6 +559,7 @@ function installationInputs(projectRoot: string, options: ClaudeConnectInstallat
     guardedWindow,
     promoted,
     settingsHash,
+    settingsIdentityHash,
     receiptsIdentity,
     installedWindow,
     installedPromoted,
@@ -561,6 +567,8 @@ function installationInputs(projectRoot: string, options: ClaudeConnectInstallat
     registration,
     registrationHash,
     installedRegistrationHash,
+    registrationIdentityHash,
+    installedRegistrationIdentityHash,
     recorderRegistration
   };
 }
@@ -575,6 +583,7 @@ function plan(projectRoot: string, options: ClaudeConnectInstallationPreviewOpti
     guardedWindow,
     promoted,
     settingsHash,
+    settingsIdentityHash,
     receiptsIdentity,
     installedWindow,
     installedPromoted,
@@ -582,9 +591,12 @@ function plan(projectRoot: string, options: ClaudeConnectInstallationPreviewOpti
     registration,
     registrationHash,
     installedRegistrationHash,
+    registrationIdentityHash,
+    installedRegistrationIdentityHash,
     recorderRegistration
   } = installationInputs(projectRoot, options);
   const localState = { settingsHash, receiptsIdentity };
+  const identityState = { settingsHash: settingsIdentityHash, receiptsIdentity };
   const packageHash =
     source && (!window || owned)
       ? promoted && owned
@@ -596,6 +608,8 @@ function plan(projectRoot: string, options: ClaudeConnectInstallationPreviewOpti
       ? promotedHash(owned.files, owned.identity, localState)
       : bundleHash(owned.files, installedWindow ? owned.identity : undefined)
     : null;
+  const packageIdentityHash = promoted && source && owned ? promotedHash(source.files, owned.identity, identityState) : packageHash;
+  const installedIdentityHash = installedPromoted && owned ? promotedHash(owned.files, owned.identity, identityState) : installedHash;
   const preview: ClaudeConnectInstallationPreview = {
     state: blockers.length
       ? 'blocked'
@@ -637,6 +651,17 @@ function plan(projectRoot: string, options: ClaudeConnectInstallationPreviewOpti
   };
   return {
     preview,
+    status: {
+      ...preview,
+      packageHash:
+        packageIdentityHash && window && registrationIdentityHash
+          ? hashBytes(JSON.stringify([packageIdentityHash, registrationIdentityHash]))
+          : packageIdentityHash,
+      installedHash:
+        installedIdentityHash && installedWindow && installedRegistrationIdentityHash
+          ? hashBytes(JSON.stringify([installedIdentityHash, installedRegistrationIdentityHash]))
+          : installedIdentityHash
+    },
     owned,
     source,
     window,
@@ -752,7 +777,7 @@ export function statusClaudeConnectInstallation(
 export function statusClaudeConnectInstallation(projectRoot: string, options: ClaudePromotedConnectInstallationOptions): ClaudeConnectInstallationStatus;
 export function statusClaudeConnectInstallation(projectRoot: string, options: InstallationOptions): ClaudeConnectInstallationStatus;
 export function statusClaudeConnectInstallation(projectRoot: string, options: InstallationOptions = {}): ClaudeConnectInstallationStatus {
-  const result = plan(projectRoot, options).preview;
+  const result = plan(projectRoot, options).status;
   return {
     state: result.state,
     source: result.source,
@@ -846,7 +871,7 @@ function assertCutoverBoundary(projectRoot: string, options: ClaudeConnectInstal
       fail('promoted_quiescent_boundary_unconfirmed');
     }
     const registration = ownedWindowRegistration(planned.owned);
-    if (promotedSettingsHash(projectRoot, registration) !== planned.settingsHash) {
+    if (promotedSettingsHash(projectRoot, registration).reviewHash !== planned.settingsHash) {
       fail('installation_preview_changed');
     }
     const currentReceipts = promotedReceiptIdentity(projectRoot);
@@ -858,9 +883,9 @@ function apply(projectRoot: string, options: ClaudeConnectInstallationPreviewOpt
   const { owned, source, preview, window, guardedWindow, promoted, registrationFile, registration } = planned;
   const registrationMutation = windowRegistrationTransaction(projectRoot, registrationFile, registration);
   assertPreviewMatches(options, preview);
-  if (preview.blockers.length || !owned) return preview;
-  if (preview.operation === 'remove' && !owned.manifest) return preview;
-  if (preview.operation === 'install' && !source) return preview;
+  if (preview.blockers.length || !owned) return planned.status;
+  if (preview.operation === 'remove' && !owned.manifest) return planned.status;
+  if (preview.operation === 'install' && !source) return planned.status;
   if (
     preview.operation === 'install' &&
     owned.manifest &&
@@ -868,7 +893,7 @@ function apply(projectRoot: string, options: ClaudeConnectInstallationPreviewOpt
     window === (owned.manifest.schema_version === 2) &&
     promoted === (owned.manifest.schema_version === 3)
   ) {
-    return preview;
+    return planned.status;
   }
   if ((guardedWindow || promoted) && (options.expectedPackageHash === undefined || options.expectedInstalledHash === undefined)) {
     return fail('installation_preview_required');
@@ -983,7 +1008,7 @@ function apply(projectRoot: string, options: ClaudeConnectInstallationPreviewOpt
       }
     }
   }
-  return plan(projectRoot, options).preview;
+  return plan(projectRoot, options).status;
 }
 /** Caller must resolve projectRoot from its registered project before this explicit apply. */
 export function installClaudeConnectInstallation(projectRoot: string, options: InstallationOptions = {}): ClaudeConnectInstallationStatus {
