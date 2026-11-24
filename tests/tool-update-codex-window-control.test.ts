@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { afterEach, expect, test, vi } from 'vitest';
 import { z } from 'zod';
 import { reserveSyntheticWindowEmission, writeWindowEmissionControl } from '../scripts/tool-update/codex-window-conformance.mjs';
-import { runCodexWindowHook } from './helpers/codex-window-hook-fixture.js';
+import { codexWindowControl, runCodexWindowHook } from './helpers/codex-window-hook-fixture.js';
 import { Store } from '../src/store.js';
 import { Lifecycle } from '../src/core/lifecycle.js';
 import { ordinaryWindowDigest, ordinaryWindowPolicies } from '../src/core/ordinary-window-policy.js';
@@ -192,7 +192,7 @@ test('the private emission control enables the unchanged metadata hook without g
     projectRoot: f.projectRoot,
     product: 'codex',
     policyId: 'codex-binding-root-window-v1',
-    policyRevision: 'codex-ordinary-root-window-v1',
+    policyRevision: 'codex-ordinary-root-window-v2',
     evidenceMode: 'source_only',
     state: 'active'
   });
@@ -210,6 +210,31 @@ test('the private emission control enables the unchanged metadata hook without g
   });
   expect(stopped.receipts).toHaveLength(1);
   expect(control.authority).toBe('none');
+});
+
+test('the recorder rejects historical v1 controls before reading a native source', async () => {
+  const f = fixture();
+  const directory = join(f.projectRoot, '.harness-delta/window-receipts');
+  mkdirSync(directory, { recursive: true, mode: 0o700 });
+  const path = join(directory, 'ordinary-window-control.json');
+  const bytes = JSON.stringify({ ...codexWindowControl(f.projectRoot), policyRevision: 'codex-ordinary-root-window-v1' });
+  writeFileSync(path, bytes, { mode: 0o600 });
+  const native = join(f.root, 'unread-native');
+  const result = await runCodexWindowHook({
+    projectRoot: f.projectRoot,
+    receiptDirectory: directory,
+    nativePrefixes: [native],
+    input: {
+      hook_event_name: 'SessionStart',
+      source: 'startup',
+      session_id: 'synthetic-root',
+      cwd: f.projectRoot,
+      transcript_path: join(native, 'absent.jsonl')
+    }
+  });
+  expect(result.receipts).toEqual([]);
+  expect(result.effects).toEqual({ nativeCalls: 0, processCalls: 0, operations: [] });
+  expect(readFileSync(path, 'utf8')).toBe(bytes);
 });
 
 test('forged, serialized and reused process-local reservations cannot write a control', () => {

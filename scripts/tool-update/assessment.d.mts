@@ -34,7 +34,7 @@ export interface AssessmentLane extends Lane {
   readonly compatibility: Compatibility | null;
   readonly parser_base: string | null;
   readonly window: { readonly base: string; readonly upper_exclusive: string } | null;
-  readonly rule_revision: 'forward-version-v1' | 'codex-ordinary-root-window-v1' | 'claude-ordinary-root-window-v1';
+  readonly rule_revision: 'forward-version-v1' | 'codex-ordinary-root-window-v1' | 'codex-ordinary-root-window-v2' | 'claude-ordinary-root-window-v1';
   readonly declared_scope: {
     readonly max_depth: number | null;
     readonly max_members: number | null;

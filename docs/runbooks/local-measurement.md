@@ -182,7 +182,7 @@ For developer conformance, exact-version registration and native update controls
 use the [admission procedure](codex-version-admission.md). These are manual,
 separately authorized validation steps, never part of installation or collection.
 
-The independent Codex (`>0.163.0`, `<0.170.0`) and Claude Code
+The independent Codex (`>0.163.0`, `<0.172.0`) and Claude Code
 (`>2.1.306`, `<2.2.0`) ordinary root-reference windows are implemented for offline
 acceptance, ordinary-window
 collection disabled pending separate product activation and native acceptance.

@@ -338,7 +338,7 @@ test('saves an omitted-mode configure body as the existing window mode without t
       .map(admission => admission.productVersion),
     window: {
       policy_id: 'codex-binding-root-window-v1',
-      policy_revision: 'codex-ordinary-root-window-v1',
+      policy_revision: 'codex-ordinary-root-window-v2',
       evidence_mode: 'source_only',
       collection_enabled: false,
       reason: 'binding_window_activation_required'

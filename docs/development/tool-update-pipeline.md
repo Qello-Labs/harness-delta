@@ -293,8 +293,11 @@ The two root-policy IDs are accepted with v3 on schemas 5-7, v4 on schema 8,
 v5 on schema 9, v6 on schema 10 and v7 on schema 11; v2 records are not rewritten.
 The v3 schemas add two ordinary root-reference
 policy lanes, `codex-binding-root-window-v1` and `claude-binding-root-window-v1`,
-with rule revisions `codex-ordinary-root-window-v1` and
-`claude-ordinary-root-window-v1`. Each covers root only: link, collect and restart,
+with historical rule revisions `codex-ordinary-root-window-v1` and
+`claude-ordinary-root-window-v1`. Current schema 11 Codex writers use
+`codex-ordinary-root-window-v2`; frozen v1 records keep their historical rule
+and aren't relabeled. Earlier schemas do not accept the v2 rule.
+Each covers root only: link, collect and restart,
 `exact_only:false`, depth 0 and one member, with no launch, resume or family lane.
 These finite policy lanes are distinct from exact admission lanes. Static selection
 doesn't read activation state, doesn't clear `exact_only` on legacy lanes and
@@ -305,7 +308,7 @@ separate product activation and native acceptance.
 
 The separately delivered Codex bundle/setup uses `source_only` root references,
 not verified root-own usage. Only a separately activated, explicitly active frozen
-window task may use stable `0.163.0 < v < 0.170.0` before per-target deeper
+window task may use stable `0.163.0 < v < 0.172.0` before per-target deeper
 conformance; no exact row is added for a window-only target. This limited exception
 does not cover children, exact support, cap changes or promotion, which retain the
 deeper verification gate. Failed required contracts, contradictions, revocation

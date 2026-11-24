@@ -12,7 +12,7 @@ export type WindowExecutionPins = WindowExecutionPinFields & (
   | {
     readonly product: 'codex';
     readonly policy_id: 'codex-binding-root-window-v1';
-    readonly policy_revision: 'codex-ordinary-root-window-v1';
+    readonly policy_revision: 'codex-ordinary-root-window-v2';
     readonly evidence_mode: 'source_only';
   }
   | {

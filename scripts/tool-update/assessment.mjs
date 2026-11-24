@@ -129,16 +129,16 @@ const ordinaryLaneRules = [
     profile: 'codex-binding-root-window-v1',
     product: 'codex',
     route: 'codex_binding',
-    revision: 'codex-ordinary-root-window-v1'
+    revisions: ['codex-ordinary-root-window-v1', 'codex-ordinary-root-window-v2']
   },
   {
     profile: 'claude-binding-root-window-v1',
     product: 'claude_code',
     route: 'claude_binding',
-    revision: 'claude-ordinary-root-window-v1'
+    revisions: ['claude-ordinary-root-window-v1']
   }
 ];
-const expandedRuleSchema = z.enum(['forward-version-v1', 'codex-ordinary-root-window-v1', 'claude-ordinary-root-window-v1']);
+const expandedRuleSchema = z.enum(['forward-version-v1', 'codex-ordinary-root-window-v1', 'codex-ordinary-root-window-v2', 'claude-ordinary-root-window-v1']);
 const laneAssessment = (reviewed, ordinary = false) =>
   laneSchema.extend({
     static_selection: z.enum(['exact', 'inherited', 'unsupported']),
@@ -508,7 +508,8 @@ export const assessmentSchema = z
                   : policyAssessmentRuleRevision) ||
         row.product !== policy.product ||
         row.route !== policy.route ||
-        row.rule_revision !== policy.revision ||
+        !policy.revisions.includes(row.rule_revision) ||
+        (row.rule_revision === 'codex-ordinary-root-window-v2' && value.schema_version < 11) ||
         row.topology !== 'root' ||
         !['link', 'collect', 'restart'].includes(row.operation) ||
         row.declared_scope.max_depth !== 0 ||
@@ -516,7 +517,7 @@ export const assessmentSchema = z
         row.declared_scope.exact_only ||
         !row.declared_scope.read_only ||
         (row.compatibility !== null &&
-          (row.compatibility.rule_revision !== policy.revision ||
+          (row.compatibility.rule_revision !== row.rule_revision ||
             row.compatibility.product !== row.product ||
             row.compatibility.source !== row.route ||
             row.compatibility.profile_id !== row.profile_id ||

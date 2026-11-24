@@ -56,7 +56,7 @@ outside the base profile remain unsupported.
 
 Two ordinary root-reference policies select observation only. They aren't exact
 admission or launch authority, and the launch identity rule above is unchanged.
-`codex-binding-root-window-v1` covers stable Codex `>0.163.0` and `<0.170.0`
+`codex-binding-root-window-v1` covers stable Codex `>0.163.0` and `<0.172.0`
 with source-only evidence: the task declaration must equal the root creation
 header, but that header doesn't prove the writer version, and no native asset is
 a prerequisite. Optional Codex file assurance isn't implemented, isn't a Claude
@@ -73,7 +73,7 @@ The separate Codex window bundle, explicit owned-copy installer and closed setup
 are implemented for offline acceptance, ordinary-window collection disabled pending
 separate product activation and native acceptance. An activated
 `codex-binding-root-window-v1` may collect only descriptive `source_only` root
-references for stable `0.163.0 < v < 0.170.0` before per-target deeper conformance.
+references for stable `0.163.0 < v < 0.172.0` before per-target deeper conformance.
 A window-only release needs no exact admission row. Equality at either bound,
 prereleases, build suffixes, blocked versions and failed required contracts remain
 refused; changing the upper bound needs a separate renewal decision. This exception

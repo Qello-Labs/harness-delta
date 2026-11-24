@@ -15,7 +15,7 @@ export const codexWindowControl = (projectRoot: string) => ({
   projectRoot,
   product: 'codex',
   policyId: 'codex-binding-root-window-v1',
-  policyRevision: 'codex-ordinary-root-window-v1',
+  policyRevision: 'codex-ordinary-root-window-v2',
   evidenceMode: 'source_only',
   state: 'active'
 });

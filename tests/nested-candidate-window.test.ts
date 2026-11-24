@@ -118,7 +118,7 @@ test('window rollout projects the unchanged actual header and rejects declaratio
   );
 });
 
-test.each(['0.163.0', '0.170.0', '0.171.0', '0.169.0-beta.1', '0.169.0+build', '0.169', '00.169.0', 'not-a-version'])(
+test.each(['0.163.0', '0.172.0', '0.172.1', '0.169.0-beta.1', '0.169.0+build', '0.169', '00.169.0', 'not-a-version'])(
   'window projection refuses forged out-of-window version %s',
   version => {
     expect(() =>

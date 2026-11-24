@@ -266,8 +266,10 @@ schema 1-10 reader는 고정된 과거 기록입니다. `static-assessment-v1`�
 `static-assessment-v5`의 schema 9, `static-assessment-v6`의 schema 10을 계속 읽습니다.
 두 root 정책 ID는 schema 5-7에서는 v3로, schema 8에서는 v4로, schema 9에서는 v5로, schema 10에서는 v6로,
 schema 11에서는 v7로 허용하며 v2 레코드를 다시 쓰지 않습니다. v3 schema는 일반 root 참조 정책 레인 두 개,
-`codex-binding-root-window-v1`과 `claude-binding-root-window-v1`을 추가합니다. 규칙 리비전은
-`codex-ordinary-root-window-v1`과 `claude-ordinary-root-window-v1`입니다. 각 레인은 root만
+`codex-binding-root-window-v1`과 `claude-binding-root-window-v1`을 추가합니다. 과거 규칙 리비전은
+`codex-ordinary-root-window-v1`과 `claude-ordinary-root-window-v1`입니다. 현재 schema 11 Codex writer는
+`codex-ordinary-root-window-v2`를 사용하며 고정된 v1 레코드는 과거 규칙을 유지하고 다시 표시하지 않습니다.
+이전 schema는 v2 규칙을 허용하지 않습니다. 각 레인은 root만
 다룹니다. link, collect, restart만 있고 `exact_only:false`, 깊이 0, 멤버 하나이며 launch, resume,
 family 레인은 없습니다. 이 유한 정책 레인은 정확 admission 레인과 다릅니다. 정적 선택은 활성화
 상태를 읽지 않고, 기존 레인의 `exact_only`를 해제하지 않으며, 릴리스를 사용 가능하게 만들지
@@ -277,7 +279,7 @@ family 레인은 없습니다. 이 유한 정책 레인은 정확 admission 레�
 
 별도로 제공하는 Codex 패키지·설정은 검증된 root 자체 사용량이 아닌 `source_only` root
 참조를 사용합니다. 별도 활성화가 있고 명시적으로 활성화된 고정 window 작업만 안정 버전
-`0.163.0 < v < 0.170.0`에서 대상별 심층 적합성 검증보다 먼저 이 참조를 사용할 수 있습니다.
+`0.163.0 < v < 0.172.0`에서 대상별 심층 적합성 검증보다 먼저 이 참조를 사용할 수 있습니다.
 window 전용 대상의 정확 row는 추가하지 않습니다. 이 제한적 예외는 자식, 정확 지원, 상한 변경,
 승격을 포함하지 않으며 이들은 심층 검증 gate를 유지합니다. 필수 계약 실패·모순·권한 철회·
 비호환 버전은 계속 관측을 중단합니다. 구현 제공, 설치나 정적 선택은 활성화나 native 검증을

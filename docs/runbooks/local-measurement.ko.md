@@ -189,7 +189,7 @@ node dist/cli.js --db ./local.db compatibility invalidate --product codex --vers
 [admission 절차](codex-version-admission.md)를 사용하세요. 별도 승인이 필요한
 수동 검증이며 설치나 수집 중 자동으로 실행되지 않습니다.
 
-독립적인 Codex(`>0.163.0`, `<0.170.0`)와 Claude Code(`>2.1.306`, `<2.2.0`)의 일반 root 참조 창은
+독립적인 Codex(`>0.163.0`, `<0.172.0`)와 Claude Code(`>2.1.306`, `<2.2.0`)의 일반 root 참조 창은
 오프라인 검증용으로 구현되었으며, 일반 창(window) 수집은 별도 제품 활성화와 native 검증
 전까지 비활성 상태입니다. 별도의 패키지, 명시적인 소유 복사본 migration과 닫힌 설정은
 위의 정확 버전 조건을 바꾸지 않습니다.

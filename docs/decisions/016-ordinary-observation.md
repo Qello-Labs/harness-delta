@@ -144,7 +144,7 @@ and native acceptance. It grants no protocol, allocation, arm, launch, resume,
 child connection, exchange or inferential adoption authority.
 
 Explicit project setup saves a schema 2 window preference, including a stable
-declared version inside `0.163.0 < v < 0.170.0` and permitted source roots. A
+declared version inside `0.163.0 < v < 0.172.0` and permitted source roots. A
 separately prepared task freezes that declaration, `codex-binding-root-window-v1`,
 roots and price table. The task must be explicitly active before receipt/provider
 or source work, with a separately accepted live activation for that project,

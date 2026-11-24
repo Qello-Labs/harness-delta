@@ -57,7 +57,7 @@ The separate Codex window bundle/setup is implemented for offline acceptance,
 ordinary-window collection disabled pending separate product activation and native
 acceptance. Once those product-specific gates are separately accepted, the finite
 `codex-binding-root-window-v1` may supply descriptive `source_only` root references
-for stable `0.163.0 < v < 0.170.0` before per-target deeper conformance. This limited
+for stable `0.163.0 < v < 0.172.0` before per-target deeper conformance. This limited
 exception, including an in-window minor transition, adds no exact target row and
 does not establish writer/executable/publisher/process identity or root-own usage.
 Children, verified exact support, bound changes and promotion still need the deeper
