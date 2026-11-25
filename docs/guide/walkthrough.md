@@ -176,6 +176,10 @@ If you configured Claude but skipped installation, the detail page shows "This p
 needs the connection skill." Finish installation with **Preview install / update** on the
 same page.
 
+Codex tasks do not use this assignment-free ordinary Claude flow; Codex requires its
+separate frozen `functional_pilot` assignment workflow (and the closed ordinary-window
+procedures remain separate).
+
 ![Task that needs installation](images/07-task-install-needed.png)
 
 ## Step 5: Connect the Claude session

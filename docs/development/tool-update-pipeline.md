@@ -641,11 +641,19 @@ whatever is supplied.
 
 ### How assess applies records
 
-The current writer emits `schema_version: 11` with `static-assessment-v7` for plain,
-manual (`--review`) and machine (`--judgment`) assessments. With at least one `--review`,
-it includes the sorted `review_ids` and `unused_review_ids` and each lane's
-`selection_policy`; without `--review`, those review fields and `selection_policy` are
-omitted. Its bytes and ID still change whenever an input does, including the source
+The current writer emits `schema_version: 11` with `static-assessment-v7` across all
+three channels:
+
+- **Plain** (no `--review` and no `--judgment`): omits `review_ids`,
+  `unused_review_ids` and lane `selection_policy`.
+- **Manual** (at least one `--review`): includes sorted `review_ids`,
+  `unused_review_ids` and each lane's `selection_policy`.
+- **Machine** (at least one `--judgment`): always includes `review_ids` and
+  `unused_review_ids` (both `[]` when no `--review` is supplied) alongside
+  `judgment_ids` and `unused_judgment_ids`; lane `selection_policy` is still included
+  only when `--review` is supplied.
+
+Its bytes and ID still change whenever an input does, including the source
 digest. Frozen schema 1–10 assessments remain readable and are never rewritten.
 
 - A record applies to a lane edge only if the lane key, `contract_revision`, and the

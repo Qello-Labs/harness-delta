@@ -584,10 +584,17 @@ map revision, policy revision 중 하나가 현재와 다르면 자동 결과는
 
 ### assess가 레코드를 적용하는 방식
 
-현재 writer는 일반, 수동(`--review`), 기계(`--judgment`) 평가 모두에 `static-assessment-v7`로
-`schema_version: 11`을 씁니다. `--review`가 하나 이상이면 정렬된 `review_ids`, `unused_review_ids`와
-각 레인의 `selection_policy`를 포함하고, `--review`가 없으면 해당 검토 필드와 `selection_policy`를
-생략합니다. 소스 다이제스트를 포함해 입력이 바뀌면 바이트와 ID도 함께 바뀝니다.
+현재 writer는 세 채널 모두에 `static-assessment-v7`로 `schema_version: 11`을 씁니다.
+
+- **일반**(`--review`와 `--judgment` 모두 없음): `review_ids`, `unused_review_ids`와 레인의
+  `selection_policy`를 생략합니다.
+- **수동**(`--review` 하나 이상): 정렬된 `review_ids`, `unused_review_ids`와 각 레인의
+  `selection_policy`를 포함합니다.
+- **기계**(`--judgment` 하나 이상): `judgment_ids`, `unused_judgment_ids`와 함께
+  `review_ids`와 `unused_review_ids`를 항상 포함합니다(`--review`가 없으면 둘 다 `[]`).
+  레인의 `selection_policy`는 계속 `--review`가 제공된 경우에만 포함합니다.
+
+소스 다이제스트를 포함해 입력이 바뀌면 바이트와 ID도 함께 바뀝니다.
 고정된 schema 1–10 평가를 계속 읽을 수 있고 기존 레코드를 다시 쓰지 않습니다.
 
 - 레코드는 레인 키, `contract_revision`, `from`·`to`의 버전과 커밋이 모두 관측과 일치하고

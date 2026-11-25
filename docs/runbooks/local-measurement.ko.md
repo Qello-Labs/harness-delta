@@ -313,12 +313,24 @@ decision/trial 스키마와 제품 활성화 흐름은 바뀌지 않습니다.
 
 개발 작업이 영속 단위이므로 완료 기준이 그대로라면 제품 CLI를 닫거나 새 독립 세션을 열어도
 새 측정 작업을 만들 필요가 없습니다(요구사항이 바뀌면 새 작업이 필요합니다). 같은 데이터베이스,
-프로젝트, 작업 ID를 유지하세요. 배정된 native workflow 작업에는 대신
+프로젝트, 작업 ID를 유지하세요. 아래 연속성 명령은 세션을 자동 탐색하거나 제품·모델 요청을
+실행하지 않습니다. 배정된 native workflow 작업에는 대신
 [작업 절차](workflow-quickstart.ko.md#7-resume-또는-다른-세션-사용하기)를 사용하세요.
 
+- **중단된 수집기 확인 및 재시작:** 기존 활성 작업을 확인한 뒤 전경 수집기를 다시 시작하고,
+  첫 poll이 끝날 때까지 기다린 다음 새 제품 턴을 시작하세요. 저장된 커서는 진단 메타데이터일
+  뿐 중단 구간의 재처리 권한을 부여하지 않습니다.
+
+  ```sh
+  node dist/cli.js --db local.db task show task1
+  node dist/cli.js --db local.db collect --task task1
+  ```
+
 - **새 독립 root 추가:** 정확한 세션 ID와 파일 경로를 같은 활성 작업에 연결합니다(전경 수집기가
-  실행 중이어도 연결할 수 있으며, 새 소스의 첫 poll에서 새 기준점을 잡고 각 독립 root는 자체
-  source key를 유지합니다). 작업당 전경 수집기는 하나만 유지하세요.
+  실행 중이어도 연결할 수 있으며, 새 소스의 첫 poll에서 새 기준점을 잡습니다). 연결 뒤
+  `collect`는 수집기가 멈춰 있을 때만 실행하며, 작업당 전경 수집기는 하나만 유지하세요. 각 독립
+  root는 자체 source key와 기준점을 유지합니다. 서로 다른 root의 같은 턴 ID나 토큰 값은 재전송이
+  아니며, 같은 적격 기록을 반복 poll해도 사용량을 다시 더하지 않습니다.
 
   ```sh
   node dist/cli.js --db local.db session link NEW_SESSION_ID --task task1 --source /path/to/new-session.jsonl --product codex --version 0.158.0
@@ -328,17 +340,32 @@ decision/trial 스키마와 제품 활성화 흐름은 바뀌지 않습니다.
   사용량은 복구할 수 없고 누락으로 남습니다. 작업을 삭제하거나 다시 만들지 말고 새 독립 root를
   연결하세요. 읽을 수 없는 이전 소스는 `source_error`를 기록하되 다른 연결 root의 적격 관측을
   막지 않으며, 보고서에 오류와 오프라인 제외를 함께 표시합니다. 이전 소스가 다시 접근 가능해지면
-  다음 성공 poll에서 새 기준점을 잡고 불확실한 과거는 backfill하지 않습니다.
+  다음 성공 poll에서 새 기준점을 잡고 불확실한 과거는 backfill하지 않습니다. 복구는 제품
+  transcript를 삭제하거나 기존 매핑을 제거하지 않습니다.
 - **배정과 토폴로지 게이트:** [합성 비교 workflow](task-comparison.ko.md)에서 같은 논리 작업
   식별자로 `comparison assign`을 다시 실행하면 `reused: true`와 원래 정규 `task_id`를 반환합니다
   (항상 반환된 ID를 사용하며 새 세션은 작업을 재배정하지 않습니다). 배정된 native 작업은 일반
   `session link`/`collect` 대신 `workflow codex` / `workflow claude`를 유지하세요. 일반 순차 파일
   수집은 fork된 이력과 관측된 자식 활동을 제외하므로 fork나 자식을 독립 root로 연결하지 마세요.
-- **내부 Codex 0.160 후보 연속성 API:** 패키지 export와 CLI에는 없는 opt-in 내부 API
-  `Collector.tickCodexContinuation(families)`는 최대 두 개의 명시적 독립 root 가족(가족당 직접 자식
-  최대 1개)에 대한 제한된 오프라인 후보 증거를 제공합니다. 가족별 원자적 root/child 트랜잭션,
-  읽기 실패 시 `source_error` 공백 기록, 응답 ID의 root 귀속 충돌 차단을 적용하며 실제 호출이나
-  native 승인을 뜻하지 않습니다. 오프라인 연속성 테스트:
+- **내부 Codex 0.160 후보 연속성 API:** 패키지 export와 일반 CLI에는 없는 opt-in 내부 API
+  `Collector.tickCodexContinuation(families)`는 활성 작업 하나에 명시적 독립 root 가족 최대 두 개
+  (가족당 직접 자식 최대 1개)를 받습니다(단일 가족 기록은
+  [중첩 세션 후보 준비 기록](../validation/nested-session-candidate-readiness.md) 참고). 각 가족은
+  `CandidateScope`와 정확한 `CodexCandidateSources`를 제공하며, 후보 전용 생명주기 binder로 모든
+  소스를 먼저 등록해야 메서드가 전체 연결 집합을 검증한 뒤 읽기를 시작합니다. 각 가족은 단일 root의
+  native header·계보·요청·턴 검사를 유지하고 원자적 root/child 트랜잭션으로 독립 커밋합니다.
+  소스가 없거나 바뀌면 해당 가족의 현재 checkpoint를 버리고 구성원 전체에 `source_error` 공백을
+  기록하며, 자식을 읽지 못한 경우에도 고정 진단은 해당 가족의 root를 가리킵니다. 명시적으로 승인된
+  다른 가족은 계속 진행할 수 있고, 복구는 불확실한 과거를 제외하고 새 기준점으로 시작하며, 뒤 가족이
+  실패해도 앞서 커밋된 가족은 부분 관측으로 남습니다. 응답 ID의 root 귀속이 충돌하면 실패하며 새
+  root ID를 접두사로 붙여 우회하지 않습니다. 후보 작업은 비교 배정과 production 채널 혼합을 거부합니다.
+  이 API는 실제 호출 승인을 뜻하지 않으며, 터미널 종료·소스 유실 이후의 실제 Codex 0.160 다중 root
+  연속성과 모델·effort 전환은 미검증 상태이고 별도 승인된 native 관측이 필요합니다.
+- **오프라인 연속성 테스트:** 현재 소스를 컴파일해 일회용 native 형태 Codex 0.158.0 fixture로 별도
+  측정 CLI 프로세스를 실행합니다(SIGTERM·재실행, 수집·미수집 소스 유실, pause·오프라인 제외,
+  재전송, 첫 완료 실패·재작업, 사람 판정·보고서 산술, fork·자식 거부, 프로세스 간 합성 배정 재사용
+  포함). Codex나 Claude를 호출하거나 실제 세션을 읽지 않으며, 실제 Codex 0.160 다중 root 연속성이나
+  모델·effort 전환을 입증하지 않습니다.
 
   ```sh
   npm test -- tests/session-continuation-cli.test.ts tests/workflow/codex-continuation.test.ts

@@ -91,13 +91,15 @@ notes. Installation, tests, hooks and CI never run product conformance.
 ## Collect and report with an admitted Codex 0.158.0
 
 Follow [local measurement](local-measurement.md#register-and-link) for project/task
-registration, foreground collection, assessment and reporting, passing
-`--product codex --version 0.158.0` and the exact authorized **CLI exec** rollout
-path to `session link`:
+registration, foreground collection, assessment (`task assess-first task1 --result success`
+when first completion passes without rework) and reporting, using the same `--db` path
+throughout (for example `--db local.db` as below, or replace `--db local.db` in every
+linked command with `.harness-delta/measurement.sqlite`). Pass `--product codex --version 0.158.0`
+and the exact authorized **CLI exec** rollout path to `session link`:
 
 ```sh
-node dist/cli.js --db .harness-delta/measurement.sqlite session link SESSION_ID --task task1 --source /absolute/exact-rollout.jsonl --product codex --version 0.158.0
-node dist/cli.js --db .harness-delta/measurement.sqlite collect --task task1
+node dist/cli.js --db local.db session link SESSION_ID --task task1 --source /absolute/exact-rollout.jsonl --product codex --version 0.158.0
+node dist/cli.js --db local.db collect --task task1
 ```
 
 The registered project root must match the session cwd, and the task model must

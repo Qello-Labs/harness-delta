@@ -311,13 +311,27 @@ These commands do not approve a native trial or extend qualified support.
 A development task is the durable unit; closing a product CLI or starting a new
 independent session does not require a new task when the completion criteria are
 unchanged (changed criteria require a new task). Keep the same database, project
-and task ID. For assigned native workflow tasks, use
+and task ID. These continuation commands do not discover sessions or launch
+product/model requests. For assigned native workflow tasks, use
 [the task procedure](workflow-quickstart.md#7-resume-or-use-another-session) instead.
+
+- **Inspect and restart a stopped collector:** check the existing active task, then
+  restart the foreground collector and wait for its initial poll before starting a
+  new product turn. Stored cursors are diagnostic metadata only and cannot authorize
+  replaying downtime:
+
+  ```sh
+  node dist/cli.js --db local.db task show task1
+  node dist/cli.js --db local.db collect --task task1
+  ```
 
 - **Add a new independent root:** link its exact session ID and file to the same
   active task (the foreground collector may stay running; its first poll of the new
-  source sets a fresh baseline, and each independent root keeps its own source keys).
-  Keep only one foreground collector per task:
+  source sets a fresh baseline). Run `collect` afterward only if the collector is
+  stopped—keep only one foreground collector per task. Each independent root keeps
+  its own source keys and baseline; equal turn IDs or token values across distinct
+  roots do not mean replay, and repeated polling of the same eligible records does
+  not add usage again:
 
   ```sh
   node dist/cli.js --db local.db session link NEW_SESSION_ID --task task1 --source /path/to/new-session.jsonl --product codex --version 0.158.0
@@ -329,7 +343,8 @@ and task ID. For assigned native workflow tasks, use
   records `source_error` without blocking eligible observations from another linked
   root, and reports disclose both errors and offline exclusions. If the old source
   returns, its next successful poll sets a fresh baseline without backfilling
-  uncertain history.
+  uncertain history. Recovery neither deletes product transcripts nor retires the
+  old mapping.
 - **Assignment and topology gates:** in the [synthetic comparison workflow](task-comparison.md),
   repeating `comparison assign` with the same logical task identity returns
   `reused: true` and the original canonical `task_id` (always use that returned ID;
@@ -338,12 +353,32 @@ and task ID. For assigned native workflow tasks, use
   Ordinary sequential file collection excludes forked histories and observed child
   activity; do not link a fork or child as an independent root.
 - **Internal Codex 0.160 candidate continuation:** the non-exported opt-in
-  `Collector.tickCodexContinuation(families)` provides bounded offline candidate
-  evidence for up to two explicit independent root families (each with at most one
-  direct child), committing families independently with atomic root/child
-  transactions, `source_error` gaps on unreadable sources, and fail-closed checks on
-  conflicting response-ID root attribution. It is absent from package exports and
-  the CLI and implies no live-call or native approval. Offline continuation tests:
+  `Collector.tickCodexContinuation(families)` accepts at most two explicit
+  independent root families for one active task, each with at most one direct child
+  (see also the single-family [nested-session candidate record](../validation/nested-session-candidate-readiness.md)).
+  Each family supplies its `CandidateScope` and exact `CodexCandidateSources`;
+  register every source with the candidate-only lifecycle binder first, and the
+  method verifies the complete linked set before reading any source. Each family
+  retains single-root native header, ancestry, request and turn checks and commits
+  independently with atomic root/child transactions. A missing or changed source
+  discards that family's current checkpoint and records `source_error` gaps for its
+  members, with a fixed diagnostic identifying the family's root even when its child
+  was unreadable; another explicitly authorized family can continue, recovery starts
+  with a fresh baseline excluding uncertain history, and earlier committed families
+  remain partial if a later family fails. Conflicting response-ID root attribution
+  fails and is never made unique by prefixing a new root ID. Candidate tasks reject
+  comparison assignments and mixed production channels. This API is absent from
+  package exports and the ordinary CLI and implies no live-call approval; actual
+  Codex 0.160 multi-root continuation after terminal shutdown or source loss, and
+  model/effort switches, remain unverified and need separately authorized native
+  observations.
+- **Offline continuation tests:** the suite compiles current source and launches
+  separate measurement CLI processes with disposable native-shaped Codex 0.158.0
+  fixtures (covering SIGTERM/relaunch, collected/uncollected source loss,
+  pause/offline exclusion, replay, failed first completion/rework, human outcome and
+  report arithmetic, fork/child rejection, and cross-process synthetic assignment
+  reuse). It does not invoke Codex or Claude, read real sessions, or prove actual
+  Codex 0.160 multi-root continuity or model/effort switches:
 
   ```sh
   npm test -- tests/session-continuation-cli.test.ts tests/workflow/codex-continuation.test.ts

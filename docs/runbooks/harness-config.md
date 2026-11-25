@@ -413,9 +413,9 @@ packages or `.codex/hooks.json`.
 
 `check-staged` is optional and hook integration is manual: the product never
 installs or overwrites hooks, and a missing hook does not block `git commit`.
-Because each task and worktree has its own task id, a shared pre-commit hook
-must select the task for that worktree, keep existing hook content, and pass
-absolute paths to `dist/cli.js` and the local database. An alternate
+Because each task and worktree has its own task id, run the hook command in the
+task's selected worktree, keep existing hook content, select the task for that
+worktree, and pass absolute paths to `dist/cli.js` and the local database. An alternate
 `GIT_INDEX_FILE` is checked as supplied, not mapped to another worktree.
 Keep `.harness-delta/applications/<task-id>/` until restoration and the staged
 check finish; deleting it removes the baseline `restore` uses.

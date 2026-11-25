@@ -176,7 +176,7 @@ Claude 설정만 하고 설치를 건너뛰었다면 상세 화면에 "이 프�
 표시됩니다. 같은 화면의 **설치·갱신 미리보기**로 설치를 마치면 다음 단계로 넘어갑니다.
 
 Codex 작업은 이 배정 없는 Claude 관측 흐름이 아닙니다. Codex에는 별도의 고정
-`functional_pilot` 배정 워크플로가 필요합니다.
+`functional_pilot` 배정 워크플로가 필요합니다(수집이 닫힌 일반 window 절차도 별개입니다).
 
 ![설치가 필요한 작업](images/07-task-install-needed.png)
 

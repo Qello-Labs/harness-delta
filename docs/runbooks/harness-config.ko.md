@@ -400,8 +400,9 @@ blob이 stage에 쓰는 것과 같은 Git clean 변환을 거친 checkpoint 기�
 
 `check-staged`는 선택 사항이며 hook 연동은 수동입니다. 제품은 hook을 설치하거나
 덮어쓰지 않고 hook이 없어도 `git commit`은 막히지 않습니다. 작업과 worktree마다
-task id가 다르므로 공유 pre-commit hook은 기존 hook을 유지한 채 해당 worktree의 작업을
-선택하고 `dist/cli.js`와 로컬 DB의 절대 경로를 넘겨야 합니다. 대체 `GIT_INDEX_FILE`은
+task id가 다르므로 hook 명령은 작업이 선택한 worktree에서 실행하고, 기존 hook을
+유지한 채 해당 worktree의 작업을 선택하며 `dist/cli.js`와 로컬 DB의 절대 경로를
+넘겨야 합니다. 대체 `GIT_INDEX_FILE`은
 전달된 그대로 검사하며 다른 worktree로 재매핑하지 않습니다. 복원과 staged 검사가 끝날
 때까지 `.harness-delta/applications/<task-id>/`를 유지하세요. 지우면 `restore` 기준이
 사라집니다.
