@@ -41,6 +41,10 @@ into a public PR as a substitute for a public requirements summary.
    command, time, and tested revision or working-tree state. The existing runtime
    probes do not prove product acceptance. Distinguish local and remote results.
 
+For tool release work, follow the [tool release checklist](tool-releases.md).
+Price releases use the separate [price checklist](price-catalog-releases.md).
+Neither delivery process authorizes collection activation or new support.
+
 Local commits run the Husky `pre-commit` and `commit-msg` hooks described in
 [CONTRIBUTING.md](../../CONTRIBUTING.md#git-hooks) (privacy guard, formatting, lint,
 type checks, related-test or full-suite Vitest runs, and commitlint; Markdown-only

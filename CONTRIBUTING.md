@@ -118,6 +118,7 @@ verification layers; a passing hook is not proof that the staged snapshot passed
 
 ## Changes and review
 
+- For tool delivery or publication, follow the [tool release checklist](docs/development/tool-releases.md).
 - State the problem, intended behavior, scope, and acceptance criteria first.
 - Link public requirement IDs, issues, or public design decisions. A personal plan
   must not be the only explanation for shipped behavior.
@@ -321,6 +322,8 @@ and [local measurement](docs/runbooks/local-measurement.md#versions-conformance-
 Starting with catalog v3, every price release follows the
 [price release checklist](docs/development/price-catalog-releases.md). A rate file alone
 does not establish support for its model, component or billing condition.
+Tool releases follow the separate [tool checklist](docs/development/tool-releases.md)
+and must not replace the latest price release channel.
 
 User instructions are in the [cost guide](docs/runbooks/observed-cost.md)
 ([한국어](docs/runbooks/observed-cost.ko.md)). From a Node 24 or 26 checkout:

@@ -60,7 +60,7 @@ assignment path, not the assignment-free ordinary Claude mode.
 
 ## What is supported
 
-**Preview: partial local measurement.** The package is private.
+**[v0.1.0 developer preview](https://github.com/Qello-Labs/harness-delta/releases/tag/v0.1.0): partial local measurement.** The package is private.
 
 Use the [generated support matrix](docs/support-matrix.md)
 ([한국어](docs/support-matrix.ko.md)) for current versions, exact routes, profile IDs
@@ -80,6 +80,9 @@ What you get, and what you do not:
   Missing usage or prices are unknown, not zero. It is not billing.
 - Unobserved intervals, including paused and pre-connection usage, are never backfilled.
 - Complete task cost, actual billing and inferential adoption decisions are not available.
+
+Releases: [v0.1.0 notes](docs/release-notes/harness-delta-v0.1.0.md) and the
+[tool release checklist](docs/development/tool-releases.md).
 
 ## Documentation
 
