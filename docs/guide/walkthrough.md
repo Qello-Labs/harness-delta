@@ -52,29 +52,18 @@ when the work is done. You always start and stop the agent yourself.
 | Claude Code | **Claude Code 2.1.306** for new project setup. Existing projects keep their saved version (2.1.296 or 2.1.301). Each needs its reviewed binary. | `claude --version` |
 | Target repository | A Git repository with a work branch ready | `git status --short` |
 
-### Claude and Codex version updates
+### Version and setup notes
 
-The screenshots were captured with the earlier Claude Code 2.1.296 setup; the screens
-look the same with 2.1.306 because the UI doesn't show the Claude version. New project
-setup now defaults to Claude Code 2.1.306 and Codex 0.163.0. Saved settings and task pins
-don't change. The repository status on **2026-10-21** is:
+The screenshots were captured with the earlier Claude Code 2.1.296 setup; the default
+exact-mode flow still omits the Claude version string, while the Claude setup card now
+also shows **Exact version** / **Ordinary window** mode controls (with an explicit version
+input when switching modes). New project setup defaults to Claude Code 2.1.306 (and Codex
+0.163.0 for Codex A/B routes); saved settings and frozen task pins never upgrade
+automatically. All ordinary Claude records remain `qualified: false`, and ordinary
+observations do not promote file/workflow or historical trust states.
 
-| Route | Version status | What this means for this guide |
-| --- | --- | --- |
-| Ordinary Claude connection | Exact Claude Code 2.1.306 (new default), or saved Claude Code 2.1.296 or 2.1.301, with its reviewed binary; all ordinary records remain `qualified: false` | The 2.1.306 and 2.1.301 profiles permit one root plus two flattened members; neither qualifies interactive use. |
-| Ordinary Codex connection | Exact Codex 0.163.0 (new default) or saved Codex 0.162.1, bounded family, frozen `functional_pilot` assignment; Codex 0.163.0 passed separate ordinary-route native acceptance | Not the assignment-free Claude flow. Both routes retain partial-cost limits. |
-| File and selected workflow sources for Claude Code 2.1.301, 2.1.306 and Codex 0.163.0 | Conditional parser reuse remains `compatibility_unverified` | Ordinary binding evidence does not promote file/workflow or historical observations. |
-
-Claude Code 2.1.301 passed bounded print-mode transcript conformance and a localhost
-service rehearsal. Its authenticated ordinary attempt on 2026-10-17 stopped at
-the `stream_model` guard before connection; usage and billing are unknown,
-and ordinary qualification remains outstanding. See the
-[blocked-attempt record](../validation/claude-ordinary-binding-02196-qualification.md#2026-10-17-authenticated-ordinary-attempt-blocked).
-Claude Code 2.1.306 passed bounded actual-binary localhost print-mode normal/SIGINT
-conformance on 2026-10-21. That isn't authenticated ordinary or interactive qualification; see the
-[2.1.306 record](../validation/claude-ordinary-binding-02196-qualification.md#2026-10-21-exact-21306-transcript-qualification).
-
-Check [Harness Connect current implementation](../runbooks/harness-connect.md#current-implementation)
+Check the [generated support matrix](../support-matrix.md#exact-routes) and
+[Harness Connect current implementation](../runbooks/harness-connect.md#current-implementation)
 before starting, and [native workflow limits](../runbooks/task-native-workflow.md#conditional-forward-versions)
 for the separate workflow route. Setup or installation succeeding does not prove
 that a new version can connect. If connection returns `claude_source_version_unsupported`,
@@ -187,6 +176,10 @@ If you configured Claude but skipped installation, the detail page shows "This p
 needs the connection skill." Finish installation with **Preview install / update** on the
 same page.
 
+Codex tasks do not use this assignment-free ordinary Claude flow; Codex requires its
+separate frozen `functional_pilot` assignment workflow (and the closed ordinary-window
+procedures remain separate).
+
 ![Task that needs installation](images/07-task-install-needed.png)
 
 ## Step 5: Connect the Claude session
@@ -239,10 +232,10 @@ Read the screen from top to bottom:
 ![Parent and child usage — synthetic example](images/11-measuring-family-usage.png)
 
 In this example, the parent has 1 request, 1,200 input tokens and 320 output tokens.
-The child has 1 request, 400 input tokens and 120 output tokens. **Observed total**
+The child has 1 request, 400 input tokens and 120 output tokens. **Observed sum**
 is 2 requests, 1,600 input and 440 output tokens; do not add the total row again.
 The displayed USD 0.0152 is a partial example amount, labeled
-**Compatibility-unverified reference cost** (`호환성 미검증 참고 비용`), not a bill
+**Compatibility unverified reference** (`호환성 미검증 참고 비용`), not a bill
 or a verified complete cost. Missing-family warnings still matter even when rows
 contain numbers. Family members appear under the root; the UI does not establish
 the immediate parent relationship of nested members.
@@ -285,7 +278,7 @@ When the work is done (for example, the PR is ready):
 
 Observation stop and task completion are separate. In the current UI, stopping
 returns the connection card to **Waiting for connection** (`연결 대기`) while the
-summary can still say **Paused** and **Not judged yet**. Previous session rows and
+summary can still say **Paused** and **Awaiting user decision**. Previous session rows and
 cost stay visible. This is not a success result; do not paste the old connect
 command again just to finish the task.
 
@@ -332,7 +325,7 @@ The summary at the top of the detail page has four values.
 | Value | Meaning |
 | --- | --- |
 | Measurement | Summary: waiting for connection / in progress (`진행 중`) / paused (`일시정지`) / measurement ended (`측정 종료`). The connection card uses measuring (`측정 중`) / paused (`일시중단`). |
-| Outcome | Not judged yet, or your judgement |
+| Result | Awaiting user decision, or your judgement |
 | Active measurement time | Time with collection on. It is not human working time. |
 | Observed cost | Partial estimate of observed usage with prices. Missing prices are unknown, not zero. |
 
@@ -341,8 +334,8 @@ See [observed cost](../runbooks/observed-cost.md) and
 
 ![Completed task in the list — synthetic example](images/16-completed-task-list.png)
 
-Select **Back to tasks** to return to the list. The row shows the task name,
-**Success** and the example project. **View details** reopens the retained result;
+Select **← Tasks** to return to the list. The row shows the task name,
+**Success** and the example project. **Details** reopens the retained result;
 **New task** starts a separate measurement, not another attempt on this finalized task.
 
 ## Common blockers

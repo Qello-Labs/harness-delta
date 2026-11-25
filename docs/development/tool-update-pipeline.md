@@ -2,13 +2,13 @@
 
 [한국어](tool-update-pipeline.ko.md)
 
-This guide covers the first increment of the maintainer tool-update pipeline. It
-finds the current stable Codex CLI or Claude Code release from official metadata,
-then compares that candidate against the routes this repository declares. That's
-all it does. A candidate isn't support, an assessment isn't admission, and none of
-these records changes a default.
+This guide covers the maintainer tool-update pipeline. It finds the current stable
+Codex CLI or Claude Code release from official metadata, compares that candidate
+against the routes this repository declares, collects machine difference records, and
+prepares non-authorizing promotion proposals. A candidate isn't support, an assessment
+isn't admission, and none of these records changes a default.
 
-## What this increment does
+## What the pipeline does
 
 - `discover` reads official GitHub release and npm package metadata for one product.
   It writes an immutable observation record and, on success, an immutable candidate
@@ -34,7 +34,7 @@ in request headers and is never retained in records.
 
 The tool never performs a contract review. It only records and reads a maintainer's
 manual judgments. Conformance, regression, admission, and default promotion are
-separate stages. They aren't part of this increment. The repository-owned
+separate stages outside this pipeline. The repository-owned
 [admitted Claude runner](tool-update-conformance.md) has synthetic coverage;
 its actual-binary acceptance and execution approval remain separate.
 
@@ -54,44 +54,21 @@ Imperative operation/topology rules are checked against reviewed source digests.
 If those source files change, `source_scope_changed` stops assessment until the
 maintainer reviews the rules again; it never silently keeps the old scope.
 
-The source digest also covers `src/nested-candidate.ts` and
-`src/codex-candidate-rollout.ts` as hash-only inputs. Assessment does not transpile,
-load, execute, or follow imports from these two files. Their changes appear as
-`baseline_source_changed` or `review_source_changed`, not `source_scope_changed`.
-Adding them makes the digest in every existing baseline row and review record
-stale. Those records remain readable and are not rewritten; their historical
-digests cannot close current contract review gates.
-
-The current `static-assessment-v7` writer captures exactly 88 deduplicated paths, with no spare entries.
-It adds the hash-only `src/binding/session-binding-promotion.ts` coordinator dependency
-without loading its Store or native dependencies. The v6/schema-10 closure is frozen at
-87 paths; it added the loaded `src/core/tool-version-promotion-store.ts` adapter and the hash-only
-`src/deletion.ts`, `src/migrations/038_tool_version_promotion_denials.sql`,
-`src/web/local-web-binding-providers.ts` and `src/web/local-web-support.ts` inputs.
-Assessment never constructs a Store or queries local denials. The v5/schema-9 closure
-is frozen at 82 paths; it added 27 hash-only producer, complete bundle, generator, distribution, installer dependency
-and execution-pin API inputs to the frozen v4 closure of 55 paths. These inputs are not
-loaded or executed by assessment. The v4 closure retains the v3 closure plus
-`src/core/tool-version-promotion.ts`, `src/core/tool-version-promotions.json`
-and `src/core/tool-version-promotion-result.json`; v3's 52 paths remain frozen history.
-Its Codex window hash-only inputs include `src/connect/codex-connect-installation.ts`,
-`skills/harness-connect-window-codex/SKILL.md` and
-`skills/harness-connect-window-codex/scripts/connect.mjs`. The generic raw window
-hook was already an input. The frozen v2 set already includes
-`src/claude-process-binary.ts`. V3 adds exactly four independent Claude bundle
-hash-only inputs:
-`src/connect/claude-connect-installation.ts`,
-`skills/harness-connect-window-claude/SKILL.md`,
-`skills/harness-connect-window-claude/scripts/connect.mjs` and
-`skills/harness-connect-window-claude/scripts/claude-session-hook.mjs`.
-Assessment hashes these files without loading them or
-following their imports; setup/transport wrappers are not consumed by this finite
-projection. Execution pins separately freeze the complete source and build trees.
-The static-assessment-v2 allowlist and cap remain frozen at 48 paths.
-Schema 1-4 readers retain their original 32-path ceiling, and the record limit
-remains 256 KiB. Input additions change the global source digest, not exact support
-or activation; historical baselines/reviews stay immutable and cannot close fresh
-gates with an old digest.
+The current `static-assessment-v7` writer captures exactly 91 deduplicated paths, with
+no spare entries, under a 256 KiB record limit. Beyond the loaded modules and reviewed
+scope files, it includes hash-only inputs—without loading them or following their
+imports—covering candidate parsers (`src/nested-candidate.ts`,
+`src/codex-candidate-rollout.ts`), window installers/bundles and execution-pin inputs,
+promotion registry/denial files, and the four v7 authority paths
+(`src/binding/session-binding-promotion.ts`, `src/claude-process-binary-fields.ts`,
+`src/core/ordinary-window-control.ts`, `src/core/ordinary-window-segment.ts`).
+Assessment never constructs a Store or queries local denials; changes to hash-only
+files surface as `baseline_source_changed` or `review_source_changed` (not
+`source_scope_changed`). Execution pins separately freeze the complete source and
+build trees. Historical closures (`static-assessment-v1` at 32 paths through
+`static-assessment-v6` at 87 paths, schemas 1–10) remain frozen and readable without
+rewriting; old digests cannot close current contract review gates, and adding source
+inputs never changes exact support or activation.
 
 ## Discover a candidate
 
@@ -170,10 +147,8 @@ a baseline only after actual contract review, not to bypass the limit.
 Decoded response caps are 64MiB for release objects, 32MiB for npm and 4MiB
 for other GitHub responses. Initial retrieval and revalidation share a 512MiB
 budget; the 120-second deadline remains. Large release-asset
-metadata is discarded after projection, not retained in records.
-On 2026-10-29, the former all-history mode hit HTTP 422 beyond Codex's first
-1000 releases. The scoped mode avoids that inventory scan; it does not reinterpret
-the first 1000 as a complete history.
+metadata is discarded after projection, not retained in records. The scoped mode
+avoids full-history release pagination without claiming complete historical inventory.
 
 New observations use `schema_version: 2` and
 `inventory_scope: "latest_and_npm_review_range"`. Assessments use schema 11 and
@@ -208,7 +183,7 @@ Pass the same `--baseline "$baseline_file"` you used for discovery, if any. Add
 | `observations/` | One retrieval: UTC check times, source IDs, response digests and validators, completeness, fixed result codes | Includes timestamps, so every real requery gets a new ID |
 | `candidates/` | Product, exact stable version, tag and commit, npm version and integrity | Only canonical release fields, so the same release keeps its ID |
 | `reviews/` | One manual contract review of one lane and one release edge: fixed codes and digests only | Canonical record fields; the same review keeps its ID |
-| `assessments/` | Candidate ID, observation ID, baseline digest or missing state, source digest, rule revision, lane results, and (schema 3 and 4) the supplied and unused review IDs | Changes when any of those inputs change |
+| `assessments/` | Candidate ID, observation ID, baseline digest or missing state, source digest, rule revision, lane results, supplied/unused review IDs (schemas 3, 4 and 6–11) and judgment IDs (schemas 7–11) | Changes when any of those inputs change |
 
 Each file is named `<sha256>.json` over canonical JSON. Records are write-once.
 Rewriting identical bytes succeeds, while different bytes under an existing ID fail
@@ -319,8 +294,8 @@ and the [canonical verification boundary](../../.claude/skills/tool-version-upda
 
 Window pin validation is a separate `ordinary_window_execution_pins` kind, schema 1
 in its own namespace, with `pin_scheme_revision: ordinary-window-execution-v1`.
-`snapshotWindowPins` / `assertWindowPins` freeze the code-owned Codex raw producer,
-selected skill and instrument inputs, source/build trees, matching built copies,
+`snapshotWindowPins` / `assertWindowPins` freeze the code-owned Codex and Claude raw producers,
+selected skills and instrument inputs, source/build trees, matching built copies,
 runtime, package and lock independently for source and built selection. The packet
 is not a runner or execution/activation approval; old exact pin functions and
 approval schema 1 retain their meaning. No native/target/backend run, new budget,
@@ -501,15 +476,11 @@ digest is transient, not a recorded raw-response receipt. Difference evidence
 `from_content_hash` and `to_content_hash` still identify source closures or schema
 projections; identical consumed inputs and job bindings keep evidence bytes and
 IDs. Discovery observation raw receipts are unchanged. Shared tree and schema-blob
-SHAs are reused within a job.
-With the current complete synthetic closure and distinct objects per ref, the
-count is `2 + 22 * n`: five refs use 106 initial requests plus six mutable
-revalidations, 112 total; nine refs use 190 plus ten, 200 total. The nine-ref
-allowance is 224 responses and 210 seconds, with 24 requests of margin. Five refs
-retain the 128-response, 120-second allowance. The per-ref allowance adds two
-requests above measured growth, and the base adds six above measured fixed work.
-The deadline preserves the former `120000 / 128` milliseconds per allowed
-response, with an independent 15-minute ceiling. Actual graphs, tag chains and
+SHAs are reused within a job. With distinct objects per ref across `n` refs,
+the current synthetic closure uses `2 + 22 * n` initial requests plus mutable
+revalidations (5 refs fit within the 128-response / 120-second base allowance;
+per-ref scaling adds two requests above measured growth and preserves `120000 / 128` ms
+per allowed response up to the 15-minute ceiling). Actual graphs, tag chains and
 redirects may differ and can still exhaust a bounded allowance; these synthetic
 counts are not measurements of a release's actual upstream graph.
 Bodies are transient; records retain hashes and finite findings only. Client-source
@@ -598,9 +569,9 @@ Schema 7 keeps the whole static and manual projection and adds:
   and neither overrides the other.
 
 A judgment that is structurally valid but stale still produces
-`assessment_created`. If its source digest, engine digest or map revision differs
-from the current one, the automated result is `unknown` with a fixed freshness
-reason (`stale_source`, `stale_engine` or `stale_map`). A missing baseline, a
+`assessment_created`. If its source digest, engine digest, map revision or policy
+revision differs from the current one, the automated result is `unknown` with a
+fixed freshness reason (`stale_source`, `stale_engine`, `stale_map` or `stale_policy`). A missing baseline, a
 baseline equal to the target, or an incomplete parser chain leaves the result pending.
 
 Neither frozen schema 7 nor the current schema-11 machine channel establishes support. Machine results never close `contracts_unknown`,
@@ -670,11 +641,20 @@ whatever is supplied.
 
 ### How assess applies records
 
-With at least one `--review`, the assessment is written as `schema_version: 6`, with
-the sorted `review_ids` and `unused_review_ids` and each lane's `selection_policy`.
-Without `--review`, output uses `schema_version: 5` with no `selection_policy`. Its
-bytes and ID still change whenever an input does, including the source digest.
-Schema 1–6 assessments remain readable and are never rewritten.
+The current writer emits `schema_version: 11` with `static-assessment-v7` across all
+three channels:
+
+- **Plain** (no `--review` and no `--judgment`): omits `review_ids`,
+  `unused_review_ids` and lane `selection_policy`.
+- **Manual** (at least one `--review`): includes sorted `review_ids`,
+  `unused_review_ids` and each lane's `selection_policy`.
+- **Machine** (at least one `--judgment`): always includes `review_ids` and
+  `unused_review_ids` (both `[]` when no `--review` is supplied) alongside
+  `judgment_ids` and `unused_judgment_ids`; lane `selection_policy` is still included
+  only when `--review` is supplied.
+
+Its bytes and ID still change whenever an input does, including the source
+digest. Frozen schema 1–10 assessments remain readable and are never rewritten.
 
 - A record applies to a lane edge only if the lane key, `contract_revision`, and the
   `from` and `to` versions and commits all match the observation, and `source_digest`
@@ -745,6 +725,8 @@ local paths are never printed.
 | 0 | `difference_job_created` | Difference job published |
 | 0 | `difference_evidence_created` | Evidence collection completed and published (`failure` is `null`) |
 | 0 | `difference_judgment_created` | Difference judgment published |
+| 0 | `promotion_prepared` | Promotion proposal published |
+| 0 | `promotion_reconciled` | Promotion reconciliation proposal published |
 | 2 | `difference_evidence_created` | Collection failed; `failure` carries a fixed collector code |
 | 2 | `release_mismatch` | GitHub and npm stable heads, or npm `latest` and the stable maximum, disagree |
 | 2 | `discovery_incomplete` | Missing selected release, budget exhaustion, or drift on revalidation |
@@ -757,6 +739,7 @@ local paths are never printed.
 | 2 | `review_commit_conflict` | A record's commit differs from the observed commit for that version |
 | 2 | `difference_identity_mismatch`, `difference_job_mismatch` | A judgment or evidence record does not belong to its job or assessment |
 | 2 | `difference_judgment_conflict` | Different judgments reference the same job |
+| 2 | `promotion_identity_mismatch`, `promotion_mapping_conflict`, `promotion_lineage_invalid` | Promotion inputs disagree on identity, mapping or predecessor lineage |
 | 2 | `source_snapshot_unavailable`, `source_scope_changed`, `source_drift`, `observation_mismatch` | Source projection failed, reviewed scope changed, or inputs don't belong together |
 | 2 | `internal_error` | Unexpected local failure; no raw exception is printed |
 

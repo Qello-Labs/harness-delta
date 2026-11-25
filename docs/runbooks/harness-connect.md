@@ -189,7 +189,7 @@ The exact Claude defaults, saved tasks and procedures below remain unchanged.
    stale previews and unrelated-hook conflicts still block changes. An active
    Claude task or open binding also blocks migration, including activation
    during staging before replacement.
-3. Refresh setup and keep collection disabled. Settings, installed files, hook
+3. Keep collection disabled and inspect the updated status in the card. Settings, installed files, hook
    delivery/trust, pending metadata and a live-authorized connection are distinct
    states. Installation neither starts a task nor creates an emission control.
 
@@ -243,39 +243,15 @@ starts a task. Its versioned task read and CSRF/If-Match/idempotency-protected
 connect recheck live root linkage, return `automatic_children:false`, and never
 blindly retry a mutation.
 
-For a separately approved Claude trial, the existing `hm compatibility ordinary-window`
-`arm`, `status --arming` and `disarm` commands also apply. First install or update the
-owned Claude window package in that registered project while the task is inactive
-and there is no open binding. Then start the prepared task and arm receipt-only
-emission with a finite lifetime. Launch a fresh root from the registered project
-root without a prompt. Receipt-only
-emission requires the same project root, task generation and policy and an unexpired
-arming. It emits only the root `SessionStart` pending receipt; `SubagentStart` and
-`SubagentStop` emit no receipts under `receipt_only`. Confirm the native root from
-that receipt, then record the unchanged trial activation packet. Activation consumes
-the arming and publishes `active`; connect and collect still require the matching
-recorded decision and native root. Disarm, expiry, task pause/finalization/deletion
-and collection revocation clear receipt-only arming; recording any decision also
-removes it. See [local measurement](local-measurement.md) for commands and cleanup.
-Arming grants neither native trial permission nor additional support.
-
-For Claude, use this order: arm, launch the fresh root without a prompt, confirm
-the receipt, activate, send one first message and let it finish, connect, then
-begin measured work in a new message and collect. In the Claude Code 2.1.329
-`compatibility_unverified` observation, the root transcript JSONL did not exist
-until the first message. Connect requires that matching scoped root source;
-while it is absent, connect returns `binding_source_unavailable`. This observation
-is not a transcript-format guarantee for other versions.
-
-The first message precedes the connect baseline and is not collected; there is
-no backfill. Its accepted root requests with observed totals still count toward
-the trial's `accepted_observed_root_input_plus_output-v1` budget, including
-baseline/excluded requests, once as `input_total + output_total`. For Claude,
-`input_total` includes ordinary input, cache creation and cache reads;
-`cached_input` and `reasoning_output` are not added again. Do not equate an
-unobserved request or missing total with a zero charge.
-The activation's `duration_ms` starts at the activation decision, not connect:
-it must cover the first message and connect as well as measured work and collect.
+For a separately approved Claude trial, use the `hm compatibility ordinary-window`
+`arm`, `status --arming` and `disarm` procedure in
+[local measurement](local-measurement.md#versions-conformance-and-update-controls)
+(install/update the owned Claude window package while inactive with no open binding,
+arm receipt-only emission, launch a fresh root without a prompt, confirm the root
+`SessionStart` receipt, activate, send one first message before connecting so the
+root transcript exists, then start measured work and collect). Under `receipt_only`,
+`SubagentStart`/`SubagentStop` emit no receipts. Arming grants neither native trial
+permission nor additional support.
 
 The live-authorized provider, not the payload-only helper, checks same-user
 PID/start, the canonical executable path from that process, approved publisher and local disk pins.
@@ -375,20 +351,15 @@ members. The separate exact `claude-binding-2-1-301-family-v1` profile admits ex
 configured Claude Code 2.1.301 with the same limits. Saved settings, including the previous
 Claude Code 2.1.296 default, and frozen tasks remain unchanged. The project setup API
 accepts `{"operation":"configure","product_version":"2.1.301"}`; omitting the
-version preserves saved settings, otherwise the 2.1.306 default. The UI does
-not display a Claude version selector. Binary, receipt and transcript must match
-the same frozen task version. All records remain `qualified: false`. The 2.1.306
-[print-mode conformance](../validation/claude-ordinary-binding-02196-qualification.md#2026-10-21-exact-21306-transcript-qualification)
-on 2026-10-21 covers bounded actual-binary localhost normal/SIGINT runs only. The 2.1.301
-[print-mode conformance](../validation/claude-ordinary-binding-02196-qualification.md#2026-10-16-exact-21301-transcript-qualification)
-does not qualify interactive use, complete usage or cost. Separate ordinary
-authenticated qualification remains outstanding: the 2026-10-17
-[authenticated attempt](../validation/claude-ordinary-binding-02196-qualification.md#2026-10-17-authenticated-ordinary-attempt-blocked)
-stopped at the `stream_model` guard before connection, with usage and billing
-unknown. A separate localhost rehearsal passed through
-the real ordinary service/provider (seven native requests minus one baseline,
-six observed requests); it does not qualify the production scheduler or TUI.
-File/workflow and historical pins are not promoted.
+version preserves saved settings, otherwise the 2.1.306 default. The UI does not display a Claude version dropdown in default exact mode; switching
+between **Exact version** and **Ordinary window** exposes an explicit version text input.
+Binary, receipt and transcript must match the same frozen task version. All ordinary
+Claude records remain `qualified: false`; bounded print-mode conformance for 2.1.296,
+2.1.301 and 2.1.306 does not qualify interactive use, authenticated ordinary acceptance,
+or complete usage/cost. See the
+[Claude qualification record](../validation/claude-ordinary-binding-02196-qualification.md)
+and [support matrix](../support-matrix.md#exact-routes). File/workflow and historical
+pins are not promoted.
 
 Since the user-approved 2026-10-15 policy, this flow is admitted for normal use.
 The code-owned profile `claude-binding-02196-family-v1` admits ordinary
@@ -426,7 +397,7 @@ No pilot flag, qualification lease or browser input opens this path.
    buttons on the task page. Finish only with your own outcome confirmation.
 
 ```text
-/harness-connect Connect this session to project PROJECT_ID, task TASK_ID, using http://127.0.0.1:PORT and its native receipt.
+/harness-connect Connect this session to project PROJECT_ID, task TASK_ID, using http://127.0.0.1:PORT.
 ```
 
 Installing the package doesn't register hooks. They register when you invoke
@@ -544,7 +515,7 @@ requires the exact bounded profile above; other candidates remain blocked.
 
 ```text
 Codex: $harness-connect Connect this session to project PROJECT_ID, task TASK_ID, using http://127.0.0.1:PORT and its native receipt.
-Claude: /harness-connect Connect this session to project PROJECT_ID, task TASK_ID, using http://127.0.0.1:PORT and its native receipt.
+Claude: /harness-connect Connect this session to project PROJECT_ID, task TASK_ID, using http://127.0.0.1:PORT.
 ```
 
 ```sh
@@ -627,7 +598,9 @@ These tests use isolated fixture databases and synthetic hook/source records. Th
 make no native model call, read no user history/database, and establish no live hook
 trust or source qualification. Report focused/full local checks and independent
 review separately from remote CI. The exact adapter contract is
-[session-binding-contract.ts](../../src/session-binding-contract.ts).
+[session-binding-contract.ts](../../src/session-binding-contract.ts). For optional
+Claude hook recorder diagnostics, private family-rejection diagnostics and bounded
+Start readiness behavior, see [Claude hook diagnostics](claude-hook-diagnostics.md).
 
 Claude baselines preserve up to 1,024 distinct excluded own request IDs independently
 of live replay history. Over-capacity (`claude_baseline_limit`) or partial/unreadable
@@ -635,67 +608,13 @@ of live replay history. Over-capacity (`claude_baseline_limit`) or partial/unrea
 exclusions. Already observed counter conflicts stop collection. The ordinary
 observation path keeps its exclusions in SQLite and has no such cap.
 
-For the isolated ordinary Codex CLI qualification runner and its explicit native approval boundary, see [qualification procedure](../validation/codex-ordinary-binding-qualification.md). Preparation and Node-only fixtures do not open production admission.
-That runner now has a separate exact Codex 0.162.1 candidate selected with
-`--product-version 0.162.1`, using the ordinary `--no-daemon` TUI and the unchanged
-one-root/two-fresh-direct-child topology. Its exact binary pin, frozen consent
-and owned-run safety guards are separate from normal provider configuration.
-The default qualification route uses a source lease; `ordinary_admission`
-uses the independently qualified ordinary source authority instead.
-Its session-only `projects` inline table trusts only the new disposable project;
-it does not save user configuration or widen sandbox/approval permissions.
-The new Codex 0.162.1 plan separately opts into the default-off, `UnderDevelopment`
-`exec_permission_approvals` feature for this session only. One reviewed helper
-execution combines inspect/connect and requires explicit network-only command
-approval, preserving the existing filesystem policy. That permission is not
-host/port-scoped; managed proxy restrictions may still block loopback access.
-No prefix/turn/session grant, unsandboxed escalation or permanent policy change
-is permitted. Stop on blocked inspection, connection or approval without retrying
-or spawning children. Its reviewed stop envelope is root8/child1each/total10.
-Automatic startup connects only. After connection and that turn's completion,
-submit the intent's frozen `post_connect_input` once as a separate TUI turn.
-Paste it without a submit key (use bracketed paste when supported), inspect the
-draft, then press Enter in a separate action. Pasted composer text alone does
-not prove submission; observe the sent turn and active work before waiting.
-Plan at most three root requests per turn and one per child; excluded connection
-requests still count toward safety, never measured usage. After all three sessions'
-usage is collected and the work turn finishes, exit the idle TUI normally.
-Enter the quit command and its submit key separately as well.
-The historical Codex 0.160.0 envelope remains
-root4/child1each/total6. The Codex 0.162.1 token stop is 200000; Codex 0.160.0 retains 100000.
-The Codex 0.162.1 clock is 900 seconds; Codex 0.160.0 retains 120 seconds.
-The target's connection-relative collection window is also 900 seconds;
-the historical window remains 180 seconds. The launch-relative native deadline
-still ends the trial at 900 seconds, even if the collection window ends later.
-The permission mode and stops are frozen in a fresh intent; preparing it is not
-native execution authorization. See the procedure for its additional consent field.
-The connector path/SHA is frozen; connect runs only after successful inspect.
-Approve only its pinned Node command with the current receipt and no chained
-commands. The human must deny a second or broader grant and stop continued work
-after a blocked connection; unlinked activity is not covered by the source ledger.
-The new Codex 0.162.1 plan requires automatic startup; manual mode remains historical
-Codex 0.160.0 only.
-It also freezes approval and agent-turn-complete OSC9 notifications with `notification_condition="always"`.
-Subscribe to creation of its private `native-attention.json` before execution,
-then to modification after each notification. An existing attention path is
-refused before consuming the reservation. Raw PTY framing publishes a
-digest/count-only wake hint without waiting for a newline or retaining message text.
-Inspect the current screen and obtain explicit human approval of the exact command;
-the hint never grants permission or extends the frozen deadline.
-Completion hints likewise require observing the finished turn and idle composer
-before submitting the fixed work input or normal quit; the hint is not proof of
-measured usage. Check all three linked sessions' usage separately before quit.
-Node-only delivery tests do not establish target-binary notification conformance.
-The pinned Codex 0.162.1 ordinary route has actual native notification, command-permission
-and family conformance for the bounded profile above. Other ordinary routes,
-versions, runtimes and wider topology remain unqualified.
-Source-free task preparation also accepts a functional-pilot protocol with this
-exact version and single own-response profile; it grants no binding or ticket
-collection authority. Qualification projects each exact source with its own
-proved ancestry, while the separate lease bounds the whole family. Sibling-thread
-rows fail closed; broader ordinary topology is not admitted.
-
-For the isolated qualification runner, the UI also shows parent/child own request, input/output and partial cost rows with an observed sum. Its same-live-root resume and separate owned-AI emergency stop preserve the original deadline and safety counters; paused source counters remain unverified. See [the bounded procedure](../validation/codex-ordinary-binding-qualification.md).
+For the isolated ordinary Codex CLI qualification runner (`--product-version`,
+`--route qualification` vs `ordinary_admission`, binary/connector pins, frozen
+consent, per-version stop envelopes, OSC9 `native-attention.json` notifications,
+and owned-AI emergency stop), see the
+[qualification procedure](../validation/codex-ordinary-binding-qualification.md).
+Preparation and Node-only fixtures do not open production admission; sibling-thread
+rows fail closed, and paused source counters remain unverified.
 
 ## Codex 0.162.0 ordinary-root local pilot
 
@@ -769,32 +688,16 @@ Native process exit/relaunch is a separate boundary, not measurement resume.
 Skill metadata hooks may continue while collection is paused. Receipt lifetime
 is separate from the hook timeout and the helper's fresh-receipt lookup window.
 
-The [Claude Code 2.1.294 change record](https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md#21294)
-describes fixes to `prompt` and `agent` hook judgment. It does not establish native
-transcript fields, command-hook loading or counter compatibility. The ordinary
-parser is unchanged; Claude Code 2.1.294 has synthetic candidate coverage for connection,
-family usage, pause/resume and human completion.
-
-The [Claude Code 2.1.296 change record](https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md#21296)
-includes managed-hook and token-count fixes, but the changelog alone does not qualify
-the ordinary source. The unchanged parser has synthetic Claude Code 2.1.296 identity, own-request replay,
-baseline exclusion, family-ceiling and pilot-gate coverage.
-
-The Claude Code 2.1.296 transcript profile is qualified only for bounded native print-mode
-evidence, not interactive qualification or production admission: an offline actual-binary rehearsal and one
-native print-mode pilot confirmed skill loading, receipts, family membership and own
-counters; see [the qualification record](../validation/claude-ordinary-binding-02196-qualification.md).
-The skill-scoped `SubagentStop` hook wrote no receipt there, and discovery does not
-depend on it. The separate Claude Code 2.1.301 transcript profile has bounded localhost
-normal/SIGINT print-mode evidence, not interactive or authenticated ordinary
-qualification. The separate Claude Code 2.1.306 profile has the same bounded scope
-from 2026-10-21. The Claude Code 2.1.291, 2.1.293 and 2.1.294 profiles have synthetic evidence only. Actual Claude Code 2.1.291, 2.1.293 or 2.1.294 skill loading,
-family counters, pause/resume and human completion still need an explicitly
-approved native trial. All comparison/pilot Claude profiles, including transcript-qualified Claude Code 2.1.296, 2.1.301 and 2.1.306,
-require `allowCandidateProfiles: true`; default provider refusal for pilot
-profiles remains closed. Current labels remain `native_unverified_pilot`,
-`legacy_unverified` and `candidate_pilot`. These pilot profiles do not grant
-ordinary production admission; full task cost and inferential decisions remain
-unavailable. This pilot authority is separate from
-the [ordinary observation admission](#ordinary-claude-observation-qualification-pending),
+Check the [support matrix](../support-matrix.md#exact-routes) and
+[Claude qualification record](../validation/claude-ordinary-binding-02196-qualification.md)
+for each version's `transcriptProfile` status: 2.1.296, 2.1.301 and 2.1.306 have
+bounded print-mode evidence only (not interactive or authenticated ordinary
+qualification, and skill-scoped `SubagentStop` wrote no receipt in the 2.1.296 pilot,
+which discovery does not depend on), while 2.1.291, 2.1.293 and 2.1.294 remain
+synthetic-only candidates. All comparison/pilot Claude profiles require
+`allowCandidateProfiles: true`; default provider refusal for pilot profiles remains
+closed. Current labels remain `native_unverified_pilot`, `legacy_unverified` and
+`candidate_pilot`. These pilot profiles do not grant ordinary production admission;
+full task cost and inferential decisions remain unavailable. This pilot authority is
+separate from [ordinary observation admission](#ordinary-claude-observation-qualification-pending),
 which doesn't open pilot profiles.

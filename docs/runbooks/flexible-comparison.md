@@ -9,23 +9,17 @@ reports remain readable unchanged. Use Node 24 or 26 and `npm run build`.
 
 For synthetic checks, use a dedicated synthetic store. For the functional pilot, use
 a different dedicated database and the [task procedure](workflow-quickstart.md).
-Registration and offline synthetic tests require
-no product executable or model request. The production registry admits two separate Codex 0.160.0 profiles:
-[the root workflow](../validation/codex-workflow-01600-source-readiness.md) and
-[the fresh root/single-direct-child workflow](../validation/codex-workflow-01600-direct-child-source-readiness.md).
-[Conditional workflow versions](task-native-workflow.md#conditional-forward-versions)
-are additionally eligible for functional pilots with unverified trust.
-Both Codex 0.160.0 profiles collect partial own-response usage and have no complete cost. The child
-profile requires read-only permissions and does not support family resume.
-The registry also holds the exact Codex 0.162.1 and 0.163.0 ordinary binding profiles, usable only in a
-matching single-profile `functional_pilot`; see [Harness Connect](harness-connect.md).
-A v2 protocol accepts one profile per product/version, so choose one Codex profile
-for that protocol. Claude Code 2.1.296 is admitted for parent-only launch and resume
-(`claude-workflow-own-trace-v1`; Claude Code 2.1.288 and 2.1.291 are retired) and, as a separate profile, for a read-only root with one direct child (`claude-workflow-direct-child-v1`).
-Ordinary observation for Claude Code 2.1.296 and explicitly configured Claude Code 2.1.301
-is a separate non-comparison route. Candidate parsers for Codex 0.158.0 and Claude Code 2.1.283 are
-synthetic test candidates, not admitted sources. The existing v1 partial adapters
-remain separate. No desktop/app support or complete usage is inferred.
+Registration and offline synthetic tests require no product executable or model request.
+Check the [support matrix](../support-matrix.md#exact-routes) for current exact
+workflow and ordinary-binding profiles and qualification states,
+[native workflow](task-native-workflow.md#conditional-forward-versions) for conditional
+workflow windows and child/resume limits, and [Harness Connect](harness-connect.md) for
+ordinary-session routes (including assignment-free ordinary Claude observation and
+unqualified candidates such as Codex 0.166.0). A v2 protocol accepts one profile per
+product/version, so choose one profile per product/version in that protocol. Candidate
+parsers for Codex 0.158.0 and Claude Code 2.1.283 are synthetic test candidates, not
+admitted workflow sources; v1 partial file adapters remain separate. No desktop/app
+support or complete usage is inferred.
 
 Register v2 variants with `schema_version: 2`, `id`, `harness_version`,
 `instruction_manifest_hash`, `policy_version`, `policy_status: eligible` and
@@ -136,16 +130,16 @@ assignment denominator remain unavailable even when all declared writers respond
 
 ## Preparation gates and followup
 
-Readiness reports real_allocation, complete_cost and inference independently.
-The exact Codex 0.160.0 `codex-workflow-own-response-v1` and separately admitted
-`codex-workflow-direct-child-v1` sources permit real local allocation and partial
-collection for a complete frozen v2 protocol, within each profile's supported
-scope. Their shared native engine has operational evidence; ordinary assigned
-CLI wiring has offline evidence; later bounded root workspace-write pilots also
-exercised actual assigned execution. The first failed configuration scope and the
-subsequent untrusted launch passed its monitored checks; see
-[the evidence distinction](../validation/codex-workflow-01600-source-readiness.md#later-bounded-functional-observations). Unmatched
-profiles, mixed unqualified products and invalidated protocols remain closed.
+Readiness reports `real_allocation`, `complete_cost` and `inference` independently.
+The qualified `real_operations` profiles in `productionSourceEvidence` (Codex 0.160.0
+`codex-workflow-own-response-v1` and `codex-workflow-direct-child-v1`, Claude Code
+2.1.296 `claude-workflow-own-trace-v1` and `claude-workflow-direct-child-v1`, and
+Codex ordinary bindings `0.162.1` and `0.163.0`) permit real local allocation and
+partial collection for a complete frozen v2 protocol, within each profile's supported
+scope. See the [support matrix](../support-matrix.md#exact-routes) and
+[Codex workflow evidence](../validation/codex-workflow-01600-source-readiness.md#later-bounded-functional-observations).
+Unmatched profiles, unqualified candidates (such as Codex 0.166.0), mixed unqualified
+products and invalidated protocols remain closed.
 The analysis registry is empty. Whole-task cost facts remain unknown without a
 validated complete producer. Synthetic test inputs do not become real experiment
 inputs; create a dedicated store with the user's explicit choices and use

@@ -230,18 +230,9 @@ snapshot 무결성은 네이티브 시작 순서, 지침 로딩, 도구 실제 �
    별도 배정 경로는 Codex 0.162.1과 Codex 0.163.0 일반 가족 profile을 허용합니다.
    일반 Claude 관측은 배정이 없으며 새 프로젝트 설정에서는 Claude Code 2.1.306(Codex 기본값은
    0.163.0)을, 저장된 설정에서는 Claude Code 2.1.296 또는 2.1.301을 사용합니다.
-   파일 적용이 그 버전을 선택하거나 올리지는 않습니다.
-   Codex 0.166.0은 별도로 선택 가능한 **UNQUALIFIED CANDIDATE**
-   (`qualified:false`), `codex-binding-01660-direct-family-v1`이며 검증된 지원은 대기 중입니다.
-   기록 자체에는 `evidenceId`나 `evidenceIntentSha256`가 없고 `productionSourceEvidence`에
-   기여하지 않습니다. 별도의 native intent와 결과는
-   [2026-11-03 후보 시험](../validation/codex-ordinary-binding-qualification.ko.md#2026-11-03-candidate-trials)에
-   기록되어 있으며 후보의 지원 검증을 완료하지는 않습니다. Codex 기본값은 0.163.0입니다.
-   [후보 절차](../validation/codex-ordinary-binding-qualification.ko.md#01660-unqualified-ordinary-candidate)는
-   `ordinary_admission`과 명시적인 `--scenario root_normal_observer_restart`(자식 없음) 또는
-   `--scenario family_normal_observer_restart`(직계 자식 두 개)가 필요합니다.
-   native 실행에는 정확한 intent별 별도 동의가 필요합니다. H4 host-spawn/Detached,
-   H5 env-null-transcript 경로, file/workflow fallback과 native resume은 제외됩니다.
+   파일 적용이 그 버전을 선택하거나 올리지는 않습니다. Codex 0.166.0(`codex-binding-01660-direct-family-v1`)도
+   미검증 후보(`qualified:false`)로 선택할 수 있습니다.
+   [후보 절차](../validation/codex-ordinary-binding-qualification.ko.md#01660-unqualified-ordinary-candidate)와
    [Harness Connect](harness-connect.ko.md#현재-구현)를 참고하세요.
 
 적용 helper 동작은 `context`, `checkpoint`, `identity`, `report`, `status`입니다.
@@ -335,20 +326,12 @@ node dist/cli.js --db /path/to/local.sqlite application check-staged <task-id>
 checkpoint의 삭제 파일은 mode 0600으로 생성합니다. 내용 해시만 사용하는
 미리보기는 권한만 바뀐 경우를 다루지 않습니다.
 
-`check-staged`는 현재 내용이 확인된 원본 기준과 같은 staged 파일을 허용합니다.
-하네스 변경과 사용자 변경이 섞인 파일은 사용자 수정만 남았더라도 보수적으로
-표시하며, 어느 수정이 사용자 것인지 추측하지 않습니다. 기준 내용에도 stage할
-때와 같은 Git clean filter와 줄바꿈 변환을 적용합니다. 미리보기, 복원, staged 검사는 보고된 출력을
-포함한 checkpoint 경로를 다룹니다. 범위 밖의 수정은 감사하거나 복원하지 않습니다.
-staged 검사는 index 전체에서 비공개 기록 디렉터리를 거부하며, 같은 worktree에서
-이 작업으로 이전에 적용하고 복원한 출력 경로도 계속 검사합니다.
-
-hook 연동은 수동입니다. hook을 설치하거나 덮어쓰지 않으며 이 검사는 강제 적용이
-아닙니다. 자신의 pre-commit hook에서 쓰려면 `check-staged` 명령을 직접 추가하고
-기존 hook 내용을 유지하세요.
-hook 명령은 작업이 선택한 worktree에서 CLI·DB의 절대 경로로 실행하세요.
-공유 hook은 해당 worktree의 작업을 선택해야 합니다. 대체 `GIT_INDEX_FILE`은
-전달된 그대로 검사하며 다른 worktree로 재매핑하지 않습니다.
+`check-staged`는 Git clean filter와 줄바꿈 변환을 적용한 뒤 현재 내용이 확인된 원본 기준과
+같은 staged 파일을 허용합니다. 하네스 변경과 사용자 변경이 섞인 파일은 보수적으로 표시하며,
+어느 수정이 사용자 것인지 추측하지 않습니다. 미리보기, 복원, staged 검사는 보고된 출력과
+같은 worktree에서 이 작업으로 이전에 적용·복원한 경로를 포함한 checkpoint 경로를 다룹니다.
+범위 밖의 수정은 감사하거나 복원하지 않습니다. 결과 코드와 선택적 pre-commit hook 연동은
+[8절](#8-대상-저장소-git에서-로컬-제품-파일-제외)을 참고하세요.
 
 복원과 커밋 검사를 마칠 때까지 작업과 checkpoint 기록을 유지하세요. 작업 삭제는
 여전히 파일을 복원하지 않습니다. 이 명령은 네이티브 지원 한계, 신원 gate나 측정
@@ -415,13 +398,11 @@ blob이 stage에 쓰는 것과 같은 Git clean 변환을 거친 checkpoint 기�
 포함합니다. 현재 작업 트리 바이트는 읽지 않습니다. 연결 패키지와
 `.codex/hooks.json`은 검사하지 않습니다.
 
-`check-staged`는 선택 사항입니다. 작업과 worktree마다 task id가 다르므로 공유
-pre-commit hook에 id 하나를 고정할 수 없습니다. 명령을 추가할 때는 기존 hook을
-유지하고, `dist/cli.js`와 로컬 데이터베이스의 절대 경로를 넘기고, 그
-worktree의 작업을 선택하세요. 제품은 hook을 설치하거나 덮어쓰지 않습니다.
-hook이 없어도 `git commit`은 막히지 않습니다.
-
-복원과 staged 검사가 끝날 때까지 작업과
-`.harness-delta/applications/<task-id>/`를 유지하세요. 그 디렉터리를 지우면
-`restore`가 사용하는 기준이 사라집니다. 작업을 삭제해도 작업 트리 파일은
-복원되지 않습니다.
+`check-staged`는 선택 사항이며 hook 연동은 수동입니다. 제품은 hook을 설치하거나
+덮어쓰지 않고 hook이 없어도 `git commit`은 막히지 않습니다. 작업과 worktree마다
+task id가 다르므로 hook 명령은 작업이 선택한 worktree에서 실행하고, 기존 hook을
+유지한 채 해당 worktree의 작업을 선택하며 `dist/cli.js`와 로컬 DB의 절대 경로를
+넘겨야 합니다. 대체 `GIT_INDEX_FILE`은
+전달된 그대로 검사하며 다른 worktree로 재매핑하지 않습니다. 복원과 staged 검사가 끝날
+때까지 `.harness-delta/applications/<task-id>/`를 유지하세요. 지우면 `restore` 기준이
+사라집니다.

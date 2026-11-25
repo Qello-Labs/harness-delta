@@ -58,6 +58,9 @@ node dist/cli.js --db local.db task resume task1
 자동으로 보충하지 않습니다. 마지막 로그 이벤트가 도착하고 수집된 것을 확인한 뒤
 작업 결과를 최종 확정하세요.
 
+명시적인 새 세션 추가, 수집기 재시작, 원본 파일 유실 처리는
+[명시적 세션 간 작업 이어가기](#명시적-세션-간-작업-이어가기)를 참고하세요.
+
 ## 완료 평가·보고서·삭제
 
 아래는 첫 완료 평가에서 실패한 뒤 재작업을 거쳐 최종 성공으로 확정하는 예입니다.
@@ -127,29 +130,16 @@ DB 데이터·설정·보고 기준시각이 같으면 같은 기간 보고서�
 
 ## 버전, 적합성 확인, 업데이트 제어
 
-2026-10-08 구현: [ADR 013](../decisions/013-forward-version-compatibility.md)에 따라
-명시된 유한 범위의 안정 릴리스에 기존 파서를 자동으로 조건부 재사용합니다.
-파일 수집은 Codex 0.158.0 초과 0.164.0 미만 버전에 Codex 0.158.0 파서를 사용하고,
-Claude Code 2.1.283 초과 2.2.0 미만 버전에 Claude Code 2.1.283 파서를 사용합니다.
-2026-10-16 UTC에 확인한 안정 버전 Codex 0.163.0과 Claude Code 2.1.301은 기본적으로
-`compatibility_unverified` 신뢰 상태로 등록됩니다. 등록된 정확한 버전은 검증 상태를
-유지합니다. 사전 릴리스, 접미사, 등록되지 않은 이전 버전, 범위 밖 릴리스는
-원본 접근 전에 거부됩니다.
-
-이는 기존 파서 선택이며 새로운 정확 버전 admission이나 실제 바이너리 qualification이
-아닙니다. Codex minor 전환과 Claude 수집 계약의 미확인 부분은 지원 확장 전에
-대상 바이너리 적합성 검증이 필요합니다. 일반 세션 연결은 별도의 정확 버전 조건을
-유지합니다. [Harness Connect](harness-connect.ko.md)를 확인하세요.
-
-별도 Codex 0.163.0 제한 일반 binding profile은 2026-10-16 native 검증을 통과했습니다.
-정확한 binding provenance로 이 파일·workflow 추정값이나 과거 관측을 승격하지 않으며,
-수집과 비용은 여전히 부분 범위입니다.
-
-Claude Code 2.1.301의 별도 exact 일반 binding record는 root 하나와 flattened 멤버
-둘까지 허용하며 `qualified: false`입니다. 제한된 print-mode localhost 정상·SIGINT
-transcript 적합성 검증과 실제 service localhost 리허설은 통과했으며 인증된 일반 경로 검증은 대기 중입니다.
-명시적 설정은 과거 기본값과 고정 작업을 유지하며 파일·workflow 수집이나 완전한
-사용량·비용을 검증하지 않습니다.
+[ADR 013](../decisions/013-forward-version-compatibility.md)에 따라 파일 수집은
+명시된 유한 범위의 안정 릴리스에서 `compatibility_unverified` 신뢰 상태로 기존 파서를
+조건부 재사용합니다. Codex `>0.158.0`~`<0.164.0`은 Codex 0.158.0 파서를,
+Claude Code `>2.1.283`~`<2.2.0`은 Claude Code 2.1.283 파서를 사용합니다. 등록된
+정확한 버전은 검증 상태를 유지하며, 사전 릴리스·접미사·미등록 이전 버전·범위 밖
+릴리스는 원본 접근 전에 거부됩니다. 파서 재사용은 정확 admission이나 실제 바이너리
+qualification이 아니며, 일반 세션 연결은 별도의 정확 버전 조건을 유지합니다.
+[지원 매트릭스](../support-matrix.ko.md#정확한-경로)와 [Harness Connect](harness-connect.ko.md)를
+참고하세요. 일반 binding 기록이 파일·workflow 추정값이나 과거 관측의 신뢰 상태를
+승격하지 않으며, 모든 파일·binding 관측은 부분 범위를 유지합니다.
 
 Codex 0.163.0의 누적 합계에는 완료되지 않은 응답의 사용량도 포함될 수 있습니다.
 대상 적합성 검증으로 변경된 집계 경계를 확인하기 전에는 이 미검증 추정값을
@@ -191,24 +181,13 @@ node dist/cli.js --db ./local.db compatibility invalidate --product codex --vers
 
 독립적인 Codex(`>0.163.0`, `<0.172.0`)와 Claude Code(`>2.1.306`, `<2.2.0`)의 일반 root 참조 창은
 오프라인 검증용으로 구현되었으며, 일반 창(window) 수집은 별도 제품 활성화와 native 검증
-전까지 비활성 상태입니다. 별도의 패키지, 명시적인 소유 복사본 migration과 닫힌 설정은
-위의 정확 버전 조건을 바꾸지 않습니다.
-Codex는 `source_only`를 사용하며 고정된 작업의 지정 버전이 root 생성 header와 같아야 합니다.
-이 header는 현재 writer, 실행 파일, publisher, process의 증거가 아닙니다.
-Claude는 `publisher_verified_local_pin`을 사용합니다. 유효한 권한을 가진 provider만
-same-user PID/start, 해당 process에서 얻은 실행 파일 경로, publisher와 로컬 disk pin을 확인하며 source version이
-고정된 작업과 독립적으로 일치해야 합니다. signature/disk 증거는 mapped-image나 version의
-증거가 아닙니다. 엄격한 `claude_terminal_message_v1` finality를 사용하며 새 patch에서
-quiescence로 fallback하지 않습니다. 필수 검사 실패 시 사용량이나 cursor 진행을 쓰지
-않고, 이후 비호환이 발견되면 해당 참조를 무효화합니다.
-[닫힌 Claude 설정](harness-connect.ko.md#claude-일반-window-설정-수집-비활성)을 참고하세요.
-새 작업은 declaration/policy/finality/evidence/root/price를 고정합니다. 업그레이드 뒤에는
-새 지정 버전 작업과 새 root/PID/path/pin을 사용하며 자동 migration, patch별 helper 재작성이나
-backfill은 하지 않습니다. root-source 관측은 root 소유 사용량이
-아니며 `rootOwnership:unverified`와 `possibleChildContribution:unknown`을 명시적으로
-유지합니다. `automatic_children:false`는 자식을 자동 연결하지 않는다는 뜻이지 자식 기여가
-0이라는 증거가 아닙니다. 범위 안의 참조는 부분적인 `compatibility_unverified` 상태이며,
-정확 버전 admission이나 native 검증이 아닙니다. 저장된 window 근거는
+전까지 비활성 상태입니다. provider·패키지 설정, `source_only`와 `publisher_verified_local_pin`
+검증, finality와 업그레이드·재연결 한계는
+[Codex window 설정](harness-connect.ko.md#codex-일반-window-설정-수집-비활성)과
+[Claude window 설정](harness-connect.ko.md#claude-일반-window-설정-수집-비활성)을 참고하세요.
+범위 안의 참조는 부분적인 `compatibility_unverified` 상태이며 `rootOwnership:unverified`,
+`possibleChildContribution:unknown`, `automatic_children:false`(자식 기여가 0이라는 증거가 아님)를
+유지합니다. 저장된 window 근거는
 `node dist/cli.js --db ./local.db report ordinary-window <task-id> --cutoff <UTC>`
 (`--format json|markdown`)로 읽고, `compatibility ordinary-window status <task-id>`는 상태를
 보여 줍니다. `--decision`은 로컬 결정을 설명할 뿐 수집을 허용하지 않습니다. 보고서
@@ -329,6 +308,68 @@ disarm, 만료, 작업 일시 정지·종료·삭제, 수집 철회는 receipt-o
 decision/trial 스키마와 제품 활성화 흐름은 바뀌지 않습니다.
 어떤 결정이든 기록되면 receipt-only arming을 제거합니다.
 이 명령들은 native trial을 승인하거나 검증된 지원 범위를 넓히지 않습니다.
+
+## 명시적 세션 간 작업 이어가기
+
+개발 작업이 영속 단위이므로 완료 기준이 그대로라면 제품 CLI를 닫거나 새 독립 세션을 열어도
+새 측정 작업을 만들 필요가 없습니다(요구사항이 바뀌면 새 작업이 필요합니다). 같은 데이터베이스,
+프로젝트, 작업 ID를 유지하세요. 아래 연속성 명령은 세션을 자동 탐색하거나 제품·모델 요청을
+실행하지 않습니다. 배정된 native workflow 작업에는 대신
+[작업 절차](workflow-quickstart.ko.md#7-resume-또는-다른-세션-사용하기)를 사용하세요.
+
+- **중단된 수집기 확인 및 재시작:** 기존 활성 작업을 확인한 뒤 전경 수집기를 다시 시작하고,
+  첫 poll이 끝날 때까지 기다린 다음 새 제품 턴을 시작하세요. 저장된 커서는 진단 메타데이터일
+  뿐 중단 구간의 재처리 권한을 부여하지 않습니다.
+
+  ```sh
+  node dist/cli.js --db local.db task show task1
+  node dist/cli.js --db local.db collect --task task1
+  ```
+
+- **새 독립 root 추가:** 정확한 세션 ID와 파일 경로를 같은 활성 작업에 연결합니다(전경 수집기가
+  실행 중이어도 연결할 수 있으며, 새 소스의 첫 poll에서 새 기준점을 잡습니다). 연결 뒤
+  `collect`는 수집기가 멈춰 있을 때만 실행하며, 작업당 전경 수집기는 하나만 유지하세요. 각 독립
+  root는 자체 source key와 기준점을 유지합니다. 서로 다른 root의 같은 턴 ID나 토큰 값은 재전송이
+  아니며, 같은 적격 기록을 반복 poll해도 사용량을 다시 더하지 않습니다.
+
+  ```sh
+  node dist/cli.js --db local.db session link NEW_SESSION_ID --task task1 --source /path/to/new-session.jsonl --product codex --version 0.158.0
+  ```
+
+- **원본 파일 유실:** SQLite에 이미 저장된 사용량은 원본 파일이 사라져도 보존되며, 미관측
+  사용량은 복구할 수 없고 누락으로 남습니다. 작업을 삭제하거나 다시 만들지 말고 새 독립 root를
+  연결하세요. 읽을 수 없는 이전 소스는 `source_error`를 기록하되 다른 연결 root의 적격 관측을
+  막지 않으며, 보고서에 오류와 오프라인 제외를 함께 표시합니다. 이전 소스가 다시 접근 가능해지면
+  다음 성공 poll에서 새 기준점을 잡고 불확실한 과거는 backfill하지 않습니다. 복구는 제품
+  transcript를 삭제하거나 기존 매핑을 제거하지 않습니다.
+- **배정과 토폴로지 게이트:** [합성 비교 workflow](task-comparison.ko.md)에서 같은 논리 작업
+  식별자로 `comparison assign`을 다시 실행하면 `reused: true`와 원래 정규 `task_id`를 반환합니다
+  (항상 반환된 ID를 사용하며 새 세션은 작업을 재배정하지 않습니다). 배정된 native 작업은 일반
+  `session link`/`collect` 대신 `workflow codex` / `workflow claude`를 유지하세요. 일반 순차 파일
+  수집은 fork된 이력과 관측된 자식 활동을 제외하므로 fork나 자식을 독립 root로 연결하지 마세요.
+- **내부 Codex 0.160 후보 연속성 API:** 패키지 export와 일반 CLI에는 없는 opt-in 내부 API
+  `Collector.tickCodexContinuation(families)`는 활성 작업 하나에 명시적 독립 root 가족 최대 두 개
+  (가족당 직접 자식 최대 1개)를 받습니다(단일 가족 기록은
+  [중첩 세션 후보 준비 기록](../validation/nested-session-candidate-readiness.md) 참고). 각 가족은
+  `CandidateScope`와 정확한 `CodexCandidateSources`를 제공하며, 후보 전용 생명주기 binder로 모든
+  소스를 먼저 등록해야 메서드가 전체 연결 집합을 검증한 뒤 읽기를 시작합니다. 각 가족은 단일 root의
+  native header·계보·요청·턴 검사를 유지하고 원자적 root/child 트랜잭션으로 독립 커밋합니다.
+  소스가 없거나 바뀌면 해당 가족의 현재 checkpoint를 버리고 구성원 전체에 `source_error` 공백을
+  기록하며, 자식을 읽지 못한 경우에도 고정 진단은 해당 가족의 root를 가리킵니다. 명시적으로 승인된
+  다른 가족은 계속 진행할 수 있고, 복구는 불확실한 과거를 제외하고 새 기준점으로 시작하며, 뒤 가족이
+  실패해도 앞서 커밋된 가족은 부분 관측으로 남습니다. 응답 ID의 root 귀속이 충돌하면 실패하며 새
+  root ID를 접두사로 붙여 우회하지 않습니다. 후보 작업은 비교 배정과 production 채널 혼합을 거부합니다.
+  이 API는 실제 호출 승인을 뜻하지 않으며, 터미널 종료·소스 유실 이후의 실제 Codex 0.160 다중 root
+  연속성과 모델·effort 전환은 미검증 상태이고 별도 승인된 native 관측이 필요합니다.
+- **오프라인 연속성 테스트:** 현재 소스를 컴파일해 일회용 native 형태 Codex 0.158.0 fixture로 별도
+  측정 CLI 프로세스를 실행합니다(SIGTERM·재실행, 수집·미수집 소스 유실, pause·오프라인 제외,
+  재전송, 첫 완료 실패·재작업, 사람 판정·보고서 산술, fork·자식 거부, 프로세스 간 합성 배정 재사용
+  포함). Codex나 Claude를 호출하거나 실제 세션을 읽지 않으며, 실제 Codex 0.160 다중 root 연속성이나
+  모델·effort 전환을 입증하지 않습니다.
+
+  ```sh
+  npm test -- tests/session-continuation-cli.test.ts tests/workflow/codex-continuation.test.ts
+  ```
 
 ## 오류 복구와 제한
 

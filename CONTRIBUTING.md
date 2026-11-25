@@ -33,7 +33,7 @@ supervisor. This runtime extension is covered by synthetic fixtures, not an
 additional native qualification. Each actual launch still requires its separate
 approval and the existing product/version/source gates.
 
-`npm run check` checks the Git index for local records, verifies formatting, runs ESLint and TypeScript
+`npm run check` checks the Git index for local records, verifies generated tool-version assets and formatting, runs ESLint and TypeScript
 checking, builds the package, and executes tests. Run it from a Git checkout.
 Build before focused tests with `npm run build`, then use
 `npm test -- tests/runtime.test.ts`. Binding qualification tests freeze the built
@@ -125,6 +125,8 @@ verification layers; a passing hook is not proof that the staged snapshot passed
   For bug fixes, demonstrate the failure before applying the fix.
 - Keep fixtures synthetic. Do not attach real session logs or personal paths.
 - Run relevant checks, then report actual results and unverified behavior.
+  Documentation-only edits need link/anchor, example/schema and bilingual
+  command/support checks; implementation changes require `npm run check`.
 - Use the [agent workflow](docs/development/workflow.md) when working with an agent.
   Agent-assisted tasks require independent agent review. Manual contributions can
   use normal maintainer review without an AI account, plugin, or subscription.
@@ -287,23 +289,18 @@ or runner loss can prevent completion records or artifact upload entirely.
 
 The workflow needs
 no private plans, session data, or agent credentials. It does not perform agent
-review or prove requirement completeness. Adding the workflow does not configure
-branch protection or mean a remote run has passed.
-
-## Offline comparison method study
-
-The [comparison analysis validation runbook](docs/runbooks/comparison-analysis-validation.md)
-reproduces the bounded synthetic study with `npm run analysis:validate`. Its exact
-oracle checks are separate from full R10 validation and real experiment readiness.
+review or prove requirement completeness; the workflow file alone does not
+configure branch protection or prove a remote run has passed.
 
 ## Offline statistical validation
 
-Use the [analysis validation runbook](docs/runbooks/comparison-analysis-validation.md)
-for the separate `npm run analysis:validate` sharp-null arithmetic study and
+Use the [comparison analysis validation runbook](docs/runbooks/comparison-analysis-validation.md)
+for the `npm run analysis:validate` sharp-null arithmetic/oracle study and
 `npm run analysis:validate:confidence` bounded mean-effect/deadline-quality study.
 Both are synthetic development commands under Node 24 or 26. Full confidence calibration
-is opt-in, outside normal unit tests. Neither enables production inference or real
-experiments; preserve the fixed registries, failures and historical evidence.
+is opt-in, outside normal unit tests. Neither satisfies full R10 validation or enables
+production inference or real experiments; preserve the fixed registries, failures and
+historical evidence.
 
 ## Tool update discovery
 
@@ -335,6 +332,4 @@ npm test -- tests/pricing/observed-cost.test.ts tests/pricing/observed-cost-cli.
 These synthetic checks establish arithmetic and reporting behavior, not whole-task
 source coverage or real experiment effectiveness. Workflow example schemas are
 covered by `tests/workflow-examples.test.ts`; contract/store boundaries use
-`tests/contracts.test.ts` and `tests/store.test.ts`. Documentation-only edits need
-link/anchor, example/schema and bilingual command/support checks. Use the general
-implementation workflow and `npm run check` when product behavior changes.
+`tests/contracts.test.ts` and `tests/store.test.ts`.

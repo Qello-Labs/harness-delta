@@ -23,7 +23,7 @@ before choosing a route. The table below describes procedures, not additional ad
 | Prepare tasks and review results in the browser | [Local browser workflow](local-browser-ui.md); guided setup reviews inputs before saving and does not start collection |
 | Ordinary Claude observation without A/B assignment | [Normal UI flow](harness-connect.md#ordinary-claude-observation-qualification-pending); the configured profile's exact source and binary; native qualification pending; no pilot flag |
 | Codex ordinary family | [Bounded ordinary profile](harness-connect.md#codex-01630-bounded-ordinary-profile) or its [historical profile](harness-connect.md#codex-01621-bounded-ordinary-profile); frozen `functional_pilot` protocol and assignment, one fresh root and up to two fresh direct children; not assignment-free ordinary task mode |
-| Codex unqualified ordinary candidate | [Candidate procedure](../validation/codex-ordinary-binding-qualification.md#01660-unqualified-ordinary-candidate); selectable, qualified support pending; no `evidenceId` or `evidenceIntentSha256` in the record and no contribution to `productionSourceEvidence`; dated native trials do not qualify it; `ordinary_admission` only, required `--scenario root_normal_observer_restart` (zero children) or `--scenario family_normal_observer_restart` (two direct children); separate exact-intent native consent; H4 host-spawn/Detached and H5 environment-hook null-transcript paths excluded; no file/workflow fallback or native resume |
+| Codex unqualified ordinary candidate | [Candidate procedure](../validation/codex-ordinary-binding-qualification.md#01660-unqualified-ordinary-candidate); Codex 0.166.0 (`codex-binding-01660-direct-family-v1`, `qualified:false`) is selectable with qualified support pending; excluded from `productionSourceEvidence`; separate exact-intent native consent required |
 | Codex ordinary root pilot | [Root-only pilot](harness-connect.md#codex-01620-ordinary-root-local-pilot); operator-authorized observation, one fresh root, no children |
 | Claude comparison/pilot family | [Human-operated pilot](harness-connect.md#claude-human-operated-ui-pilot); separate local pilot authority and candidate-provider flag, exact profile version, fresh parent and at most two new members; not the normal ordinary task flow |
 | Codex startup ticket | [External session workflow](external-session-workflow.md); exact fresh root and ticket, no automatic family inheritance |
@@ -32,51 +32,16 @@ These paths have different source and authority gates. A launch-workflow
 compatibility window does not authorize an ordinary session connection.
 Installing the skill or preparing a browser task does not authorize observation.
 
-## Closed Codex ordinary-window preparation
+## Closed ordinary-window preparation
 
-The separate [Codex window setup](harness-connect.md#codex-ordinary-window-setup-collection-disabled)
-is implemented for offline acceptance, ordinary-window collection disabled pending
-separate product activation and native acceptance. It is not another supported
-launch workflow or an A/B procedure. Keep it outside the support table below.
-
-Choose **Codex > Ordinary window** explicitly, declare a stable version within
-`0.163.0 < v < 0.172.0`, save, preview the one-time owned-copy migration and apply
-only the reviewed files. Saving or installing does not activate collection or
-start a task. After a separately authorized activation and native acceptance, an
-explicitly active window task and eligible fresh startup root are still required.
-For N -> N+1, prepare a new declared-version task and a fresh root/baseline; do not
-rewrite generic helpers per patch, migrate frozen settings/prices or backfill
-missed intervals. Existing exact procedures, helpers and defaults remain separate.
-
-## Closed Claude ordinary-window preparation
-
-The independent [Claude window setup](harness-connect.md#claude-ordinary-window-setup-collection-disabled)
-is implemented for offline acceptance, ordinary-window collection disabled pending
-separate product activation and native acceptance. It adds no qualified support,
-launch/resume workflow, A/B assignment, exchange or child expansion; keep it out
-of the support table below.
-
-Choose **Claude Code > Ordinary window**, explicitly declare a stable version
-within `2.1.306 < v < 2.2.0`, save, preview the one-time owned-copy migration and
-apply only the reviewed files. Exact helpers remain installed; edited/unrelated,
-stale-preview and in-use guards remain. Preparation freezes the version, finite
-policy, strict terminal finality, publisher/local-pin/root scope and price.
-Saving, installing or preparing does not activate collection or start a task.
-
-Only after separate activation and native acceptance would an explicitly active
-prepared task and a fresh receipt for that root allow provider PID/start, publisher/disk-pin
-and source-version checks. The helper remains payload-only, returns
-`automatic_children:false` and supplies no activation command. After pause or
-observer restart, a same-task, same-version scoped reconnect may reuse the native
-root, PID and source path if the declared version, source reference and native
-pin digest match. Revalidate identity/pins and start a new observation segment
-and baseline without backfilling the paused interval. An active root in the
-current generation, another task's root or changed identity/pins cannot be reused.
-This does not authorize native resume or bypass activation and native acceptance.
-N -> N+1 still requires a new declared-version task and fresh root identity.
-No per-patch helper rewrite, frozen-task/price
-migration or missed-interval backfill. Root ownership stays unverified and possible
-child contribution unknown; disk proof is not mapped-image proof or complete cost.
+The separate [Codex ordinary-window setup](harness-connect.md#codex-ordinary-window-setup-collection-disabled)
+(`0.163.0 < v < 0.172.0`) and [Claude ordinary-window setup](harness-connect.md#claude-ordinary-window-setup-collection-disabled)
+(`2.1.306 < v < 2.2.0`) are implemented for offline acceptance with ordinary-window
+collection disabled pending separate product activation and native acceptance.
+They are outside A/B assignment and the launch support table below: saving settings,
+installing packages or preparing a window task does not activate collection, migrate
+frozen tasks/prices or backfill missed intervals, and root ownership stays unverified
+with unobserved child usage/cost. See [ordinary windows](../support-matrix.md#ordinary-windows).
 
 ## Support and costs before you start
 
@@ -143,8 +108,8 @@ Expected: the help lists `external`, `codex`, `claude`, `status`, `task`, `begin
 not the tool-owned launch path below.
 Use `workflow status` in step 4 to check the selected v2 native gate.
 The guarded `npm start -- <arguments>` entry checks Node 24 or 26, the build and installed
-dependencies before loading SQLite. `unsupported_node` (exit 2), `build_required`
-(exit 3) and `dependencies_required` (exit 4) give distinct first-run results.
+dependencies before running the CLI. `unsupported_node` (exit 2), `build_required`
+(exit 3), `dependencies_required` (exit 4) and `native_dependency` (exit 4) give distinct first-run results.
 Select Node 24 or 26 before `npm ci`; `npm exec node@24` is not proof that your shell
 or npm scripts use that runtime. Verify `node --version` in the same terminal.
 Run `npm ci` again after switching Node majors so SQLite matches the selected runtime.
@@ -448,7 +413,8 @@ node dist/cli.js --db .harness-delta/pilot/local.sqlite workflow report pilot-1 
   --id report-1 --cutoff "$reportCutoff" --reason initial
 ```
 
-Read the human-facing tables:
+Read the Markdown report (for V2 functional-pilot reports, `--format markdown-readable`
+renders the heading, notes and JSON snapshot; V1 human-facing tables apply to V1 reports only):
 
 ```sh
 node dist/cli.js --db .harness-delta/pilot/local.sqlite comparison report report-1 --format markdown-readable

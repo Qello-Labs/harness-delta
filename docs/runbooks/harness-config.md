@@ -235,19 +235,11 @@ adapts project rules and scripts. Register both versions normally, then generate
    family profiles. Ordinary Claude observation is assignment-free and uses
    Claude Code 2.1.306 for new project setup (Codex defaults to 0.163.0), or a saved
    Claude Code 2.1.296 or 2.1.301 setting.
-   File application does not select or upgrade those versions.
-   Codex 0.166.0 is separately selectable as an **UNQUALIFIED CANDIDATE**
-   (`qualified:false`), `codex-binding-01660-direct-family-v1`; qualified support is pending.
-   The record itself has no `evidenceId` or `evidenceIntentSha256` and adds nothing to
-   `productionSourceEvidence`. Separate native intents and results are recorded in the
-   [2026-11-03 candidate trials](../validation/codex-ordinary-binding-qualification.md#2026-11-03-candidate-trials);
-   they do not qualify the candidate. The Codex default remains 0.163.0.
-   Its [candidate procedure](../validation/codex-ordinary-binding-qualification.md#01660-unqualified-ordinary-candidate)
-   requires `ordinary_admission` and explicit `--scenario root_normal_observer_restart`
-   (zero children) or `--scenario family_normal_observer_restart` (two direct children).
-   Native execution requires separate exact-intent consent. H4 host-spawn/Detached
-   and H5 env-null-transcript paths, file/workflow fallback and native resume are excluded.
-   See [Harness Connect](harness-connect.md#current-implementation).
+   File application does not select or upgrade those versions. Codex 0.166.0
+   (`codex-binding-01660-direct-family-v1`) is also selectable as an unqualified
+   candidate (`qualified:false`); see the
+   [candidate procedure](../validation/codex-ordinary-binding-qualification.md#01660-unqualified-ordinary-candidate)
+   and [Harness Connect](harness-connect.md#current-implementation).
 
 Application helper operations are `context`, `checkpoint`, `identity`, `report`
 and `status`. Use the installed skill path and Node 24 or 26. Checkpoints retain actual
@@ -343,21 +335,13 @@ files without mode metadata are recreated with mode 0600. Mode-only changes
 are outside the hash-based preview.
 
 `check-staged` allows a staged file whose current content equals its checked
-original baseline. A file that mixes harness and user changes is flagged
-conservatively, even if the divergence contains only user edits; the check does
-not guess which edits are yours. Git clean filters and line-ending conversion
-are applied to baseline bytes as they are during staging. Preview, restore
-and the staged check cover checkpointed paths, including reported outputs.
-Changes outside that set are not audited or restored. The staged check also
-rejects private record directories anywhere in the index and retains reported
-paths from earlier restored applications of this task in the same worktree.
-
-Hook integration is manual. No hook is installed or overwritten, and the check is
-not mandatory enforcement. To use it from your own pre-commit hook, add the
-`check-staged` command yourself and keep the existing hook content.
-Run the hook command in the task's selected worktree using absolute CLI/database
-paths. A shared hook must select the task for that worktree; an alternate
-`GIT_INDEX_FILE` is checked as supplied, not mapped to another worktree.
+original baseline after Git clean filters and line-ending conversion. A file that
+mixes harness and user changes is flagged conservatively; the check does not guess
+which edits are yours. Preview, restore and `check-staged` cover checkpointed paths
+(including reported outputs and paths from earlier restored applications of this task
+in the same worktree); changes outside that set are not audited or restored. For
+finding codes and optional pre-commit hook wiring, see
+[section 8](#8-keep-local-product-files-out-of-the-target-git-history).
 
 Keep the task and its checkpoint records until restoration and the commit check
 are complete. Deleting a task still never restores files. These commands change
@@ -427,12 +411,11 @@ comparison. The check reads the index, including a supplied `GIT_INDEX_FILE`,
 and does not read current working-tree bytes. It does not inspect connection
 packages or `.codex/hooks.json`.
 
-`check-staged` is optional. Each task and worktree has its own task id, so a
-shared pre-commit hook cannot hard-code one id. When you add the command, keep
-the existing hook, pass absolute paths to `dist/cli.js` and the local database,
-and select the task for that worktree. The product never installs or overwrites
-the hook. A missing hook does not block `git commit`.
-
-Keep the task and `.harness-delta/applications/<task-id>/` until restoration
-and the staged check are finished. Removing that directory removes the baseline
-`restore` uses. Deleting a task still does not restore working-tree files.
+`check-staged` is optional and hook integration is manual: the product never
+installs or overwrites hooks, and a missing hook does not block `git commit`.
+Because each task and worktree has its own task id, run the hook command in the
+task's selected worktree, keep existing hook content, select the task for that
+worktree, and pass absolute paths to `dist/cli.js` and the local database. An alternate
+`GIT_INDEX_FILE` is checked as supplied, not mapped to another worktree.
+Keep `.harness-delta/applications/<task-id>/` until restoration and the staged
+check finish; deleting it removes the baseline `restore` uses.

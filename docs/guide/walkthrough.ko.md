@@ -51,28 +51,17 @@ Harness Delta는 **어떤 개발 작업에 AI 에이전트가 토큰을 얼마�
 | Claude Code | 새 프로젝트 설정은 **Claude Code 2.1.306**. 기존 프로젝트는 저장된 버전(2.1.296 또는 2.1.301)을 유지합니다. 각각 검토된 바이너리가 필요합니다. | `claude --version` |
 | 대상 저장소 | Git 저장소이며 현재 작업 브랜치가 준비됨 | `git status --short` |
 
-### Claude와 Codex 버전 업데이트
+### 버전과 설정 안내
 
-스크린샷은 이전 Claude Code 2.1.296 설정으로 찍었지만, UI가 Claude 버전을 표시하지 않으므로
-2.1.306에서도 화면은 같습니다. 새 프로젝트 설정의 기본값은 이제 Claude Code 2.1.306과
-Codex 0.163.0입니다. 저장된 설정과 작업 pin은 바뀌지 않습니다. **2026-10-21** 저장소 기준 상태는 다음과 같습니다.
+스크린샷은 이전 Claude Code 2.1.296 설정으로 찍었습니다. 기본 정확 버전 모드에서는
+여전히 Claude 버전을 표시하지 않으며, 현재 Claude 설정 카드에는 **정확 버전** / **일반 window**
+모드 전환 버튼(모드 전환 시 명시적 버전 입력칸 포함)도 표시됩니다. 새 프로젝트 설정의 기본값은
+Claude Code 2.1.306(Codex A/B 경로는 Codex 0.163.0)이며, 저장된 설정과 고정 작업 pin은 자동으로
+바뀌지 않습니다. 모든 일반 Claude 관측 record는 `qualified: false`를 유지하며, 일반 관측 근거가
+파일·워크플로나 과거 관측의 신뢰 상태를 승격하지는 않습니다.
 
-| 경로 | 버전 상태 | 이 가이드에서의 의미 |
-| --- | --- | --- |
-| 일반 Claude 연결 | 정확히 Claude Code 2.1.306(새 기본값) 또는 저장된 Claude Code 2.1.296·2.1.301과 해당 검토 바이너리. 모든 일반 관측 record는 `qualified: false` | 2.1.306과 2.1.301 profile은 root 하나와 flattened 멤버 둘까지 허용하며 둘 다 interactive 사용을 검증하지는 않습니다. |
-| 일반 Codex 연결 | 정확히 Codex 0.163.0(새 기본값) 또는 저장된 Codex 0.162.1, 제한된 가족 범위, 고정된 `functional_pilot` 배정. Codex 0.163.0은 별도 ordinary 경로 native 검증을 통과 | 비교 배정 없는 Claude 흐름과 다릅니다. 두 경로 모두 부분 비용 제한을 유지합니다. |
-| Claude Code 2.1.301·2.1.306과 Codex 0.163.0의 파일·일부 워크플로 원본 | 조건부 파서 재사용은 계속 `compatibility_unverified` | 일반 binding 검증 근거가 파일·워크플로나 과거 관측의 신뢰 상태를 승격하지는 않습니다. |
-
-Claude Code 2.1.301은 제한된 print-mode transcript 적합성 검증과 localhost
-service 리허설을 통과했습니다. 2026-10-17 인증 ordinary 시험은 연결 전에
-`stream_model` guard에서 중단됐습니다. 사용량·청구액은 알 수 없으며
-일반 경로 qualification은 아직 미완료입니다.
-[중단된 시험 기록](../validation/claude-ordinary-binding-02196-qualification.md#2026-10-17-authenticated-ordinary-attempt-blocked)을 참고하세요.
-Claude Code 2.1.306은 2026-10-21에 제한된 실제 binary localhost print-mode 정상 완료/SIGINT
-적합성 검증을 통과했습니다. 인증 ordinary나 interactive 검증은 아닙니다.
-[2.1.306 기록](../validation/claude-ordinary-binding-02196-qualification.md#2026-10-21-exact-21306-transcript-qualification)을 참고하세요.
-
-시작 전 [Harness Connect 현재 구현](../runbooks/harness-connect.ko.md#현재-구현)을
+시작 전 [생성된 지원 매트릭스](../support-matrix.ko.md#정확한-경로)와
+[Harness Connect 현재 구현](../runbooks/harness-connect.ko.md#현재-구현)을
 확인하세요. 별도 워크플로 경로는 [네이티브 워크플로 제한](../runbooks/task-native-workflow.md#conditional-forward-versions)을
 참고하세요. 설정·설치 성공이 새 버전 연결 성공을 뜻하지 않습니다.
 `claude_source_version_unsupported`가 나오면 현재 허용 버전을 확인하세요.
@@ -187,7 +176,7 @@ Claude 설정만 하고 설치를 건너뛰었다면 상세 화면에 "이 프�
 표시됩니다. 같은 화면의 **설치·갱신 미리보기**로 설치를 마치면 다음 단계로 넘어갑니다.
 
 Codex 작업은 이 배정 없는 Claude 관측 흐름이 아닙니다. Codex에는 별도의 고정
-`functional_pilot` 배정 워크플로가 필요합니다.
+`functional_pilot` 배정 워크플로가 필요합니다(수집이 닫힌 일반 window 절차도 별개입니다).
 
 ![설치가 필요한 작업](images/07-task-install-needed.png)
 
@@ -337,7 +326,7 @@ Qello 백엔드 작업에서는 평소처럼 Claude가 테스트와 검증을 �
 
 ![목록에 남은 완료 작업 — 합성 예시](images/16-completed-task-list.png)
 
-**작업 목록**으로 돌아가면 작업명·**성공**·예시 프로젝트가 표시됩니다.
+**← 작업 목록**으로 돌아가면 작업명·**성공**·예시 프로젝트가 표시됩니다.
 **상세 보기**는 보관된 결과를 다시 열고, **새 작업**은 별도 측정을 시작합니다.
 확정된 작업에 시도를 추가하는 버튼이 아닙니다.
 
