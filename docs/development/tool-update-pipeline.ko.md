@@ -57,9 +57,10 @@ import도 따라가지 않습니다. 이 파일의 변경은 `source_scope_chang
 기존 레코드는 계속 읽을 수 있으며 다시 쓰지 않습니다. 과거 다이제스트로는 현재 계약 검토
 게이트를 닫을 수 없습니다.
 
-현재 `static-assessment-v7` writer는 중복 제거된 경로 정확히 88개를 수집하며 여유 항목은 없습니다.
-coordinator 의존성인 `src/binding/session-binding-promotion.ts`를 해시 전용으로 추가하며,
-이 helper의 Store·native 의존성은 로드하지 않습니다. v6/schema-10 closure는 87개 경로로 고정되며,
+현재 `static-assessment-v7` writer는 중복 제거된 경로 정확히 91개를 수집하며 여유 항목은 없습니다.
+해시 전용 입력 네 개(`src/binding/session-binding-promotion.ts`,
+`src/claude-process-binary-fields.ts`, `src/core/ordinary-window-control.ts`,
+`src/core/ordinary-window-segment.ts`)를 추가하며 Store·native 의존성은 로드하지 않습니다. v6/schema-10 closure는 87개 경로로 고정되며,
 로드하는 `src/core/tool-version-promotion-store.ts` adapter와 해시 전용 입력인
 `src/deletion.ts`, `src/migrations/038_tool_version_promotion_denials.sql`,
 `src/web/local-web-binding-providers.ts`, `src/web/local-web-support.ts`를 더합니다.
@@ -188,7 +189,7 @@ node scripts/tool-update.mjs assess \
 | `observations/` | 한 번의 조회: UTC 확인 시각, 출처 ID, 응답 다이제스트와 검증자, 완전성, 고정 결과 코드 | 시각을 포함하므로 실제 재조회마다 새 ID |
 | `candidates/` | 제품, 정확한 안정 버전, 태그와 커밋, npm 버전과 무결성 | 정규 릴리스 필드만 쓰므로 같은 릴리스는 같은 ID |
 | `reviews/` | 한 레인과 한 릴리스 간선에 대한 수동 계약 검토 하나: 고정 코드와 다이제스트만 포함 | 정규 레코드 필드만 쓰므로 같은 검토는 같은 ID |
-| `assessments/` | 후보 ID, 관측 ID, 기준선 다이제스트 또는 누락 상태, 소스 다이제스트, 규칙 개정판, 레인 결과, (schema 3과 4) 제공된 검토 ID와 미사용 검토 ID | 이 입력 중 하나라도 바뀌면 달라짐 |
+| `assessments/` | 후보 ID, 관측 ID, 기준선 다이제스트 또는 누락 상태, 소스 다이제스트, 규칙 개정판, 레인 결과, 제공·미사용 검토 ID(schema 3·4·6–11), 판단 ID(schema 7–11) | 이 입력 중 하나라도 바뀌면 달라짐 |
 
 각 파일 이름은 정규 JSON에 대한 `<sha256>.json`입니다. 레코드는 한 번만 씁니다. 같은 바이트를
 다시 쓰면 성공하고, 기존 ID에 다른 바이트를 쓰면 `record_conflict`로 실패합니다. 바뀌는 `latest`
@@ -288,7 +289,7 @@ window 전용 대상의 정확 row는 추가하지 않습니다. 이 제한적 �
 
 window pin 검증은 별도 `ordinary_window_execution_pins` kind와 자체 namespace의 schema 1,
 `pin_scheme_revision: ordinary-window-execution-v1`을 사용합니다.
-`snapshotWindowPins` / `assertWindowPins`는 코드 소유 Codex raw producer·선택 skill·
+`snapshotWindowPins` / `assertWindowPins`는 코드 소유 Codex·Claude raw producer, 선택 skill,
 instrument 입력, source/build 트리, 일치하는 built 사본, runtime·package·lock을 source와
 built 선택별로 독립 고정합니다. packet은 runner나 실행·활성화 승인이 아니며 기존 정확 pin
 함수와 approval schema 1의 의미는 그대로입니다. 검증으로 native·target·backend 실행,
@@ -543,8 +544,8 @@ schema 11으로 출력하며, schema 1-6 reader는 바뀌지 않습니다. schem
   덮어쓰지 않습니다.
 
 구조는 올바르지만 오래된 판단도 `assessment_created`를 냅니다. source digest, engine digest,
-map revision 중 하나가 현재와 다르면 자동 결과는 고정된 최신성 이유(`stale_source`,
-`stale_engine`, `stale_map`)와 함께 `unknown`입니다. 기준선이 없거나, 기준선이 대상과 같거나,
+map revision, policy revision 중 하나가 현재와 다르면 자동 결과는 고정된 최신성 이유(`stale_source`,
+`stale_engine`, `stale_map`, `stale_policy`)와 함께 `unknown`입니다. 기준선이 없거나, 기준선이 대상과 같거나,
 파서 체인이 불완전하면 결과는 대기로 남습니다.
 
 고정된 schema 7과 현재 schema-11 기계 채널은 모두 지원을 확정하지 않습니다. 기계 결과는 `contracts_unknown`, `exact_only`,
@@ -609,11 +610,11 @@ map revision 중 하나가 현재와 다르면 자동 결과는 고정된 최신
 
 ### assess가 레코드를 적용하는 방식
 
-`--review`가 하나 이상이면 평가는 `schema_version: 6`으로 쓰이며 정렬된 `review_ids`,
-`unused_review_ids`와 각 레인의 `selection_policy`를 포함합니다.
-`--review`가 없으면 출력은 `schema_version: 5`이며 `selection_policy`가 없습니다.
-소스 다이제스트를 포함해 입력이 바뀌면 바이트와 ID도 함께 바뀝니다.
-schema 1–6 평가를 계속 읽을 수 있고 기존 레코드를 다시 쓰지 않습니다.
+현재 writer는 일반, 수동(`--review`), 기계(`--judgment`) 평가 모두에 `static-assessment-v7`로
+`schema_version: 11`을 씁니다. `--review`가 하나 이상이면 정렬된 `review_ids`, `unused_review_ids`와
+각 레인의 `selection_policy`를 포함하고, `--review`가 없으면 해당 검토 필드와 `selection_policy`를
+생략합니다. 소스 다이제스트를 포함해 입력이 바뀌면 바이트와 ID도 함께 바뀝니다.
+고정된 schema 1–10 평가를 계속 읽을 수 있고 기존 레코드를 다시 쓰지 않습니다.
 
 - 레코드는 레인 키, `contract_revision`, `from`·`to`의 버전과 커밋이 모두 관측과 일치하고
   `source_digest`가 현재 스냅샷 다이제스트와 같을 때만 레인 간선에 적용됩니다. 아니면 그 간선은
@@ -679,6 +680,8 @@ schema 1–6 평가를 계속 읽을 수 있고 기존 레코드를 다시 쓰�
 | 0 | `difference_job_created` | 차이 작업을 게시함 |
 | 0 | `difference_evidence_created` | 증거 수집을 마치고 게시함(`failure`는 `null`) |
 | 0 | `difference_judgment_created` | 차이 판단을 게시함 |
+| 0 | `promotion_prepared` | 승격 제안을 게시함 |
+| 0 | `promotion_reconciled` | 승격 조정 제안을 게시함 |
 | 2 | `difference_evidence_created` | 수집 실패. `failure`에 고정 수집기 코드가 담김 |
 | 2 | `release_mismatch` | GitHub와 npm 안정 헤드, 또는 npm `latest`와 안정 최댓값이 다름 |
 | 2 | `discovery_incomplete` | 선택한 릴리스 누락, 예산 소진, 재검증 중 변경 |
@@ -691,6 +694,7 @@ schema 1–6 평가를 계속 읽을 수 있고 기존 레코드를 다시 쓰�
 | 2 | `review_commit_conflict` | 레코드의 커밋이 해당 버전의 관측 커밋과 다름 |
 | 2 | `difference_identity_mismatch`, `difference_job_mismatch` | 판단 또는 증거가 참조한 작업이나 평가 입력과 맞지 않음 |
 | 2 | `difference_judgment_conflict` | 같은 작업을 참조하는 서로 다른 판단 |
+| 2 | `promotion_identity_mismatch`, `promotion_mapping_conflict`, `promotion_lineage_invalid` | 승격 입력의 식별자, 매핑 또는 선행 계보가 맞지 않음 |
 | 2 | `source_snapshot_unavailable`, `source_scope_changed`, `source_drift`, `observation_mismatch` | 소스 투영 실패, 검토된 범위 변경, 또는 입력이 서로 맞지 않음 |
 | 2 | `internal_error` | 예기치 않은 로컬 실패이며 원문 예외는 출력하지 않음 |
 

@@ -59,10 +59,10 @@ rechecks all existing rates and adds the Standard short-context references for
 `gpt-5.6-sol` (explicit alias `gpt-5.6`) and `gpt-5.6-cyber`, plus the global
 Standard/observed-TTL rates for `claude-mythos-5-1`.
 It still requires `catalog-cache-ttl-v3`, not a new schema-4 client.
-Sol uses promotional rates available **at least through 2026-11-21**. The exact
-ending instant is unknown, so `effective_until` stays null; post-promotion prices
-need a new catalog. Recheck the promotion before publication or treating this
-snapshot as current after that date.
+Sol recorded promotional rates stated as available at least through **2026-11-21**.
+Because that date has passed and the exact ending instant is unknown, `effective_until`
+stays null; reverify current Sol pricing before publishing this snapshot or treating it
+as current, and issue a new catalog for post-promotion prices.
 It does not change the bundle, online source, defaults or existing pins.
 Haiku request tiers and Claude observed 5m/1h write conditions remain unchanged.
 Missing request evidence or TTL leaves affected prices `unverified_condition`;

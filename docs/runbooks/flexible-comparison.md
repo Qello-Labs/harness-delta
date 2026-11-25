@@ -17,13 +17,15 @@ no product executable or model request. The production registry admits two separ
 are additionally eligible for functional pilots with unverified trust.
 Both Codex 0.160.0 profiles collect partial own-response usage and have no complete cost. The child
 profile requires read-only permissions and does not support family resume.
-The registry also holds the exact Codex 0.162.1 and 0.163.0 ordinary binding profiles, usable only in a
-matching single-profile `functional_pilot`; see [Harness Connect](harness-connect.md).
+The registry also holds the exact Codex 0.162.1 and 0.163.0 ordinary binding profiles
+(plus unqualified candidate Codex 0.166.0, excluded from `productionSourceEvidence`),
+usable only in a matching single-profile `functional_pilot`; see
+[Harness Connect](harness-connect.md) and the [support matrix](../support-matrix.md#exact-routes).
 A v2 protocol accepts one profile per product/version, so choose one Codex profile
 for that protocol. Claude Code 2.1.296 is admitted for parent-only launch and resume
 (`claude-workflow-own-trace-v1`; Claude Code 2.1.288 and 2.1.291 are retired) and, as a separate profile, for a read-only root with one direct child (`claude-workflow-direct-child-v1`).
-Ordinary observation for Claude Code 2.1.296 and explicitly configured Claude Code 2.1.301
-is a separate non-comparison route. Candidate parsers for Codex 0.158.0 and Claude Code 2.1.283 are
+Ordinary observation for Claude Code 2.1.306 (default for new setup) and saved
+Claude Code 2.1.296 or 2.1.301 settings is a separate non-comparison route. Candidate parsers for Codex 0.158.0 and Claude Code 2.1.283 are
 synthetic test candidates, not admitted sources. The existing v1 partial adapters
 remain separate. No desktop/app support or complete usage is inferred.
 
@@ -136,16 +138,16 @@ assignment denominator remain unavailable even when all declared writers respond
 
 ## Preparation gates and followup
 
-Readiness reports real_allocation, complete_cost and inference independently.
-The exact Codex 0.160.0 `codex-workflow-own-response-v1` and separately admitted
-`codex-workflow-direct-child-v1` sources permit real local allocation and partial
-collection for a complete frozen v2 protocol, within each profile's supported
-scope. Their shared native engine has operational evidence; ordinary assigned
-CLI wiring has offline evidence; later bounded root workspace-write pilots also
-exercised actual assigned execution. The first failed configuration scope and the
-subsequent untrusted launch passed its monitored checks; see
-[the evidence distinction](../validation/codex-workflow-01600-source-readiness.md#later-bounded-functional-observations). Unmatched
-profiles, mixed unqualified products and invalidated protocols remain closed.
+Readiness reports `real_allocation`, `complete_cost` and `inference` independently.
+The qualified `real_operations` profiles in `productionSourceEvidence` (Codex 0.160.0
+`codex-workflow-own-response-v1` and `codex-workflow-direct-child-v1`, Claude Code
+2.1.296 `claude-workflow-own-trace-v1` and `claude-workflow-direct-child-v1`, and
+Codex ordinary bindings `0.162.1` and `0.163.0`) permit real local allocation and
+partial collection for a complete frozen v2 protocol, within each profile's supported
+scope. See the [support matrix](../support-matrix.md#exact-routes) and
+[Codex workflow evidence](../validation/codex-workflow-01600-source-readiness.md#later-bounded-functional-observations).
+Unmatched profiles, unqualified candidates (such as Codex 0.166.0), mixed unqualified
+products and invalidated protocols remain closed.
 The analysis registry is empty. Whole-task cost facts remain unknown without a
 validated complete producer. Synthetic test inputs do not become real experiment
 inputs; create a dedicated store with the user's explicit choices and use

@@ -138,12 +138,11 @@ The separate Codex 0.163.0 bounded ordinary binding profile passed native accept
 on 2026-10-16. Its exact binding provenance does not promote these file/workflow
 estimates or earlier observations; collection and costs remain partial.
 
-Claude Code 2.1.301 has a separate exact ordinary binding record with one root plus
-two flattened members and `qualified: false`. Bounded print-mode localhost normal
-and SIGINT transcript conformance and real-service localhost rehearsal passed;
-authenticated ordinary acceptance remains pending.
-Explicit configuration preserves the historical default and frozen tasks.
-This does not qualify file/workflow collection or complete usage/cost.
+Claude Code 2.1.306 (new project setup default) and explicitly configured Claude Code
+2.1.301 and 2.1.296 have separate exact ordinary binding records with `qualified: false`;
+saved settings and frozen tasks remain unchanged. See the
+[support matrix](../support-matrix.md#exact-routes) and [Harness Connect](harness-connect.md#ordinary-claude-observation-qualification-pending).
+None of those records qualifies file/workflow collection or complete usage/cost.
 
 Codex 0.163.0 cumulative totals can include usage from incomplete responses.
 Its unverified estimates are not directly comparable with Codex 0.162.x cohorts until

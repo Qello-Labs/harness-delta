@@ -145,11 +145,10 @@ Claude Code 2.1.283 초과 2.2.0 미만 버전에 Claude Code 2.1.283 파서를 
 정확한 binding provenance로 이 파일·workflow 추정값이나 과거 관측을 승격하지 않으며,
 수집과 비용은 여전히 부분 범위입니다.
 
-Claude Code 2.1.301의 별도 exact 일반 binding record는 root 하나와 flattened 멤버
-둘까지 허용하며 `qualified: false`입니다. 제한된 print-mode localhost 정상·SIGINT
-transcript 적합성 검증과 실제 service localhost 리허설은 통과했으며 인증된 일반 경로 검증은 대기 중입니다.
-명시적 설정은 과거 기본값과 고정 작업을 유지하며 파일·workflow 수집이나 완전한
-사용량·비용을 검증하지 않습니다.
+Claude Code 2.1.306(새 프로젝트 설정 기본값)과 명시적으로 설정한 Claude Code 2.1.301·2.1.296은
+`qualified: false`인 별도 정확 일반 binding record를 가지며, 저장된 설정과 고정 작업은 유지됩니다.
+[지원 매트릭스](../support-matrix.ko.md#정확한-경로)와 [Harness Connect](harness-connect.ko.md#일반-claude-관측-지원-검증-대기)를
+참고하세요. 어느 record도 파일·workflow 수집이나 완전한 사용량·비용을 검증하지 않습니다.
 
 Codex 0.163.0의 누적 합계에는 완료되지 않은 응답의 사용량도 포함될 수 있습니다.
 대상 적합성 검증으로 변경된 집계 경계를 확인하기 전에는 이 미검증 추정값을

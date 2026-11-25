@@ -62,9 +62,10 @@ Adding them makes the digest in every existing baseline row and review record
 stale. Those records remain readable and are not rewritten; their historical
 digests cannot close current contract review gates.
 
-The current `static-assessment-v7` writer captures exactly 88 deduplicated paths, with no spare entries.
-It adds the hash-only `src/binding/session-binding-promotion.ts` coordinator dependency
-without loading its Store or native dependencies. The v6/schema-10 closure is frozen at
+The current `static-assessment-v7` writer captures exactly 91 deduplicated paths, with no spare entries.
+It adds the four hash-only paths `src/binding/session-binding-promotion.ts`,
+`src/claude-process-binary-fields.ts`, `src/core/ordinary-window-control.ts` and
+`src/core/ordinary-window-segment.ts` without loading their Store or native dependencies. The v6/schema-10 closure is frozen at
 87 paths; it added the loaded `src/core/tool-version-promotion-store.ts` adapter and the hash-only
 `src/deletion.ts`, `src/migrations/038_tool_version_promotion_denials.sql`,
 `src/web/local-web-binding-providers.ts` and `src/web/local-web-support.ts` inputs.
@@ -208,7 +209,7 @@ Pass the same `--baseline "$baseline_file"` you used for discovery, if any. Add
 | `observations/` | One retrieval: UTC check times, source IDs, response digests and validators, completeness, fixed result codes | Includes timestamps, so every real requery gets a new ID |
 | `candidates/` | Product, exact stable version, tag and commit, npm version and integrity | Only canonical release fields, so the same release keeps its ID |
 | `reviews/` | One manual contract review of one lane and one release edge: fixed codes and digests only | Canonical record fields; the same review keeps its ID |
-| `assessments/` | Candidate ID, observation ID, baseline digest or missing state, source digest, rule revision, lane results, and (schema 3 and 4) the supplied and unused review IDs | Changes when any of those inputs change |
+| `assessments/` | Candidate ID, observation ID, baseline digest or missing state, source digest, rule revision, lane results, supplied/unused review IDs (schemas 3, 4 and 6–11) and judgment IDs (schemas 7–11) | Changes when any of those inputs change |
 
 Each file is named `<sha256>.json` over canonical JSON. Records are write-once.
 Rewriting identical bytes succeeds, while different bytes under an existing ID fail
@@ -319,8 +320,8 @@ and the [canonical verification boundary](../../.claude/skills/tool-version-upda
 
 Window pin validation is a separate `ordinary_window_execution_pins` kind, schema 1
 in its own namespace, with `pin_scheme_revision: ordinary-window-execution-v1`.
-`snapshotWindowPins` / `assertWindowPins` freeze the code-owned Codex raw producer,
-selected skill and instrument inputs, source/build trees, matching built copies,
+`snapshotWindowPins` / `assertWindowPins` freeze the code-owned Codex and Claude raw producers,
+selected skills and instrument inputs, source/build trees, matching built copies,
 runtime, package and lock independently for source and built selection. The packet
 is not a runner or execution/activation approval; old exact pin functions and
 approval schema 1 retain their meaning. No native/target/backend run, new budget,
@@ -598,9 +599,9 @@ Schema 7 keeps the whole static and manual projection and adds:
   and neither overrides the other.
 
 A judgment that is structurally valid but stale still produces
-`assessment_created`. If its source digest, engine digest or map revision differs
-from the current one, the automated result is `unknown` with a fixed freshness
-reason (`stale_source`, `stale_engine` or `stale_map`). A missing baseline, a
+`assessment_created`. If its source digest, engine digest, map revision or policy
+revision differs from the current one, the automated result is `unknown` with a
+fixed freshness reason (`stale_source`, `stale_engine`, `stale_map` or `stale_policy`). A missing baseline, a
 baseline equal to the target, or an incomplete parser chain leaves the result pending.
 
 Neither frozen schema 7 nor the current schema-11 machine channel establishes support. Machine results never close `contracts_unknown`,
@@ -670,11 +671,12 @@ whatever is supplied.
 
 ### How assess applies records
 
-With at least one `--review`, the assessment is written as `schema_version: 6`, with
-the sorted `review_ids` and `unused_review_ids` and each lane's `selection_policy`.
-Without `--review`, output uses `schema_version: 5` with no `selection_policy`. Its
-bytes and ID still change whenever an input does, including the source digest.
-Schema 1–6 assessments remain readable and are never rewritten.
+The current writer emits `schema_version: 11` with `static-assessment-v7` for plain,
+manual (`--review`) and machine (`--judgment`) assessments. With at least one `--review`,
+it includes the sorted `review_ids` and `unused_review_ids` and each lane's
+`selection_policy`; without `--review`, those review fields and `selection_policy` are
+omitted. Its bytes and ID still change whenever an input does, including the source
+digest. Frozen schema 1–10 assessments remain readable and are never rewritten.
 
 - A record applies to a lane edge only if the lane key, `contract_revision`, and the
   `from` and `to` versions and commits all match the observation, and `source_digest`
@@ -745,6 +747,8 @@ local paths are never printed.
 | 0 | `difference_job_created` | Difference job published |
 | 0 | `difference_evidence_created` | Evidence collection completed and published (`failure` is `null`) |
 | 0 | `difference_judgment_created` | Difference judgment published |
+| 0 | `promotion_prepared` | Promotion proposal published |
+| 0 | `promotion_reconciled` | Promotion reconciliation proposal published |
 | 2 | `difference_evidence_created` | Collection failed; `failure` carries a fixed collector code |
 | 2 | `release_mismatch` | GitHub and npm stable heads, or npm `latest` and the stable maximum, disagree |
 | 2 | `discovery_incomplete` | Missing selected release, budget exhaustion, or drift on revalidation |
@@ -757,6 +761,7 @@ local paths are never printed.
 | 2 | `review_commit_conflict` | A record's commit differs from the observed commit for that version |
 | 2 | `difference_identity_mismatch`, `difference_job_mismatch` | A judgment or evidence record does not belong to its job or assessment |
 | 2 | `difference_judgment_conflict` | Different judgments reference the same job |
+| 2 | `promotion_identity_mismatch`, `promotion_mapping_conflict`, `promotion_lineage_invalid` | Promotion inputs disagree on identity, mapping or predecessor lineage |
 | 2 | `source_snapshot_unavailable`, `source_scope_changed`, `source_drift`, `observation_mismatch` | Source projection failed, reviewed scope changed, or inputs don't belong together |
 | 2 | `internal_error` | Unexpected local failure; no raw exception is printed |
 

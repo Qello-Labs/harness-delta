@@ -136,9 +136,9 @@ Node 26에서도 기존 루트 launch/resume 조정과 Claude 부모 launch를 �
 `external`은 별도의 [사용자가 여는 세션 절차](external-session-workflow.ko.md)이며,
 아래의 도구 소유 launch 경로와 다릅니다.
 4단계의 `workflow status`로 선택한 v2 native 지원 조건을 확인하세요.
-`npm start -- <arguments>` 진입점은 SQLite를 로드하기 전에 Node 24 또는 26, 빌드,
+`npm start -- <arguments>` 진입점은 CLI를 실행하기 전에 Node 24 또는 26, 빌드,
 설치된 의존성을 확인합니다. `unsupported_node`(exit 2), `build_required`(exit 3),
-`dependencies_required`(exit 4)로 첫 실행 문제를 구분합니다.
+`dependencies_required`(exit 4), `native_dependency`(exit 4)로 첫 실행 문제를 구분합니다.
 `npm ci` 전에 Node 24 또는 26을 선택하세요. `npm exec node@24`만으로 셸이나 npm script가
 해당 runtime을 쓰는지 확인할 수 없습니다. 같은 터미널에서 `node --version`을 확인하세요.
 Node major를 바꿨다면 `npm ci`를 다시 실행해 SQLite를 선택한 runtime에 맞추세요.
@@ -441,7 +441,8 @@ node dist/cli.js --db .harness-delta/pilot/local.sqlite workflow report pilot-1 
   --id report-1 --cutoff "$reportCutoff" --reason initial
 ```
 
-사람이 읽는 표를 확인하세요.
+Markdown 보고서를 확인하세요(V2 기능 파일럿 보고서에서는 `--format markdown-readable`이
+제목·안내·JSON 스냅샷을 출력하며, V1 표 형식은 V1 보고서에만 적용됩니다):
 
 ```sh
 node dist/cli.js --db .harness-delta/pilot/local.sqlite comparison report report-1 --format markdown-readable

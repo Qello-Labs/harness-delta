@@ -54,8 +54,10 @@ when the work is done. You always start and stop the agent yourself.
 
 ### Claude and Codex version updates
 
-The screenshots were captured with the earlier Claude Code 2.1.296 setup; the screens
-look the same with 2.1.306 because the UI doesn't show the Claude version. New project
+The screenshots were captured with the earlier Claude Code 2.1.296 setup; the default
+exact-mode flow still omits the Claude version string, while the Claude setup card now
+also shows **Exact version** / **Ordinary window** mode controls (with an explicit version
+input when switching modes). New project
 setup now defaults to Claude Code 2.1.306 and Codex 0.163.0. Saved settings and task pins
 don't change. The repository status on **2026-10-21** is:
 
@@ -239,10 +241,10 @@ Read the screen from top to bottom:
 ![Parent and child usage — synthetic example](images/11-measuring-family-usage.png)
 
 In this example, the parent has 1 request, 1,200 input tokens and 320 output tokens.
-The child has 1 request, 400 input tokens and 120 output tokens. **Observed total**
+The child has 1 request, 400 input tokens and 120 output tokens. **Observed sum**
 is 2 requests, 1,600 input and 440 output tokens; do not add the total row again.
 The displayed USD 0.0152 is a partial example amount, labeled
-**Compatibility-unverified reference cost** (`호환성 미검증 참고 비용`), not a bill
+**Compatibility unverified reference** (`호환성 미검증 참고 비용`), not a bill
 or a verified complete cost. Missing-family warnings still matter even when rows
 contain numbers. Family members appear under the root; the UI does not establish
 the immediate parent relationship of nested members.
@@ -285,7 +287,7 @@ When the work is done (for example, the PR is ready):
 
 Observation stop and task completion are separate. In the current UI, stopping
 returns the connection card to **Waiting for connection** (`연결 대기`) while the
-summary can still say **Paused** and **Not judged yet**. Previous session rows and
+summary can still say **Paused** and **Awaiting user decision**. Previous session rows and
 cost stay visible. This is not a success result; do not paste the old connect
 command again just to finish the task.
 
@@ -332,7 +334,7 @@ The summary at the top of the detail page has four values.
 | Value | Meaning |
 | --- | --- |
 | Measurement | Summary: waiting for connection / in progress (`진행 중`) / paused (`일시정지`) / measurement ended (`측정 종료`). The connection card uses measuring (`측정 중`) / paused (`일시중단`). |
-| Outcome | Not judged yet, or your judgement |
+| Result | Awaiting user decision, or your judgement |
 | Active measurement time | Time with collection on. It is not human working time. |
 | Observed cost | Partial estimate of observed usage with prices. Missing prices are unknown, not zero. |
 
@@ -341,8 +343,8 @@ See [observed cost](../runbooks/observed-cost.md) and
 
 ![Completed task in the list — synthetic example](images/16-completed-task-list.png)
 
-Select **Back to tasks** to return to the list. The row shows the task name,
-**Success** and the example project. **View details** reopens the retained result;
+Select **← Tasks** to return to the list. The row shows the task name,
+**Success** and the example project. **Details** reopens the retained result;
 **New task** starts a separate measurement, not another attempt on this finalized task.
 
 ## Common blockers

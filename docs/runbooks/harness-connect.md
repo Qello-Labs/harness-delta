@@ -189,7 +189,7 @@ The exact Claude defaults, saved tasks and procedures below remain unchanged.
    stale previews and unrelated-hook conflicts still block changes. An active
    Claude task or open binding also blocks migration, including activation
    during staging before replacement.
-3. Refresh setup and keep collection disabled. Settings, installed files, hook
+3. Keep collection disabled and inspect the updated status in the card. Settings, installed files, hook
    delivery/trust, pending metadata and a live-authorized connection are distinct
    states. Installation neither starts a task nor creates an emission control.
 
@@ -375,8 +375,9 @@ members. The separate exact `claude-binding-2-1-301-family-v1` profile admits ex
 configured Claude Code 2.1.301 with the same limits. Saved settings, including the previous
 Claude Code 2.1.296 default, and frozen tasks remain unchanged. The project setup API
 accepts `{"operation":"configure","product_version":"2.1.301"}`; omitting the
-version preserves saved settings, otherwise the 2.1.306 default. The UI does
-not display a Claude version selector. Binary, receipt and transcript must match
+version preserves saved settings, otherwise the 2.1.306 default. The UI does not display a Claude version dropdown in default exact mode; switching
+between **Exact version** and **Ordinary window** exposes an explicit version text input.
+Binary, receipt and transcript must match
 the same frozen task version. All records remain `qualified: false`. The 2.1.306
 [print-mode conformance](../validation/claude-ordinary-binding-02196-qualification.md#2026-10-21-exact-21306-transcript-qualification)
 on 2026-10-21 covers bounded actual-binary localhost normal/SIGINT runs only. The 2.1.301
@@ -426,7 +427,7 @@ No pilot flag, qualification lease or browser input opens this path.
    buttons on the task page. Finish only with your own outcome confirmation.
 
 ```text
-/harness-connect Connect this session to project PROJECT_ID, task TASK_ID, using http://127.0.0.1:PORT and its native receipt.
+/harness-connect Connect this session to project PROJECT_ID, task TASK_ID, using http://127.0.0.1:PORT.
 ```
 
 Installing the package doesn't register hooks. They register when you invoke
@@ -544,7 +545,7 @@ requires the exact bounded profile above; other candidates remain blocked.
 
 ```text
 Codex: $harness-connect Connect this session to project PROJECT_ID, task TASK_ID, using http://127.0.0.1:PORT and its native receipt.
-Claude: /harness-connect Connect this session to project PROJECT_ID, task TASK_ID, using http://127.0.0.1:PORT and its native receipt.
+Claude: /harness-connect Connect this session to project PROJECT_ID, task TASK_ID, using http://127.0.0.1:PORT.
 ```
 
 ```sh

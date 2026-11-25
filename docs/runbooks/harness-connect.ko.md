@@ -168,7 +168,7 @@ native 검증 전까지 비활성 상태입니다. 지원 검증 완료나 정�
    편집되거나 소유하지 않은 파일, 안전하지 않은 경로, 오래된 미리보기, 다른 hook과의 충돌은
    계속 변경을 차단합니다. 활성 Claude 작업이나 열린 binding도 migration을 차단하며,
    staging 중 교체 전에 활성화되는 작업도 포함합니다.
-3. 설정을 새로고침하고 수집은 비활성 상태로 유지합니다. 설정, 설치 파일, hook 전달·신뢰,
+3. 카드에 갱신된 상태를 확인하고 수집은 비활성 상태로 유지합니다. 설정, 설치 파일, hook 전달·신뢰,
    pending 메타데이터와 유효한 권한으로 연결된 상태는 서로 다릅니다. 설치는 작업을
    시작하거나 emission control을 만들지 않습니다.
 
@@ -342,7 +342,8 @@ Claude Code 2.1.306과 설치된 binary에서 root 하나와 flattened 멤버 �
 Claude Code 2.1.301에 같은 한도를 적용합니다. 이전 기본값 Claude Code 2.1.296을 포함한
 저장 설정과 고정된 작업은 유지됩니다. 프로젝트 설정 API는
 `{"operation":"configure","product_version":"2.1.301"}`을 받으며, 버전을 생략하면
-기존 저장값 또는 2.1.306 기본값을 사용합니다. UI에 Claude 버전 선택기는 표시하지 않습니다.
+기존 저장값 또는 2.1.306 기본값을 사용합니다. UI의 기본 정확 버전 모드에는 Claude 버전 드롭다운이 없고, **정확 버전**과 **일반 window** 사이를
+전환할 때 명시적 버전 입력칸이 표시됩니다.
 binary, receipt, transcript는 같은 작업의 고정 버전과 일치해야 합니다.
 모든 record는 `qualified: false`입니다. 2.1.306의
 [print-mode 검증](../validation/claude-ordinary-binding-02196-qualification.md#2026-10-21-exact-21306-transcript-qualification)은
@@ -390,7 +391,7 @@ pilot 플래그, qualification lease, 브라우저 입력으로는 이 경로를
    완료는 사용자가 결과를 직접 확인해야 합니다.
 
 ```text
-/harness-connect Connect this session to project PROJECT_ID, task TASK_ID, using http://127.0.0.1:PORT and its native receipt.
+/harness-connect Connect this session to project PROJECT_ID, task TASK_ID, using http://127.0.0.1:PORT.
 ```
 
 패키지를 설치해도 hook이 등록되지는 않습니다. hook은 native 부모에서 skill을
@@ -507,7 +508,7 @@ receipt를 사용합니다. receipt를 만들거나 transcript 디렉터리를 �
 
 ```text
 Codex: $harness-connect Connect this session to project PROJECT_ID, task TASK_ID, using http://127.0.0.1:PORT and its native receipt.
-Claude: /harness-connect Connect this session to project PROJECT_ID, task TASK_ID, using http://127.0.0.1:PORT and its native receipt.
+Claude: /harness-connect Connect this session to project PROJECT_ID, task TASK_ID, using http://127.0.0.1:PORT.
 ```
 
 ```sh

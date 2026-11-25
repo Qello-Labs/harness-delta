@@ -143,8 +143,8 @@ Expected: the help lists `external`, `codex`, `claude`, `status`, `task`, `begin
 not the tool-owned launch path below.
 Use `workflow status` in step 4 to check the selected v2 native gate.
 The guarded `npm start -- <arguments>` entry checks Node 24 or 26, the build and installed
-dependencies before loading SQLite. `unsupported_node` (exit 2), `build_required`
-(exit 3) and `dependencies_required` (exit 4) give distinct first-run results.
+dependencies before running the CLI. `unsupported_node` (exit 2), `build_required`
+(exit 3), `dependencies_required` (exit 4) and `native_dependency` (exit 4) give distinct first-run results.
 Select Node 24 or 26 before `npm ci`; `npm exec node@24` is not proof that your shell
 or npm scripts use that runtime. Verify `node --version` in the same terminal.
 Run `npm ci` again after switching Node majors so SQLite matches the selected runtime.
@@ -448,7 +448,8 @@ node dist/cli.js --db .harness-delta/pilot/local.sqlite workflow report pilot-1 
   --id report-1 --cutoff "$reportCutoff" --reason initial
 ```
 
-Read the human-facing tables:
+Read the Markdown report (for V2 functional-pilot reports, `--format markdown-readable`
+renders the heading, notes and JSON snapshot; V1 human-facing tables apply to V1 reports only):
 
 ```sh
 node dist/cli.js --db .harness-delta/pilot/local.sqlite comparison report report-1 --format markdown-readable

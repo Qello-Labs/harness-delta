@@ -30,8 +30,8 @@ settle and active measurement pauses; the external AI remains under your control
 
 Select Node 24 or 26 and verify `node --version` before installation. Run `npm ci`
 again after switching Node majors to rebuild SQLite for the selected runtime. The guarded entry
-reports `unsupported_node` (exit 2), `build_required` (exit 3), or
-`dependencies_required` (exit 4) before importing SQLite. Follow its instructions
+reports `unsupported_node` (exit 2), `build_required` (exit 3),
+`dependencies_required` (exit 4), or `native_dependency` (exit 4) before running the CLI. Follow its instructions
 in the checkout; it never installs an AI product or switches your global runtime.
 
 No setup file is required to open an empty UI. For ordinary Claude observation,
@@ -285,7 +285,7 @@ settings. Cancelling the picker leaves settings unchanged.
 
 ### Prepare a settings file
 
-For skill-generated snapshots, use **2. Prepare with your agent** instead of
+For skill-generated snapshots, use **2. Prepare comparison settings** instead of
 assembling and registering every input through separate CLI commands:
 
 Connect the project before preparing its harness. Select a registered project,
@@ -430,7 +430,7 @@ installed-version discovery. Verified exact launch sources and
 `compatibility_unverified` references are separate from candidate ordinary-family
 pilots. Unsupported routes stay unsupported; no description grants collection authority.
 
-Synthetic tasks show **Validation-only context** instead of native-family connection
+Synthetic tasks show **Synthetic validation only · no real measurement** instead of native-family connection
 instructions. Prepare and inspect the fixture only. Do not launch or connect native
 agents for it; actual work needs a separately reviewed real protocol and route.
 Absent usage/cost remains unavailable, not zero.
@@ -458,9 +458,8 @@ is pending beforehand; users do not supply receipts. The server separately confi
 native identity, durable task binding and active collection. A family connection
 already starts authorized observation, so there is no second start button.
 
-**Installation and connection diagnostics** separates configured version, unknown
-installed version, project package, session, task binding, collection and source
-trust. Installation does not widen the admitted ordinary Claude source/binary scope
+**Installation and connection diagnostics** separates project skill, current session,
+task binding, collection and source trust. Installation does not widen the admitted ordinary Claude source/binary scope
 or establish native qualification.
 Failed connection attempts retain a sanitized blocker code in the local task UI.
 No command or project path is included in measurement records or shared reports.
@@ -586,8 +585,9 @@ after its record was reserved. Source gates are unchanged and the change cannot 
 reversed.
 
 Explicit format-2 `agent_applied` comparisons preserve assignment and select an
-existing checkout/worktree and agent. Select **Check current branch/worktree** to
-inspect the branch and path. Select **Apply**, review the branch, worktree, harness
+existing checkout/worktree and agent. The UI inspects the current branch and path
+automatically (use **Change workspace** / **Use this workspace** to switch, or
+**Check again** after an error). Select **Apply**, review the branch, worktree, harness
 and agent in the dialog, then confirm with **Apply**. Any installed agent may
 apply the harness; it does not have to be the task's measured agent. The measured
 working session is still connected with the task's agent. When the same agent
