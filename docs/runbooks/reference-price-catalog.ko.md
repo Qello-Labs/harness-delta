@@ -29,12 +29,14 @@ Astra, Sol, Luna, Fable, Opus, Sonnet, Haiku 기준가격이 있습니다.
 | v2 (2026-10-08) | 별도 배포; v2 이상 클라이언트 필요 | Sonnet 5.5 캐시 읽기를 백만 토큰당 $0.10으로 인하하고 Haiku 5.5 요청별 구간(캐시 읽기·쓰기 포함 총 프롬프트 100,000 이하/초과)을 추가합니다. 구간별 Haiku 계산에는 일치하는 입력 수와 연결된 요청 근거가 필요하며, TTL이 없으면 명시적 5분 기준을 쓰고 1시간·혼합 쓰기는 제외합니다([상세](../decisions/reference-price-catalog.md#october-2026-catalog-update)). |
 | [v3](https://github.com/Qello-Labs/harness-delta/releases/tag/reference-prices-2026-10-08-v3) (2026-10-08) | 게시된 릴리스; `catalog-cache-ttl-v3` 필요 | `observed_ttl-v1` 아래에서 명시적이고 일치하는 TTL별 숫자가 있는 Claude 관측의 5분·1시간 캐시 쓰기(혼합 쓰기 포함)를 분리 계산합니다. 이전 클라이언트는 거부하고 캐시 가격을 유지합니다([한계](../decisions/reference-price-catalog.md#observed-cache-ttl-v3)). 새 TTL 메타데이터 기록 후 클라이언트를 다운그레이드하지 마세요. |
 | v4 (2026-10-16) | **미게시 후보**(스키마 3, `catalog-cache-ttl-v3`) | 기존 단가 재확인 및 `gpt-5.6-sol`(별칭 `gpt-5.6`), `gpt-5.6-cyber`, `claude-mythos-5-1` 추가([후보 릴리스 안내](../release-notes/reference-prices-2026-10-16-v4.md)). Sol에는 **2026-11-21까지** 안내된 프로모션 단가가 기록되어 있고(`effective_until: null`) 해당 날짜가 지났으므로 게시·사용 전에 최신 단가를 재확인하고 프로모션 이후 단가는 새 카탈로그로 발행하세요. |
+| [v5](../decisions/reference-price-catalog.md#november-25-refresh-candidate-catalog-v5-schema-3) (2026-11-25) | **미게시 후보**(스키마 3, `catalog-cache-ttl-v3`) | `gpt-6.2-astra`, `gpt-6.2-sol`, `gpt-6.1-terra`, `gpt-6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`를 추가하고 모든 OpenAI 캐시 쓰기 단가를 생략합니다. Claude TTL과 Haiku 구간은 그대로입니다([후보 릴리스 안내](../release-notes/reference-prices-2026-11-25-v5.md)). Sol 프로모션은 종료 시각 없이 **2026-11-30까지**로 안내되어 있으므로(`effective_until: null`) 게시 전에 다시 확인하세요. |
 
 카탈로그 정책별 가격 조건 규칙:
 
-- **Claude 캐시 쓰기 TTL:** **v1/v2**에서는 TTL이 없을 때 명시적인 5분 기준 추정치를 사용하며(실제 청구 TTL 확인이 아님), 확인된 1시간·혼합 쓰기만 제외합니다(관측 토큰은 보존하고 프롬프트 경계 합산에 포함). **v3/v4**(`observed_ttl-v1`)에서는 숫자 TTL 누락·오류, 과거 boolean-only 쓰기, 숫자 TTL이 없는 파일/OTel 관측의 Claude 캐시 쓰기 비용을 `unverified_condition`으로 남깁니다(`matches[].cache_ttl`이 매칭된 TTL 기간을 표시).
-- **구간별 Haiku 5.5 단가(v2–v4):** 입력 수 누락·불일치나 연결된 요청 런타임 근거 누락 시 Haiku 구간 단가는 `unverified_condition`으로 남습니다(관측 토큰은 보존되며 다른 적격·단가 일치 성분으로 부분 추정 가능). 공통적으로 `missing_rate`는 관측 조건의 단가 부재, `unknown_model`은 미등록 모델을 뜻합니다.
-- **미지원 청구 조건:** Fast/Ultrafast/Priority/Flex/Batch, 장문 컨텍스트 청구, 지역/boost 조건, 도구·미디어, 구독과 할인은 계산하지 않습니다. 매칭 결과는 Standard short-context/global 기준 추정일 뿐 실제 청구 조건을 입증하지 않습니다.
+- **Claude 캐시 쓰기 TTL:** **v1/v2**에서는 TTL이 없을 때 명시적인 5분 기준 추정치를 사용하며(실제 청구 TTL 확인이 아님), 확인된 1시간·혼합 쓰기만 제외합니다(관측 토큰은 보존하고 프롬프트 경계 합산에 포함). **v3/v4/v5**(`observed_ttl-v1`)에서는 숫자 TTL 누락·오류, 과거 boolean-only 쓰기, 숫자 TTL이 없는 파일/OTel 관측의 Claude 캐시 쓰기 비용을 `unverified_condition`으로 남깁니다(`matches[].cache_ttl`이 매칭된 TTL 기간을 표시).
+- **구간별 Haiku 5.5 단가(v2-v5):** 입력 수 누락·불일치나 연결된 요청 런타임 근거 누락 시 Haiku 구간 단가는 `unverified_condition`으로 남습니다(관측 토큰은 보존되며 다른 적격·단가 일치 성분으로 부분 추정 가능). 공통적으로 `missing_rate`는 관측 조건의 단가 부재, `unknown_model`은 미등록 모델을 뜻합니다.
+- **v5의 OpenAI 캐시 쓰기:** 관측된 쓰기 토큰은 보존하지만 해당 성분의 단가가 없어(`missing_rate`) 비용은 부분 추정으로 남습니다. 단가 없는 쓰기는 사용량 누락이나 0이 아니며, v1-v4의 기존 단가는 유지합니다.
+- **미지원 청구 조건:** Fast/Ultrafast/Priority/Flex/Batch, 장문 컨텍스트 청구, 지역/boost 조건, 도구·미디어, 구독과 할인은 계산하지 않습니다. 매칭 결과는 Standard short-context/global 기준 추정일 뿐 실제 청구 조건을 입증하지 않습니다. 입력 272,000 토큰을 넘는 OpenAI 요청에도 이 short-context 기준 단가를 적용하므로 실제 장문 컨텍스트 청구액보다 낮게 계산될 수 있습니다.
 - **UI와 근거 경계:** UI는 부분 비용과 원본/호환성 미검증 참고 비용을 따로 표시하며, 단가 없는 사용량 안내에는 토큰이 관측됐지만 비용에서 제외한 캐시 쓰기가 포함될 수 있습니다. 가격 지원은 네이티브 원본·카운터를 검증하거나 전체 비용·통계적 추론을 활성화하지 않습니다.
 
 ## 2. 가격 파일을 선택하지 않고 추정하기

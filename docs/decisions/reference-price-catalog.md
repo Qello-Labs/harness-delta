@@ -310,6 +310,83 @@ V1/v2-only clients must reject its policy/schema and retain accepted prices.
 This data refresh grants no native admission, counter qualification, complete
 cost, trust promotion or inference. Existing frozen inputs are not backfilled.
 
+## November 25 refresh candidate (catalog v5, schema 3)
+
+The unpublished [candidate](../../config/prices/catalogs/reference-catalog-2026-11-25-v5.json)
+has ID `reference-catalog-2026-11-25` and catalog version **5**. It keeps
+**schema 3**, policy `reference-standard-observed-cache-ttl-v3`, matching version
+`exact-catalog-observed-cache-ttl-v3` and arithmetic `decimal160-disjoint-v1`.
+Its proposed tag is `reference-prices-2026-11-25-v5`; preparation isn't publication.
+Bootstrap, online source, defaults, existing pins and results don't change. V1 to v4
+files, IDs and basis hashes stay as they were, and v4 remains unpublished history.
+See the [candidate release notes](../release-notes/reference-prices-2026-11-25-v5.md)
+for capability and pending gates.
+
+All rates were checked on **2026-11-25 UTC** against
+[OpenAI pricing](https://developers.openai.com/api/docs/pricing) and
+[Anthropic pricing](https://platform.claude.com/docs/en/about-claude/pricing),
+in USD per **1,000,000 tokens**. `omitted` means no rate is in the catalog, not zero.
+
+| Canonical model / whole-request prompt tier | Ordinary input | Cache read | Cache write / Claude 5m | Claude 1h write | Output |
+| --- | --- | --- | --- | --- | --- |
+| `gpt-6.2-astra` (new) | 8 | 0.4 | omitted | n/a | 40 |
+| `gpt-6.2-sol` (new) | 2 | 0.1 | omitted | n/a | 10 |
+| `gpt-6-astra` | 10 | 1 | omitted | n/a | 50 |
+| `gpt-6.1-sol` | 2 | 0.1 | omitted | n/a | 10 |
+| `gpt-6.1-terra` (new) | 1 | 0.05 | omitted | n/a | 5 |
+| `gpt-6-luna` | 0.1 | 0.01 | omitted | n/a | 0.5 |
+| `gpt-6-sol` (new) | 2 | 0.2 | omitted | n/a | 10 |
+| `gpt-5.6-sol` (alias `gpt-5.6`), promotion | 4 | 0.4 | omitted | n/a | 20 |
+| `gpt-5.6-terra` (new) | 2 | 0.2 | omitted | n/a | 12 |
+| `gpt-5.6-luna` (new) | 0.2 | 0.02 | omitted | n/a | 1.2 |
+| `gpt-5.6-cyber` | 12.5 | 1.25 | omitted | n/a | 75 |
+| `claude-fable-5-1` | 10 | 0.25 | 12.5 | 20 | 50 |
+| `claude-mythos-5-1` | 10 | 0.25 | 12.5 | 20 | 50 |
+| `claude-opus-5-5` | 4 | 0.2 | 5 | 8 | 20 |
+| `claude-sonnet-5-5` | 2 | 0.1 | 2.5 | 4 | 10 |
+| `claude-haiku-4-5-20251001` (alias `claude-haiku-4-5`) | 1 | 0.1 | 1.25 | 2 | 5 |
+| `claude-haiku-5-5`, prompt <=100,000 | 0.1 | 0.01 | 0.125 | 0.2 | 0.5 |
+| `claude-haiku-5-5`, prompt >100,000 | 0.5 | 0.05 | 0.625 | 1 | 2.5 |
+
+Apart from the omitted OpenAI writes, the eleven carried rows keep their v4 rates.
+The six new literals match exactly; no aliases are added for them. Both retained
+aliases rest on the v4 identifier evidence above, since today's pricing pages don't
+restate alias equivalence. Reconfirm identifiers and aliases from permitted primary
+sources before publication.
+
+OpenAI cache writes are deliberately unpriced. The catalog leaves every OpenAI
+`cache_write` rate out instead of guessing a 30-minute or 12-hour retention:
+retained rollouts don't record the requested TTL, and a defaulted zero proves
+nothing. Observed write tokens stay stored. The write component reports
+`missing_rate`/`unpriced_component`, including for an observed zero, while
+ordinary input, cache reads and output can stay priced. The result is a partial
+reference amount. A missing rate isn't missing usage or zero usage, and missing
+or error usage never becomes a priced zero. This exclusion is local to v5; it
+doesn't reinterpret v1-v4 or repair historical counter provenance.
+
+OpenAI long-context billing isn't distinguished. Requests above 272,000 input
+tokens aren't detected or refused and get no long-context tariff. They're matched
+at the short-context reference rate with the same `standard_short` label as in
+v3/v4, so the amount can understate the actual long-context charge. Long-context
+rates stay excluded and unsupported; adding a predicate would need its own decision.
+
+The Sol promotion is available **until 2026-11-30**. No ending clock or timezone
+is given, so `effective_until` stays null instead of an invented midnight.
+Reconfirm the row before publication; post-promotion prices need a new catalog.
+
+Claude 5m/1h write conditions and the Haiku 100,000/100,001 whole-request boundary
+are unchanged from v4. Excluded conditions also carry over: OpenAI Fast/Ultrafast/
+Priority, Flex, Batch, regional/FedRAMP, Cyber long context, Claude Fast/Batch and
+geography, boost, tools/media, subscriptions and discounts. Unlisted models such as
+other Cyber/science variants or Fable/Mythos 5.2 give `unknown_model`.
+
+Minimum client capability stays **`catalog-cache-ttl-v3`**
+(`c7ee96fc80d3e9046f476200c44b834aae45246e`, merged as
+`62f3841f79bb37c9b3b4e49dc78ce893109063e4`). No semantic client floor exists.
+Prepared asset identities are recorded in the candidate release notes. The exact
+reviewed v5 commit and its remote CI remain pending. This data refresh grants no native admission, counter qualification,
+complete cost, trust promotion or inference.
+
 ## Distribution, update and pin
 
 The bootstrap ships in `dist/catalogs`; a local database retains the last accepted
