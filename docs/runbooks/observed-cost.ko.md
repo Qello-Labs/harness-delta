@@ -13,7 +13,7 @@
 `current_catalog`)은 그 문서에 있습니다. 아래 절차는 과거 추정에도 계속 사용할 수 있는
 고급 명시적 가격표 경로입니다.
 
-미게시 [v5 후보](reference-price-catalog.ko.md#1-제공된-카탈로그-읽기)에는 OpenAI 캐시 쓰기 단가가
+[v5 릴리스](https://github.com/Qello-Labs/harness-delta/releases/tag/reference-prices-2026-11-25-v5)에는 OpenAI 캐시 쓰기 단가가
 없습니다. 관측된 쓰기 토큰은 보고서에 남고, 쓰기 범주는 계산하지 않으며(`missing_rate`),
 부분 비용과 미검증 참고 비용에는 나머지 계산된 범주만 포함합니다. 입력 272,000 토큰을 넘는 OpenAI 요청에도
 short-context 기준 단가를 적용하므로 실제 장문 컨텍스트 청구액보다 낮을 수 있습니다.

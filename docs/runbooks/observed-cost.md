@@ -13,7 +13,7 @@ which covers default price-table selection (`ordinary_task_pin`, `frozen_compari
 `current_catalog`) without `--price-table`. The procedure below is the advanced
 explicit-table path and remains available for historical estimates.
 
-Under the unpublished [v5 candidate](reference-price-catalog.md#1-read-the-supplied-catalog),
+Under the [v5 release](https://github.com/Qello-Labs/harness-delta/releases/tag/reference-prices-2026-11-25-v5),
 OpenAI cache writes have no rate. Their observed tokens stay in the report, the write
 component is unpriced (`missing_rate`), and partial/reference amounts cover only
 the other priced components. OpenAI requests above 272,000 input tokens still use the short-context
