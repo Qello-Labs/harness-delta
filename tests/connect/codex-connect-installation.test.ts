@@ -768,7 +768,7 @@ test.each(['symlink receipt directory', 'unowned recorder'])('unsafe window %s c
   expect(install(f.project, f.options).state).toBe('blocked');
   expect(snapshot(f.project)).toBe(before);
 });
-test.each(['0.163.0', '0.170.0', '0.167.0-beta.1'])('window installer refuses excluded version %s', productVersion => {
+test.each(['0.163.0', '0.172.0', '0.167.0-beta.1'])('window installer refuses excluded version %s', productVersion => {
   const f = windowInstallationFixture();
   expect(preview(f.project, { ...f.options, productVersion }).blockers).toContain('codex_connect_product_version_unsupported');
 });

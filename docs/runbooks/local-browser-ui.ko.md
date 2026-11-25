@@ -122,7 +122,7 @@ Codex 0.166.0을 **UNQUALIFIED CANDIDATE**(`qualified:false`)로도 표시합니
 native 실행에는 정확한 intent별 별도 동의가 필요하며, H4 host-spawn/Detached와
 H5 env-null-transcript 경로는 제외됩니다. file/workflow fallback과 native resume은 없습니다.
 
-**일반 window**를 선택해 `0.163.0 < v < 0.170.0` 범위의 Codex 안정 버전을 직접 지정하고
+**일반 window**를 선택해 `0.163.0 < v < 0.172.0` 범위의 Codex 안정 버전을 직접 지정하고
 저장할 수 있습니다. window 모드 소유 복사본 migration은 명시적인 설치 미리보기와 적용이
 필요하며, 설정 저장이나 패키지 설치는 수집을 활성화하지 않습니다. 저장된 정확 버전 설정은
 자동으로 migration하지 않습니다. 수집이 닫힌 Codex window 설정은 오프라인 검증용으로 구현되었으며,

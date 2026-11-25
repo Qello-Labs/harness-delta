@@ -213,7 +213,7 @@ const packet = {
   pin_scheme_revision: 'ordinary-window-execution-v1',
   product: 'codex',
   policy_id: 'codex-binding-root-window-v1',
-  policy_revision: 'codex-ordinary-root-window-v1',
+  policy_revision: 'codex-ordinary-root-window-v2',
   evidence_mode: 'source_only',
   execution_mode: 'source',
   pins: Object.fromEntries(
@@ -307,6 +307,7 @@ describe('ordinary-window execution-pin domain', () => {
     { ...packet, product: 'claude_code' },
     { ...packet, policy_id: 'claude-binding-root-window-v1' },
     { ...packet, policy_revision: 'unreviewed' },
+    Object.freeze({ ...packet, policy_revision: 'codex-ordinary-root-window-v1' }),
     { ...packet, evidence_mode: 'publisher_verified_local_pin' },
     { ...packet, execution_mode: 'native' },
     { ...packet, input_paths: ['/synthetic/unapproved'] },

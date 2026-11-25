@@ -298,7 +298,7 @@ test.each(['candidate', 'observation', 'job', 'commit'] as const)('cross-%s judg
 });
 
 test('known machine claims preserve every static gate including the outside-window selection', async () => {
-  const input = await setup('complete', '0.170.0');
+  const input = await setup('complete', '0.172.0');
   const plain = await assessCandidate({
     candidate: input.candidate,
     observation: input.observation,

@@ -39,11 +39,11 @@ export const ordinaryWindowPolicies = Object.freeze([
     OrdinaryWindowPolicySchema.parse({
       ...common,
       policyId: 'codex-binding-root-window-v1',
-      ruleRevision: 'codex-ordinary-root-window-v1',
+      ruleRevision: 'codex-ordinary-root-window-v2',
       product: 'codex',
       source: 'codex_binding',
       baseVersion: '0.163.0',
-      upperExclusive: '0.170.0',
+      upperExclusive: '0.172.0',
       parserProfileId: 'codex-binding-01630-direct-family-v1',
       parserRevision: 'codex-binding-root-window-v1',
       algorithmId: 'codex_root_response_v1',

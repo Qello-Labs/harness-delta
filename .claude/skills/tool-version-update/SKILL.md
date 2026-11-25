@@ -117,7 +117,7 @@ The separate Codex window bundle and closed setup are implemented for offline
 acceptance, ordinary-window collection disabled pending separate product activation
 and native acceptance. Only after that separate activation and native acceptance,
 `codex-binding-root-window-v1` permits descriptive `source_only` root references
-for stable `0.163.0 < v < 0.170.0` before per-target deeper conformance, including
+for stable `0.163.0 < v < 0.172.0` before per-target deeper conformance, including
 an in-window Codex minor transition. A window-only target needs no exact row.
 The actual declaration, inherited parser/rule, identity uncertainty and
 `compatibility_unverified` trust remain visible; a creation header is not proof of

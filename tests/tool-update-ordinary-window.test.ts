@@ -5,7 +5,7 @@ import { withSourceSnapshot } from '../scripts/tool-update/source-snapshot.mjs';
 import { assessmentRoot, frozenAssessmentFixture, ordinaryAssessmentFixture } from './helpers/tool-update-ordinary-window-fixture.js';
 
 const policies = [
-  ['codex', 'codex_binding', 'codex-binding-root-window-v1', 'codex-ordinary-root-window-v1', '0.163.0', '0.170.0', '0.166.0'],
+  ['codex', 'codex_binding', 'codex-binding-root-window-v1', 'codex-ordinary-root-window-v2', '0.163.0', '0.172.0', '0.166.0'],
   ['claude_code', 'claude_binding', 'claude-binding-root-window-v1', 'claude-ordinary-root-window-v1', '2.1.306', '2.2.0', '2.1.307']
 ] as const;
 
@@ -44,8 +44,10 @@ test.each([
   ['codex', '0.169.999', 'selected_window', 'exact_qualification_required', 'minor'],
   ['codex', '0.163.0', 'older_version_unsupported', 'out_of_window', 'none'],
   ['codex', '0.162.9', 'older_version_unsupported', 'out_of_window', 'minor'],
-  ['codex', '0.170.0', 'window_extension_required', 'upper_bound', 'minor'],
-  ['codex', '0.171.0', 'window_extension_required', 'out_of_window', 'minor'],
+  ['codex', '0.170.0', 'selected_window', 'exact_qualification_required', 'minor'],
+  ['codex', '0.171.0', 'selected_window', 'exact_qualification_required', 'minor'],
+  ['codex', '0.171.999', 'selected_window', 'exact_qualification_required', 'minor'],
+  ['codex', '0.172.0', 'window_extension_required', 'upper_bound', 'minor'],
   ['codex', '1.0.0', 'window_extension_required', 'out_of_window', 'major'],
   ['claude_code', '2.1.307', 'selected_window', 'exact_qualification_required', 'none'],
   ['claude_code', '2.1.999', 'selected_window', 'exact_qualification_required', 'none'],
@@ -135,7 +137,8 @@ test.each(
     )
   )
 )('$revision writer and strict root-policy reader preserve $policy.0 reviewed=$reviewed', async ({ policy, reviewed, revision: writer }) => {
-  const [product, , profile, revision, , , target] = policy;
+  const [product, , profile, currentRevision, , , target] = policy;
+  const revision = writer === 'v3' ? `${product === 'codex' ? 'codex' : 'claude'}-ordinary-root-window-v1` : currentRevision;
   const result =
     writer === 'v3' ? frozenAssessmentFixture(product, reviewed, true) : await assessCandidate(ordinaryAssessmentFixture(product, target, reviewed));
   const row = result.lanes.find(lane => lane.profile_id === profile && lane.operation === 'collect');
@@ -158,6 +161,9 @@ test.each(
     expect(assessmentSchema.safeParse({ ...result, rule_revision }).success).toBe(false);
   }
   for (const changes of [
+    ...(writer === 'v3' && product === 'codex'
+      ? [{ rule_revision: 'codex-ordinary-root-window-v2', compatibility: { ...row.compatibility, rule_revision: 'codex-ordinary-root-window-v2' } }]
+      : []),
     { product: product === 'codex' ? 'claude_code' : 'codex' },
     { route: 'file' },
     { profile_id: foreignProfile },

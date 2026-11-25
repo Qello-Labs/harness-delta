@@ -177,7 +177,7 @@ test.each(['0.164.0', '0.165.0', '0.167.0', '0.169.0'])('collects actual %s root
   expect(f.store.all('SELECT * FROM session_source_compatibility')).toHaveLength(1);
 });
 
-test.each(['0.170.0', '0.167.0-beta.1', '0.167', 'v0.167.0', 'invalid'])('refuses unsupported declaration %s before preparing a source', async version => {
+test.each(['0.172.0', '0.167.0-beta.1', '0.167', 'v0.167.0', 'invalid'])('refuses unsupported declaration %s before preparing a source', async version => {
   await expect(createCodexWindowProviderFixture({ version })).rejects.toThrow();
 });
 

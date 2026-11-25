@@ -40,7 +40,7 @@ separate product activation and native acceptance. It is not another supported
 launch workflow or an A/B procedure. Keep it outside the support table below.
 
 Choose **Codex > Ordinary window** explicitly, declare a stable version within
-`0.163.0 < v < 0.170.0`, save, preview the one-time owned-copy migration and apply
+`0.163.0 < v < 0.172.0`, save, preview the one-time owned-copy migration and apply
 only the reviewed files. Saving or installing does not activate collection or
 start a task. After a separately authorized activation and native acceptance, an
 explicitly active window task and eligible fresh startup root are still required.

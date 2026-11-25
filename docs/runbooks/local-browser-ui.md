@@ -127,7 +127,7 @@ Native execution needs separate exact-intent consent; H4 host-spawn/Detached and
 H5 env-null-transcript paths are excluded, with no file/workflow fallback or native resume.
 
 Select **Ordinary window** to save an explicitly declared stable Codex version
-within `0.163.0 < v < 0.170.0`. Window-mode owned-copy migration requires explicit
+within `0.163.0 < v < 0.172.0`. Window-mode owned-copy migration requires explicit
 installation preview and apply; saving the preference or installing the package
 does not activate collection. Saved exact settings never migrate automatically.
 The closed Codex window setup is implemented for offline acceptance,

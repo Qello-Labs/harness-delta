@@ -58,7 +58,7 @@ Repeated calls confirm binding; multiple tasks require one explicit selection.
 A common cwd, model statement, environment hint or guessed UUID is never proof.
 
 The ordinary root-reference policies `codex-binding-root-window-v1` (Codex
-`>0.163.0`, `<0.170.0`) and `claude-binding-root-window-v1` (Claude Code
+`>0.163.0`, `<0.172.0`) and `claude-binding-root-window-v1` (Claude Code
 `>2.1.306`, `<2.2.0`) are implemented for offline acceptance, ordinary-window
 collection disabled pending separate product activation and native acceptance.
 They are not exact admissions and are not listed among the supported versions.
@@ -109,7 +109,7 @@ active-support entry, an exact admission or permission to run a native trial.
 The exact procedures above and their saved defaults remain unchanged.
 
 1. In **Agent connection setup**, choose **Codex**, then **Ordinary window**.
-   Explicitly enter a stable version strictly within `0.163.0 < v < 0.170.0` and
+   Explicitly enter a stable version strictly within `0.163.0 < v < 0.172.0` and
    review the permitted source roots. Equality at either bound, prereleases and
    build suffixes are rejected; the upper bound needs a separate renewal decision.
 2. Save that explicit preference, preview installation, review the relative owned

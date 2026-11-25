@@ -51,7 +51,7 @@ const packet = {
   pin_scheme_revision: 'ordinary-window-execution-v1',
   product,
   policy_id: product === 'codex' ? 'codex-binding-root-window-v1' : 'claude-binding-root-window-v1',
-  policy_revision: product === 'codex' ? 'codex-ordinary-root-window-v1' : 'claude-ordinary-root-window-v1',
+  policy_revision: product === 'codex' ? 'codex-ordinary-root-window-v2' : 'claude-ordinary-root-window-v1',
   evidence_mode: product === 'codex' ? 'source_only' : 'publisher_verified_local_pin',
   execution_mode: executionMode,
   pins

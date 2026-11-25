@@ -48,7 +48,7 @@ test('keeps tagged window preferences out of legacy assigned configuration and f
   }
 });
 
-test.each(['0.163.0', '0.170.0', '0.167.0-beta.1', 'v0.167.0', '0.167', '00.167.0'])(
+test.each(['0.163.0', '0.172.0', '0.167.0-beta.1', 'v0.167.0', '0.167', '00.167.0'])(
   'rejects window declaration %s without replacing saved preferences',
   async productVersion => {
     const f = await fixture();

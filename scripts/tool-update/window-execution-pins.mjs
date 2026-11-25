@@ -25,7 +25,7 @@ export const windowExecutionPinsSchema = z.discriminatedUnion("product", [
 		...windowExecutionPinsFields,
 		product: z.literal("codex"),
 		policy_id: z.literal("codex-binding-root-window-v1"),
-		policy_revision: z.literal("codex-ordinary-root-window-v1"),
+		policy_revision: z.literal("codex-ordinary-root-window-v2"),
 		evidence_mode: z.literal("source_only"),
 	}),
 	z.strictObject({
