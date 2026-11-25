@@ -85,14 +85,23 @@ curl --fail --silent --show-error --output /dev/null http://127.0.0.1:4318/
 - Include forward-only database migration, a consistent backup of `--db` before
   upgrading, the prohibition on opening a database with an older release, Node
   and native ABI requirements, accepted price capability and 0.x breaking changes.
-- Identify the exact release commit and passing CI in the GitHub release body.
-  Keep earlier price release notes as historical records; update current client
+- Prepare a separate ignored release-body file, for example
+  `.harness-delta/releases/v0.1.0/release-body.md`, containing the reviewed release
+  notes plus the literal full release commit and its passing exact-commit CI URL.
+  Keep the placeholder in the tracked release notes; that template alone is not
+  the prepared body. Shell variables and unresolved placeholders are not concrete
+  commit/CI bindings.
+- Keep earlier price release notes as historical records; update current client
   guidance instead of rewriting their original version-floor statements.
 
 ## 5. Review the notes and evidence
 
 - Obtain independent review of the exact notes, checklist results and intended
   release commit. Resolve material findings before publication.
+- Review the separately prepared release-body file. Its literal full commit must
+  match the selected and tested release commit, and its CI URL must identify a
+  passing run for that same exact commit. Resolve missing or mismatched bindings
+  before publication.
 - Check that install, compatibility and clean-database price refresh evidence is
   complete for both Node versions. Mark unrun checks as pending, not passed.
 - Keep detailed and sanitized evidence under the ignored local work directory.
@@ -102,15 +111,19 @@ curl --fail --silent --show-error --output /dev/null http://127.0.0.1:4318/
 
 After explicit tag/publication authorization, create the source tag and GitHub
 release at the reviewed commit. Tool releases must use `--latest=false` and must
-never be marked latest. For v0.1.0, replace the commit placeholder before running:
+never be marked latest. For v0.1.0, replace the commit placeholder and use the
+release-body file prepared and reviewed in steps 4-5 before running:
 
 ```sh
 releaseCommit=REVIEWED_FULL_COMMIT_SHA
+releaseBody=.harness-delta/releases/v0.1.0/release-body.md
 gh release create v0.1.0 --target "$releaseCommit" \
   --title 'Harness Delta v0.1.0 (developer preview)' \
-  --notes-file docs/release-notes/harness-delta-v0.1.0.md --latest=false
+  --notes-file "$releaseBody" --latest=false
 ```
 
+The prepared body's literal commit must equal `releaseCommit`; do not pass the
+unchanged tracked notes directly to `--notes-file`.
 Verify the created tag resolves to the reviewed, tested commit. Do not upload
 packages or binary assets for a source-tag-only release.
 
