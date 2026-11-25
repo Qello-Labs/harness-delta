@@ -37,7 +37,10 @@ publication, changing bootstrap/defaults, changing frozen pins or repricing resu
   TTL-aware tables/matching/arithmetic and numeric usage metadata. Clients supporting
   only v1/v2 reject v3 and retain accepted prices. Old clients may also reject new
   usage metadata; do not downgrade a database after writing the new contract.
-  This repository has no released semantic client-version floor to invent.
+  Tool release [v0.1.0](../release-notes/harness-delta-v0.1.0.md) is the first
+  released client and supports `catalog-cache-ttl-v3`, accepting catalog schemas
+  1-3 and catalogs v1-v5. Its tag, not private package version `0.0.0`, identifies
+  that released client floor. Earlier published price notes remain historical.
 - Run focused tests and `npm run check`. Obtain independent review of the exact
   data/code/documentation diff and resolve material findings. Record exact-head
   local evidence separately from remote CI. Required remote CI must pass before

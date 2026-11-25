@@ -21,6 +21,11 @@ An explicitly unconfigured source reports `bundled_or_verified_local_artifact`.
 No automatic refresh runs. A stale or failed
 update must remain visible beside the last accepted catalog. The verification date does not establish the price's effective date.
 
+Tool release [v0.1.0](https://github.com/Qello-Labs/harness-delta/releases/tag/v0.1.0)
+is the first released client. It supports `catalog-cache-ttl-v3`, catalog schemas
+1-3 and catalogs v1-v5; its tag, not private package version `0.0.0`, identifies
+the released client floor. Earlier price release notes remain historical.
+
 Catalog revisions stay immutable; the bundled v1 bootstrap and existing pins never change automatically:
 
 | Catalog | Status & client requirement | Key pricing scope and limits |
