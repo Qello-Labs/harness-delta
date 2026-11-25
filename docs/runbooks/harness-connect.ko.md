@@ -216,38 +216,14 @@ origin·프로젝트·작업·receipt ID만 전달합니다. process를 찾거�
 connect는 유효한 root 연결을 다시 검사하며, `automatic_children:false`를 반환하고
 변경 요청을 무작정 재시도하지 않습니다.
 
-별도 승인된 Claude trial에도 기존 `hm compatibility ordinary-window`의
-`arm`, `status --arming`, `disarm` 명령을 사용합니다. 먼저 작업이 비활성 상태이고
-열린 binding이 없는 동안 해당 등록 프로젝트에 소유 Claude window 패키지를 설치하거나
-업데이트하세요. 그런 다음 준비한 작업을 시작하고 receipt-only 발행을 유한한 시간 동안
-arm하세요. 등록된 프로젝트 root에서 프롬프트 없이 새 root를 실행하세요.
-receipt-only 발행에는 같은 프로젝트 root,
-작업 generation, policy와 만료되지 않은 arming이 필요합니다.
-root `SessionStart` pending receipt만 발행하며, `receipt_only`에서 `SubagentStart`와
-`SubagentStop`은 receipt를 발행하지 않습니다. 해당 receipt에서 native root를 확인한 뒤
-기존 trial activation packet을 기록하세요. 활성화는 arming을 소비하고 `active`를
-발행하며, connect와 collect에는 여전히 일치하는 기록된 결정과 native root가 필요합니다.
-disarm, 만료, 작업 일시 정지·종료·삭제, 수집 철회는 receipt-only arming을 지우며,
-어떤 결정이든 기록되면 arming을 제거합니다.
-명령과 정리 절차는 [로컬 측정](local-measurement.ko.md)을 참고하세요.
-arming은 native trial 권한이나 추가 지원을 부여하지 않습니다.
-
-Claude에서는 arm, 프롬프트 없이 새 root 실행, receipt 확인, 활성화, 첫 메시지 하나를
-보내고 완료 대기, connect, 새 메시지에서 측정 작업 시작, collect 순서를 따르세요.
-Claude Code 2.1.329의 `compatibility_unverified` 관측에서는 첫 메시지 전까지 root
-transcript JSONL이 없었습니다. connect에는 일치하는 scoped root source가 필요하며,
-해당 원본이 없으면 `binding_source_unavailable`을 반환합니다.
-이 관측은 다른 버전의 transcript 형식을 보장하지 않습니다.
-
-첫 메시지는 connect 기준점 이전이므로 수집하지 않으며 backfill도 하지 않습니다.
-그러나 관측된 합계를 가진 수락된 root 요청은 baseline/제외 요청이라도
-`accepted_observed_root_input_plus_output-v1` trial 예산에
-`input_total + output_total`로 한 번 포함됩니다. Claude의 `input_total`에는
-일반 입력, cache 생성과 cache 읽기가 포함되며 `cached_input`과
-`reasoning_output`은 다시 더하지 않습니다. 미관측 요청이나 누락된 합계를
-0의 예산 차감으로 취급하지 마세요.
-활성화의 `duration_ms`는 connect가 아니라 활성화 결정 시점에 시작하므로,
-측정 작업과 collect뿐 아니라 첫 메시지와 connect 시간도 포함해야 합니다.
+별도 승인된 Claude trial에서는
+[로컬 측정](local-measurement.ko.md#버전-적합성-확인-업데이트-제어)의
+`hm compatibility ordinary-window` `arm`, `status --arming`, `disarm` 절차를 따르세요
+(작업이 비활성이고 열린 binding이 없을 때 소유 Claude window 패키지를 설치·업데이트하고,
+receipt-only 발행을 arm한 뒤 프롬프트 없이 새 root를 실행하여 root `SessionStart`
+receipt를 확인·활성화하고, root transcript가 생성되도록 첫 메시지 하나를 보낸 뒤 connect하고
+측정 작업과 collect를 진행합니다). `receipt_only`에서 `SubagentStart`와 `SubagentStop`은
+receipt를 발행하지 않습니다. arming은 native trial 권한이나 추가 지원을 부여하지 않습니다.
 
 payload-only helper가 아니라 유효한 권한을 가진 provider가 same-user PID/start,
 해당 process에서 얻은 정규 실행 파일 경로, 승인된 publisher와 로컬 disk pin을 확인합니다. native adapter는
@@ -345,18 +321,11 @@ Claude Code 2.1.301에 같은 한도를 적용합니다. 이전 기본값 Claude
 기존 저장값 또는 2.1.306 기본값을 사용합니다. UI의 기본 정확 버전 모드에는 Claude 버전 드롭다운이 없고, **정확 버전**과 **일반 window** 사이를
 전환할 때 명시적 버전 입력칸이 표시됩니다.
 binary, receipt, transcript는 같은 작업의 고정 버전과 일치해야 합니다.
-모든 record는 `qualified: false`입니다. 2.1.306의
-[print-mode 검증](../validation/claude-ordinary-binding-02196-qualification.md#2026-10-21-exact-21306-transcript-qualification)은
-2026-10-21의 제한된 실제 binary localhost 정상 완료/SIGINT 실행만 다룹니다. 2.1.301의
-[print-mode 검증](../validation/claude-ordinary-binding-02196-qualification.md#2026-10-16-exact-21301-transcript-qualification)은
-interactive 사용이나 완전한 사용량·비용을 검증하지 않습니다. 별도 일반 경로 검증은
-아직 미완료입니다. 2026-10-17
-[인증 시험](../validation/claude-ordinary-binding-02196-qualification.md#2026-10-17-authenticated-ordinary-attempt-blocked)은
-연결 전에 `stream_model` guard에서 중단됐으며 사용량·청구액은 알 수 없습니다.
-별도 localhost 리허설은 실제 일반 service/provider를
-통해 native 요청 7개에서 baseline 1개를 뺀 6개 관측이 일치했습니다.
-production scheduler나 TUI를 검증하지 않으며 파일·workflow 및 과거 pin의 신뢰 상태는
-승격하지 않습니다.
+모든 일반 Claude record는 `qualified: false`를 유지합니다. 2.1.296, 2.1.301, 2.1.306의
+제한된 print-mode 적합성 검증은 interactive 사용, 인증 일반 경로 합격 또는 완전한
+사용량·비용을 검증하지 않습니다. [Claude 검증 기록](../validation/claude-ordinary-binding-02196-qualification.md)과
+[지원 매트릭스](../support-matrix.ko.md#정확한-경로)를 참고하세요.
+파일·workflow 및 과거 pin의 신뢰 상태는 승격하지 않습니다.
 
 사용자가 승인한 2026-10-15 정책에 따라 이 흐름은 일반 사용이 허용됩니다. 코드 소유
 profile `claude-binding-02196-family-v1`은 정확한 Claude Code 원본 버전과 binary
@@ -589,6 +558,8 @@ node --test skills/harness-connect/tests/*.mjs
 호출하거나 사용자 기록/DB를 읽거나 실제 hook trust/source qualification을 수행하지
 않습니다. 집중/전체 로컬 검사와 독립 리뷰는 remote CI와 구분해 보고합니다. 정확한
 adapter 계약은 [session-binding-contract.ts](../../src/session-binding-contract.ts)입니다.
+선택적 Claude hook recorder 진단, 비공개 가족 거부 진단, 제한된 Start 준비 대기 동작은
+[Claude hook 진단](claude-hook-diagnostics.ko.md)을 참고하세요.
 
 Claude 기준선의 제외 own request ID는 실시간 replay 목록과 별도로 최대 1,024개를
 보존합니다. 한도 초과(`claude_baseline_limit`)나 부분/해석 불가능한 기준선
@@ -596,63 +567,12 @@ Claude 기준선의 제외 own request ID는 실시간 replay 목록과 별도�
 이미 관측한 요청의 counter 충돌도 수집을 중단합니다. 일반 관측 경로는 제외 ID를
 SQLite에 보관하며 이 한도가 없습니다.
 
-격리된 일반 Codex CLI qualification 실행기와 실제 호출 승인 범위는 [qualification 절차](../validation/codex-ordinary-binding-qualification.ko.md)를 참고하세요. 준비와 Node fixture 검증만으로 production 지원이 열리지는 않습니다.
-실행기에 별도 정확 버전 Codex 0.162.1 후보가 있으며 `--product-version 0.162.1`로
-선택합니다. 일반 `--no-daemon` TUI에서 기존 부모 하나·새 직접 자식 둘의 topology를
-유지합니다. 정확한 실행 파일 고정, intent별 승인과 소유 실행의 안전 검증은
-일반 provider 설정과 별개입니다. 기본 qualification 경로는 source lease를
-사용하고, `ordinary_admission`은 별도로 검증된 일반 source 권한을 사용합니다.
-세션 한정 `projects` 인라인 테이블은 새 임시
-프로젝트만 신뢰하며 사용자 설정을 저장하거나 sandbox·승인 권한을 넓히지 않습니다.
-새 Codex 0.162.1 계획은 기본 비활성·`UnderDevelopment`인 `exec_permission_approvals`
-feature를 이번 세션에만 별도로 켭니다. 검토된 helper 실행 1회에 inspect/connect를
-묶고 명시적인 network-only 명령 승인을 받으며 기존 파일 권한은 유지합니다.
-이 권한은 host/port 한정이 아니며 managed proxy가 loopback 접근을 계속 차단할
-수 있습니다. prefix/turn/session grant, sandbox 밖 escalation, 영구 정책 변경은
-허용하지 않습니다. inspect·연결·승인이 차단되면 재시도하거나 자식을 만들지 않고
-중단합니다. 검토된 정지 기준은 root8/child1each/total10입니다.
-자동 시작은 연결만 수행합니다. 연결과 해당 턴이 끝난 뒤 intent에 고정한
-`post_connect_input`을 별도 TUI 턴으로 한 번만 제출하세요.
-제출 키 없이 붙여넣고(지원하면 bracketed paste 사용) 입력창의 초안을 확인한 뒤
-Enter를 별도 동작으로 누르세요. 입력창에 붙여넣은 문구만으로 제출을 판단하지 말고,
-전송된 턴과 실제 작업 시작을 확인한 뒤 완료를 기다리세요.
-루트는 턴마다 최대 3회, 자식은 각 1회 요청을 계획합니다. 제외된 연결 요청도
-안전 한도에는 포함하지만 측정 사용량에는 포함하지 않습니다. 세 세션의 사용량을
-수집하고 작업 턴이 끝나면 대기 중인 TUI를 정상 종료하세요.
-종료 명령 입력과 제출 키도 별도 동작으로 보내세요.
-기존 Codex 0.160.0은 root4/child1each/total6을 유지합니다.
-Codex 0.162.1의 토큰 정지 한도는 200000이며 Codex 0.160.0은 100000을 유지합니다.
-Codex 0.162.1의 시간 한도는 900초이며 Codex 0.160.0은 120초를 유지합니다.
-target의 연결 기준 수집 창도 900초이며 기존 수집 창은 180초를 유지합니다.
-수집 창이 더 늦게 끝나더라도 native 시작 기준 900초 마감은 실행을 종료합니다.
-권한 모드와 한도는 새 intent에 고정하며
-준비 자체는 native 실행 승인이 아닙니다. 추가 동의 필드는 qualification 절차를
-참고하세요.
-connector 경로/SHA를 고정하며 inspect가 성공한 뒤에만 connect를 실행합니다.
-현재 receipt를 쓰는 고정 Node 명령만 승인하고 다른 명령을 연결하면 안 됩니다.
-두 번째 또는 더 넓은 권한 요청은 사람이 거부하며, 연결 차단 후 작업이 계속되면
-소유 실행을 중단해야 합니다. 미연결 활동은 source ledger가 감시하지 못합니다.
-새 Codex 0.162.1 계획은 자동 시작만 허용하며 수동 모드는 기존 Codex 0.160.0에만 남습니다.
-승인 요청과 agent-turn-complete를 OSC9로 알리고 `notification_condition="always"`로 고정합니다.
-실행 전에 private `native-attention.json` 생성을 구독하고, 각 알림 뒤에는 변경을
-구독하세요. 해당 경로가 이미 있으면 예약을 소비하기 전에 실행을 거부합니다.
-raw PTY framing으로 줄바꿈을 기다리지 않고 digest/count만 알리며
-메시지 본문은 보관하지 않습니다. 현재 화면을 확인해 정확한 명령의 승인을
-사람에게 받아야 합니다. 알림 자체는 권한을 주거나 고정된 시간 한도를 연장하지 않습니다.
-완료 알림에서도 끝난 턴과 비어 있는 입력창을 확인한 뒤에만 고정된 후속 입력이나
-정상 종료를 제출하세요. 알림 자체는 사용량 수집의 증거가 아니므로 정상 종료 전에
-연결된 세 세션의 사용량을 별도로 확인하세요.
-Node 전용 전달 검증은 target binary의 실제 알림 동작을 검증한 것이 아닙니다.
-고정된 Codex 0.162.1 ordinary 경로는 위 제한 profile에서 실제 native 알림,
-명령 권한과 가족 conformance를 검증했습니다. 다른 일반 경로, 버전,
-runtime과 더 넓은 topology는 미검증입니다.
-source를 읽지 않는 작업 준비는 정확한 버전과 단일 own-response profile의
-functional-pilot protocol도 허용하지만 binding·ticket 수집 권한을 주지는 않습니다.
-qualification은 각 정확한 source를 검증된 자체 조상 관계로만 투영하고, 별도 lease가
-전체 가족 한도를 제한합니다. 형제 thread를 가리키는 row는 차단하며 일반 경로의
-더 넓은 topology를 지원한다는 뜻이 아닙니다.
-
-격리 qualification UI는 부모·자식별 자체 요청, 입력·출력, 부분 비용과 관측 합계를 표시합니다. 같은 살아 있는 부모의 측정 재개와 소유 AI 긴급 중단을 분리하며, 기존 기한·안전 카운터는 초기화하지 않습니다. pause 중 원본 카운터는 미확인입니다. [제한된 실행 절차](../validation/codex-ordinary-binding-qualification.ko.md)를 참조하세요.
+격리된 일반 Codex CLI qualification 실행기(`--product-version`, `--route qualification`과
+`ordinary_admission`, binary·connector pin, 고정 consent, 버전별 정지 한도, OSC9
+`native-attention.json` 알림, 소유 AI 긴급 중단)는
+[qualification 절차](../validation/codex-ordinary-binding-qualification.ko.md)를 참고하세요.
+준비와 Node fixture 검증만으로 production 지원이 열리지 않으며, 형제 thread row는 차단하고
+pause 중 원본 카운터는 미확인으로 남습니다.
 
 ## Codex 0.162.0 일반 root 로컬 pilot
 
@@ -725,31 +645,14 @@ native 프로세스 종료·재실행은 측정 재개와 별도 경계입니다
 skill metadata hook은 계속될 수 있습니다. receipt 수명은 hook timeout이나
 helper의 신선한 receipt 탐색 구간과 별개입니다.
 
-[Claude Code 2.1.294 변경 기록](https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md#21294)은
-`prompt`와 `agent` hook 판단 수정을 설명합니다. native transcript 필드,
-command hook 로딩이나 counter 호환성을 증명하지 않습니다. ordinary parser는
-변경하지 않았으며, Claude Code 2.1.294 후보는 연결, 가족 usage, pause/resume과 사용자 완료의
-합성 검증 범위를 갖습니다.
-
-[Claude Code 2.1.296 변경 기록](https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md#21296)은
-managed hook과 token count 수정을 포함하지만 변경 기록만으로 일반 원본을 검증하지는 않습니다.
-변경하지 않은 파서는 Claude Code 2.1.296 신원, 자체 요청 replay, 기준선 제외, 가족 수 한도와
-pilot gate의 합성 검증 범위를 갖습니다.
-
-Claude Code 2.1.296 transcript profile의 qualified 상태는 제한된 native print-mode 증거만 뜻하며,
-대화형 검증이나 제품 수집 허용이 아닙니다. 오프라인 실제 바이너리 리허설과 native print-mode
-pilot 한 번으로 skill 로딩, receipt, 가족 구성원과 자체 counter를 확인했습니다.
-[검증 기록](../validation/claude-ordinary-binding-02196-qualification.md)을 참고하세요.
-그 관측에서 skill 범위의 `SubagentStop` hook은 receipt를 남기지 않았고, 구성원 탐색은 여기에 의존하지 않습니다.
-별도 Claude Code 2.1.301 transcript profile은 제한된 localhost 정상 완료/SIGINT print-mode
-증거를 갖지만 interactive 또는 인증 ordinary 경로를 검증하지는 않습니다.
-별도 Claude Code 2.1.306 profile은 2026-10-21 기준 같은 제한 범위를 갖습니다.
-Claude Code 2.1.291, 2.1.293, 2.1.294 profile은 합성 증거만 갖습니다. 실제 Claude Code 2.1.291, 2.1.293 또는 2.1.294 skill 로딩, 가족 counter,
-pause/resume과 사용자 완료는 별도로 승인된 native 시험이 필요합니다.
-transcript-qualified인 Claude Code 2.1.296, 2.1.301, 2.1.306을 포함한 모든 비교/pilot Claude profile에는
-`allowCandidateProfiles: true`가 필요합니다. pilot profile에 대한 기본 provider
-거부는 계속 유지됩니다. 현재 label인 `native_unverified_pilot`,
-`legacy_unverified`, `candidate_pilot`은 유지됩니다.
-이 pilot profile이 일반 제품 수집을 허용하지는 않으며, 전체 작업 비용과 추론 결정은 아직 사용할 수 없습니다.
+각 버전의 `transcriptProfile` 상태는 [지원 매트릭스](../support-matrix.ko.md#정확한-경로)와
+[Claude 검증 기록](../validation/claude-ordinary-binding-02196-qualification.md)에서 확인하세요.
+2.1.296, 2.1.301, 2.1.306은 제한된 print-mode 증거만 가지며(interactive·인증 일반 경로
+검증이 아니며, 2.1.296 pilot에서 skill 범위의 `SubagentStop` hook은 receipt를 남기지 않았고
+탐색도 여기에 의존하지 않습니다), 2.1.291, 2.1.293, 2.1.294는 합성 전용 후보입니다.
+모든 비교/pilot Claude profile에는 `allowCandidateProfiles: true`가 필요하며 pilot profile에
+대한 기본 provider 거부는 계속 유지됩니다. 현재 label인 `native_unverified_pilot`,
+`legacy_unverified`, `candidate_pilot`은 유지됩니다. 이 pilot profile이 일반 제품 수집을
+허용하지는 않으며, 전체 작업 비용과 추론 결정은 아직 사용할 수 없습니다.
 이 pilot 권한은 [일반 관측 admission](#일반-claude-관측-지원-검증-대기)과 별개이며,
 그 admission이 pilot profile을 열지는 않습니다.

@@ -56,7 +56,7 @@ Resuming starts a new baseline at the next poll. Stopping/restarting never backf
 Finalize only after the last source events have arrived and been collected.
 
 For explicit new sessions, collector restarts and missing original sources, see
-[continuing one task across sessions](session-continuation.md).
+[Continue a task across explicit sessions](#continue-a-task-across-explicit-sessions).
 
 ## Assess, report and delete
 
@@ -120,29 +120,17 @@ the generated report if you need a historical snapshot after deletion or new dat
 
 ## Versions, conformance, and update controls
 
-Implemented 2026-10-08: [ADR 013](../decisions/013-forward-version-compatibility.md)
-enables automatic conditional parser reuse for stable releases inside finite windows.
-File collection uses the Codex 0.158.0 parser for Codex versions newer than 0.158.0 and below 0.164.0,
-and the Claude Code 2.1.283 parser for Claude Code versions newer than 2.1.283 and below 2.2.0.
-As checked on 2026-10-16 UTC, stable Codex 0.163.0 and Claude Code 2.1.301
-therefore enroll by default with `compatibility_unverified` trust. Exact registered
-versions remain verified; prereleases, suffixes, old unregistered versions and
-out-of-window releases fail before source access.
-
-These are inherited parser selections, not new exact admissions or actual-binary
-qualification. The Codex minor transition and Claude consumed-contract uncertainties
-require target-binary conformance before extending support. Ordinary session binding
-retains its separate exact-version gates; see [Harness Connect](harness-connect.md).
-
-The separate Codex 0.163.0 bounded ordinary binding profile passed native acceptance
-on 2026-10-16. Its exact binding provenance does not promote these file/workflow
-estimates or earlier observations; collection and costs remain partial.
-
-Claude Code 2.1.306 (new project setup default) and explicitly configured Claude Code
-2.1.301 and 2.1.296 have separate exact ordinary binding records with `qualified: false`;
-saved settings and frozen tasks remain unchanged. See the
-[support matrix](../support-matrix.md#exact-routes) and [Harness Connect](harness-connect.md#ordinary-claude-observation-qualification-pending).
-None of those records qualifies file/workflow collection or complete usage/cost.
+Under [ADR 013](../decisions/013-forward-version-compatibility.md), file collection
+supports conditional parser reuse with `compatibility_unverified` trust inside finite
+stable-release windows: Codex `>0.158.0` and `<0.164.0` reuses the Codex 0.158.0
+parser, and Claude Code `>2.1.283` and `<2.2.0` reuses the Claude Code 2.1.283
+parser. Exact registered versions remain verified; prereleases, suffixes, old
+unregistered versions and out-of-window releases fail before source access.
+Inherited parser selection is not exact admission or actual-binary qualification,
+and ordinary-session binding retains its own exact-version gates; see the
+[support matrix](../support-matrix.md#exact-routes) and [Harness Connect](harness-connect.md).
+Ordinary binding records never promote file/workflow estimates or historical
+observations, and all file/binding observations remain partial.
 
 Codex 0.163.0 cumulative totals can include usage from incomplete responses.
 Its unverified estimates are not directly comparable with Codex 0.162.x cohorts until
@@ -183,27 +171,15 @@ separately authorized validation steps, never part of installation or collection
 
 The independent Codex (`>0.163.0`, `<0.172.0`) and Claude Code
 (`>2.1.306`, `<2.2.0`) ordinary root-reference windows are implemented for offline
-acceptance, ordinary-window
-collection disabled pending separate product activation and native acceptance.
-Their separate bundles, explicit owned-copy migrations and closed setup do not
-change the exact gates above. Codex uses `source_only`: the frozen task declaration must match the
-root creation header, which is not proof of the current writer, executable,
-publisher or process.
-Claude uses `publisher_verified_local_pin`: only a live-authorized provider checks
-same-user PID/start, the executable path from that process, publisher and local disk pins, with source
-version independently matching the frozen task. Signature/disk proof is not
-mapped-image or version proof. Its strict `claude_terminal_message_v1` finality
-does not fall back to quiescence for new patches. Required failures write neither
-usage nor cursor progress; later incompatibility invalidates affected references.
-See the [closed Claude setup](harness-connect.md#claude-ordinary-window-setup-collection-disabled).
-New tasks freeze declaration/policy/finality/evidence/root/price; after an upgrade
-use a new declared-version task and fresh root/PID/path/pins, not an automatic
-migration, per-patch helper rewrite or backfill.
-Root-source observations are not root-own usage; `rootOwnership:unverified` and
-`possibleChildContribution:unknown` remain explicit. `automatic_children:false`
-means no automatic child enrollment, not proof of zero child contribution.
-In-window references remain partial and `compatibility_unverified`, not exact
-admission or native acceptance. Saved window evidence is read with
+acceptance, ordinary-window collection disabled pending separate product activation
+and native acceptance. For provider/bundle setup, `source_only` vs
+`publisher_verified_local_pin` identity checks, finality and upgrade/reconnect limits,
+see [Codex window setup](harness-connect.md#codex-ordinary-window-setup-collection-disabled)
+and [Claude window setup](harness-connect.md#claude-ordinary-window-setup-collection-disabled).
+In-window references remain partial and `compatibility_unverified` with
+`rootOwnership:unverified`, `possibleChildContribution:unknown` and
+`automatic_children:false` (never proof of zero child contribution). Saved window
+evidence is read with
 `node dist/cli.js --db ./local.db report ordinary-window <task-id> --cutoff <UTC>`
 (`--format json|markdown`), and `compatibility ordinary-window status <task-id>`
 reports state; `--decision` describes the local decision and never authorizes
@@ -329,6 +305,49 @@ input, even if no status command runs. Status reports an observed expiry as
 collection authority. The decision/trial schemas and product activation flow are
 unchanged. Recording any decision also removes receipt-only arming.
 These commands do not approve a native trial or extend qualified support.
+
+## Continue a task across explicit sessions
+
+A development task is the durable unit; closing a product CLI or starting a new
+independent session does not require a new task when the completion criteria are
+unchanged (changed criteria require a new task). Keep the same database, project
+and task ID. For assigned native workflow tasks, use
+[the task procedure](workflow-quickstart.md#7-resume-or-use-another-session) instead.
+
+- **Add a new independent root:** link its exact session ID and file to the same
+  active task (the foreground collector may stay running; its first poll of the new
+  source sets a fresh baseline, and each independent root keeps its own source keys).
+  Keep only one foreground collector per task:
+
+  ```sh
+  node dist/cli.js --db local.db session link NEW_SESSION_ID --task task1 --source /path/to/new-session.jsonl --product codex --version 0.158.0
+  ```
+
+- **Lost original source:** usage already stored in SQLite survives source-file
+  loss; unobserved usage stays missing and is never recovered. Do not delete or
+  recreate the task—link a fresh independent root instead. An unreadable old source
+  records `source_error` without blocking eligible observations from another linked
+  root, and reports disclose both errors and offline exclusions. If the old source
+  returns, its next successful poll sets a fresh baseline without backfilling
+  uncertain history.
+- **Assignment and topology gates:** in the [synthetic comparison workflow](task-comparison.md),
+  repeating `comparison assign` with the same logical task identity returns
+  `reused: true` and the original canonical `task_id` (always use that returned ID;
+  a new session never rerandomizes the task). Keep assigned native tasks on
+  `workflow codex` / `workflow claude` rather than generic `session link`/`collect`.
+  Ordinary sequential file collection excludes forked histories and observed child
+  activity; do not link a fork or child as an independent root.
+- **Internal Codex 0.160 candidate continuation:** the non-exported opt-in
+  `Collector.tickCodexContinuation(families)` provides bounded offline candidate
+  evidence for up to two explicit independent root families (each with at most one
+  direct child), committing families independently with atomic root/child
+  transactions, `source_error` gaps on unreadable sources, and fail-closed checks on
+  conflicting response-ID root attribution. It is absent from package exports and
+  the CLI and implies no live-call or native approval. Offline continuation tests:
+
+  ```sh
+  npm test -- tests/session-continuation-cli.test.ts tests/workflow/codex-continuation.test.ts
+  ```
 
 ## Recovery and limits
 

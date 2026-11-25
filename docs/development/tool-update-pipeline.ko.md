@@ -2,12 +2,12 @@
 
 [English](tool-update-pipeline.md)
 
-이 문서는 유지보수자용 도구 업데이트 파이프라인의 첫 번째 단계를 다룹니다. 공식 메타데이터에서
+이 문서는 유지보수자용 도구 업데이트 파이프라인을 다룹니다. 공식 메타데이터에서
 Codex CLI 또는 Claude Code의 현재 안정 릴리스를 찾고, 그 후보를 이 저장소가 선언한 경로와
-비교합니다. 하는 일은 여기까지입니다. 후보는 지원이 아니고, 평가는 허용(admission)이 아니며,
-어떤 레코드도 기본값을 바꾸지 않습니다.
+비교하며, 기계 차이 레코드를 수집하고, 권한 없는 승격 제안을 준비합니다. 후보는 지원이
+아니고, 평가는 허용(admission)이 아니며, 어떤 레코드도 기본값을 바꾸지 않습니다.
 
-## 이 단계가 하는 일
+## 파이프라인이 하는 일
 
 - `discover`는 한 제품의 공식 GitHub 릴리스와 npm 패키지 메타데이터를 읽습니다.
   변경 불가능한 관측(observation) 레코드를 쓰고, 성공하면 변경 불가능한 후보(candidate)
@@ -29,7 +29,7 @@ Codex CLI 또는 Claude Code의 현재 안정 릴리스를 찾고, 그 후보를
 사용하며 레코드에 보관하지 않습니다.
 
 도구는 계약 검토를 직접 수행하지 않습니다. 유지보수자가 수동으로 내린 판단을 기록하고 읽을 뿐입니다.
-적합성, 회귀, 허용, 기본값 승격은 별도 단계이며 이번 단계에 포함되지 않습니다.
+적합성, 회귀, 허용, 기본값 승격은 이 파이프라인 밖의 별도 단계입니다.
 저장소 소유 [admitted Claude runner](tool-update-conformance.ko.md)는 합성 테스트 범위가
 있지만 실제 바이너리 합격 검증과 실행 승인은 별개입니다.
 
@@ -49,41 +49,19 @@ Codex CLI 또는 Claude Code의 현재 안정 릴리스를 찾고, 그 후보를
 바뀌면 `source_scope_changed`로 멈추며, 유지보수자가 규칙을 다시 검토하기 전까지 과거 범위를
 조용히 재사용하지 않습니다.
 
-소스 다이제스트에는 `src/nested-candidate.ts`와 `src/codex-candidate-rollout.ts`도
-해시 전용 입력으로 포함됩니다. 평가는 이 두 파일을 트랜스파일하거나 로드·실행하지 않고,
-import도 따라가지 않습니다. 이 파일의 변경은 `source_scope_changed`가 아니라
-`baseline_source_changed` 또는 `review_source_changed`로 나타납니다.
-두 파일이 추가되면서 기존의 모든 기준선 행과 검토 레코드의 다이제스트가 오래된 값이 됩니다.
-기존 레코드는 계속 읽을 수 있으며 다시 쓰지 않습니다. 과거 다이제스트로는 현재 계약 검토
-게이트를 닫을 수 없습니다.
-
-현재 `static-assessment-v7` writer는 중복 제거된 경로 정확히 91개를 수집하며 여유 항목은 없습니다.
-해시 전용 입력 네 개(`src/binding/session-binding-promotion.ts`,
+현재 `static-assessment-v7` writer는 256 KiB 레코드 제한 안에서 중복 제거된 경로
+정확히 91개를 수집하며 여유 항목은 없습니다. 로드하는 모듈과 검토된 범위 파일 외에
+해시 전용 입력—로드하거나 import를 따라가지 않음—으로 후보 파서(`src/nested-candidate.ts`,
+`src/codex-candidate-rollout.ts`), window 설치기·번들·execution-pin 입력, 승격
+레지스트리·denial 파일, v7 권한 경로 네 개(`src/binding/session-binding-promotion.ts`,
 `src/claude-process-binary-fields.ts`, `src/core/ordinary-window-control.ts`,
-`src/core/ordinary-window-segment.ts`)를 추가하며 Store·native 의존성은 로드하지 않습니다. v6/schema-10 closure는 87개 경로로 고정되며,
-로드하는 `src/core/tool-version-promotion-store.ts` adapter와 해시 전용 입력인
-`src/deletion.ts`, `src/migrations/038_tool_version_promotion_denials.sql`,
-`src/web/local-web-binding-providers.ts`, `src/web/local-web-support.ts`를 더합니다.
-평가는 Store를 생성하거나 로컬 denial을 조회하지 않습니다. v5/schema-9 closure는 82개 경로로
-고정되며, 고정된 v4의 55개 경로에 producer, 전체 bundle, generator, 배포, installer 의존성,
-execution-pin API의 해시 전용 입력 27개를 더합니다. 평가는 이 입력을 로드하거나 실행하지 않습니다.
-v4 closure는 v3 closure에 `src/core/tool-version-promotion.ts`, `src/core/tool-version-promotions.json`,
-`src/core/tool-version-promotion-result.json`을 더한 것이며, v3의 52개 경로도 고정된 과거 기록입니다. Codex window의
-해시 전용 입력에는 `src/connect/codex-connect-installation.ts`,
-`skills/harness-connect-window-codex/SKILL.md`,
-`skills/harness-connect-window-codex/scripts/connect.mjs`가 포함됩니다. 범용 raw window
-hook은 이미 입력이었습니다. 고정된 v2 집합에는 `src/claude-process-binary.ts`가 이미
-포함되어 있습니다. v3는 독립적인 Claude 패키지의 해시 전용 입력 네 개만 추가합니다.
-`src/connect/claude-connect-installation.ts`,
-`skills/harness-connect-window-claude/SKILL.md`,
-`skills/harness-connect-window-claude/scripts/connect.mjs`,
-`skills/harness-connect-window-claude/scripts/claude-session-hook.mjs`를 추가합니다.
-평가는 이 파일을 로드하거나 import를 따라가지 않고 해시만
-계산하며, 설정·transport wrapper는 이 유한 투영에서 소비하지 않습니다. execution pin은
-별도로 전체 source와 build 트리를 고정합니다. static-assessment-v2의 allowlist와 상한은
-48개 경로로 고정되어 있습니다. schema 1-4 reader의 기존 32개 경로 상한과
-256 KiB 레코드 제한은 그대로입니다. 입력 추가는 전역 source digest를 바꾸며 정확 지원이나
-활성화를 바꾸지 않습니다. 과거 기준선·검토는 불변이며 오래된 digest로 새 gate를 닫을 수 없습니다.
+`src/core/ordinary-window-segment.ts`)를 포함합니다. 평가는 Store를 생성하거나 로컬
+denial을 조회하지 않으며, 해시 전용 파일의 변경은 `source_scope_changed`가 아니라
+`baseline_source_changed` 또는 `review_source_changed`로 나타납니다. execution pin은
+별도로 전체 source와 build 트리를 고정합니다. 과거 closure(`static-assessment-v1` 32개
+경로부터 `static-assessment-v6` 87개 경로, schema 1–10)는 다시 쓰지 않고 고정된 과거
+기록으로 계속 읽을 수 있으며, 오래된 digest로는 현재 계약 검토 게이트를 닫을 수 없고
+입력 추가가 정확 지원이나 활성화를 바꾸지 않습니다.
 
 ## 후보 탐색
 
@@ -152,9 +130,8 @@ ID나 진단에 포함하지 않으며, 응답이 같으면 인증 유무와 관
 
 압축 해제 후 응답 상한은 릴리스 객체 64MiB, npm 32MiB, 나머지 GitHub 응답 4MiB입니다.
 최초 조회와 재검증은 총 512MiB 예산을 공유하며, 120초 기한은 유지합니다. 큰 릴리스 첨부파일
-메타데이터는 필요한 필드만 투영한 뒤 버리고 레코드에 저장하지 않습니다.
-2026-10-29 과거 전체 이력 방식은 Codex의 처음 1000개를 넘자 HTTP 422에 걸렸습니다.
-새 방식은 전체 목록 조회를 피하며, 처음 1000개를 완전한 이력으로 재해석하지 않습니다.
+메타데이터는 필요한 필드만 투영한 뒤 버리고 레코드에 저장하지 않습니다. 범위 지정 방식은
+전체 과거 이력 완전성을 주장하지 않고 전체 이력 페이지네이션을 피합니다.
 
 새 관측은 `schema_version: 2`와 `inventory_scope: "latest_and_npm_review_range"`를 씁니다.
 평가는 schema 11으로 관측의 범위를 전달하며, schema-1 입력에는 `legacy_full_inventory`를
@@ -454,13 +431,10 @@ Claude 저장소 메타데이터, ref, tag, commit, tree, blob, compare, release
 아닙니다. 차이 증거의 `from_content_hash`와 `to_content_hash`는 계속 소스 closure 또는
 schema 투영을 식별합니다. 소비하는 입력과 작업 바인딩이 같으면 증거 바이트와 ID도
 같습니다. Discovery 관측의 원시 receipt는 변경하지 않습니다. 공유 tree와 schema blob
-SHA는 작업 안에서 재사용합니다. 현재의 완전한 합성 closure에서
-ref마다 객체가 다르면 요청 수는 `2 + 22 * n`입니다. ref 5개는 최초 요청 106회와
-변경 가능한 리소스 재검증 6회로 총 112회, ref 9개는 190회와 10회로 총 200회입니다.
-ref 9개의 허용량은 응답 224개와 210초이며 요청 24회의 여유가 있습니다.
-ref 5개는 기존 응답 128개와 120초 허용량을 유지합니다. ref당 허용량은 측정된 증가량보다
-요청 2회, 고정 허용량은 측정된 고정 작업보다 6회를 더 둡니다. 기한은 기존 응답당
-`120000 / 128`밀리초를 유지하되 별도의 15분 상한을 적용합니다. 실제 graph, tag chain,
+SHA는 작업 안에서 재사용합니다. ref `n`개마다 객체가 다르면 현재 합성 closure는
+최초 요청 `2 + 22 * n`회와 변경 가능한 리소스 재검증을 사용합니다(ref 5개는 기본
+응답 128개·120초 허용량 안에 들어가며, ref당 증가는 측정 증가량보다 요청 2회를 더 두고
+응답당 `120000 / 128`밀리초를 15분 상한까지 유지합니다). 실제 graph, tag chain,
 redirect가 다르면 제한된 허용량을 소진할 수 있으며, 이 합성 수치는 실제 릴리스의
 업스트림 graph를 측정한 결과가 아닙니다.
 본문은 일시적으로만 보관하고 레코드에는

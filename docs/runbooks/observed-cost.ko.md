@@ -9,12 +9,9 @@
 이 보고서는 소스를 승인하거나 부모/자식 카운터 중복이 없음을 입증하지 못합니다.
 
 일반 흐름은 [제공된 기준가격 카탈로그](reference-price-catalog.ko.md)를 사용하세요.
-`estimate-task`에 `--price-table`이 더는 필수가 아닙니다. 일반 관측 작업은 생성 시점의
-불변 가격표(`ordinary_task_pin`)를 유지합니다. 배정된 V2 작업은 고정된 비교 가격표
-(`frozen_comparison`)를 유지합니다. 기존 독립 작업 등 두 고정값이 모두 없는 작업만
-현재 카탈로그(`current_catalog`)를 사용합니다. 카탈로그 갱신은 기존 일반 작업이나
-배정된 V2 작업의 가격 기준을 바꾸지 않습니다. 아래 절차는 과거 추정에도
-계속 사용할 수 있는 고급 명시적 가격표 경로입니다.
+`--price-table` 없이 기본 가격표를 선택하는 규칙(`ordinary_task_pin`, `frozen_comparison`,
+`current_catalog`)은 그 문서에 있습니다. 아래 절차는 과거 추정에도 계속 사용할 수 있는
+고급 명시적 가격표 경로입니다.
 
 ## 1. 가격표 선택하기
 
@@ -160,16 +157,10 @@ cutoff 뒤에 끝난 journal은 이전 관측 범위를 입증하지 못합니�
 이 부분 참조는 완전한 비용이나 native 검증을 입증하지 않습니다. 이 창은 오프라인
 검증용으로 구현되었으며, 일반 창 수집은 별도 제품 활성화와 native 검증 전까지 비활성 상태입니다.
 
-독립적인 [Claude window 절차](harness-connect.ko.md#claude-일반-window-설정-수집-비활성)는
-Codex의 `source_only` identity와 달리 `publisher_verified_local_pin`과 엄격한
-`claude_terminal_message_v1` finality를 사용합니다. 허가된 provider만 새 root의 PID/start,
-publisher와 disk pin을 확인하며 helper는 payload-only입니다. signature/disk 증거는
-version, mapped-image identity, root 소유나 비용 완전성을 입증하지 않습니다. scoped source
-version은 고정된 작업과 독립적으로 같아야 합니다. 필수 검사 실패 시 사용량·cursor 진행을
-쓰지 않으며 비호환이 발견되면 해당 참조를 무효화합니다. 새 지정 버전 작업은 자체 가격 pin을
-유지하며 업그레이드로 기존 작업 가격을 다시 쓰거나 누락 사용량을 backfill하지 않습니다.
-Claude 경로는 오프라인 검증용으로 구현되었으며, 일반 window 수집은 별도 제품 활성화와
-native 검증 전까지 비활성 상태입니다. 가격, 지원 검증 완료나 완전한 비용 주장은 바뀌지 않습니다.
+독립적인 [Claude 일반 window 절차](harness-connect.ko.md#claude-일반-window-설정-수집-비활성)도
+같은 부분 비용 구분, null 자식·전체 금액, 무효화 경계를 따릅니다. 새 지정 버전 작업은 자체
+가격 pin을 유지하며 업그레이드로 기존 작업 가격을 다시 쓰거나 누락 사용량을 backfill하지
+않습니다. 어느 창도 가격 지원, 지원 검증 완료나 완전한 비용 주장을 바꾸지 않습니다.
 
 ## 5. 별도로 봉인된 계측 구간 읽기
 

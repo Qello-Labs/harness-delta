@@ -351,13 +351,10 @@ Both sessions bind to the same task and confirmation. One sticky assignment and
 request-local model/effort evidence survive the admitted fresh launch and durable
 family collection/replay. Root-to-child resume remains a synthetic candidate test,
 not admitted production behavior. General child resumes, forks, deeper descendants
-and whole-task completeness remain unqualified.
-
-## One-shot Codex workflow qualification
-
-Developer-only qualification commands and historical consent/lease/marker rules
-are preserved in [the admission record](../validation/codex-workflow-01600-source-readiness.md#one-shot-codex-workflow-qualification).
-They are not part of an ordinary assigned task and do not grant actual-run approval.
+and whole-task completeness remain unqualified. Developer-only one-shot Codex
+workflow qualification commands and historical consent/lease/marker rules are
+preserved in [the admission record](../validation/codex-workflow-01600-source-readiness.md#one-shot-codex-workflow-qualification);
+they are not part of an ordinary assigned task and do not grant actual-run approval.
 
 ## Continue, finish and compare
 
@@ -366,8 +363,8 @@ retain their behavior. Explicit session linking and foreground collection remain
 subject to their own admitted profiles and scope rules; this common workflow
 does not admit a candidate or authorize automatic session discovery/backfill.
 Use [the task continuation procedure](workflow-quickstart.md#7-resume-or-use-another-session)
-for Codex 0.160.0. [Legacy session continuation](session-continuation.md) describes
-the separate generic file path and internal candidates.
+for Codex 0.160.0. [Legacy session continuation](local-measurement.md#continue-a-task-across-explicit-sessions)
+describes the separate generic file path and internal candidates.
 
 Human assessment supplies the fixed criteria:
 

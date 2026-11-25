@@ -21,63 +21,20 @@ An explicitly unconfigured source reports `bundled_or_verified_local_artifact`.
 No automatic refresh runs. A stale or failed
 update must remain visible beside the last accepted catalog. The verification date does not establish the price's effective date.
 
-The 2026-10-08 v2 catalog is distributed separately and does not replace the v1
-bootstrap. It lowers Sonnet 5.5 cache reads to $0.10
-per million tokens. Haiku 5.5 has request-specific tiers under the new schema/policy:
-up to 100,000 total prompt tokens, or over 100,000, including cache reads/writes.
-Automatic selection requires consistent observed input counts and linked request
-runtime evidence. Missing evidence leaves the affected cost unavailable
-(`unverified_condition`); eligible requests can still yield a partial estimate.
-Known one-hour or mixed cache writes remain unpriced while their token counts
-remain observed and count toward the prompt threshold. TTL absence means the
-explicit five-minute reference, not confirmed actual billing.
-See the [verified rates and candidate limits](../decisions/reference-price-catalog.md#october-2026-catalog-update).
-Install the updated client before consuming v2; older clients retain cached v1
-prices when they reject the unsupported schema/policy.
-An explicit trusted artifact or online refresh can accept v2
-for future defaults. Existing comparisons and results retain their original pins.
+Catalog revisions stay immutable; the bundled v1 bootstrap and existing pins never change automatically:
 
-The [v3 release](https://github.com/Qello-Labs/harness-delta/releases/tag/reference-prices-2026-10-08-v3)
-contains separate 5-minute and 1-hour write rates. It requires a client with
-`catalog-cache-ttl-v3` support, implemented in reviewed commit
-`c7ee96fc80d3e9046f476200c44b834aae45246e` and merged as
-`62f3841f79bb37c9b3b4e49dc78ce893109063e4`; release notes identify the exact
-publication commit and its passing CI. V1/v2 clients
-reject it and retain accepted prices. Do not downgrade a database after new TTL
-metadata has been written. The bootstrap and existing pins stay unchanged.
-New Claude observations with explicit, consistent TTL counts can price both
-durations, including mixed writes. Missing/invalid TTL or historical boolean-only
-data leaves write cost unavailable; v3 cannot recover the old split. File/OTel
-observations without those counts have the same exclusion. Other matched components
-can remain partial. `matches[].cache_ttl` explains each matched duration;
-`unverified_condition` means missing/invalid TTL or required request evidence,
-while `missing_rate` means no rate for an observed condition. See the
-[v3 support limits](../decisions/reference-price-catalog.md#observed-cache-ttl-v3).
+| Catalog | Status & client requirement | Key pricing scope and limits |
+| --- | --- | --- |
+| v1 (2026-10-06) | Bundled offline bootstrap | Astra, Sol, Luna, Fable, Opus, Sonnet and Haiku reference rates ([source policy](../decisions/reference-price-catalog.md)). |
+| v2 (2026-10-08) | Separate distribution; requires v2+ client | Lowers Sonnet 5.5 cache reads to $0.10/M and adds Haiku 5.5 request tiers (<=100,000 vs >100,000 total prompt tokens including cache reads/writes). Needs consistent input counts and request evidence; known 1h/mixed writes stay unpriced ([details](../decisions/reference-price-catalog.md#october-2026-catalog-update)). |
+| [v3](https://github.com/Qello-Labs/harness-delta/releases/tag/reference-prices-2026-10-08-v3) (2026-10-08) | Published release; requires `catalog-cache-ttl-v3` | Separates 5m and 1h Claude cache-write rates (including mixed writes) when explicit consistent TTL counts are present; older clients reject v3 and keep cached prices ([limits](../decisions/reference-price-catalog.md#observed-cache-ttl-v3)). Do not downgrade a DB after TTL metadata is written. |
+| v4 (2026-10-16) | **Unpublished candidate** (schema 3, `catalog-cache-ttl-v3`) | Rechecks existing rates and adds `gpt-5.6-sol` (alias `gpt-5.6`), `gpt-5.6-cyber` and `claude-mythos-5-1` ([candidate notes](../release-notes/reference-prices-2026-10-16-v4.md)). Sol recorded promotional rates stated through **2026-11-21** (`effective_until: null`); because that date has passed, reverify current Sol pricing before publishing or treating it as current, and issue a new catalog for post-promotion prices. |
 
-The unpublished [2026-10-16 candidate (catalog v4, schema 3)](../decisions/reference-price-catalog.md#october-16-refresh-candidate-catalog-v4-schema-3)
-rechecks all existing rates and adds the Standard short-context references for
-`gpt-5.6-sol` (explicit alias `gpt-5.6`) and `gpt-5.6-cyber`, plus the global
-Standard/observed-TTL rates for `claude-mythos-5-1`.
-It still requires `catalog-cache-ttl-v3`, not a new schema-4 client.
-Sol recorded promotional rates stated as available at least through **2026-11-21**.
-Because that date has passed and the exact ending instant is unknown, `effective_until`
-stays null; reverify current Sol pricing before publishing this snapshot or treating it
-as current, and issue a new catalog for post-promotion prices.
-It does not change the bundle, online source, defaults or existing pins.
-Haiku request tiers and Claude observed 5m/1h write conditions remain unchanged.
-Missing request evidence or TTL leaves affected prices `unverified_condition`;
-unlisted models remain `unknown_model` while observed tokens remain stored.
-Fast/Ultrafast/Priority/Flex/Batch, long-context billing, regional/boost modifiers,
-tools/media, subscriptions and discounts are not priced. The matcher supplies
-only the explicit Standard short-context/global reference, not proof of those
-actual billing conditions. The [candidate release notes](../release-notes/reference-prices-2026-10-16-v4.md)
-record full scope and pending validation. Do not treat this candidate as a published
-online update.
+Pricing condition rules across catalogs:
 
-The UI shows partial amounts and separate source/compatibility unverified references.
-An unpriced-usage notice can include excluded cache writes even when their tokens
-are observed. The CLI match rows provide condition details. Price support does not
-qualify a native source/counter or enable complete cost or inference.
+- Missing/invalid TTL, historical boolean-only writes, file/OTel events without TTL counts, or missing request-tier evidence leave the affected component `unverified_condition` (while observed tokens remain stored and other matched components can still form a partial estimate). `missing_rate` means no rate exists for an observed condition; unlisted models stay `unknown_model`. `matches[].cache_ttl` reports each matched TTL duration.
+- Fast/Ultrafast/Priority/Flex/Batch, long-context billing, regional/boost modifiers, tools/media, subscriptions and discounts are not priced. Matching supplies a Standard short-context/global reference only, not proof of actual billing conditions.
+- The UI separates partial amounts from source/compatibility-unverified references, and unpriced-usage notices can include excluded cache writes whose tokens were observed. Price support never qualifies native sources/counters or enables complete cost or inference.
 
 ## 2. Estimate without choosing a price file
 
@@ -103,12 +60,11 @@ comparison CLI configurations may omit `price_table_id`; registration fills it o
 Refresh does not change that registered reference. Advanced `--price-table` retains
 the [previous explicit procedure](observed-cost.md#1-select-the-rate-table).
 
-The default V1 input basis is `output-only-v1`. V2 keeps its recorded disjoint
-components. An explicit `--input-basis cache-read-remainder-ordinary-v1` is a legacy
-assumption, not verified cache-write coverage. Effort has no price multiplier;
-reasoning is already in output. Missing usage stays missing. Unknown model/rate
-leaves the affected cost unavailable while measured tokens remain stored. No fuzzy
-model match or another model's rate is used.
+For legacy V1 `--input-basis` options (`output-only-v1` vs `cache-read-remainder-ordinary-v1`),
+see [observed cost](observed-cost.md#3-choose-a-legacy-input-basis-only-when-intended).
+Effort has no price multiplier; reasoning is already in output. Missing usage stays
+missing, and unknown models or rates leave the affected cost unavailable without fuzzy
+matching or substituting another model's rate.
 
 ## 3. Refresh an approved catalog
 

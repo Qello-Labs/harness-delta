@@ -23,7 +23,7 @@
 | 브라우저에서 작업 준비와 결과 검토 | [로컬 브라우저 workflow](local-browser-ui.ko.md); guided setup은 저장 전에 입력을 검토하며 수집을 시작하지 않음 |
 | A/B 배정 없는 일반 Claude 관측 | [일반 UI 흐름](harness-connect.ko.md#일반-claude-관측-지원-검증-대기); 설정된 profile의 정확한 source와 binary; native qualification 대기; pilot 플래그 불필요 |
 | Codex 일반 가족 | [제한된 일반 profile](harness-connect.ko.md#codex-01630-제한-일반-profile) 또는 [과거 profile](harness-connect.ko.md#codex-01621-제한-일반-profile); 고정 `functional_pilot` protocol과 배정, 새 root 하나와 새 직접 자식 최대 두 개; 배정 없는 일반 작업 모드가 아님 |
-| Codex unqualified 일반 후보 | [후보 절차](../validation/codex-ordinary-binding-qualification.ko.md#01660-unqualified-ordinary-candidate); 선택 가능하며 검증된 지원은 대기 중; record에 `evidenceId`나 `evidenceIntentSha256`가 없고 `productionSourceEvidence`에 기여하지 않음; 날짜별 native 시험은 후보의 qualification을 완료하지 않음; `ordinary_admission` 전용, `--scenario root_normal_observer_restart`(자식 없음) 또는 `--scenario family_normal_observer_restart`(직접 자식 두 개) 필수; 정확 intent별 별도 native 동의; H4 host-spawn/Detached와 H5 environment-hook null-transcript 경로 제외; file/workflow fallback과 native resume 없음 |
+| Codex unqualified 일반 후보 | [후보 절차](../validation/codex-ordinary-binding-qualification.ko.md#01660-unqualified-ordinary-candidate); Codex 0.166.0(`codex-binding-01660-direct-family-v1`, `qualified:false`)은 선택 가능하며 검증된 지원은 대기 중; `productionSourceEvidence` 제외; 정확 intent별 별도 native 동의 필요 |
 | Codex 일반 root pilot | [root 전용 pilot](harness-connect.ko.md#codex-01620-일반-root-로컬-pilot); 운영자가 승인한 관측, 새 root 하나만 허용, 자식 미지원 |
 | Claude 비교/pilot 가족 | [사용자 조작 pilot](harness-connect.ko.md#claude-사용자-조작-ui-pilot); 별도 로컬 pilot 권한과 candidate-provider 플래그, 정확한 profile 버전, 새 부모와 새 구성원 최대 두 개; 일반 작업 흐름과 별개 |
 | Codex 시작 티켓 | [외부 세션 workflow](external-session-workflow.ko.md); 정확한 새 root와 티켓, 자동 가족 상속 없음 |
@@ -32,45 +32,15 @@
 범위가 일반 세션 연결을 허용하지는 않습니다.
 skill 설치나 브라우저 작업 준비만으로 관측 권한이 생기지 않습니다.
 
-## 닫힌 Codex 일반 window 준비
+## 닫힌 일반 window 준비
 
-별도의 [Codex window 설정](harness-connect.ko.md#codex-일반-window-설정-수집-비활성)은
+별도의 [Codex 일반 window 설정](harness-connect.ko.md#codex-일반-window-설정-수집-비활성)(`0.163.0 < v < 0.172.0`)과
+[Claude 일반 window 설정](harness-connect.ko.md#claude-일반-window-설정-수집-비활성)(`2.1.306 < v < 2.2.0`)은
 오프라인 검증용으로 구현되었으며, 일반 window 수집은 별도 제품 활성화와 native 검증 전까지
-비활성 상태입니다. 지원되는 launch workflow나 A/B 절차가 아니며 아래 지원표에 넣지 않습니다.
-
-**Codex > 일반 window**를 명시적으로 선택하고 `0.163.0 < v < 0.172.0` 안의 안정 버전을
-지정해 저장한 뒤, 한 번 수행하는 소유 파일 이전을 미리보고 검토한 파일만 적용합니다. 저장이나
-설치는 수집을 활성화하거나 작업을 시작하지 않습니다. 별도로 허가된 활성화와 native 검증 뒤에도
-명시적으로 활성화된 window 작업과 적격한 새 startup root가 필요합니다. N -> N+1에서는 새
-지정 버전 작업과 새 root/기준점을 준비합니다. 범용 helper를 patch마다 다시 쓰거나 고정 설정·
-가격을 옮기거나 누락 구간을 backfill하지 않습니다. 기존 정확 절차·helper·기본값은 별개로 유지합니다.
-
-## 닫힌 Claude 일반 window 준비
-
-독립적인 [Claude window 설정](harness-connect.ko.md#claude-일반-window-설정-수집-비활성)은
-오프라인 검증용으로 구현되었으며, 일반 window 수집은 별도 제품 활성화와 native 검증 전까지
-비활성 상태입니다. 검증된 지원, launch/resume workflow, A/B 배정, 교환이나 자식 확장을
-추가하지 않으며 아래 지원표에 넣지 않습니다.
-
-**Claude Code > 일반 window**를 선택하고 `2.1.306 < v < 2.2.0` 안의 안정 버전을
-명시적으로 지정해 저장합니다. 한 번 수행하는 소유 복사본 migration을 미리보고 검토한
-파일만 적용합니다. 정확 helper는 설치된 채로 유지하며 편집·다른 hook·오래된 미리보기·
-사용 중인 상태에 대한 guard도 유지합니다. 준비 시 version, 유한 정책, 엄격한 terminal
-finality, publisher/local-pin/root 범위와 가격을 고정합니다. 저장·설치·준비는 수집을
-활성화하거나 작업을 시작하지 않습니다.
-
-별도 활성화와 native 검증 뒤에도 명시적으로 활성화된 준비 작업과 해당 root의 새 receipt가
-있어야 provider의 PID/start, publisher/disk pin과 source version 검사를 허용합니다.
-helper는 payload-only이며 `automatic_children:false`를 반환하고 활성화 명령을 제공하지
-않습니다. 일시정지나 observer 재시작 뒤에도 같은 작업·버전의 scoped 재연결은 지정 버전,
-source 참조와 native pin digest가 같으면 native root, PID와 source 경로를 재사용할 수
-있습니다. identity/pin을 다시 검증하고 새 관측 segment와 기준점을 시작하며 일시정지
-구간은 backfill하지 않습니다. 현재 generation의 활성 root, 다른 작업의 root나
-identity/pin이 달라진 경우에는 재사용할 수 없습니다. native resume을 허용하거나 활성화와
-native 검증을 우회하는 것은 아닙니다. N -> N+1에서는 새 지정 버전 작업과 새 root
-identity가 여전히 필요합니다. patch마다 helper를 다시 쓰거나 고정
-작업·가격을 옮기거나 누락 구간을 backfill하지 않습니다. root 소유는 미검증이며 자식 기여
-가능성은 알 수 없습니다. disk 증거는 mapped-image 증거나 완전한 비용이 아닙니다.
+비활성 상태입니다. 두 경로는 A/B 배정과 아래 launch 지원표 밖의 별도 경로입니다. 설정 저장,
+패키지 설치, window 작업 준비만으로 수집을 활성화하거나 고정된 작업·가격을 옮기거나 누락 구간을
+backfill하지 않으며, root 소유는 미검증이고 자식 사용량·비용은 미관측으로 남습니다.
+[Ordinary window](../support-matrix.ko.md#ordinary-window)를 참고하세요.
 
 ## 지원 범위와 실행 비용
 

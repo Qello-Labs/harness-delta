@@ -112,38 +112,22 @@ Review native hook trust and start or resume Codex before connecting a task.
 **Refresh status** rereads setup; it does not connect a session. **Exact version**
 keeps its existing assigned-route gates: the [Codex 0.162.1 bounded ordinary profile](harness-connect.md#codex-01621-bounded-ordinary-profile)
 or the [Codex 0.163.0 bounded ordinary profile](harness-connect.md#codex-01630-bounded-ordinary-profile).
-It is not the assignment-free ordinary Claude mode. New project setup defaults to
-Codex 0.163.0; the version selector retains both and also exposes Codex 0.166.0 as an
-**UNQUALIFIED CANDIDATE** (`qualified:false`), not qualified support.
-The exact `codex-binding-01660-direct-family-v1` record itself has no `evidenceId`
-or `evidenceIntentSha256` and adds nothing to `productionSourceEvidence`.
-Separate native intents and results are recorded in the
-[2026-11-03 candidate trials](../validation/codex-ordinary-binding-qualification.md#2026-11-03-candidate-trials);
-they do not qualify the candidate. Saved settings stay on the saved version.
-Its [bounded candidate procedure](../validation/codex-ordinary-binding-qualification.md#01660-unqualified-ordinary-candidate)
-is `ordinary_admission` only, with required `--scenario root_normal_observer_restart`
-(zero children) or `--scenario family_normal_observer_restart` (two direct children).
-Native execution needs separate exact-intent consent; H4 host-spawn/Detached and
-H5 env-null-transcript paths are excluded, with no file/workflow fallback or native resume.
+It is not the assignment-free ordinary Claude mode. New project setup defaults to Codex 0.163.0; the version selector retains 0.162.1
+and also exposes Codex 0.166.0 (`codex-binding-01660-direct-family-v1`) as an
+**UNQUALIFIED CANDIDATE** (`qualified:false`), excluded from `productionSourceEvidence`.
+Saved settings stay on the saved version; see
+[Harness Connect](harness-connect.md#current-implementation) and the
+[candidate procedure](../validation/codex-ordinary-binding-qualification.md#01660-unqualified-ordinary-candidate).
 
-Select **Ordinary window** to save an explicitly declared stable Codex version
-within `0.163.0 < v < 0.172.0`. Window-mode owned-copy migration requires explicit
-installation preview and apply; saving the preference or installing the package
-does not activate collection. Saved exact settings never migrate automatically.
-The closed Codex window setup is implemented for offline acceptance,
-ordinary-window collection disabled pending separate product activation and native
-acceptance. The independent **Claude Code > Ordinary window** picker and
-[owned-copy procedure](harness-connect.md#claude-ordinary-window-setup-collection-disabled)
-have the same closed state, with an explicit stable declaration inside
-`2.1.306 < v < 2.2.0`. Mode transitions require an explicit eligible version;
-omitting mode keeps the saved choice. Preview/apply preserves exact helpers and
-the stale/edited/unrelated/in-use guards, including a task activated during
-staging. New tasks freeze their version, finite policy, strict terminal finality,
-publisher/local-pin/root scope and price; old settings/tasks never migrate.
-Claude disk identity is not mapped-image or version proof, and root-source usage
-is not root-own usage. No activation or qualified-support control is added.
-Both closed setups are implemented for offline acceptance, ordinary-window
+Select **Ordinary window** to declare an explicit stable Codex version within
+`0.163.0 < v < 0.172.0`, or **Claude Code > Ordinary window** for `2.1.306 < v < 2.2.0`.
+Both closed setups are implemented for offline acceptance with ordinary-window
 collection disabled pending separate product activation and native acceptance.
+Mode transitions require an explicit eligible version and a previewed, applied
+owned-copy migration; saving settings, installing packages or preparing a window
+task never activates collection or migrates saved exact settings/tasks/prices.
+See [Codex window setup](harness-connect.md#codex-ordinary-window-setup-collection-disabled)
+and [Claude window setup](harness-connect.md#claude-ordinary-window-setup-collection-disabled).
 To read saved window evidence, open `#ordinary-window-task-v1` and enter
 a task ID and cutoff, or open
 `#ordinary-window-task-v1?task=<ID>&cutoff=<ISO>&locale=en|ko` directly. The page
@@ -285,91 +269,43 @@ settings. Cancelling the picker leaves settings unchanged.
 
 ### Prepare a settings file
 
-For skill-generated snapshots, use **2. Prepare comparison settings** instead of
-assembling and registering every input through separate CLI commands:
-
-Connect the project before preparing its harness. Select a registered project,
-then enter the prepared candidate instruction/application-procedure path and any
-supporting script/document paths relative to that project. The copied agent
-request includes its registered directory and these explicit candidate inputs;
-it does not require manually filling every ID and version. The agent inspects
-the current applied baseline, proposes registration inputs and groups unresolved
-choices for confirmation. If skills are unavailable, it asks for the tool
+In **2. Prepare comparison settings** (walked through with screenshots above), A is
+the currently applied configuration and B is the prepared improvement with common
+rules preserved. A/B are comparison roles, not permanent version names; registration,
+task success or lower partial cost never adopts B automatically, and old comparisons
+and assignments stay fixed. If skills are unavailable, the agent asks for the tool
 checkout location instead of inventing a machine-specific path.
 
-A is the currently applied configuration and B is the prepared improvement,
-with common rules preserved. A/B are roles, not permanent version names. After
-human adoption and actual application, the resulting configuration can become
-the next comparison's A. Registration, task success and lower partial cost do
-not automatically adopt a candidate. Old comparisons and assignments stay fixed.
+Technical rules for the guided comparison bundle:
 
-1. Connect and select the Git project in **1. Register and select a project**. In
-   **How is the harness applied?**, choose **Only the instructions changed** or
-   **An agent must apply it**. This choice is separate from A/B assignment: it
-   decides whether an assigned harness is delivered as instructions or applied to
-   a checkout by an agent. The request cannot be copied before you choose, and
-   the choice is sent to the agent as `application_mode`. Later steps show the
-   method stored in the comparison file; a different selection is reported and
-   cannot be saved. Loading a setup bundle never selects or changes the method. Provide the
-   candidate files and copy the generated request into your agent. Confirm its
-   proposed baseline/candidate files before `harness-register` registration and
-   `harness-compare-config` comparison creation. The agent returns the verified
-   comparison JSON absolute path. If clipboard access fails, manually copy the
-   displayed request.
-2. Enter the comparison JSON's absolute local path and select **Check comparison
-   file**. A sole registered project is selected automatically; choose a project
-   first when several are registered. The path input explains why checking is
-   unavailable until a project and path are present. This requires no profile
-   or identifier and saves nothing. The server
-   verifies the selected project's ordered A/B manifests, shows the remaining
-   decisions and proposes a technical setting identifier. You may edit that
-   identifier. File integrity does not establish policy eligibility, application
-   or measurement support. Select **Reuse registered measurement settings**
-   when available; the server resolves its existing profile, frozen protocol and
-   price table without duplicating them.
-3. When no reviewed setting exists, select **Copy measurement request** after
-   checking the comparison and paste it into your agent. No additional skill is
-   required. The agent reuses verified references and asks only for missing human
-   decisions. Confirm its proposals; participants, dates, criteria, sample rules,
-   source scope and prices are never invented.
-4. Under the request, use **Load prepared settings** to select the agent's single
-   private JSON bundle, stored in the Harness Delta checkout's Git-ignored
-   `.harness-delta/setup-drafts/` directory. Verify that Git ignores it before
-   writing; never put private paths or participant IDs in a public artifact.
-   Its envelope is `kind: "harness-delta.measurement-setup"`,
-   `schema_version: 1`, and `input` following `SetupReviewInputSchema` in
-   `src/web/local-web-setup-review.ts`. Include verified `comparison_path` and
-   `project_id`, a reviewed `profile` (or registered `template_id`), complete
-   schema-2 `protocol`, approved `policy_status` or `variants` (not both),
-   and `price_table` only if needed. The embedded documents use the existing
-   production schemas. Import checks the inputs without saving and fills any
-   supplied decisions. Correct only the reported missing or invalid fields.
-5. Review the readable project, A/B pair, purpose, participants, recruitment,
-   task count, completion criteria, observation scope and price summary. Expand
-   technical details for the complete conditions. Check the confirmation and
-   select **Confirm and save settings** once. This registers the reviewed inputs
-   and connects the private comparison; there is no second connection screen.
-   Bundles reject `freeze_at`; the server records the actual confirmation time
-   for an unfrozen protocol. It must precede recruitment; a passed start date
-   requires a newly reviewed correction, never a silent date change. Existing
-   frozen protocols keep their original time. Review rolls back tentative DB
-   writes; save revalidates inputs under writer locks. Binding errors roll back
-   tentative registrations and remove only newly created uncommitted snapshots.
-   The two databases and private files do not form a crash-atomic transaction;
-   retained committed snapshots support recovery without changing prior pins.
-6. The connected setting is available for **New task with this setting**. Its
-   private JSON is saved under `.harness-delta/setup`; new tasks pin it. Saving
-   does not create a task, run an agent or start observation. Application,
-   connection, installation/trust and source admission remain separate.
+- **Application mode (`application_mode`)** is sent to the agent before `harness-register`
+  and `harness-compare-config`; a mismatch between the selected mode and the comparison
+  file blocks saving, and loading a bundle never selects or changes the mode.
+- **Checking a comparison file** requires a selected project (a sole registered project
+  is selected automatically), verifies ordered A/B manifests without saving, proposes an
+  editable setting identifier, and offers **Reuse registered measurement settings** when
+  matching profile/protocol/price registrations already exist.
+- **Setup bundle format:** store the agent's single private JSON bundle in the Git-ignored
+  `.harness-delta/setup-drafts/` directory (never put private paths or participant IDs in
+  public artifacts). Its envelope is `kind: "harness-delta.measurement-setup"`,
+  `schema_version: 1`, and `input` following `SetupReviewInputSchema` in
+  `src/web/local-web-setup-review.ts` (`comparison_path`, `project_id`, reviewed
+  `profile` or registered `template_id`, schema-2 `protocol`, approved `policy_status` or
+  `variants`, and `price_table` only if needed).
+- **Confirmation and rollback:** bundles reject `freeze_at`; the server records the actual
+  confirmation time for an unfrozen protocol (which must precede recruitment; existing
+  frozen protocols keep their original time). Review rolls back tentative DB writes; save
+  revalidates under writer locks, saves the private JSON under `.harness-delta/setup`, and
+  rolls back tentative registrations / newly created uncommitted snapshots on binding
+  errors. The two databases and private files do not form a crash-atomic transaction;
+  retained committed snapshots support recovery without changing prior pins.
 
 **Advanced: individual files and technical values** retains individual JSON
-upload/paste and an optional explicit UTC confirmation time. This is not needed
-for the bundle path. An omitted profile ID in individual input uses the verified
-suggestion; an explicit profile ID and edited identifier must match. Choosing a
-registered template reuses it rather than the retained profile draft. Project,
-protocol, variants, prices and ordered manifest references must agree in either
-path. Standalone comparison-file import still uses its existing explicit
-project/template connection preview.
+upload/paste and an optional explicit UTC confirmation time (not needed for bundles).
+An omitted profile ID uses the verified suggestion; an explicit profile ID and edited
+identifier must match, and selecting a registered template reuses it instead of the
+profile draft. Standalone comparison-file import retains its explicit project/template
+connection preview.
 
 The file-import and CLI routes also remain available:
 

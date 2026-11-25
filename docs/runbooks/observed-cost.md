@@ -8,13 +8,10 @@ It reads database events, not session files. It starts no product or model reque
 Linked root/child/rework events contribute only when their source and interval are eligible.
 This report cannot qualify a source or prove that parent/child counters do not overlap.
 
-For the normal flow, use the [supplied reference catalog](reference-price-catalog.md):
-`estimate-task` no longer requires `--price-table`. Ordinary observation tasks retain
-the immutable price table pinned at creation (`ordinary_task_pin`). Assigned V2
-tasks retain their frozen comparison table (`frozen_comparison`). Only tasks without
-either pin, including legacy standalone tasks, use the current catalog (`current_catalog`).
-Catalog refresh does not reprice existing ordinary or assigned V2 tasks. The procedure
-below is the advanced explicit-table path and remains available for historical estimates.
+For the normal flow, use the [supplied reference catalog](reference-price-catalog.md),
+which covers default price-table selection (`ordinary_task_pin`, `frozen_comparison`,
+`current_catalog`) without `--price-table`. The procedure below is the advanced
+explicit-table path and remains available for historical estimates.
 
 ## 1. Select the rate table
 
@@ -163,18 +160,11 @@ cost remain `unobserved`/null, not zero; these partial references establish neit
 complete cost nor native acceptance. These windows are implemented for offline acceptance, ordinary-window
 collection disabled pending separate product activation and native acceptance.
 
-The independent [Claude window procedure](harness-connect.md#claude-ordinary-window-setup-collection-disabled)
-uses `publisher_verified_local_pin` and strict `claude_terminal_message_v1`
-finality, unlike Codex's `source_only` identity. Only an authorized provider
-checks fresh root PID/start, publisher and disk pins; the helper stays
-payload-only. Signature/disk proof establishes neither version, mapped-image
-identity, root ownership nor cost completeness. Scoped source version must
-match the frozen task independently. A required failure commits no usage/cursor
-progress, and incompatibility invalidates affected references. New declared-version
-tasks retain their own price pins; upgrades never rewrite old task prices or
-backfill missed usage. The Claude path is implemented for offline acceptance,
-ordinary-window collection disabled pending separate product activation and native
-acceptance. No price, qualified support or complete-cost claim changes here.
+The independent [Claude ordinary-window procedure](harness-connect.md#claude-ordinary-window-setup-collection-disabled)
+shares these same partial-cost partitions, null child/complete amounts, and invalidation
+boundaries: new declared-version tasks pin their own price tables and upgrades never
+rewrite old task prices or backfill missed usage. Neither window changes price support,
+qualified support or complete-cost claims.
 
 ## 5. Read a separate sealed instrumented window
 

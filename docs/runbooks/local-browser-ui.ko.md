@@ -108,36 +108,22 @@ Claude에서 그 작업의 호출 문구를 실행하세요. 이 화면에 도�
 배정 없는 일반 Claude 모드가 아닌 기존의 별도 배정 경로 조건을 유지합니다.
 [Codex 0.162.1 제한 일반 profile](harness-connect.ko.md#codex-01621-제한-일반-profile) 또는
 [Codex 0.163.0 제한 일반 profile](harness-connect.ko.md#codex-01630-제한-일반-profile)입니다.
-새 프로젝트 설정의 기본값은 Codex 0.163.0이며, 버전 선택기는 두 버전을 유지하면서
-Codex 0.166.0을 **UNQUALIFIED CANDIDATE**(`qualified:false`)로도 표시합니다.
-검증된 지원이 아니며, 정확한 `codex-binding-01660-direct-family-v1` 기록 자체에는
-`evidenceId`나 `evidenceIntentSha256`가 없고 `productionSourceEvidence`에 기여하지 않습니다.
-별도의 native intent와 결과는
-[2026-11-03 후보 시험](../validation/codex-ordinary-binding-qualification.ko.md#2026-11-03-candidate-trials)에
-기록되어 있으며 후보의 지원 검증을 완료하지는 않습니다. 저장된 설정은 저장된 버전을 유지합니다.
-[제한된 후보 절차](../validation/codex-ordinary-binding-qualification.ko.md#01660-unqualified-ordinary-candidate)는
-`ordinary_admission` 전용이며 `--scenario root_normal_observer_restart`(자식 없음) 또는
-`--scenario family_normal_observer_restart`(직계 자식 두 개)가 필수입니다.
-native 실행에는 정확한 intent별 별도 동의가 필요하며, H4 host-spawn/Detached와
-H5 env-null-transcript 경로는 제외됩니다. file/workflow fallback과 native resume은 없습니다.
+새 프로젝트 설정의 기본값은 Codex 0.163.0이며, 버전 선택기는 0.162.1을 유지하면서
+Codex 0.166.0(`codex-binding-01660-direct-family-v1`)을 `productionSourceEvidence`에서
+제외된 **UNQUALIFIED CANDIDATE**(`qualified:false`)로 표시합니다. 저장된 설정은 저장된
+버전을 유지합니다. [Harness Connect](harness-connect.ko.md#현재-구현)와
+[후보 절차](../validation/codex-ordinary-binding-qualification.ko.md#01660-unqualified-ordinary-candidate)를
+참고하세요.
 
-**일반 window**를 선택해 `0.163.0 < v < 0.172.0` 범위의 Codex 안정 버전을 직접 지정하고
-저장할 수 있습니다. window 모드 소유 복사본 migration은 명시적인 설치 미리보기와 적용이
-필요하며, 설정 저장이나 패키지 설치는 수집을 활성화하지 않습니다. 저장된 정확 버전 설정은
-자동으로 migration하지 않습니다. 수집이 닫힌 Codex window 설정은 오프라인 검증용으로 구현되었으며,
-일반 창(window) 수집은 별도 제품 활성화와 native 검증 전까지 비활성 상태입니다.
-독립적인 **Claude Code > 일반 window** 선택과
-[소유 복사본 절차](harness-connect.ko.md#claude-일반-window-설정-수집-비활성)도 같은 닫힌
-상태이며 `2.1.306 < v < 2.2.0` 안의 안정 버전을 명시적으로 지정합니다. 모드 전환에는
-적격 버전을 직접 지정해야 하고, 모드를 생략하면 저장된 선택을 유지합니다. 미리보기·적용은
-정확 helper와 stale·edited·unrelated·in-use guard를 보존하며 staging 중 활성화된 작업도
-포함합니다. 새 작업은 version, 유한 정책, 엄격한 terminal finality,
-publisher/local-pin/root 범위와 가격을 고정하며 기존 설정·작업은 migration하지 않습니다.
-Claude disk identity는 mapped-image나 version의 증거가 아니며 root-source 사용량은
-root 자체 사용량이 아닙니다. 활성화나 지원 검증 완료 control은 추가하지 않았습니다.
-두 닫힌 설정 모두 오프라인 검증용으로 구현되었으며, 일반 window 수집은 별도 제품 활성화와
-native 검증 전까지 비활성 상태입니다. 저장된 window 근거를 보려면
-`#ordinary-window-task-v1`을 열고 작업 ID와 cutoff를 입력하거나
+**일반 window**에서 `0.163.0 < v < 0.172.0` 범위의 안정 Codex 버전을, 또는
+**Claude Code > 일반 window**에서 `2.1.306 < v < 2.2.0` 범위의 안정 버전을 명시적으로
+지정할 수 있습니다. 두 닫힌 설정 모두 오프라인 검증용으로 구현되었으며, 일반 window 수집은
+별도 제품 활성화와 native 검증 전까지 비활성 상태입니다. 모드 전환에는 적격 버전 지정과
+미리보기·적용을 거친 소유 복사본 migration이 필요하며, 설정 저장·패키지 설치·window 작업
+준비만으로 수집을 활성화하거나 저장된 정확 설정·작업·가격을 migration하지 않습니다.
+[Codex window 설정](harness-connect.ko.md#codex-일반-window-설정-수집-비활성)과
+[Claude window 설정](harness-connect.ko.md#claude-일반-window-설정-수집-비활성)을
+참고하세요. 저장된 window 근거를 보려면 `#ordinary-window-task-v1`을 열고 작업 ID와 cutoff를 입력하거나
 `#ordinary-window-task-v1?task=<ID>&cutoff=<ISO>&locale=en|ko`를 바로 여세요. 이 화면은
 `GET /api/tasks/:id/ordinary-window-report-v1?cutoff=...`를 읽는 설명용 화면이며 launch, 준비,
 활성화, 수집을 하지 않습니다. 이벤트가 없으면 root와 자식 관측 범위를 Unobserved로 표시하고,
@@ -271,80 +257,37 @@ protocol의 기간이며 작업별 관측 구간이 아닙니다. 파일을 불�
 
 ### 설정 파일 작성
 
-skill이 생성한 snapshot은 **2. 비교·측정 설정 준비**에서 연결할 수 있습니다.
-모든 입력을 별도 CLI 명령으로 조합·등록할 필요는 없습니다.
+위 스크린샷으로 따라간 **2. 비교·측정 설정 준비**에서 A는 현재 적용된 구성이고 B는 공통
+규칙을 유지하는 개선 후보입니다. A/B는 고정 버전 이름이 아닌 비교 역할이며, 등록·작업 성공·
+낮은 부분 비용으로 후보가 자동 채택되지 않고 과거 비교와 배정은 유지됩니다. 스킬이 없으면
+에이전트는 특정 컴퓨터 경로를 추측하지 않고 도구 checkout 위치를 질문합니다.
 
-하네스를 준비하기 전에 프로젝트부터 연결하세요. 등록한 프로젝트를 선택하고
-미리 준비한 후보 지침·적용 절차 파일과 필요한 스크립트·문서의 프로젝트 기준
-상대경로를 입력하세요. 복사하는 요청문에는 등록된 디렉터리와 명시한 후보 파일이
-들어가므로 ID와 버전을 모두 직접 작성할 필요는 없습니다. 에이전트가 현재 적용된
-기준 구성을 확인하고 등록 입력을 제안하며 필요한 선택을 묶어 확인받습니다.
-스킬이 없으면 특정 컴퓨터의 경로를 추측하지 않고 도구 checkout 위치를 질문합니다.
+안내형 비교 설정 묶음의 기술 규칙:
 
-A는 현재 적용된 구성이고 B는 공통 규칙을 유지하는 개선 후보입니다.
-A/B는 고정 버전 이름이 아닌 비교 역할입니다. 사람이 채택하고 실제 적용한 구성은
-다음 비교의 A가 될 수 있습니다. 등록·작업 성공·낮은 부분 비용이 후보를 자동
-채택하지 않으며 과거 비교와 배정은 유지합니다.
+- **적용 방식(`application_mode`)**은 `harness-register`와 `harness-compare-config` 전에
+  에이전트로 전달됩니다. 선택한 방식과 비교 파일의 방식이 다르면 저장할 수 없으며, 설정 묶음을
+  불러와도 방식을 대신 선택하거나 바꾸지 않습니다.
+- **비교 파일 확인**은 선택한 프로젝트(단독 등록 프로젝트는 자동 선택)의 A/B manifest를 저장
+  없이 검증하고 수정 가능한 기술 식별자를 제안하며, 일치하는 등록 profile·동결 protocol·가격표가
+  있으면 **등록된 측정 설정 재사용**을 제공합니다.
+- **설정 묶음 형식:** 에이전트가 만든 비공개 JSON 묶음 파일 하나를 Git에서 제외되는
+  `.harness-delta/setup-drafts/` 아래에 보관하세요(비공개 경로나 참가자 ID를 공개 산출물에
+  넣지 마세요). 외부 형식은 `kind: "harness-delta.measurement-setup"`, `schema_version: 1`,
+  `src/web/local-web-setup-review.ts`의 `SetupReviewInputSchema`를 따르는 `input`입니다
+  (`comparison_path`, `project_id`, 검토한 `profile` 또는 등록된 `template_id`, schema-2
+  `protocol`, 승인한 `policy_status` 또는 `variants`, 필요할 때만 `price_table`).
+- **확정과 rollback:** 묶음 파일의 `freeze_at`은 거부하며 미동결 protocol의 확정 시각은 실제
+  저장 시점의 서버 시각입니다(모집 시작 전이어야 하며 기존 동결 protocol의 시각은 유지합니다).
+  검토는 임시 DB 쓰기를 rollback하고, 저장은 writer lock에서 재검증한 뒤 비공개 JSON을
+  `.harness-delta/setup`에 보관하며 연결 오류 시 임시 등록과 새로 만든 미확정 snapshot만
+  정리합니다. 두 DB와 비공개 파일이 crash-atomic transaction은 아니며, 이미 확정한 snapshot은
+  기존 고정값을 바꾸지 않는 복구를 위해 유지합니다.
 
-1. **1. 프로젝트 등록·선택**에서 Git 프로젝트를 연결하고 선택하세요.
-   **하네스를 어떻게 적용하나요?**에서 **지침만 수정된 경우** 또는
-   **에이전트로 적용해야 하는 경우**를 선택하세요. 이 선택은 A/B 배정과 별개이며,
-   배정된 하네스를 지침으로 전달할지 에이전트가 checkout에 적용할지를 정합니다.
-   선택 전에는 요청문을 복사할 수 없고, 선택값은 `application_mode`로 에이전트에
-   전달됩니다. 이후 단계는 비교 파일에 저장된 방식을 표시하며, 선택과 다르면
-   알려주고 저장할 수 없습니다. 설정 묶음을 불러와도 방식을 대신 선택하거나
-   바꾸지 않습니다. 후보 파일을
-   입력하고 생성된 요청문을 에이전트에 붙여넣으세요. 에이전트가 제안한 기준·후보
-   파일을 확인한 뒤 `harness-register` 등록과 `harness-compare-config` 비교 생성을
-   진행합니다. 에이전트가 검증한 비교 JSON 절대경로를 전달합니다.
-   클립보드 복사가 실패하면 표시된 요청문을 직접 복사하세요.
-2. 비교 JSON의 절대 로컬 경로를 입력하고 **비교 파일 확인**을 선택하세요.
-   등록된 프로젝트가 하나면 자동 선택하고, 여러 개면 먼저 프로젝트를
-   선택하세요. 프로젝트나 경로가 없어 확인할 수 없는 경우 입력칸에
-   이유를 표시합니다. profile이나 식별자 없이 선택한 프로젝트의
-   A/B manifest를 순서대로 확인하고
-   저장 전 필요한 결정과 기술 식별자를 제안합니다. 식별자는 직접 수정할 수 있습니다.
-   파일 무결성만으로 정책 적격성·실제 적용·측정 지원이 확인되지는 않습니다.
-   **등록된 측정 설정 재사용**이 가능하면 선택하세요. 서버가 기존 profile·동결
-   protocol·가격표를 재사용하며 복제하지 않습니다.
-3. 등록된 설정이 없다면 비교를 확인한 뒤 **측정 설정 요청문 복사**를 선택해
-   에이전트에 붙여넣으세요. 별도 스킬은 필요하지 않습니다. 에이전트는 확인된
-   참조를 재사용하고 미결정 항목만 묻습니다. 참가자·날짜·완료 기준·표본 규칙·
-   원본 범위·가격을 임의로 채우지 않으며 제안값은 직접 확인하세요.
-4. 요청문 바로 아래의 **준비된 설정 불러오기**에서 에이전트가 만든 비공개
-   JSON 묶음 파일 하나를 선택하세요. 파일은 Harness Delta checkout의
-   `.harness-delta/setup-drafts/` 아래 Git 제외 여부를 확인하고 보관합니다.
-   비공개 경로나 참가자 ID를 공개 산출물에 넣지 마세요. 외부 형식은
-   `kind: "harness-delta.measurement-setup"`, `schema_version: 1`,
-   `input`이며 input은 `src/web/local-web-setup-review.ts`의
-   `SetupReviewInputSchema`를 따릅니다. 확인한 `comparison_path`·`project_id`,
-   검토한 `profile` 또는 등록된 `template_id`, 완전한 schema-2 `protocol`,
-   승인한 `policy_status` 또는 `variants` 중 하나, 필요할 때만 `price_table`을
-   넣습니다. 내부 문서는 기존 production schema 그대로입니다. 불러오기는
-   저장 없이 검토하고 제공된 결정은 채워둡니다. 누락·오류 항목만 수정하세요.
-5. 프로젝트·A/B·목적·참가자·모집 기간·작업 수·완료 기준·관측 범위·가격 요약을
-   확인하세요. 전체 조건은 기술 상세에서 볼 수 있습니다. 확인 항목을 체크하고
-   **이 내용으로 확정하고 저장**을 한 번 선택하면 등록과 비공개 비교 연결을
-   함께 처리하며 추가 연결 화면은 없습니다. 묶음 파일의 `freeze_at`은 거부하며
-   미동결 protocol의 확정 시각은 실제 저장 시점의 서버 시각입니다. 모집 시작 전이어야
-   하며 시작일이 지났다면 새로 검토한 날짜 수정이 필요합니다. 날짜를 몰래
-   바꾸지 않고 기존 동결 protocol의 시각도 유지합니다. 검토는 임시 DB 쓰기를
-   rollback하며 저장은 writer lock에서 재검증합니다. 연결 오류는 임시 등록을
-   rollback하고 새로 만든 미확정 snapshot만 정리합니다. 두 DB와 비공개 파일이
-   crash-atomic transaction은 아니며 이미 확정한 snapshot은 기존 고정값을
-   바꾸지 않는 복구를 위해 유지합니다.
-6. 연결한 설정에서 **이 설정으로 새 작업**을 사용할 수 있습니다. 비공개 JSON은
-   `.harness-delta/setup`에 저장되고 새 작업이 고정 참조합니다. 설정 저장은
-   작업 생성·에이전트 실행·관측 시작이 아닙니다. 적용·연결·설치/신뢰·원본
-   지원 판정은 이후 별도 단계로 유지합니다.
-
-**고급: 개별 파일·기술 값 직접 입력**에는 기존 개별 JSON 선택·붙여넣기와
-선택적인 UTC 확정 시각 입력을 유지합니다. 묶음 파일 사용 시 필요하지 않습니다.
-개별 입력의 profile ID를 생략하면 확인된 제안값을 사용하며, 명시한 profile ID와
-직접 수정한 식별자는 같아야 합니다. 등록된 template을 선택하면 남아 있는 profile
-초안 대신 기존 값을 재사용합니다. 두 경로 모두 project·protocol·variant·가격과
-순서가 있는 manifest 참조가 일치해야 합니다. 비교 파일만 별도로 불러오는 기존
-경로는 프로젝트·template을 직접 선택하는 연결 미리보기를 유지합니다.
+**고급: 개별 파일·기술 값 직접 입력**에는 개별 JSON 선택·붙여넣기와 선택적인 UTC 확정 시각
+입력을 유지합니다(묶음 파일에는 필요하지 않습니다). 개별 입력에서 profile ID를 생략하면 확인된
+제안값을 쓰며, 명시한 profile ID와 수정한 식별자는 일치해야 하고 등록된 template을 선택하면
+초안 대신 기존 값을 재사용합니다. 비교 파일만 별도로 불러오는 경로는 기존 프로젝트·template
+연결 미리보기를 유지합니다.
 
 기존 파일 불러오기와 CLI 경로도 사용할 수 있습니다.
 

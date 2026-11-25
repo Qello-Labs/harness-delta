@@ -52,31 +52,18 @@ when the work is done. You always start and stop the agent yourself.
 | Claude Code | **Claude Code 2.1.306** for new project setup. Existing projects keep their saved version (2.1.296 or 2.1.301). Each needs its reviewed binary. | `claude --version` |
 | Target repository | A Git repository with a work branch ready | `git status --short` |
 
-### Claude and Codex version updates
+### Version and setup notes
 
 The screenshots were captured with the earlier Claude Code 2.1.296 setup; the default
 exact-mode flow still omits the Claude version string, while the Claude setup card now
 also shows **Exact version** / **Ordinary window** mode controls (with an explicit version
-input when switching modes). New project
-setup now defaults to Claude Code 2.1.306 and Codex 0.163.0. Saved settings and task pins
-don't change. The repository status on **2026-10-21** is:
+input when switching modes). New project setup defaults to Claude Code 2.1.306 (and Codex
+0.163.0 for Codex A/B routes); saved settings and frozen task pins never upgrade
+automatically. All ordinary Claude records remain `qualified: false`, and ordinary
+observations do not promote file/workflow or historical trust states.
 
-| Route | Version status | What this means for this guide |
-| --- | --- | --- |
-| Ordinary Claude connection | Exact Claude Code 2.1.306 (new default), or saved Claude Code 2.1.296 or 2.1.301, with its reviewed binary; all ordinary records remain `qualified: false` | The 2.1.306 and 2.1.301 profiles permit one root plus two flattened members; neither qualifies interactive use. |
-| Ordinary Codex connection | Exact Codex 0.163.0 (new default) or saved Codex 0.162.1, bounded family, frozen `functional_pilot` assignment; Codex 0.163.0 passed separate ordinary-route native acceptance | Not the assignment-free Claude flow. Both routes retain partial-cost limits. |
-| File and selected workflow sources for Claude Code 2.1.301, 2.1.306 and Codex 0.163.0 | Conditional parser reuse remains `compatibility_unverified` | Ordinary binding evidence does not promote file/workflow or historical observations. |
-
-Claude Code 2.1.301 passed bounded print-mode transcript conformance and a localhost
-service rehearsal. Its authenticated ordinary attempt on 2026-10-17 stopped at
-the `stream_model` guard before connection; usage and billing are unknown,
-and ordinary qualification remains outstanding. See the
-[blocked-attempt record](../validation/claude-ordinary-binding-02196-qualification.md#2026-10-17-authenticated-ordinary-attempt-blocked).
-Claude Code 2.1.306 passed bounded actual-binary localhost print-mode normal/SIGINT
-conformance on 2026-10-21. That isn't authenticated ordinary or interactive qualification; see the
-[2.1.306 record](../validation/claude-ordinary-binding-02196-qualification.md#2026-10-21-exact-21306-transcript-qualification).
-
-Check [Harness Connect current implementation](../runbooks/harness-connect.md#current-implementation)
+Check the [generated support matrix](../support-matrix.md#exact-routes) and
+[Harness Connect current implementation](../runbooks/harness-connect.md#current-implementation)
 before starting, and [native workflow limits](../runbooks/task-native-workflow.md#conditional-forward-versions)
 for the separate workflow route. Setup or installation succeeding does not prove
 that a new version can connect. If connection returns `claude_source_version_unsupported`,

@@ -90,37 +90,26 @@ notes. Installation, tests, hooks and CI never run product conformance.
 
 ## Collect and report with an admitted Codex 0.158.0
 
-Build first (`npm run build`). Use an explicitly known session ID and exact native
-rollout path from an authorized **CLI exec** session. Do not discover sessions by
-reading unrelated files. The registered project root must match the session cwd,
-and the task model must match the model actually recorded. These are placeholders:
+Follow [local measurement](local-measurement.md#register-and-link) for project/task
+registration, foreground collection, assessment and reporting, passing
+`--product codex --version 0.158.0` and the exact authorized **CLI exec** rollout
+path to `session link`:
 
 ```sh
-node dist/cli.js --db .harness-delta/measurement.sqlite project add project1 --root /absolute/project
-node dist/cli.js --db .harness-delta/measurement.sqlite task register task1 --project project1 --type feature --size small --assignee user1 --product codex --model MODEL_ID --criteria criterion1
-node dist/cli.js --db .harness-delta/measurement.sqlite task start task1
 node dist/cli.js --db .harness-delta/measurement.sqlite session link SESSION_ID --task task1 --source /absolute/exact-rollout.jsonl --product codex --version 0.158.0
 node dist/cli.js --db .harness-delta/measurement.sqlite collect --task task1
 ```
 
-Leave collection running, then resume that same CLI session in another terminal
-and perform new work. The first collector poll establishes the current tail;
-earlier turns and in-flight turns are excluded. `collect --once` establishes only
-a baseline: it cannot recover historical tokens. Stop with Ctrl-C after observing
-the new turn. A new collector process or pause/resume establishes a new baseline.
+The registered project root must match the session cwd, and the task model must
+match the model actually recorded. Start collection before resuming that CLI
+session in another terminal; the first poll establishes the current tail and
+excludes earlier or in-flight turns (`collect --once` establishes a baseline only).
+A new collector process or pause/resume establishes a new baseline.
 
-```sh
-node dist/cli.js --db .harness-delta/measurement.sqlite report task task1 --cutoff 2026-09-30T00:00:00Z --format json
-node dist/cli.js --db .harness-delta/measurement.sqlite task first-complete task1
-node dist/cli.js --db .harness-delta/measurement.sqlite task assess-first task1 --result success
-node dist/cli.js --db .harness-delta/measurement.sqlite task finalize task1 --outcome success --met criterion1
-```
-
-Choose the actual cutoff and assess success yourself; usage does not prove quality.
 Report `usage.status`, `partial_tokens`, per-metric readings and `reasons` together.
-No observations means `missing`, never zero. `complete_tokens` remains null.
+No observations means `missing`, never zero; `complete_tokens` remains null.
 `child_activity`, `settings_conflict`, `settings_unsupported` and
-`turn_topology_or_model` identify unsupported boundaries; other fail-closed paths
+`turn_topology_or_model` identify unsupported M2 boundaries; other fail-closed paths
 retain `unsupported` or the existing source-error categories. Do not remove a
 blocking history row to salvage usage or backfill excluded intervals.
 
