@@ -1,10 +1,17 @@
-# Reference prices 2026-11-25 v5 candidate
+# Reference prices 2026-11-25 v5
 
-Status: unpublished candidate. Independent review, identifier and alias
-reconfirmation, remote CI, publication and the post-publication download check
-are all still pending. Proposed tag: `reference-prices-2026-11-25-v5`.
+Status: published release,
+[reference-prices-2026-11-25-v5](https://github.com/Qello-Labs/harness-delta/releases/tag/reference-prices-2026-11-25-v5).
 Existing published assets, bootstrap, online source, defaults, frozen pins,
 retained inputs and results remain unchanged.
+
+The reviewed candidate is `c8763ff6100adfbe48a5d7f70c066750594da492`, merged in
+PR #138 as `0121d33f15d87fe820acebff43a77ebadad311ce`, with
+[passing PR CI](https://github.com/Qello-Labs/harness-delta/actions/runs/45593032815).
+The publication commit (the publication-documentation PR's merge) and its
+passing exact-commit CI are identified in the GitHub release body. The actual
+public-download and client-refresh check is performed after publication and
+reported separately; these notes do not claim that check has run.
 
 ## Identity and minimum client
 
@@ -19,9 +26,7 @@ retained inputs and results remain unchanged.
   `62f3841f79bb37c9b3b4e49dc78ce893109063e4`. Catalog version 5 doesn't need a
   schema-4 client. V1/v2-only clients reject the policy/schema and keep accepted prices.
 - No semantic client floor exists; package `0.0.0` isn't one, and none is invented here.
-- The exact reviewed candidate commit and its passing remote CI aren't known yet.
-  They must be bound here before publication.
-- Checked/proposed publication day: `2026-11-25T00:00:00Z`. That's a day snapshot,
+- Publication/verification day: `2026-11-25T00:00:00Z`. That's a day snapshot,
   not a vendor effective time or proof of publication. All effective bounds stay null.
 
 V1 to v4 catalog files, IDs, pins and basis hashes stay as they were. The v4
@@ -30,7 +35,7 @@ candidate remains unpublished history and isn't published as a step toward v5.
 ## Rates, sources and support
 
 The [decision's rate and condition matrix](../decisions/reference-price-catalog.md#november-25-refresh-candidate-catalog-v5-schema-3)
-lists every candidate rate in USD per million tokens, checked on 2026-11-25 against
+lists every released rate in USD per million tokens, checked on 2026-11-25 against
 official OpenAI and Anthropic pricing pages. The catalog has 17 canonical models
 and the two retained aliases, `gpt-5.6` for `gpt-5.6-sol` and `claude-haiku-4-5`
 for `claude-haiku-4-5-20251001`. Six OpenAI models are new: `gpt-6.2-astra`,
@@ -43,7 +48,7 @@ omitted, not set to zero. Observed write tokens stay stored and reported. Their
 write component gets `missing_rate`, so the amount is partial wherever writes are
 present; ordinary input, cache reads and output can still be priced. A missing
 rate isn't missing usage and isn't zero. This also applies to the five models v4
-could price, as a deliberate candidate exclusion. Claude 5m/1h writes and the
+could price, as a deliberate v5 exclusion. Claude 5m/1h writes and the
 Haiku 5.5 request tiers behave exactly as in v4.
 
 **OpenAI long context isn't distinguished.** Requests above 272,000 input tokens
@@ -60,10 +65,10 @@ context, boost, tools/media, subscriptions and discounts remain excluded actual-
 conditions. Models outside the catalog give `unknown_model`. Price coverage grants
 no native admission, verified counters, complete cost, trust promotion or inference.
 
-## Candidate bytes and validation gates
+## Release bytes and validation gates
 
-The local preparation produced these candidate identities. They are not evidence
-of publication or a public download:
+The reviewed preparation produced these immutable release identities. Local
+preparation is not evidence of a public download:
 
 | Item | Value |
 | --- | --- |
@@ -90,9 +95,11 @@ npm run check
 node scripts/prepare-price-catalog-release.mjs config/prices/catalogs/reference-catalog-2026-11-25-v5.json .harness-delta/catalog-release-v5-20261125
 ```
 
-Before publication: independent review of the exact diff, reconfirmation of
-identifiers and both aliases from permitted primary sources, Sol promotion and
-publication-day metadata, and passing remote CI on the bound commit. Publication
-and any default/pin change need separate explicit authorization. Only after that
-may a fresh synthetic database download and refresh the published manifest and
-artifact and confirm prior assets are unchanged.
+Before publication, reconfirm identifiers and both aliases from permitted primary
+sources, Sol promotion and publication-day metadata, and require independent review
+and passing exact-commit CI. The GitHub release body binds the publication commit
+and CI separately from the reviewed candidate above. Publication and any default/pin
+change require their own authorization; publication does not authorize changing
+defaults or pins. After publication, download and refresh the manifest/artifact
+in a fresh synthetic database, verify the identities above and confirm prior
+assets are unchanged. Report that actual public-download check separately.

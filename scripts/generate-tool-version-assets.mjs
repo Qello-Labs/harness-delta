@@ -280,7 +280,7 @@ const supportText = {
 		labelColumns: "| 값 | 의미와 운영 경계 |",
 		limits: [
 			"일반 파일, binding, workflow 사용량과 비용은 partial이며 전체 비용, 청구액, 추론 기반 도입 판단은 제공하지 않습니다. 별도 검증된 instrumented Codex의 표준화된 complete cost를 일반 관측에 적용하지 않습니다. [관측 비용](runbooks/observed-cost.ko.md)을 참고하세요.",
-			"미게시 [가격 카탈로그 v5 후보](decisions/reference-price-catalog.md#november-25-refresh-candidate-catalog-v5-schema-3)는 17개 canonical 모델을 포함하지만 OpenAI 캐시 쓰기 단가는 없습니다. 관측된 쓰기 토큰은 유지되고 해당 범주는 `missing_rate`로 계산하지 않습니다. Claude 5m/1h와 Haiku 구간은 그대로이며 가격 지원은 native admission이나 카운터 검증이 아닙니다.",
+			"[가격 카탈로그 v5 릴리스](https://github.com/Qello-Labs/harness-delta/releases/tag/reference-prices-2026-11-25-v5)는 17개 canonical 모델을 포함하지만 OpenAI 캐시 쓰기 단가는 없습니다. 관측된 쓰기 토큰은 유지되고 해당 범주는 `missing_rate`로 계산하지 않습니다. Claude 5m/1h와 Haiku 구간은 그대로이며 가격 지원은 native admission이나 카운터 검증이 아닙니다.",
 			"OpenAI 입력 272,000 토큰 초과 요청도 `standard_short` 기준 단가를 적용하므로 실제 장문 컨텍스트 청구액보다 낮을 수 있습니다. 장문 컨텍스트 청구 조건은 구분하지 않습니다. Sol 프로모션은 2026-11-30까지이며 종료 시각은 명시되지 않았습니다. 게시 전에 단가를 다시 확인하세요.",
 			"정확 버전과 요구되는 binary/source pin을 지키세요. admission, qualification, 설치, 설정, synthetic 검증은 별개이며 과거 관측의 provenance를 승격하지 않습니다. 저장 버전은 자동 갱신하지 않고 버전 생략은 저장값을 유지하며 고정 작업과 가격은 이전하지 않습니다.",
 			"`gpt_family_observed_effort_v1`과 `claude_family_observed_effort_v1`은 해당 제품 계열 모델과 관측 effort 정책입니다. model/effort 근거 값을 모든 실행의 pin으로 해석하지 마세요. 다른 제품 모델은 거부되며 Claude batch는 원자적으로 거부됩니다.",
@@ -367,7 +367,7 @@ const supportText = {
 		labelColumns: "| Value | Meaning and operational boundary |",
 		limits: [
 			"Ordinary file, binding and workflow usage and costs remain partial: no complete totals, vendor bills or inferential adoption support. The separately qualified instrumented Codex source's standardized complete cost does not promote ordinary observations. See [observed cost](runbooks/observed-cost.md).",
-			"The unpublished [price catalog v5 candidate](decisions/reference-price-catalog.md#november-25-refresh-candidate-catalog-v5-schema-3) covers 17 canonical models but omits OpenAI cache-write rates. Observed writes remain usage and are unpriced with `missing_rate`. Claude 5m/1h and Haiku tiers are unchanged; price coverage grants no native admission or counter qualification.",
+			"The [price catalog v5 release](https://github.com/Qello-Labs/harness-delta/releases/tag/reference-prices-2026-11-25-v5) covers 17 canonical models but omits OpenAI cache-write rates. Observed writes remain usage and are unpriced with `missing_rate`. Claude 5m/1h and Haiku tiers are unchanged; price coverage grants no native admission or counter qualification.",
 			"OpenAI requests above 272,000 input tokens still use the `standard_short` reference rate, which can understate the actual long-context charge. Long-context billing is not distinguished. Sol's promotion runs until 2026-11-30 with no stated clock; reconfirm its rates before publication.",
 			"Respect exact versions and required binary/source pins. Admission, qualification, installation, configuration and synthetic validation are separate; never promote historical provenance. Saved versions never upgrade automatically, omitting a version keeps saved settings, and frozen tasks and prices never migrate.",
 			"`gpt_family_observed_effort_v1` and `claude_family_observed_effort_v1` permit the respective product's model family at observed effort. Evidence model/effort values are not a universal invocation pin. Another product's model is refused; Claude source batches are rejected atomically.",

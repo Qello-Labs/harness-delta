@@ -312,15 +312,16 @@ cost, trust promotion or inference. Existing frozen inputs are not backfilled.
 
 ## November 25 refresh candidate (catalog v5, schema 3)
 
-The unpublished [candidate](../../config/prices/catalogs/reference-catalog-2026-11-25-v5.json)
+The [catalog](../../config/prices/catalogs/reference-catalog-2026-11-25-v5.json)
 has ID `reference-catalog-2026-11-25` and catalog version **5**. It keeps
 **schema 3**, policy `reference-standard-observed-cache-ttl-v3`, matching version
 `exact-catalog-observed-cache-ttl-v3` and arithmetic `decimal160-disjoint-v1`.
-Its proposed tag is `reference-prices-2026-11-25-v5`; preparation isn't publication.
+The [reference-prices-2026-11-25-v5 release](https://github.com/Qello-Labs/harness-delta/releases/tag/reference-prices-2026-11-25-v5)
+distributes the manifest and digest-named catalog.
 Bootstrap, online source, defaults, existing pins and results don't change. V1 to v4
 files, IDs and basis hashes stay as they were, and v4 remains unpublished history.
-See the [candidate release notes](../release-notes/reference-prices-2026-11-25-v5.md)
-for capability and pending gates.
+See the [release notes](../release-notes/reference-prices-2026-11-25-v5.md)
+for capability, reviewed candidate evidence and publication verification.
 
 All rates were checked on **2026-11-25 UTC** against
 [OpenAI pricing](https://developers.openai.com/api/docs/pricing) and
@@ -383,8 +384,13 @@ other Cyber/science variants or Fable/Mythos 5.2 give `unknown_model`.
 Minimum client capability stays **`catalog-cache-ttl-v3`**
 (`c7ee96fc80d3e9046f476200c44b834aae45246e`, merged as
 `62f3841f79bb37c9b3b4e49dc78ce893109063e4`). No semantic client floor exists.
-Prepared asset identities are recorded in the candidate release notes. The exact
-reviewed v5 commit and its remote CI remain pending. This data refresh grants no native admission, counter qualification,
+Release asset identities, reviewed candidate commit
+`c8763ff6100adfbe48a5d7f70c066750594da492` (merged as
+`0121d33f15d87fe820acebff43a77ebadad311ce`) and its
+[passing PR CI](https://github.com/Qello-Labs/harness-delta/actions/runs/45593032815)
+are recorded in the release notes. The GitHub release body identifies the
+publication commit and its exact-commit CI; actual public-download verification
+is performed after publication and reported separately. This data refresh grants no native admission, counter qualification,
 complete cost, trust promotion or inference.
 
 ## Distribution, update and pin
